@@ -3,6 +3,12 @@
 <head>
   <title>Inventory Control</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: 40px auto; }
+    input { width: 100%; padding: 6px; }
+    button { margin-right: 10px; padding: 8px 16px; }
+    pre { background: #f4f4f4; padding: 10px; }
+  </style>
 </head>
 <body>
 
@@ -29,14 +35,21 @@
 <h3>Output:</h3>
 <pre id="output"></pre>
 
+<h3>Reorder Dashboard:</h3>
+<pre id="reorder"></pre>
+
 <script>
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Main Warehouse Location
+const MAIN_WAREHOUSE_ID = "da67a9d7-b093-4e2d-b4fc-a8e05450e1e5";
+
+// ISSUE INVENTORY
 async function issue() {
-  const { data, error } = await client.rpc('issue_inventory', {
+  const { error } = await client.rpc('issue_inventory', {
     p_part_number: document.getElementById('part').value,
     p_quantity: Number(document.getElementById('qty').value),
     p_issued_to: document.getElementById('tech').value,
@@ -44,17 +57,56 @@ async function issue() {
     p_client_name: document.getElementById('client').value
   });
 
-  document.getElementById('output').textContent = error ? error.message : "Issued successfully";
+  document.getElementById('output').textContent =
+    error ? error.message : "Issued successfully";
+
+  await loadReorder();
 }
 
+// RECEIVE INVENTORY
 async function receive() {
-  const { data, error } = await client.rpc('receive_inventory', {
+  const { error } = await client.rpc('receive_inventory', {
     p_part_number: document.getElementById('part').value,
-    p_quantity: Number(document.getElementById('qty').value)
+    p_quantity: Number(document.getElementById('qty').value),
+    p_location_id: MAIN_WAREHOUSE_ID
   });
 
-  document.getElementById('output').textContent = error ? error.message : "Received successfully";
+  document.getElementById('output').textContent =
+    error ? error.message : "Received successfully";
+
+  await loadReorder();
 }
+
+// LOAD REORDER DATA
+async function loadReorder() {
+  const { data, error } = await client
+    .from('inventory_reorder_warehouse')
+    .select('*')
+    .order('reorder_qty', { ascending: false });
+
+  if (error) {
+    document.getElementById('reorder').textContent = error.message;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    document.getElementById('reorder').textContent =
+      "No items need reordering";
+    return;
+  }
+
+  let output = "PART | ON HAND | REORDER\n";
+  output += "-----------------------------\n";
+
+  data.forEach(row => {
+    output += `${row.part_number} | ${row.qty_on_hand} | ${row.reorder_qty}\n`;
+  });
+
+  document.getElementById('reorder').textContent = output;
+}
+
+// INITIAL LOAD
+loadReorder();
 </script>
 
 </body>
