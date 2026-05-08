@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Inventory Control</title>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
   <style>
@@ -65,21 +66,21 @@
       margin-right: 10px;
     }
 
-    button:first-of-type {
+    .issue-btn {
       background: #1aa3b0;
       color: white;
     }
 
-    button:first-of-type:hover {
+    .issue-btn:hover {
       background: #178d98;
     }
 
-    button:last-of-type {
+    .receive-btn {
       background: #0b3c5d;
       color: white;
     }
 
-    button:last-of-type:hover {
+    .receive-btn:hover {
       background: #072c44;
     }
 
@@ -102,13 +103,6 @@
     #serialContainer {
       display: none;
     }
-
-    .hint {
-      font-size: 12px;
-      color: #666;
-      margin-top: -10px;
-      margin-bottom: 15px;
-    }
   </style>
 </head>
 
@@ -120,60 +114,61 @@
 
 <div class="container">
 
-<h2>Inventory Control Panel</h2>
+  <h2>Inventory Control Panel</h2>
 
-<label>Part Number:</label>
+  <label>Part Number:</label>
+  <input
+    id="part"
+    list="partsList"
+    placeholder="Start typing part number..."
+    autocomplete="off"
+  >
 
-<input
-  id="part"
-  list="partsList"
-  placeholder="Start typing part number..."
-  autocomplete="off"
->
+  <datalist id="partsList"></datalist>
 
-<datalist id="partsList"></datalist>
+  <div id="serialContainer">
+    <label>Serial Number:</label>
+    <input id="serial" placeholder="Enter manufacturer serial number">
+  </div>
 
-<div class="hint">
-  Example: type 0058 to quickly find 005899F
-</div>
+  <label>Quantity:</label>
+  <input id="qty" type="number" value="1">
 
-<div id="serialContainer">
-  <label>Serial Number:</label>
-  <input id="serial">
-</div>
+  <label>Issued To:</label>
+  <input id="tech">
 
-<label>Quantity:</label>
-<input id="qty" type="number" value="1">
+  <label>Work Order:</label>
+  <input id="job">
 
-<label>Issued To:</label>
-<input id="tech">
+  <label>Client:</label>
+  <input id="client">
 
-<label>Work Order:</label>
-<input id="job">
+  <button class="issue-btn" onclick="issue()">ISSUE</button>
 
-<label>Client:</label>
-<input id="client">
+  <button class="receive-btn" onclick="receive()">RECEIVE</button>
 
-<button onclick="issue()">ISSUE</button>
-<button onclick="receive()">RECEIVE</button>
+  <h3>Output:</h3>
+  <pre id="output"></pre>
 
-<h3>Output:</h3>
-<pre id="output"></pre>
-
-<h3>Reorder Dashboard:</h3>
-<pre id="reorder"></pre>
+  <h3>Reorder Dashboard:</h3>
+  <pre id="reorder"></pre>
 
 </div>
 
 <script>
+
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+
 const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
-const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const client = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 
-const MAIN_WAREHOUSE_ID = "da67a9d7-b093-4e2d-b4fc-a8e05450e1e5";
+const MAIN_WAREHOUSE_ID =
+  "da67a9d7-b093-4e2d-b4fc-a8e05450e1e5";
 
-// STORE PART DATA
 let partsData = [];
 
 // LOAD PARTS
@@ -202,30 +197,26 @@ async function loadParts() {
     option.value = part.part_number;
 
     datalist.appendChild(option);
+
   });
 
-  checkSerialized();
-}
-
-// FIND PART
-function getSelectedPart() {
-
-  const selectedPartNumber =
-    document.getElementById('part').value.trim();
-
-  return partsData.find(
-    p => p.part_number === selectedPartNumber
-  );
 }
 
 // SHOW/HIDE SERIAL FIELD
 function checkSerialized() {
 
-  const selectedPart = getSelectedPart();
+  const enteredPart = document
+    .getElementById('part')
+    .value
+    .trim()
+    .toUpperCase();
+
+  const matchedPart = partsData.find(
+    p => p.part_number.toUpperCase() === enteredPart
+  );
 
   const isSerialized =
-    selectedPart &&
-    selectedPart.is_serialized === true;
+    matchedPart?.is_serialized === true;
 
   document.getElementById('serialContainer').style.display =
     isSerialized ? 'block' : 'none';
@@ -238,18 +229,25 @@ document
 // ISSUE INVENTORY
 async function issue() {
 
-  const selectedPart = getSelectedPart();
+  checkSerialized();
 
-  if (!selectedPart) {
-    document.getElementById('output').textContent =
-      'Please select a valid part number';
-    return;
-  }
+  const enteredPart = document
+    .getElementById('part')
+    .value
+    .trim()
+    .toUpperCase();
 
-  const isSerialized = selectedPart.is_serialized === true;
+  const matchedPart = partsData.find(
+    p => p.part_number.toUpperCase() === enteredPart
+  );
 
-  const serialValue =
-    document.getElementById('serial').value.trim();
+  const isSerialized =
+    matchedPart?.is_serialized === true;
+
+  const serialValue = document
+    .getElementById('serial')
+    .value
+    .trim();
 
   // SERIAL VALIDATION
   if (isSerialized && serialValue === '') {
@@ -260,32 +258,38 @@ async function issue() {
     return;
   }
 
-  const { error } = await client.rpc('issue_inventory', {
+  const { error } = await client.rpc(
+    'issue_inventory',
+    {
+      p_part_number:
+        document.getElementById('part').value,
 
-    p_part_number:
-      document.getElementById('part').value,
+      p_quantity:
+        Number(document.getElementById('qty').value),
 
-    p_quantity:
-      Number(document.getElementById('qty').value),
+      p_issued_to:
+        document.getElementById('tech').value,
 
-    p_issued_to:
-      document.getElementById('tech').value,
+      p_work_order:
+        document.getElementById('job').value,
 
-    p_work_order:
-      document.getElementById('job').value,
+      p_client_name:
+        document.getElementById('client').value,
 
-    p_client_name:
-      document.getElementById('client').value,
-
-    p_serial_number:
-      serialValue || null
-  });
+      p_serial_number:
+        serialValue || null
+    }
+  );
 
   document.getElementById('output').textContent =
-    error ? error.message : 'Issued successfully';
+    error
+      ? error.message
+      : 'Issued successfully';
 
   if (!error) {
+
     document.getElementById('serial').value = '';
+
   }
 
   await loadReorder();
@@ -294,18 +298,25 @@ async function issue() {
 // RECEIVE INVENTORY
 async function receive() {
 
-  const selectedPart = getSelectedPart();
+  checkSerialized();
 
-  if (!selectedPart) {
-    document.getElementById('output').textContent =
-      'Please select a valid part number';
-    return;
-  }
+  const enteredPart = document
+    .getElementById('part')
+    .value
+    .trim()
+    .toUpperCase();
 
-  const isSerialized = selectedPart.is_serialized === true;
+  const matchedPart = partsData.find(
+    p => p.part_number.toUpperCase() === enteredPart
+  );
 
-  const serialValue =
-    document.getElementById('serial').value.trim();
+  const isSerialized =
+    matchedPart?.is_serialized === true;
+
+  const serialValue = document
+    .getElementById('serial')
+    .value
+    .trim();
 
   // SERIAL VALIDATION
   if (isSerialized && serialValue === '') {
@@ -316,26 +327,32 @@ async function receive() {
     return;
   }
 
-  const { error } = await client.rpc('receive_inventory', {
+  const { error } = await client.rpc(
+    'receive_inventory',
+    {
+      p_part_number:
+        document.getElementById('part').value,
 
-    p_part_number:
-      document.getElementById('part').value,
+      p_quantity:
+        Number(document.getElementById('qty').value),
 
-    p_quantity:
-      Number(document.getElementById('qty').value),
+      p_location_id:
+        MAIN_WAREHOUSE_ID,
 
-    p_location_id:
-      MAIN_WAREHOUSE_ID,
-
-    p_serial_number:
-      serialValue || null
-  });
+      p_serial_number:
+        serialValue || null
+    }
+  );
 
   document.getElementById('output').textContent =
-    error ? error.message : 'Received successfully';
+    error
+      ? error.message
+      : 'Received successfully';
 
   if (!error) {
+
     document.getElementById('serial').value = '';
+
   }
 
   await loadReorder();
@@ -350,6 +367,7 @@ async function loadReorder() {
     .order('reorder_qty', { ascending: false });
 
   if (error) {
+
     document.getElementById('reorder').textContent =
       error.message;
 
@@ -364,8 +382,11 @@ async function loadReorder() {
     return;
   }
 
-  let output = 'PART | ON HAND | REORDER\n';
-  output += '-----------------------------\n';
+  let output =
+    'PART | ON HAND | REORDER\n';
+
+  output +=
+    '-----------------------------\n';
 
   data.forEach(row => {
 
@@ -380,6 +401,7 @@ async function loadReorder() {
 
 // INITIAL LOAD
 loadParts();
+
 loadReorder();
 
 </script>
