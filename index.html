@@ -6,6 +6,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 
   <style>
+
     body {
       font-family: Arial, sans-serif;
       background: #f4f8fb;
@@ -13,9 +14,32 @@
       padding: 0;
     }
 
-    .container {
-      max-width: 700px;
+    .header-bar {
+      background: #0b3c5d;
+      color: white;
+      padding: 15px 30px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .main-layout {
+      display: flex;
+      gap: 20px;
+      max-width: 1400px;
       margin: 40px auto;
+      align-items: flex-start;
+    }
+
+    .container {
+      flex: 1;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .side-panel {
+      width: 420px;
       background: white;
       padding: 30px;
       border-radius: 10px;
@@ -64,6 +88,7 @@
       cursor: pointer;
       font-weight: bold;
       margin-right: 10px;
+      margin-bottom: 10px;
     }
 
     .issue-btn {
@@ -84,25 +109,32 @@
       background: #072c44;
     }
 
+    .report-btn {
+      background: #2f855a;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .report-btn:hover {
+      background: #276749;
+    }
+
     pre {
       background: #f0f4f8;
       padding: 15px;
       border-radius: 6px;
       overflow-x: auto;
-      font-size: 14px;
-    }
-
-    .header-bar {
-      background: #0b3c5d;
-      color: white;
-      padding: 15px 30px;
-      font-size: 18px;
-      font-weight: bold;
+      font-size: 13px;
+      white-space: pre-wrap;
+      max-height: 700px;
+      overflow-y: auto;
     }
 
     #serialContainer {
       display: none;
     }
+
   </style>
 </head>
 
@@ -112,54 +144,93 @@
   Molinari Pools – Inventory System
 </div>
 
-<div class="container">
+<div class="main-layout">
 
-  <h2>Inventory Control Panel</h2>
+  <!-- LEFT SIDE -->
+  <div class="container">
 
-  <label>Part Number:</label>
-  <input
-    id="part"
-    list="partsList"
-    placeholder="Start typing part number..."
-    autocomplete="off"
-  >
+    <h2>Inventory Control Panel</h2>
 
-  <datalist id="partsList"></datalist>
+    <label>Part Number:</label>
 
-  <div id="serialContainer">
-    <label>Serial Number:</label>
-    <input id="serial" placeholder="Enter manufacturer serial number">
+    <input
+      id="part"
+      list="partsList"
+      placeholder="Start typing part number..."
+      autocomplete="off"
+    >
+
+    <datalist id="partsList"></datalist>
+
+    <div id="serialContainer">
+
+      <label>Serial Number:</label>
+
+      <input
+        id="serial"
+        placeholder="Enter manufacturer serial number"
+        autocomplete="off"
+      >
+
+    </div>
+
+    <label>Quantity:</label>
+    <input id="qty" type="number" value="1">
+
+    <label>Issued To:</label>
+    <input id="tech">
+
+    <label>Work Order:</label>
+    <input id="job">
+
+    <label>Client:</label>
+    <input id="client">
+
+    <button class="issue-btn" onclick="issue()">
+      ISSUE
+    </button>
+
+    <button class="receive-btn" onclick="receive()">
+      RECEIVE
+    </button>
+
+    <h3>Output:</h3>
+
+    <pre id="output"></pre>
+
+    <h3>Reorder Dashboard:</h3>
+
+    <pre id="reorder"></pre>
+
   </div>
 
-  <label>Quantity:</label>
-  <input id="qty" type="number" value="1">
+  <!-- RIGHT SIDE -->
+  <div class="side-panel">
 
-  <label>Issued To:</label>
-  <input id="tech">
+    <h2>Serialized Inventory</h2>
 
-  <label>Work Order:</label>
-  <input id="job">
+    <button
+      class="report-btn"
+      onclick="loadSerializedInventory()"
+    >
+      RUN SERIALIZED INVENTORY REPORT
+    </button>
 
-  <label>Client:</label>
-  <input id="client">
+    <pre id="serializedReport">
+Click button to load serialized inventory...
+    </pre>
 
-  <button class="issue-btn" onclick="issue()">ISSUE</button>
-
-  <button class="receive-btn" onclick="receive()">RECEIVE</button>
-
-  <h3>Output:</h3>
-  <pre id="output"></pre>
-
-  <h3>Reorder Dashboard:</h3>
-  <pre id="reorder"></pre>
+  </div>
 
 </div>
 
 <script>
 
-const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_URL =
+  "https://icqkuhbhcennhhbbwqgo.supabase.co";
 
-const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+const SUPABASE_KEY =
+  "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
 const client = supabase.createClient(
   SUPABASE_URL,
@@ -186,13 +257,15 @@ async function loadParts() {
 
   partsData = data;
 
-  const datalist = document.getElementById('partsList');
+  const datalist =
+    document.getElementById('partsList');
 
   datalist.innerHTML = '';
 
   data.forEach(part => {
 
-    const option = document.createElement('option');
+    const option =
+      document.createElement('option');
 
     option.value = part.part_number;
 
@@ -249,7 +322,6 @@ async function issue() {
     .value
     .trim();
 
-  // SERIAL VALIDATION
   if (isSerialized && serialValue === '') {
 
     document.getElementById('output').textContent =
@@ -293,6 +365,8 @@ async function issue() {
   }
 
   await loadReorder();
+
+  await loadSerializedInventory();
 }
 
 // RECEIVE INVENTORY
@@ -318,7 +392,6 @@ async function receive() {
     .value
     .trim();
 
-  // SERIAL VALIDATION
   if (isSerialized && serialValue === '') {
 
     document.getElementById('output').textContent =
@@ -356,6 +429,8 @@ async function receive() {
   }
 
   await loadReorder();
+
+  await loadSerializedInventory();
 }
 
 // LOAD REORDER
@@ -386,7 +461,7 @@ async function loadReorder() {
     'PART | ON HAND | REORDER\n';
 
   output +=
-    '-----------------------------\n';
+    '---------------------------------\n';
 
   data.forEach(row => {
 
@@ -396,6 +471,50 @@ async function loadReorder() {
   });
 
   document.getElementById('reorder').textContent =
+    output;
+}
+
+// LOAD SERIALIZED INVENTORY REPORT
+async function loadSerializedInventory() {
+
+  document.getElementById('serializedReport').textContent =
+    'Loading serialized inventory...';
+
+  const { data, error } = await client
+    .from('v_serialized_inventory_current')
+    .select('*')
+    .order('part_number', { ascending: true });
+
+  if (error) {
+
+    document.getElementById('serializedReport').textContent =
+      error.message;
+
+    return;
+  }
+
+  if (!data || data.length === 0) {
+
+    document.getElementById('serializedReport').textContent =
+      'No serialized inventory found';
+
+    return;
+  }
+
+  let output =
+    'PART | SERIAL | STATUS\n';
+
+  output +=
+    '------------------------------------------------------------\n';
+
+  data.forEach(row => {
+
+    output +=
+      `${row.part_number} | ${row.serial_number_raw} | ${row.status}\n`;
+
+  });
+
+  document.getElementById('serializedReport').textContent =
     output;
 }
 
