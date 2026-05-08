@@ -36,7 +36,8 @@
       color: #333;
     }
 
-    input {
+    input,
+    select {
       width: 100%;
       padding: 10px;
       margin-top: 5px;
@@ -44,9 +45,11 @@
       border-radius: 6px;
       border: 1px solid #ccc;
       box-sizing: border-box;
+      background: white;
     }
 
-    input:focus {
+    input:focus,
+    select:focus {
       outline: none;
       border-color: #1aa3b0;
       box-shadow: 0 0 4px rgba(26,163,176,0.4);
@@ -107,7 +110,7 @@
 <h2>Inventory Control Panel</h2>
 
 <label>Part Number:</label>
-<input id="part">
+<select id="part"></select>
 
 <label>Quantity:</label>
 <input id="qty" type="number">
@@ -140,6 +143,30 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Main Warehouse Location
 const MAIN_WAREHOUSE_ID = "da67a9d7-b093-4e2d-b4fc-a8e05450e1e5";
+
+// LOAD PARTS DROPDOWN
+async function loadParts() {
+  const { data, error } = await client
+    .from('parts')
+    .select('part_number')
+    .order('part_number', { ascending: true });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  const dropdown = document.getElementById('part');
+
+  dropdown.innerHTML = '';
+
+  data.forEach(part => {
+    const option = document.createElement('option');
+    option.value = part.part_number;
+    option.textContent = part.part_number;
+    dropdown.appendChild(option);
+  });
+}
 
 // ISSUE INVENTORY
 async function issue() {
@@ -200,6 +227,7 @@ async function loadReorder() {
 }
 
 // INITIAL LOAD
+loadParts();
 loadReorder();
 </script>
 
