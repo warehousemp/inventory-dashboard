@@ -46,6 +46,7 @@
       border: 1px solid #ccc;
       box-sizing: border-box;
       background: white;
+      font-size: 14px;
     }
 
     input:focus,
@@ -61,6 +62,7 @@
       border-radius: 6px;
       cursor: pointer;
       font-weight: bold;
+      margin-right: 10px;
     }
 
     button:first-of-type {
@@ -100,6 +102,13 @@
     #serialContainer {
       display: none;
     }
+
+    .hint {
+      font-size: 12px;
+      color: #666;
+      margin-top: -10px;
+      margin-bottom: 15px;
+    }
   </style>
 </head>
 
@@ -114,7 +123,19 @@
 <h2>Inventory Control Panel</h2>
 
 <label>Part Number:</label>
-<select id="part"></select>
+
+<input
+  id="part"
+  list="partsList"
+  placeholder="Start typing part number..."
+  autocomplete="off"
+>
+
+<datalist id="partsList"></datalist>
+
+<div class="hint">
+  Example: type 0058 to quickly find 005899F
+</div>
 
 <div id="serialContainer">
   <label>Serial Number:</label>
@@ -152,8 +173,12 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const MAIN_WAREHOUSE_ID = "da67a9d7-b093-4e2d-b4fc-a8e05450e1e5";
 
+// STORE PART DATA
+let partsData = [];
+
 // LOAD PARTS
 async function loadParts() {
+
   const { data, error } = await client
     .from('parts')
     .select('part_number, is_serialized')
@@ -164,61 +189,100 @@ async function loadParts() {
     return;
   }
 
-  const dropdown = document.getElementById('part');
+  partsData = data;
 
-  dropdown.innerHTML = '';
+  const datalist = document.getElementById('partsList');
+
+  datalist.innerHTML = '';
 
   data.forEach(part => {
+
     const option = document.createElement('option');
+
     option.value = part.part_number;
-    option.textContent = part.part_number;
-    option.dataset.serialized = part.is_serialized;
-    dropdown.appendChild(option);
+
+    datalist.appendChild(option);
   });
 
   checkSerialized();
 }
 
+// FIND PART
+function getSelectedPart() {
+
+  const selectedPartNumber =
+    document.getElementById('part').value.trim();
+
+  return partsData.find(
+    p => p.part_number === selectedPartNumber
+  );
+}
+
 // SHOW/HIDE SERIAL FIELD
 function checkSerialized() {
-  const dropdown = document.getElementById('part');
-  const selected = dropdown.options[dropdown.selectedIndex];
 
-  const isSerialized = selected.dataset.serialized === 'true';
+  const selectedPart = getSelectedPart();
+
+  const isSerialized =
+    selectedPart &&
+    selectedPart.is_serialized === true;
 
   document.getElementById('serialContainer').style.display =
     isSerialized ? 'block' : 'none';
 }
 
-document.getElementById('part').addEventListener('change', checkSerialized);
+document
+  .getElementById('part')
+  .addEventListener('input', checkSerialized);
 
 // ISSUE INVENTORY
 async function issue() {
 
-  const dropdown = document.getElementById('part');
-  const selected = dropdown.options[dropdown.selectedIndex];
-  const isSerialized = selected.dataset.serialized === 'true';
+  const selectedPart = getSelectedPart();
 
-  const serialValue = document.getElementById('serial').value.trim();
+  if (!selectedPart) {
+    document.getElementById('output').textContent =
+      'Please select a valid part number';
+    return;
+  }
 
-  // FRONTEND VALIDATION
+  const isSerialized = selectedPart.is_serialized === true;
+
+  const serialValue =
+    document.getElementById('serial').value.trim();
+
+  // SERIAL VALIDATION
   if (isSerialized && serialValue === '') {
+
     document.getElementById('output').textContent =
       'Serial number required for serialized parts';
+
     return;
   }
 
   const { error } = await client.rpc('issue_inventory', {
-    p_part_number: document.getElementById('part').value,
-    p_quantity: Number(document.getElementById('qty').value),
-    p_issued_to: document.getElementById('tech').value,
-    p_work_order: document.getElementById('job').value,
-    p_client_name: document.getElementById('client').value,
-    p_serial_number: serialValue || null
+
+    p_part_number:
+      document.getElementById('part').value,
+
+    p_quantity:
+      Number(document.getElementById('qty').value),
+
+    p_issued_to:
+      document.getElementById('tech').value,
+
+    p_work_order:
+      document.getElementById('job').value,
+
+    p_client_name:
+      document.getElementById('client').value,
+
+    p_serial_number:
+      serialValue || null
   });
 
   document.getElementById('output').textContent =
-    error ? error.message : "Issued successfully";
+    error ? error.message : 'Issued successfully';
 
   if (!error) {
     document.getElementById('serial').value = '';
@@ -230,28 +294,45 @@ async function issue() {
 // RECEIVE INVENTORY
 async function receive() {
 
-  const dropdown = document.getElementById('part');
-  const selected = dropdown.options[dropdown.selectedIndex];
-  const isSerialized = selected.dataset.serialized === 'true';
+  const selectedPart = getSelectedPart();
 
-  const serialValue = document.getElementById('serial').value.trim();
+  if (!selectedPart) {
+    document.getElementById('output').textContent =
+      'Please select a valid part number';
+    return;
+  }
 
-  // FRONTEND VALIDATION
+  const isSerialized = selectedPart.is_serialized === true;
+
+  const serialValue =
+    document.getElementById('serial').value.trim();
+
+  // SERIAL VALIDATION
   if (isSerialized && serialValue === '') {
+
     document.getElementById('output').textContent =
       'Serial number required for serialized parts';
+
     return;
   }
 
   const { error } = await client.rpc('receive_inventory', {
-    p_part_number: document.getElementById('part').value,
-    p_quantity: Number(document.getElementById('qty').value),
-    p_location_id: MAIN_WAREHOUSE_ID,
-    p_serial_number: serialValue || null
+
+    p_part_number:
+      document.getElementById('part').value,
+
+    p_quantity:
+      Number(document.getElementById('qty').value),
+
+    p_location_id:
+      MAIN_WAREHOUSE_ID,
+
+    p_serial_number:
+      serialValue || null
   });
 
   document.getElementById('output').textContent =
-    error ? error.message : "Received successfully";
+    error ? error.message : 'Received successfully';
 
   if (!error) {
     document.getElementById('serial').value = '';
@@ -262,35 +343,45 @@ async function receive() {
 
 // LOAD REORDER
 async function loadReorder() {
+
   const { data, error } = await client
     .from('inventory_reorder_warehouse')
     .select('*')
     .order('reorder_qty', { ascending: false });
 
   if (error) {
-    document.getElementById('reorder').textContent = error.message;
+    document.getElementById('reorder').textContent =
+      error.message;
+
     return;
   }
 
   if (!data || data.length === 0) {
+
     document.getElementById('reorder').textContent =
-      "No items need reordering";
+      'No items need reordering';
+
     return;
   }
 
-  let output = "PART | ON HAND | REORDER\n";
-  output += "-----------------------------\n";
+  let output = 'PART | ON HAND | REORDER\n';
+  output += '-----------------------------\n';
 
   data.forEach(row => {
-    output += `${row.part_number} | ${row.qty_on_hand} | ${row.reorder_qty}\n`;
+
+    output +=
+      `${row.part_number} | ${row.qty_on_hand} | ${row.reorder_qty}\n`;
+
   });
 
-  document.getElementById('reorder').textContent = output;
+  document.getElementById('reorder').textContent =
+    output;
 }
 
 // INITIAL LOAD
 loadParts();
 loadReorder();
+
 </script>
 
 </body>
