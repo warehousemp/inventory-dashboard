@@ -24,14 +24,15 @@
     .main-layout {
       display: flex;
       gap: 20px;
-      max-width: 1500px;
+      max-width: 1950px;
       margin: 40px auto;
       align-items: flex-start;
     }
 
     .container,
     .side-panel,
-    .accounting-panel {
+    .accounting-panel,
+    .lookup-panel {
       background: white;
       padding: 30px;
       border-radius: 10px;
@@ -40,10 +41,12 @@
 
     .container {
       flex: 1;
+      min-width: 420px;
     }
 
     .side-panel,
-    .accounting-panel {
+    .accounting-panel,
+    .lookup-panel {
       width: 420px;
     }
 
@@ -111,6 +114,13 @@
 
     .accounting-btn {
       background: #805ad5;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .lookup-btn {
+      background: #dd6b20;
       color: white;
       width: 100%;
       margin-top: 10px;
@@ -191,6 +201,21 @@
 
     <h3>Reorder Dashboard:</h3>
     <pre id="reorder"></pre>
+
+  </div>
+
+  <div class="lookup-panel">
+
+    <h2>Service Team Parts Lookup</h2>
+
+    <label>Part Number:</label>
+    <input id="lookupPart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
+
+    <button class="lookup-btn" onclick="lookupInventoryPart()">
+      LOOKUP PART STOCK
+    </button>
+
+    <pre id="lookupResult">Enter a part number to see quantity on hand...</pre>
 
   </div>
 
@@ -414,6 +439,64 @@ async function loadReorder() {
   document.getElementById('reorder').textContent = output;
 }
 
+async function lookupInventoryPart() {
+  const partNumber = document.getElementById('lookupPart').value.trim();
+
+  if (!partNumber) {
+    document.getElementById('lookupResult').textContent =
+      'Please enter a part number.';
+    return;
+  }
+
+  document.getElementById('lookupResult').textContent =
+    'Looking up part stock...';
+
+  const { data, error } = await client
+    .from('inventory_part_lookup_view')
+    .select('*')
+    .ilike('part_number', partNumber)
+    .order('location_name', { ascending: true });
+
+  if (error) {
+    document.getElementById('lookupResult').textContent = error.message;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    document.getElementById('lookupResult').textContent =
+      'No stock balance found for this part.';
+    return;
+  }
+
+  let totalQty = 0;
+  let totalValue = 0;
+
+  data.forEach(row => {
+    totalQty += Number(row.quantity_on_hand || 0);
+    totalValue += Number(row.inventory_value || 0);
+  });
+
+  let output =
+    `PART NUMBER: ${data[0].part_number}\n` +
+    `DESCRIPTION: ${data[0].description || ''}\n` +
+    `SERIALIZED: ${data[0].is_serialized ? 'YES' : 'NO'}\n` +
+    `TOTAL QTY ON HAND: ${totalQty}\n` +
+    `UNIT COST: ${formatCurrency(data[0].unit_cost)}\n` +
+    `TOTAL INVENTORY VALUE: ${formatCurrency(totalValue)}\n\n`;
+
+  output += 'LOCATION | QTY ON HAND | VALUE\n';
+  output += '------------------------------------------\n';
+
+  data.forEach(row => {
+    output +=
+      `${row.location_name} | ` +
+      `${row.quantity_on_hand} | ` +
+      `${formatCurrency(row.inventory_value)}\n`;
+  });
+
+  document.getElementById('lookupResult').textContent = output;
+}
+
 async function loadSerializedInventory() {
   document.getElementById('serializedReport').textContent =
     'Loading serialized inventory...';
@@ -592,11 +675,11 @@ async function loadTransactionLog() {
     'Loading transaction log...';
 
   const { data, error } = await client
-  .from('inventory_transaction_log_view')
-  .select('*')
-  .gte('created_at', startDate + ' 00:00:00')
-  .lte('created_at', endDate + ' 23:59:59')
-  .order('created_at', { ascending: false });
+    .from('inventory_transaction_log_view')
+    .select('*')
+    .gte('created_at', startDate + ' 00:00:00')
+    .lte('created_at', endDate + ' 23:59:59')
+    .order('created_at', { ascending: false });
 
   if (error) {
     document.getElementById('transactionLogReport').textContent = error.message;
