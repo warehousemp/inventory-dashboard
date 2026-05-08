@@ -122,7 +122,7 @@
 </div>
 
 <label>Quantity:</label>
-<input id="qty" type="number">
+<input id="qty" type="number" value="1">
 
 <label>Issued To:</label>
 <input id="tech">
@@ -194,23 +194,54 @@ document.getElementById('part').addEventListener('change', checkSerialized);
 
 // ISSUE INVENTORY
 async function issue() {
+
+  const dropdown = document.getElementById('part');
+  const selected = dropdown.options[dropdown.selectedIndex];
+  const isSerialized = selected.dataset.serialized === 'true';
+
+  const serialValue = document.getElementById('serial').value.trim();
+
+  // FRONTEND VALIDATION
+  if (isSerialized && serialValue === '') {
+    document.getElementById('output').textContent =
+      'Serial number required for serialized parts';
+    return;
+  }
+
   const { error } = await client.rpc('issue_inventory', {
     p_part_number: document.getElementById('part').value,
     p_quantity: Number(document.getElementById('qty').value),
     p_issued_to: document.getElementById('tech').value,
     p_work_order: document.getElementById('job').value,
-    p_client_name: document.getElementById('client').value
+    p_client_name: document.getElementById('client').value,
+    p_serial_number: serialValue || null
   });
 
   document.getElementById('output').textContent =
     error ? error.message : "Issued successfully";
+
+  if (!error) {
+    document.getElementById('serial').value = '';
+  }
 
   await loadReorder();
 }
 
 // RECEIVE INVENTORY
 async function receive() {
-  const serialValue = document.getElementById('serial').value;
+
+  const dropdown = document.getElementById('part');
+  const selected = dropdown.options[dropdown.selectedIndex];
+  const isSerialized = selected.dataset.serialized === 'true';
+
+  const serialValue = document.getElementById('serial').value.trim();
+
+  // FRONTEND VALIDATION
+  if (isSerialized && serialValue === '') {
+    document.getElementById('output').textContent =
+      'Serial number required for serialized parts';
+    return;
+  }
 
   const { error } = await client.rpc('receive_inventory', {
     p_part_number: document.getElementById('part').value,
@@ -221,6 +252,10 @@ async function receive() {
 
   document.getElementById('output').textContent =
     error ? error.message : "Received successfully";
+
+  if (!error) {
+    document.getElementById('serial').value = '';
+  }
 
   await loadReorder();
 }
