@@ -158,21 +158,21 @@
     <input id="qty" type="number" value="1">
 
     <label>Price Paid (Include Tax):</label>
-<input
-  id="unitCost"
-  type="number"
-  step="0.01"
-  placeholder="Enter total landed unit cost including tax"
->
+    <input
+      id="unitCost"
+      type="number"
+      step="0.01"
+      placeholder="Enter total landed unit cost including tax"
+    >
 
-<div style="
-  margin-top: -10px;
-  margin-bottom: 15px;
-  font-size: 12px;
-  color: #666;
-">
-  Enter the actual final per-unit cost paid including applicable tax.
-</div>
+    <div style="
+      margin-top: -10px;
+      margin-bottom: 15px;
+      font-size: 12px;
+      color: #666;
+    ">
+      Enter the actual final per-unit cost paid including applicable tax.
+    </div>
 
     <label>Issued To:</label>
     <input id="tech">
@@ -228,6 +228,24 @@
 
     <pre id="accountingReport">Click a button to load valuation report...</pre>
 
+    <h3>Transaction Log</h3>
+
+    <label>Start Date:</label>
+    <input id="transactionStartDate" type="date">
+
+    <label>End Date:</label>
+    <input id="transactionEndDate" type="date">
+
+    <button class="accounting-btn" onclick="loadTransactionLog()">
+      RUN TRANSACTION LOG
+    </button>
+
+    <button class="accounting-btn" onclick="exportTransactionLogCSV()">
+      EXPORT TRANSACTION LOG CSV
+    </button>
+
+    <pre id="transactionLogReport">Select a date range and run transaction log...</pre>
+
   </div>
 
 </div>
@@ -241,6 +259,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const MAIN_WAREHOUSE_ID = "da67a9d7-b093-4e2d-b4fc-a8e05450e1e5";
 
 let partsData = [];
+let transactionLogData = [];
 
 async function loadParts() {
   const { data, error } = await client
@@ -448,16 +467,7 @@ async function exportSerializedInventoryCSV() {
     csv += `"${row.part_number}","${row.serial_number_raw}","${row.status}"\n`;
   });
 
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-
-  link.href = url;
-  link.download = 'serialized_inventory.csv';
-
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  downloadCSV(csv, 'serialized_inventory.csv');
 }
 
 function formatCurrency(value) {
@@ -552,23 +562,111 @@ async function exportInventoryValueDetailCSV() {
 
   data.forEach(row => {
     csv +=
-      `"${row.part_number}",` +
-      `"${row.location_name}",` +
-      `"${row.qty_on_hand}",` +
-      `"${row.avg_cost}",` +
-      `"${row.total_value}"\n`;
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.location_name)}",` +
+      `"${cleanCSV(row.qty_on_hand)}",` +
+      `"${cleanCSV(row.avg_cost)}",` +
+      `"${cleanCSV(row.total_value)}"\n`;
   });
 
+  downloadCSV(csv, 'inventory_value_detail.csv');
+}
+
+async function loadTransactionLog() {
+  const startDate = document.getElementById('transactionStartDate').value;
+  const endDate = document.getElementById('transactionEndDate').value;
+
+  if (!startDate || !endDate) {
+    document.getElementById('transactionLogReport').textContent =
+      'Please select both a start date and end date.';
+    return;
+  }
+
+  if (startDate > endDate) {
+    document.getElementById('transactionLogReport').textContent =
+      'Start date cannot be after end date.';
+    return;
+  }
+
+  document.getElementById('transactionLogReport').textContent =
+    'Loading transaction log...';
+
+  const { data, error } = await client
+    .from('inventory_transaction_log_view')
+    .select('*')
+    .gte('transaction_date', startDate)
+    .lte('transaction_date', endDate)
+    .order('transaction_date', { ascending: false });
+
+  if (error) {
+    document.getElementById('transactionLogReport').textContent = error.message;
+    transactionLogData = [];
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    document.getElementById('transactionLogReport').textContent =
+      'No transactions found for selected date range.';
+    transactionLogData = [];
+    return;
+  }
+
+  transactionLogData = data;
+
+  const columns = Object.keys(data[0]);
+
+  let output = columns.map(col => col.toUpperCase()).join(' | ') + '\n';
+  output += '-'.repeat(120) + '\n';
+
+  data.forEach(row => {
+    output += columns.map(col => row[col] ?? '').join(' | ') + '\n';
+  });
+
+  document.getElementById('transactionLogReport').textContent = output;
+}
+
+function exportTransactionLogCSV() {
+  if (!transactionLogData || transactionLogData.length === 0) {
+    document.getElementById('transactionLogReport').textContent =
+      'Run the transaction log before exporting.';
+    return;
+  }
+
+  const columns = Object.keys(transactionLogData[0]);
+
+  let csv = columns.map(col => `"${cleanCSV(col)}"`).join(',') + '\n';
+
+  transactionLogData.forEach(row => {
+    csv += columns.map(col => `"${cleanCSV(row[col])}"`).join(',') + '\n';
+  });
+
+  const startDate = document.getElementById('transactionStartDate').value;
+  const endDate = document.getElementById('transactionEndDate').value;
+
+  downloadCSV(csv, `transaction_log_${startDate}_to_${endDate}.csv`);
+}
+
+function cleanCSV(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).replace(/"/g, '""');
+}
+
+function downloadCSV(csv, filename) {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
 
   link.href = url;
-  link.download = 'inventory_value_detail.csv';
+  link.download = filename;
 
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
 }
 
 loadParts();
