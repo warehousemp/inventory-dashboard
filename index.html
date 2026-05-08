@@ -216,6 +216,13 @@
       RUN SERIALIZED INVENTORY REPORT
     </button>
 
+    <button
+      class="report-btn"
+      onclick="exportSerializedInventoryCSV()"
+    >
+      EXPORT SERIALIZED INVENTORY CSV
+    </button>
+
     <pre id="serializedReport">
 Click button to load serialized inventory...
     </pre>
@@ -516,6 +523,61 @@ async function loadSerializedInventory() {
 
   document.getElementById('serializedReport').textContent =
     output;
+}
+
+// EXPORT SERIALIZED INVENTORY CSV
+async function exportSerializedInventoryCSV() {
+
+  const { data, error } = await client
+    .from('v_serialized_inventory_current')
+    .select('*')
+    .order('part_number', { ascending: true });
+
+  if (error) {
+
+    document.getElementById('serializedReport').textContent =
+      error.message;
+
+    return;
+  }
+
+  if (!data || data.length === 0) {
+
+    document.getElementById('serializedReport').textContent =
+      'No serialized inventory found';
+
+    return;
+  }
+
+  let csv =
+    'Part Number,Serial Number,Status\n';
+
+  data.forEach(row => {
+
+    csv +=
+      `"${row.part_number}","${row.serial_number_raw}","${row.status}"\n`;
+
+  });
+
+  const blob =
+    new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
+  const url =
+    URL.createObjectURL(blob);
+
+  const link =
+    document.createElement('a');
+
+  link.href = url;
+
+  link.download =
+    'serialized_inventory.csv';
+
+  document.body.appendChild(link);
+
+  link.click();
+
+  document.body.removeChild(link);
 }
 
 // INITIAL LOAD
