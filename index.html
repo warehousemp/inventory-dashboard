@@ -96,6 +96,10 @@
       font-size: 18px;
       font-weight: bold;
     }
+
+    #serialContainer {
+      display: none;
+    }
   </style>
 </head>
 
@@ -111,6 +115,11 @@
 
 <label>Part Number:</label>
 <select id="part"></select>
+
+<div id="serialContainer">
+  <label>Serial Number:</label>
+  <input id="serial">
+</div>
 
 <label>Quantity:</label>
 <input id="qty" type="number">
@@ -141,14 +150,13 @@ const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Main Warehouse Location
 const MAIN_WAREHOUSE_ID = "da67a9d7-b093-4e2d-b4fc-a8e05450e1e5";
 
-// LOAD PARTS DROPDOWN
+// LOAD PARTS
 async function loadParts() {
   const { data, error } = await client
     .from('parts')
-    .select('part_number')
+    .select('part_number, is_serialized')
     .order('part_number', { ascending: true });
 
   if (error) {
@@ -164,9 +172,25 @@ async function loadParts() {
     const option = document.createElement('option');
     option.value = part.part_number;
     option.textContent = part.part_number;
+    option.dataset.serialized = part.is_serialized;
     dropdown.appendChild(option);
   });
+
+  checkSerialized();
 }
+
+// SHOW/HIDE SERIAL FIELD
+function checkSerialized() {
+  const dropdown = document.getElementById('part');
+  const selected = dropdown.options[dropdown.selectedIndex];
+
+  const isSerialized = selected.dataset.serialized === 'true';
+
+  document.getElementById('serialContainer').style.display =
+    isSerialized ? 'block' : 'none';
+}
+
+document.getElementById('part').addEventListener('change', checkSerialized);
 
 // ISSUE INVENTORY
 async function issue() {
@@ -186,10 +210,13 @@ async function issue() {
 
 // RECEIVE INVENTORY
 async function receive() {
+  const serialValue = document.getElementById('serial').value;
+
   const { error } = await client.rpc('receive_inventory', {
     p_part_number: document.getElementById('part').value,
     p_quantity: Number(document.getElementById('qty').value),
-    p_location_id: MAIN_WAREHOUSE_ID
+    p_location_id: MAIN_WAREHOUSE_ID,
+    p_serial_number: serialValue || null
   });
 
   document.getElementById('output').textContent =
@@ -198,7 +225,7 @@ async function receive() {
   await loadReorder();
 }
 
-// LOAD REORDER DATA
+// LOAD REORDER
 async function loadReorder() {
   const { data, error } = await client
     .from('inventory_reorder_warehouse')
