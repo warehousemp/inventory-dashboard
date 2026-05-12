@@ -189,6 +189,13 @@
       margin-top: 10px;
     }
 
+    .danger-btn {
+      background: #b91c1c;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
     .button-row {
       display: flex;
       flex-wrap: wrap;
@@ -224,6 +231,17 @@
       background: #fff7ed;
       border: 1px solid #fed7aa;
       color: #9a3412;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .danger-note {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
       padding: 12px 14px;
       border-radius: 8px;
       font-size: 13px;
@@ -325,6 +343,7 @@
       font-size: 13px;
       word-break: break-all;
       margin-bottom: 15px;
+      white-space: pre-wrap;
     }
 
     @media (max-width: 1250px) {
@@ -532,8 +551,8 @@
     <h2>Cycle Count Management</h2>
 
     <div class="status-note">
-      This section supports warehouse count-sheet loading, CSV export, cycle count session creation,
-      counted quantity entry, and variance review. It does not post inventory adjustments yet.
+      This section supports count-sheet export, cycle count session creation, counted quantity entry,
+      variance review, ready-for-review approval, and final posting.
     </div>
 
     <h3>Step 1: Export Count Sheet</h3>
@@ -559,13 +578,13 @@
 
     <div class="warning-note">
       Creating a cycle count session creates count records for the selected category.
-      This still does not change inventory quantities.
+      This does not change inventory quantities.
     </div>
 
     <label>Count Name:</label>
     <input id="cycleCountName" placeholder="Example: PUMPS Cycle Count - May 2026" autocomplete="off">
 
-    <label>Started By:</label>
+    <label>Started By / Counted By:</label>
     <input id="cycleCountStartedBy" placeholder="Enter warehouse team member name" autocomplete="off">
 
     <label>Session Notes:</label>
@@ -620,6 +639,28 @@
     </div>
 
     <pre id="cycleCountSaveResult">Count save status will appear here...</pre>
+
+    <h3>Step 4: Ready for Review and Post Adjustments</h3>
+
+    <div class="danger-note">
+      Posting cycle count adjustments will update stock balances and create inventory transaction records.
+      Only post after all count lines are complete and variances have been reviewed.
+    </div>
+
+    <label>Reviewed By:</label>
+    <input id="cycleCountReviewedBy" placeholder="Enter reviewer name" autocomplete="off">
+
+    <button class="cycle-btn" onclick="markActiveCycleCountReadyForReview()">MARK READY FOR REVIEW</button>
+
+    <label>Posted By:</label>
+    <input id="cycleCountPostedBy" placeholder="Enter posting user name" autocomplete="off">
+
+    <label>Type POST to Confirm:</label>
+    <input id="cycleCountPostConfirm" placeholder="Type POST to enable posting" autocomplete="off">
+
+    <button class="danger-btn" onclick="postActiveCycleCountAdjustments()">POST CYCLE COUNT ADJUSTMENTS</button>
+
+    <pre id="cycleCountPostResult">Ready/post status will appear here...</pre>
 
   </div>
 
@@ -1112,6 +1153,9 @@ async function createCycleCountSession() {
   document.getElementById('cycleCountSessionResult').textContent =
     `Cycle count session created successfully.\nCategory: ${selectedCategory}\nCycle Count ID: ${activeCycleCountId}`;
 
+  document.getElementById('cycleCountPostResult').textContent =
+    'Cycle count session created. Enter and save all counts before marking ready for review.';
+
   await loadActiveCycleCountLines();
 }
 
@@ -1374,6 +1418,134 @@ function exportActiveCycleCountLinesCSV() {
   });
 
   downloadCSV(csv, `cycle_count_review_${cleanFilename(activeCycleCountId)}.csv`);
+}
+
+async function markActiveCycleCountReadyForReview() {
+  if (!activeCycleCountId) {
+    document.getElementById('cycleCountPostResult').textContent =
+      'No active cycle count session. Create a session first.';
+    return;
+  }
+
+  await loadActiveCycleCountLines();
+
+  const incompleteLines = activeCycleCountLines.filter(
+    line => line.counted_quantity === null || line.counted_quantity === undefined
+  );
+
+  if (incompleteLines.length > 0) {
+    document.getElementById('cycleCountPostResult').textContent =
+      `Cannot mark ready for review. ${incompleteLines.length} line(s) still have no counted quantity.`;
+    return;
+  }
+
+  const reviewedBy = document.getElementById('cycleCountReviewedBy').value.trim();
+
+  if (!reviewedBy) {
+    document.getElementById('cycleCountPostResult').textContent =
+      'Reviewed By is required.';
+    return;
+  }
+
+  document.getElementById('cycleCountPostResult').textContent =
+    'Marking cycle count ready for review...';
+
+  const { error } = await client.rpc('mark_cycle_count_ready_for_review', {
+    p_cycle_count_id: activeCycleCountId,
+    p_reviewed_by: reviewedBy
+  });
+
+  if (error) {
+    document.getElementById('cycleCountPostResult').textContent = error.message;
+    return;
+  }
+
+  document.getElementById('cycleCountPostResult').textContent =
+    `Cycle count marked READY_FOR_REVIEW.\nCycle Count ID: ${activeCycleCountId}\nReviewed By: ${reviewedBy}`;
+}
+
+async function postActiveCycleCountAdjustments() {
+  if (!activeCycleCountId) {
+    document.getElementById('cycleCountPostResult').textContent =
+      'No active cycle count session. Create a session first.';
+    return;
+  }
+
+  const postedBy = document.getElementById('cycleCountPostedBy').value.trim();
+  const confirmation = document.getElementById('cycleCountPostConfirm').value.trim();
+
+  if (!postedBy) {
+    document.getElementById('cycleCountPostResult').textContent =
+      'Posted By is required.';
+    return;
+  }
+
+  if (confirmation !== 'POST') {
+    document.getElementById('cycleCountPostResult').textContent =
+      'Type POST exactly to confirm posting.';
+    return;
+  }
+
+  await loadActiveCycleCountLines();
+
+  const incompleteLines = activeCycleCountLines.filter(
+    line => line.counted_quantity === null || line.counted_quantity === undefined
+  );
+
+  if (incompleteLines.length > 0) {
+    document.getElementById('cycleCountPostResult').textContent =
+      `Cannot post. ${incompleteLines.length} line(s) still have no counted quantity.`;
+    return;
+  }
+
+  const varianceLines = activeCycleCountLines.filter(
+    line => Number(line.variance_quantity || 0) !== 0
+  );
+
+  let totalVarianceValue = 0;
+  let totalVarianceQty = 0;
+
+  varianceLines.forEach(line => {
+    totalVarianceQty += Number(line.variance_quantity || 0);
+    totalVarianceValue += Number(line.variance_value || 0);
+  });
+
+  const browserConfirm = window.confirm(
+    `POST CYCLE COUNT ADJUSTMENTS?\n\n` +
+    `Cycle Count ID: ${activeCycleCountId}\n` +
+    `Variance Lines: ${varianceLines.length}\n` +
+    `Total Variance Qty: ${formatNumber(totalVarianceQty)}\n` +
+    `Total Variance Value: ${formatCurrency(totalVarianceValue)}\n\n` +
+    `This will update stock balances and create inventory transaction records.`
+  );
+
+  if (!browserConfirm) {
+    document.getElementById('cycleCountPostResult').textContent =
+      'Posting cancelled.';
+    return;
+  }
+
+  document.getElementById('cycleCountPostResult').textContent =
+    'Posting cycle count adjustments...';
+
+  const { error } = await client.rpc('post_cycle_count_adjustments', {
+    p_cycle_count_id: activeCycleCountId,
+    p_posted_by: postedBy
+  });
+
+  if (error) {
+    document.getElementById('cycleCountPostResult').textContent = error.message;
+    return;
+  }
+
+  document.getElementById('cycleCountPostResult').textContent =
+    `Cycle count posted successfully.\nCycle Count ID: ${activeCycleCountId}\nPosted By: ${postedBy}\nVariance Lines Posted: ${varianceLines.length}`;
+
+  document.getElementById('cycleCountPostConfirm').value = '';
+
+  await loadReorder();
+  await loadCycleCountSheet();
+  await loadActiveCycleCountLines();
 }
 
 function formatCurrency(value) {
