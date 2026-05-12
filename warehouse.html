@@ -552,7 +552,7 @@
 
     <div class="status-note">
       This section supports count-sheet export, cycle count session creation, counted quantity entry,
-      variance review, ready-for-review approval, and final posting.
+      variance review, submission for review, and final posting.
     </div>
 
     <h3>Step 1: Export Count Sheet</h3>
@@ -640,17 +640,19 @@
 
     <pre id="cycleCountSaveResult">Count save status will appear here...</pre>
 
-    <h3>Step 4: Ready for Review and Post Adjustments</h3>
+    <h3>Step 4: Submit for Review / Post Adjustments</h3>
+
+    <div class="warning-note">
+      Mark Ready for Review submits the completed count for review. It does not update stock balances
+      and does not create inventory transactions.
+    </div>
+
+    <button class="cycle-btn" onclick="markActiveCycleCountReadyForReview()">MARK READY FOR REVIEW</button>
 
     <div class="danger-note">
       Posting cycle count adjustments will update stock balances and create inventory transaction records.
       Only post after all count lines are complete and variances have been reviewed.
     </div>
-
-    <label>Reviewed By:</label>
-    <input id="cycleCountReviewedBy" placeholder="Enter reviewer name" autocomplete="off">
-
-    <button class="cycle-btn" onclick="markActiveCycleCountReadyForReview()">MARK READY FOR REVIEW</button>
 
     <label>Posted By:</label>
     <input id="cycleCountPostedBy" placeholder="Enter posting user name" autocomplete="off">
@@ -1433,14 +1435,6 @@ async function markActiveCycleCountReadyForReview() {
     return;
   }
 
-  const reviewedBy = document.getElementById('cycleCountReviewedBy').value.trim();
-
-  if (!reviewedBy) {
-    document.getElementById('cycleCountPostResult').textContent =
-      'Reviewed By is required.';
-    return;
-  }
-
   const blankLines = [];
 
   activeCycleCountLines.forEach(line => {
@@ -1462,7 +1456,7 @@ async function markActiveCycleCountReadyForReview() {
   }
 
   document.getElementById('cycleCountPostResult').textContent =
-    'Saving visible count entries before review...';
+    'Saving visible count entries before submitting for review...';
 
   await saveAllCycleCountLines();
 
@@ -1478,11 +1472,11 @@ async function markActiveCycleCountReadyForReview() {
   }
 
   document.getElementById('cycleCountPostResult').textContent =
-    'Marking cycle count ready for review...';
+    'Submitting cycle count for review...';
 
   const { error } = await client.rpc('mark_cycle_count_ready_for_review', {
     p_cycle_count_id: activeCycleCountId,
-    p_reviewed_by: reviewedBy
+    p_reviewed_by: null
   });
 
   if (error) {
@@ -1491,7 +1485,7 @@ async function markActiveCycleCountReadyForReview() {
   }
 
   document.getElementById('cycleCountPostResult').textContent =
-    `Cycle count marked READY_FOR_REVIEW.\nCycle Count ID: ${activeCycleCountId}\nReviewed By: ${reviewedBy}`;
+    `Cycle count marked READY_FOR_REVIEW.\nCycle Count ID: ${activeCycleCountId}\n\nThis count is now ready for review. No inventory quantities have been changed.`;
 }
 
 async function postActiveCycleCountAdjustments() {
