@@ -291,6 +291,8 @@
 
     <button class="secondary-btn" onclick="loadAdjustmentTransactionLog()">RUN ADJUSTMENT REPORT</button>
 
+    <button class="secondary-btn" onclick="exportAdjustmentReportCSV()">EXPORT ADJUSTMENT REPORT CSV</button>
+
     <button class="accounting-btn" onclick="exportTransactionLogCSV()">EXPORT TRANSACTION LOG CSV</button>
 
     <pre id="transactionLogReport">Select a date range and run transaction log...</pre>
@@ -544,9 +546,12 @@ function displayTransactionLog(data, adjustmentOnly) {
     'description',
     'quantity',
     'unit_cost',
+    'total_value',
     'location_name',
     'client_name',
+    'work_order',
     'work_order_number',
+    'issued_to',
     'notes'
   ];
 
@@ -605,18 +610,16 @@ function formatDisplayValue(columnName, value) {
     return '';
   }
 
-  if (columnName === 'unit_cost') {
+  if (columnName === 'unit_cost' || columnName === 'total_value') {
     return formatCurrency(value);
   }
 
   return value;
 }
 
-function exportTransactionLogCSV() {
+function getTransactionExportColumns() {
   if (!transactionLogData || transactionLogData.length === 0) {
-    document.getElementById('transactionLogReport').textContent =
-      'Run the transaction log before exporting.';
-    return;
+    return [];
   }
 
   let preferredColumns = [
@@ -627,9 +630,12 @@ function exportTransactionLogCSV() {
     'description',
     'quantity',
     'unit_cost',
+    'total_value',
     'location_name',
     'client_name',
+    'work_order',
     'work_order_number',
+    'issued_to',
     'notes'
   ];
 
@@ -643,11 +649,27 @@ function exportTransactionLogCSV() {
     }
   });
 
+  return exportColumns;
+}
+
+function buildTransactionCSV() {
+  const exportColumns = getTransactionExportColumns();
+
   let csv = exportColumns.map(col => `"${cleanCSV(formatColumnHeader(col))}"`).join(',') + '\n';
 
   transactionLogData.forEach(row => {
     csv += exportColumns.map(col => `"${cleanCSV(row[col])}"`).join(',') + '\n';
   });
+
+  return csv;
+}
+
+function exportTransactionLogCSV() {
+  if (!transactionLogData || transactionLogData.length === 0) {
+    document.getElementById('transactionLogReport').textContent =
+      'Run the transaction log before exporting.';
+    return;
+  }
 
   const startDate = document.getElementById('transactionStartDate').value;
   const endDate = document.getElementById('transactionEndDate').value;
@@ -663,7 +685,37 @@ function exportTransactionLogCSV() {
     filename = `transaction_log_${startDate}_to_${endDate}.csv`;
   }
 
+  const csv = buildTransactionCSV();
+
   downloadCSV(csv, filename);
+}
+
+function exportAdjustmentReportCSV() {
+  if (!transactionLogData || transactionLogData.length === 0) {
+    document.getElementById('transactionLogReport').textContent =
+      'Run the adjustment report before exporting.';
+    return;
+  }
+
+  const hasOnlyAdjustmentTypes = transactionLogData.every(row => {
+    const transactionType = String(row.transaction_type || '').toUpperCase();
+
+    return transactionType === 'ADJUSTMENT' ||
+           transactionType === 'CYCLE_COUNT_ADJUSTMENT';
+  });
+
+  if (!hasOnlyAdjustmentTypes || currentTransactionReportMode !== 'adjustment_report') {
+    document.getElementById('transactionLogReport').textContent =
+      'Please run the Adjustment Report before exporting the adjustment report CSV.';
+    return;
+  }
+
+  const startDate = document.getElementById('transactionStartDate').value;
+  const endDate = document.getElementById('transactionEndDate').value;
+
+  const csv = buildTransactionCSV();
+
+  downloadCSV(csv, `adjustment_report_${startDate}_to_${endDate}.csv`);
 }
 
 function cleanCSV(value) {
