@@ -330,6 +330,37 @@
     <label>Reorder Point:</label>
     <input id="newPartReorderPoint" type="number" step="1" value="0">
 
+    <label>Category:</label>
+    <select id="newPartCategory">
+      <option value="UNASSIGNED">UNASSIGNED</option>
+      <option value="ACCESSORY">ACCESSORY</option>
+      <option value="AUTOFILL">AUTOFILL</option>
+      <option value="AUTOMATION">AUTOMATION</option>
+      <option value="BLOWER">BLOWER</option>
+      <option value="CHLORINATOR">CHLORINATOR</option>
+      <option value="CHLORINATOR PARTS">CHLORINATOR PARTS</option>
+      <option value="ELECTRICAL">ELECTRICAL</option>
+      <option value="FILTER CARTRIDGES">FILTER CARTRIDGES</option>
+      <option value="FILTRATION SYSTEMS">FILTRATION SYSTEMS</option>
+      <option value="GAS HEATER">GAS HEATER</option>
+      <option value="GAS HEATER PARTS">GAS HEATER PARTS</option>
+      <option value="HAYWARD">HAYWARD</option>
+      <option value="HEAT PUMP PARTS">HEAT PUMP PARTS</option>
+      <option value="HEAT PUMPS">HEAT PUMPS</option>
+      <option value="INTERMATIC">INTERMATIC</option>
+      <option value="JANDY">JANDY</option>
+      <option value="LIGHTING">LIGHTING</option>
+      <option value="ORINGS">ORINGS</option>
+      <option value="PARTS">PARTS</option>
+      <option value="PENTAIR">PENTAIR</option>
+      <option value="PUMP PARTS">PUMP PARTS</option>
+      <option value="PUMPS">PUMPS</option>
+      <option value="RAYPAK">RAYPAK</option>
+      <option value="SPA">SPA</option>
+      <option value="VACUUM PARTS">VACUUM PARTS</option>
+      <option value="VACUUMS">VACUUMS</option>
+    </select>
+
     <label>Serialized Item?</label>
     <select id="newPartSerialized">
       <option value="false">No</option>
@@ -631,6 +662,7 @@ async function createPart() {
   const description = document.getElementById('newPartDescription').value.trim();
   const unitCost = Number(document.getElementById('newPartUnitCost').value || 0);
   const reorderPoint = Number(document.getElementById('newPartReorderPoint').value || 0);
+  const category = document.getElementById('newPartCategory').value || 'UNASSIGNED';
   const isSerialized = document.getElementById('newPartSerialized').value === 'true';
 
   if (!partNumber) {
@@ -651,6 +683,12 @@ async function createPart() {
     return;
   }
 
+  if (!category) {
+    document.getElementById('createPartResult').textContent =
+      'Category is required.';
+    return;
+  }
+
   document.getElementById('createPartResult').textContent =
     'Creating part...';
 
@@ -659,7 +697,8 @@ async function createPart() {
     p_description: description,
     p_unit_cost: unitCost,
     p_reorder_point: reorderPoint,
-    p_is_serialized: isSerialized
+    p_is_serialized: isSerialized,
+    p_category: category
   });
 
   if (error) {
@@ -668,12 +707,13 @@ async function createPart() {
   }
 
   document.getElementById('createPartResult').textContent =
-    'Part created successfully.';
+    `Part created successfully.\nCategory: ${category}`;
 
   document.getElementById('newPartNumber').value = '';
   document.getElementById('newPartDescription').value = '';
   document.getElementById('newPartUnitCost').value = '0';
   document.getElementById('newPartReorderPoint').value = '0';
+  document.getElementById('newPartCategory').value = 'UNASSIGNED';
   document.getElementById('newPartSerialized').value = 'false';
 
   await loadParts();
