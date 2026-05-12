@@ -99,7 +99,8 @@
     }
 
     input,
-    select {
+    select,
+    textarea {
       width: 100%;
       padding: 12px;
       margin-bottom: 15px;
@@ -107,10 +108,17 @@
       border: 1px solid #cbd5e1;
       background: white;
       font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    textarea {
+      min-height: 74px;
+      resize: vertical;
     }
 
     input:focus,
-    select:focus {
+    select:focus,
+    textarea:focus {
       outline: none;
       border-color: #1aa3b0;
       box-shadow: 0 0 0 3px rgba(26,163,176,0.15);
@@ -174,6 +182,13 @@
       margin-top: 10px;
     }
 
+    .save-btn {
+      background: #1aa3b0;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
     .button-row {
       display: flex;
       flex-wrap: wrap;
@@ -205,6 +220,17 @@
       margin-bottom: 18px;
     }
 
+    .warning-note {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
     pre {
       background: #f0f4f8;
       padding: 15px;
@@ -226,6 +252,79 @@
       height: 1px;
       background: #e6edf3;
       margin: 24px 0;
+    }
+
+    .count-table-wrapper {
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 16px;
+      max-height: 650px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1050px;
+      background: white;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px;
+      text-align: left;
+      font-size: 13px;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f0f4f8;
+      color: #0b3c5d;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .count-input,
+    .line-note-input {
+      margin-bottom: 0;
+      font-size: 13px;
+      padding: 9px;
+    }
+
+    .count-input {
+      width: 110px;
+    }
+
+    .line-note-input {
+      width: 190px;
+    }
+
+    .variance-positive {
+      color: #166534;
+      font-weight: bold;
+    }
+
+    .variance-negative {
+      color: #b91c1c;
+      font-weight: bold;
+    }
+
+    .variance-zero {
+      color: #475569;
+      font-weight: bold;
+    }
+
+    .session-id-box {
+      background: #f0f4f8;
+      border: 1px solid #e2e8f0;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      word-break: break-all;
+      margin-bottom: 15px;
     }
 
     @media (max-width: 1250px) {
@@ -277,7 +376,8 @@
       }
 
       input,
-      select {
+      select,
+      textarea {
         font-size: 16px;
         padding: 13px;
       }
@@ -432,9 +532,11 @@
     <h2>Cycle Count Management</h2>
 
     <div class="status-note">
-      Phase 1 is read-only. This section loads and exports a warehouse count sheet by category.
-      It does not create a cycle count session, save counted quantities, post adjustments, or change inventory.
+      This section supports warehouse count-sheet loading, CSV export, cycle count session creation,
+      counted quantity entry, and variance review. It does not post inventory adjustments yet.
     </div>
+
+    <h3>Step 1: Export Count Sheet</h3>
 
     <label>Cycle Count Category:</label>
     <select id="cycleCountCategory">
@@ -443,7 +545,7 @@
 
     <div class="help-text">
       Select a category, load the count sheet, then export it for physical counting.
-      The CSV includes a blank Counted Quantity column for warehouse entry.
+      The CSV includes a blank Counted Quantity column.
     </div>
 
     <div class="button-row">
@@ -452,6 +554,72 @@
     </div>
 
     <pre id="cycleCountSheetReport">Select a category and load count sheet...</pre>
+
+    <h3>Step 2: Create Count Session</h3>
+
+    <div class="warning-note">
+      Creating a cycle count session creates count records for the selected category.
+      This still does not change inventory quantities.
+    </div>
+
+    <label>Count Name:</label>
+    <input id="cycleCountName" placeholder="Example: PUMPS Cycle Count - May 2026" autocomplete="off">
+
+    <label>Started By:</label>
+    <input id="cycleCountStartedBy" placeholder="Enter warehouse team member name" autocomplete="off">
+
+    <label>Session Notes:</label>
+    <textarea id="cycleCountNotes" placeholder="Optional notes for this count session"></textarea>
+
+    <button class="cycle-btn" onclick="createCycleCountSession()">CREATE CYCLE COUNT SESSION</button>
+
+    <div id="activeCycleCountIdBox" class="session-id-box">
+      Active Cycle Count ID: None
+    </div>
+
+    <pre id="cycleCountSessionResult">Create a cycle count session after selecting a category...</pre>
+
+    <h3>Step 3: Enter Counts and Review Variances</h3>
+
+    <div class="warning-note">
+      Enter counted quantities, then save. Saving counts records the physical count and calculates variance.
+      It does not post adjustments to inventory yet.
+    </div>
+
+    <div class="button-row">
+      <button class="cycle-btn" onclick="loadActiveCycleCountLines()">RELOAD ACTIVE COUNT LINES</button>
+      <button class="save-btn" onclick="saveAllCycleCountLines()">SAVE ENTERED COUNTS</button>
+      <button class="export-btn" onclick="exportActiveCycleCountLinesCSV()">EXPORT COUNT REVIEW CSV</button>
+    </div>
+
+    <div id="cycleCountLinesSummary" class="session-id-box">
+      No active count lines loaded.
+    </div>
+
+    <div class="count-table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Part Number</th>
+            <th>Description</th>
+            <th>System Qty</th>
+            <th>Counted Qty</th>
+            <th>Variance</th>
+            <th>Variance Value</th>
+            <th>Notes</th>
+            <th>Counted By</th>
+            <th>Counted At</th>
+          </tr>
+        </thead>
+        <tbody id="cycleCountLinesTableBody">
+          <tr>
+            <td colspan="9">Create or load a cycle count session to enter counts.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre id="cycleCountSaveResult">Count save status will appear here...</pre>
 
   </div>
 
@@ -467,6 +635,8 @@ const MAIN_WAREHOUSE_ID = "da67a9d7-b093-4e2d-b4fc-a8e05450e1e5";
 
 let partsData = [];
 let cycleCountSheetData = [];
+let activeCycleCountId = null;
+let activeCycleCountLines = [];
 
 async function loadParts() {
   let allParts = [];
@@ -894,11 +1064,353 @@ async function exportCycleCountSheetCSV() {
   downloadCSV(csv, `cycle_count_sheet_${safeCategory}.csv`);
 }
 
+async function createCycleCountSession() {
+  const selectedCategory = document.getElementById('cycleCountCategory').value;
+  const countName = document.getElementById('cycleCountName').value.trim();
+  const startedBy = document.getElementById('cycleCountStartedBy').value.trim();
+  const notes = document.getElementById('cycleCountNotes').value.trim();
+
+  if (!selectedCategory) {
+    document.getElementById('cycleCountSessionResult').textContent =
+      'Please select a cycle count category first.';
+    return;
+  }
+
+  if (!countName) {
+    document.getElementById('cycleCountSessionResult').textContent =
+      'Count name is required.';
+    return;
+  }
+
+  if (!startedBy) {
+    document.getElementById('cycleCountSessionResult').textContent =
+      'Started By is required.';
+    return;
+  }
+
+  document.getElementById('cycleCountSessionResult').textContent =
+    'Creating cycle count session...';
+
+  const { data, error } = await client.rpc('create_cycle_count_by_category', {
+    p_count_name: countName,
+    p_location_id: MAIN_WAREHOUSE_ID,
+    p_cycle_count_category: selectedCategory,
+    p_started_by: startedBy,
+    p_notes: notes || null
+  });
+
+  if (error) {
+    document.getElementById('cycleCountSessionResult').textContent = error.message;
+    return;
+  }
+
+  activeCycleCountId = data;
+
+  document.getElementById('activeCycleCountIdBox').textContent =
+    `Active Cycle Count ID: ${activeCycleCountId}`;
+
+  document.getElementById('cycleCountSessionResult').textContent =
+    `Cycle count session created successfully.\nCategory: ${selectedCategory}\nCycle Count ID: ${activeCycleCountId}`;
+
+  await loadActiveCycleCountLines();
+}
+
+async function loadActiveCycleCountLines() {
+  if (!activeCycleCountId) {
+    document.getElementById('cycleCountSaveResult').textContent =
+      'No active cycle count session. Create a session first.';
+    return;
+  }
+
+  document.getElementById('cycleCountSaveResult').textContent =
+    'Loading active cycle count lines...';
+
+  const { data, error } = await client
+    .from('inventory_cycle_count_lines')
+    .select('*')
+    .eq('cycle_count_id', activeCycleCountId)
+    .order('part_number', { ascending: true });
+
+  if (error) {
+    document.getElementById('cycleCountSaveResult').textContent = error.message;
+    activeCycleCountLines = [];
+    renderCycleCountLinesTable();
+    return;
+  }
+
+  activeCycleCountLines = data || [];
+
+  renderCycleCountLinesTable();
+  updateCycleCountLinesSummary();
+
+  document.getElementById('cycleCountSaveResult').textContent =
+    `Loaded ${activeCycleCountLines.length} count lines.`;
+}
+
+function renderCycleCountLinesTable() {
+  const tableBody = document.getElementById('cycleCountLinesTableBody');
+  tableBody.innerHTML = '';
+
+  if (!activeCycleCountLines || activeCycleCountLines.length === 0) {
+    tableBody.innerHTML =
+      '<tr><td colspan="9">No active count lines loaded.</td></tr>';
+    return;
+  }
+
+  activeCycleCountLines.forEach(line => {
+    const tr = document.createElement('tr');
+
+    const countedQtyValue =
+      line.counted_quantity === null || line.counted_quantity === undefined
+        ? ''
+        : line.counted_quantity;
+
+    const variance = line.variance_quantity;
+    const varianceClass =
+      Number(variance || 0) > 0
+        ? 'variance-positive'
+        : Number(variance || 0) < 0
+          ? 'variance-negative'
+          : 'variance-zero';
+
+    tr.innerHTML = `
+      <td>${escapeHTML(line.part_number || '')}</td>
+      <td>${escapeHTML(line.description || '')}</td>
+      <td>${formatNumber(line.system_quantity)}</td>
+      <td>
+        <input
+          class="count-input"
+          type="number"
+          step="1"
+          min="0"
+          id="counted_${line.id}"
+          value="${escapeHTML(countedQtyValue)}"
+          oninput="previewLineVariance('${line.id}')"
+        >
+      </td>
+      <td id="variance_${line.id}" class="${varianceClass}">
+        ${formatNumber(variance)}
+      </td>
+      <td id="variance_value_${line.id}">
+        ${formatCurrency(line.variance_value)}
+      </td>
+      <td>
+        <input
+          class="line-note-input"
+          id="notes_${line.id}"
+          value="${escapeHTML(line.notes || '')}"
+          placeholder="Optional"
+        >
+      </td>
+      <td>${escapeHTML(line.counted_by || '')}</td>
+      <td>${formatDateTime(line.counted_at)}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function previewLineVariance(lineId) {
+  const line = activeCycleCountLines.find(item => item.id === lineId);
+
+  if (!line) {
+    return;
+  }
+
+  const input = document.getElementById(`counted_${lineId}`);
+  const varianceCell = document.getElementById(`variance_${lineId}`);
+  const varianceValueCell = document.getElementById(`variance_value_${lineId}`);
+
+  if (!input || !varianceCell || !varianceValueCell) {
+    return;
+  }
+
+  if (input.value === '') {
+    varianceCell.textContent = formatNumber(line.variance_quantity);
+    varianceValueCell.textContent = formatCurrency(line.variance_value);
+    return;
+  }
+
+  const countedQuantity = Number(input.value);
+  const systemQuantity = Number(line.system_quantity || 0);
+  const unitCost = Number(line.unit_cost || 0);
+  const variance = countedQuantity - systemQuantity;
+  const varianceValue = variance * unitCost;
+
+  varianceCell.textContent = formatNumber(variance);
+  varianceValueCell.textContent = formatCurrency(varianceValue);
+
+  varianceCell.className =
+    variance > 0
+      ? 'variance-positive'
+      : variance < 0
+        ? 'variance-negative'
+        : 'variance-zero';
+}
+
+function updateCycleCountLinesSummary() {
+  if (!activeCycleCountLines || activeCycleCountLines.length === 0) {
+    document.getElementById('cycleCountLinesSummary').textContent =
+      'No active count lines loaded.';
+    return;
+  }
+
+  const totalLines = activeCycleCountLines.length;
+  const countedLines = activeCycleCountLines.filter(
+    line => line.counted_quantity !== null && line.counted_quantity !== undefined
+  ).length;
+
+  let totalSystemQty = 0;
+  let totalCountedQty = 0;
+  let totalVarianceQty = 0;
+  let totalVarianceValue = 0;
+
+  activeCycleCountLines.forEach(line => {
+    totalSystemQty += Number(line.system_quantity || 0);
+    totalCountedQty += Number(line.counted_quantity || 0);
+    totalVarianceQty += Number(line.variance_quantity || 0);
+    totalVarianceValue += Number(line.variance_value || 0);
+  });
+
+  document.getElementById('cycleCountLinesSummary').textContent =
+    `Active Cycle Count ID: ${activeCycleCountId}\n` +
+    `Lines: ${totalLines}\n` +
+    `Counted Lines: ${countedLines}\n` +
+    `Total System Qty: ${formatNumber(totalSystemQty)}\n` +
+    `Total Counted Qty: ${formatNumber(totalCountedQty)}\n` +
+    `Total Variance Qty: ${formatNumber(totalVarianceQty)}\n` +
+    `Total Variance Value: ${formatCurrency(totalVarianceValue)}`;
+}
+
+async function saveAllCycleCountLines() {
+  if (!activeCycleCountId || !activeCycleCountLines || activeCycleCountLines.length === 0) {
+    document.getElementById('cycleCountSaveResult').textContent =
+      'No active count lines loaded.';
+    return;
+  }
+
+  const countedBy = document.getElementById('cycleCountStartedBy').value.trim();
+
+  if (!countedBy) {
+    document.getElementById('cycleCountSaveResult').textContent =
+      'Counted By / Started By is required before saving counts.';
+    return;
+  }
+
+  let savedCount = 0;
+  let skippedCount = 0;
+  let errorMessages = [];
+
+  document.getElementById('cycleCountSaveResult').textContent =
+    'Saving entered counts...';
+
+  for (const line of activeCycleCountLines) {
+    const countedInput = document.getElementById(`counted_${line.id}`);
+    const notesInput = document.getElementById(`notes_${line.id}`);
+
+    if (!countedInput || countedInput.value === '') {
+      skippedCount++;
+      continue;
+    }
+
+    const countedQuantity = Number(countedInput.value);
+
+    if (Number.isNaN(countedQuantity) || countedQuantity < 0) {
+      errorMessages.push(`${line.part_number}: invalid counted quantity`);
+      continue;
+    }
+
+    const { error } = await client.rpc('save_cycle_count_line_count', {
+      p_line_id: line.id,
+      p_counted_quantity: countedQuantity,
+      p_counted_by: countedBy,
+      p_notes: notesInput ? notesInput.value.trim() || null : null
+    });
+
+    if (error) {
+      errorMessages.push(`${line.part_number}: ${error.message}`);
+    } else {
+      savedCount++;
+    }
+  }
+
+  await loadActiveCycleCountLines();
+
+  let result =
+    `Save complete.\nSaved lines: ${savedCount}\nSkipped blank lines: ${skippedCount}`;
+
+  if (errorMessages.length > 0) {
+    result += `\n\nErrors:\n${errorMessages.join('\n')}`;
+  }
+
+  document.getElementById('cycleCountSaveResult').textContent = result;
+}
+
+function exportActiveCycleCountLinesCSV() {
+  if (!activeCycleCountLines || activeCycleCountLines.length === 0) {
+    document.getElementById('cycleCountSaveResult').textContent =
+      'Load active count lines before exporting.';
+    return;
+  }
+
+  let csv =
+    'Cycle Count ID,Line ID,Part ID,Part Number,Description,System Quantity,Counted Quantity,Variance Quantity,Unit Cost,Variance Value,Counted By,Counted At,Notes\n';
+
+  activeCycleCountLines.forEach(line => {
+    csv +=
+      `"${cleanCSV(line.cycle_count_id)}",` +
+      `"${cleanCSV(line.id)}",` +
+      `"${cleanCSV(line.part_id)}",` +
+      `"${cleanCSV(line.part_number)}",` +
+      `"${cleanCSV(line.description)}",` +
+      `"${cleanCSV(line.system_quantity)}",` +
+      `"${cleanCSV(line.counted_quantity)}",` +
+      `"${cleanCSV(line.variance_quantity)}",` +
+      `"${cleanCSV(line.unit_cost)}",` +
+      `"${cleanCSV(line.variance_value)}",` +
+      `"${cleanCSV(line.counted_by)}",` +
+      `"${cleanCSV(line.counted_at)}",` +
+      `"${cleanCSV(line.notes)}"\n`;
+  });
+
+  downloadCSV(csv, `cycle_count_review_${cleanFilename(activeCycleCountId)}.csv`);
+}
+
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD'
   });
+}
+
+function formatNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+
+  const number = Number(value);
+
+  if (Number.isNaN(number)) {
+    return value;
+  }
+
+  return number.toLocaleString('en-US', {
+    maximumFractionDigits: 2
+  });
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
 }
 
 function cleanCSV(value) {
@@ -914,6 +1426,19 @@ function cleanFilename(value) {
     .replace(/[^a-z0-9_\-]+/gi, '_')
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '');
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function downloadCSV(csv, filename) {
