@@ -396,15 +396,35 @@ let partsData = [];
 let transactionLogData = [];
 
 async function loadParts() {
-  const { data, error } = await client.rpc('get_parts_dropdown');
+  let allParts = [];
+  let from = 0;
+  const batchSize = 1000;
 
-  if (error) {
-    console.error('Parts dropdown load error:', error);
-    alert('Parts dropdown load error: ' + error.message);
-    return;
+  while (true) {
+    const { data, error } = await client
+      .rpc('get_parts_dropdown')
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      console.error('Parts dropdown load error:', error);
+      alert('Parts dropdown load error: ' + error.message);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allParts = allParts.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
   }
 
-  partsData = data || [];
+  partsData = allParts;
 
   const datalist = document.getElementById('partsList');
   datalist.innerHTML = '';
