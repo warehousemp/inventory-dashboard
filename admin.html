@@ -332,6 +332,13 @@
       align-items: end;
     }
 
+    .three-column-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      align-items: end;
+    }
+
     .button-row {
       display: flex;
       gap: 12px;
@@ -384,7 +391,8 @@
         grid-template-columns: repeat(2, minmax(150px, 1fr));
       }
 
-      .two-column-form {
+      .two-column-form,
+      .three-column-form {
         grid-template-columns: 1fr;
       }
     }
@@ -564,6 +572,33 @@
         </tbody>
       </table>
     </div>
+
+    <h3>Admin Review Decision</h3>
+
+    <div class="warning-note">
+      Use <strong>Mark for Recount</strong> when the count may be incorrect and the warehouse needs to recount it.
+      Use <strong>Void Cycle Count</strong> for test sessions, duplicate sessions, wrong categories, or sessions that should never be posted.
+      Neither action posts inventory adjustments.
+    </div>
+
+    <div class="two-column-form">
+      <div>
+        <label>Review Action By:</label>
+        <input id="reviewActionByInput" placeholder="Enter admin/reviewer name..." autocomplete="off">
+      </div>
+
+      <div>
+        <label>Typed Confirmation:</label>
+        <input id="reviewActionConfirmInput" placeholder="Type RECOUNT or VOID..." autocomplete="off">
+      </div>
+    </div>
+
+    <div class="button-row">
+      <button class="warning-btn" onclick="markSelectedCycleCountForRecount()">MARK FOR RECOUNT</button>
+      <button class="danger-btn" onclick="voidSelectedCycleCount()">VOID CYCLE COUNT</button>
+    </div>
+
+    <div id="reviewActionMessage" class="message"></div>
 
     <h3>Post Cycle Count Adjustments</h3>
 
@@ -761,8 +796,8 @@ async function openCycleCountForReview(cycleCountId) {
   renderReviewQueueTable(reviewQueueData);
   renderSelectedCycleCountInfo(selectedCycleCount);
 
-  document.getElementById('postMessage').className = 'message';
-  document.getElementById('postMessage').textContent = '';
+  clearMessage('postMessage');
+  clearMessage('reviewActionMessage');
 
   await loadSelectedCycleCountReviewDetail(cycleCountId);
 }
@@ -915,6 +950,126 @@ async function exportSelectedCycleCountReviewCSV() {
   );
 }
 
+async function markSelectedCycleCountForRecount() {
+  if (!selectedCycleCount) {
+    setMessage('reviewActionMessage', 'error', 'Open a cycle count from the review queue before marking it for recount.');
+    return;
+  }
+
+  if (selectedCycleCount.status !== 'READY_FOR_REVIEW') {
+    setMessage('reviewActionMessage', 'error', 'Only READY_FOR_REVIEW cycle counts can be marked for recount.');
+    return;
+  }
+
+  const reviewedBy = document.getElementById('reviewActionByInput').value.trim();
+  const confirmation = document.getElementById('reviewActionConfirmInput').value.trim();
+
+  if (!reviewedBy) {
+    setMessage('reviewActionMessage', 'error', 'Review Action By is required.');
+    return;
+  }
+
+  if (confirmation !== 'RECOUNT') {
+    setMessage('reviewActionMessage', 'error', 'Type RECOUNT exactly to mark this cycle count for recount.');
+    return;
+  }
+
+  const browserConfirm = confirm(
+    `Mark "${selectedCycleCount.count_name}" as RECOUNT_REQUIRED?\n\n` +
+    `Category: ${selectedCycleCount.cycle_count_category}\n` +
+    `No inventory adjustments will be posted.`
+  );
+
+  if (!browserConfirm) {
+    setMessage('reviewActionMessage', 'info', 'Mark for recount cancelled.');
+    return;
+  }
+
+  setMessage('reviewActionMessage', 'info', 'Marking cycle count for recount...');
+
+  const { error } = await client.rpc('mark_cycle_count_for_recount', {
+    p_cycle_count_id: selectedCycleCount.cycle_count_id,
+    p_reviewed_by: reviewedBy
+  });
+
+  if (error) {
+    setMessage('reviewActionMessage', 'error', error.message);
+    return;
+  }
+
+  setMessage('reviewActionMessage', 'success', 'Cycle count marked RECOUNT_REQUIRED successfully.');
+
+  document.getElementById('reviewActionByInput').value = '';
+  document.getElementById('reviewActionConfirmInput').value = '';
+
+  clearSelectedCycleCount();
+
+  await loadCycleCountReviewQueue();
+  await loadCycleCountSessionSummary();
+}
+
+async function voidSelectedCycleCount() {
+  if (!selectedCycleCount) {
+    setMessage('reviewActionMessage', 'error', 'Open a cycle count from the review queue before voiding it.');
+    return;
+  }
+
+  if (
+    selectedCycleCount.status !== 'READY_FOR_REVIEW' &&
+    selectedCycleCount.status !== 'RECOUNT_REQUIRED'
+  ) {
+    setMessage('reviewActionMessage', 'error', 'Only READY_FOR_REVIEW or RECOUNT_REQUIRED cycle counts can be voided.');
+    return;
+  }
+
+  const voidedBy = document.getElementById('reviewActionByInput').value.trim();
+  const confirmation = document.getElementById('reviewActionConfirmInput').value.trim();
+
+  if (!voidedBy) {
+    setMessage('reviewActionMessage', 'error', 'Review Action By is required.');
+    return;
+  }
+
+  if (confirmation !== 'VOID') {
+    setMessage('reviewActionMessage', 'error', 'Type VOID exactly to void this cycle count.');
+    return;
+  }
+
+  const browserConfirm = confirm(
+    `VOID "${selectedCycleCount.count_name}"?\n\n` +
+    `Category: ${selectedCycleCount.cycle_count_category}\n` +
+    `No inventory adjustments will be posted.\n\n` +
+    `Use this for test, duplicate, invalid, or wrong-category sessions.`
+  );
+
+  if (!browserConfirm) {
+    setMessage('reviewActionMessage', 'info', 'Void cancelled.');
+    return;
+  }
+
+  setMessage('reviewActionMessage', 'info', 'Voiding cycle count...');
+
+  const { error } = await client.rpc('void_cycle_count', {
+    p_cycle_count_id: selectedCycleCount.cycle_count_id,
+    p_voided_by: voidedBy
+  });
+
+  if (error) {
+    setMessage('reviewActionMessage', 'error', error.message);
+    return;
+  }
+
+  setMessage('reviewActionMessage', 'success', 'Cycle count voided successfully.');
+
+  document.getElementById('reviewActionByInput').value = '';
+  document.getElementById('reviewActionConfirmInput').value = '';
+
+  clearSelectedCycleCount();
+
+  await loadCycleCountReviewQueue();
+  await loadCycleCountSessionSummary();
+}
+
 async function postSelectedCycleCountAdjustments() {
   if (!selectedCycleCount) {
     setMessage('postMessage', 'error', 'Open a cycle count from the review queue before posting.');
@@ -954,7 +1109,7 @@ async function postSelectedCycleCountAdjustments() {
 
   setMessage('postMessage', 'info', 'Posting cycle count adjustments...');
 
-  const { data, error } = await client.rpc('post_cycle_count_adjustments', {
+  const { error } = await client.rpc('post_cycle_count_adjustments', {
     p_cycle_count_id: selectedCycleCount.cycle_count_id,
     p_posted_by: postedBy
   });
@@ -969,14 +1124,19 @@ async function postSelectedCycleCountAdjustments() {
   document.getElementById('postedByInput').value = '';
   document.getElementById('postConfirmInput').value = '';
 
-  selectedCycleCount = null;
-  selectedCycleCountDetailData = [];
-
-  renderSelectedCycleCountInfo(null);
-  renderSelectedCycleCountReviewDetail([]);
+  clearSelectedCycleCount();
 
   await loadCycleCountReviewQueue();
   await loadCycleCountSessionSummary();
+}
+
+function clearSelectedCycleCount() {
+  selectedCycleCount = null;
+  selectedCycleCountDetailData = [];
+  renderSelectedCycleCountInfo(null);
+
+  const tbody = document.getElementById('reviewDetailBody');
+  tbody.innerHTML = '<tr><td colspan="9">Open a cycle count from the queue to view line-level variances.</td></tr>';
 }
 
 async function loadCycleCountCategorySummary() {
@@ -1231,6 +1391,12 @@ function setMessage(elementId, type, message) {
   const el = document.getElementById(elementId);
   el.className = `message ${type}`;
   el.textContent = message;
+}
+
+function clearMessage(elementId) {
+  const el = document.getElementById(elementId);
+  el.className = 'message';
+  el.textContent = '';
 }
 
 function formatDateTime(value) {
