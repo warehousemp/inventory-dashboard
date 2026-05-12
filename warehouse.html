@@ -1427,15 +1427,9 @@ async function markActiveCycleCountReadyForReview() {
     return;
   }
 
-  await loadActiveCycleCountLines();
-
-  const incompleteLines = activeCycleCountLines.filter(
-    line => line.counted_quantity === null || line.counted_quantity === undefined
-  );
-
-  if (incompleteLines.length > 0) {
+  if (!activeCycleCountLines || activeCycleCountLines.length === 0) {
     document.getElementById('cycleCountPostResult').textContent =
-      `Cannot mark ready for review. ${incompleteLines.length} line(s) still have no counted quantity.`;
+      'No count lines are loaded. Reload active count lines first.';
     return;
   }
 
@@ -1444,6 +1438,42 @@ async function markActiveCycleCountReadyForReview() {
   if (!reviewedBy) {
     document.getElementById('cycleCountPostResult').textContent =
       'Reviewed By is required.';
+    return;
+  }
+
+  const blankLines = [];
+
+  activeCycleCountLines.forEach(line => {
+    const countedInput = document.getElementById(`counted_${line.id}`);
+
+    if (!countedInput || countedInput.value === '') {
+      blankLines.push(line.part_number || line.id);
+    }
+  });
+
+  if (blankLines.length > 0) {
+    document.getElementById('cycleCountPostResult').textContent =
+      `Cannot mark ready for review. ${blankLines.length} line(s) still have no counted quantity.\n\n` +
+      `Blank lines:\n` +
+      blankLines.slice(0, 25).join('\n') +
+      (blankLines.length > 25 ? `\n...and ${blankLines.length - 25} more` : '') +
+      `\n\nEnter a counted quantity for every line, then click SAVE ENTERED COUNTS before marking ready.`;
+    return;
+  }
+
+  document.getElementById('cycleCountPostResult').textContent =
+    'Saving visible count entries before review...';
+
+  await saveAllCycleCountLines();
+
+  const incompleteLines = activeCycleCountLines.filter(
+    line => line.counted_quantity === null || line.counted_quantity === undefined
+  );
+
+  if (incompleteLines.length > 0) {
+    document.getElementById('cycleCountPostResult').textContent =
+      `Cannot mark ready for review. ${incompleteLines.length} line(s) are still not saved with counted quantity.\n\n` +
+      `Click SAVE ENTERED COUNTS again, then retry.`;
     return;
   }
 
