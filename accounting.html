@@ -95,7 +95,8 @@
       font-size: 14px;
     }
 
-    input {
+    input,
+    select {
       width: 100%;
       padding: 12px;
       margin-bottom: 15px;
@@ -105,7 +106,8 @@
       font-size: 15px;
     }
 
-    input:focus {
+    input:focus,
+    select:focus {
       outline: none;
       border-color: #805ad5;
       box-shadow: 0 0 0 3px rgba(128,90,213,0.15);
@@ -137,6 +139,13 @@
       margin-top: 10px;
     }
 
+    .secondary-btn {
+      background: #0b3c5d;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
     pre {
       background: #f0f4f8;
       padding: 15px;
@@ -156,6 +165,17 @@
       font-size: 12px;
       color: #667085;
       line-height: 1.4;
+    }
+
+    .report-note {
+      background: #f8f4ff;
+      border: 1px solid #d8c7ff;
+      color: #46336f;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 15px;
     }
 
     @media (max-width: 950px) {
@@ -196,7 +216,8 @@
         font-size: 20px;
       }
 
-      input {
+      input,
+      select {
         font-size: 16px;
         padding: 13px;
       }
@@ -242,17 +263,33 @@
 
     <h2>Transaction Log</h2>
 
+    <div class="report-note">
+      Transaction reports now identify manual adjustments separately from cycle count adjustments.
+      Cycle count postings are labeled as Cycle Count Adjustment and use transaction type CYCLE_COUNT_ADJUSTMENT.
+    </div>
+
     <label>Start Date:</label>
     <input id="transactionStartDate" type="date">
 
     <label>End Date:</label>
     <input id="transactionEndDate" type="date">
 
+    <label>Transaction Type:</label>
+    <select id="transactionTypeFilter">
+      <option value="ALL">All Transaction Types</option>
+      <option value="RECEIVE">Received Inventory</option>
+      <option value="ISSUED">Issued Inventory</option>
+      <option value="ADJUSTMENT">Manual Adjustment</option>
+      <option value="CYCLE_COUNT_ADJUSTMENT">Cycle Count Adjustment</option>
+    </select>
+
     <div class="help-text">
-      Select a date range to review inventory transaction activity.
+      Select a date range and optional transaction type to review inventory activity.
     </div>
 
     <button class="accounting-btn" onclick="loadTransactionLog()">RUN TRANSACTION LOG</button>
+
+    <button class="secondary-btn" onclick="loadAdjustmentTransactionLog()">RUN ADJUSTMENT REPORT</button>
 
     <button class="accounting-btn" onclick="exportTransactionLogCSV()">EXPORT TRANSACTION LOG CSV</button>
 
@@ -269,12 +306,40 @@ const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let transactionLogData = [];
+let currentTransactionReportMode = 'transaction_log';
 
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD'
   });
+}
+
+function getTransactionTypeLabel(transactionType) {
+  const normalizedType = String(transactionType || '').toUpperCase();
+
+  if (normalizedType === 'RECEIVE') {
+    return 'Received Inventory';
+  }
+
+  if (normalizedType === 'ISSUED') {
+    return 'Issued Inventory';
+  }
+
+  if (normalizedType === 'ADJUSTMENT') {
+    return 'Manual Adjustment';
+  }
+
+  if (normalizedType === 'CYCLE_COUNT_ADJUSTMENT') {
+    return 'Cycle Count Adjustment';
+  }
+
+  return transactionType || 'Unknown Transaction Type';
+}
+
+function getTransactionDisplayType(row) {
+  const rawType = row.transaction_type || row.type || '';
+  return getTransactionTypeLabel(rawType);
 }
 
 async function loadInventoryValueSummary() {
@@ -375,6 +440,37 @@ async function exportInventoryValueDetailCSV() {
 async function loadTransactionLog() {
   const startDate = document.getElementById('transactionStartDate').value;
   const endDate = document.getElementById('transactionEndDate').value;
+  const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
+
+  currentTransactionReportMode = 'transaction_log';
+
+  await runTransactionLogQuery({
+    startDate,
+    endDate,
+    selectedTransactionType,
+    adjustmentOnly: false
+  });
+}
+
+async function loadAdjustmentTransactionLog() {
+  const startDate = document.getElementById('transactionStartDate').value;
+  const endDate = document.getElementById('transactionEndDate').value;
+
+  currentTransactionReportMode = 'adjustment_report';
+
+  await runTransactionLogQuery({
+    startDate,
+    endDate,
+    selectedTransactionType: 'ALL',
+    adjustmentOnly: true
+  });
+}
+
+async function runTransactionLogQuery(options) {
+  const startDate = options.startDate;
+  const endDate = options.endDate;
+  const selectedTransactionType = options.selectedTransactionType;
+  const adjustmentOnly = options.adjustmentOnly;
 
   if (!startDate || !endDate) {
     document.getElementById('transactionLogReport').textContent =
@@ -389,13 +485,23 @@ async function loadTransactionLog() {
   }
 
   document.getElementById('transactionLogReport').textContent =
-    'Loading transaction log...';
+    adjustmentOnly
+      ? 'Loading adjustment report...'
+      : 'Loading transaction log...';
 
-  const { data, error } = await client
+  let query = client
     .from('inventory_transaction_log_view')
     .select('*')
     .gte('created_at', startDate + ' 00:00:00')
-    .lte('created_at', endDate + ' 23:59:59')
+    .lte('created_at', endDate + ' 23:59:59');
+
+  if (adjustmentOnly) {
+    query = query.in('transaction_type', ['ADJUSTMENT', 'CYCLE_COUNT_ADJUSTMENT']);
+  } else if (selectedTransactionType && selectedTransactionType !== 'ALL') {
+    query = query.eq('transaction_type', selectedTransactionType);
+  }
+
+  const { data, error } = await query
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -406,23 +512,104 @@ async function loadTransactionLog() {
 
   if (!data || data.length === 0) {
     document.getElementById('transactionLogReport').textContent =
-      'No transactions found for selected date range.';
+      adjustmentOnly
+        ? 'No adjustment transactions found for selected date range.'
+        : 'No transactions found for selected date range.';
     transactionLogData = [];
     return;
   }
 
-  transactionLogData = data;
+  transactionLogData = data.map(row => {
+    return {
+      ...row,
+      transaction_label: getTransactionDisplayType(row)
+    };
+  });
 
-  const columns = Object.keys(data[0]);
+  displayTransactionLog(transactionLogData, adjustmentOnly);
+}
 
-  let output = columns.map(col => col.toUpperCase()).join(' | ') + '\n';
-  output += '-'.repeat(120) + '\n';
+function displayTransactionLog(data, adjustmentOnly) {
+  if (!data || data.length === 0) {
+    document.getElementById('transactionLogReport').textContent =
+      'No transactions found.';
+    return;
+  }
+
+  let preferredColumns = [
+    'created_at',
+    'transaction_type',
+    'transaction_label',
+    'part_number',
+    'description',
+    'quantity',
+    'unit_cost',
+    'location_name',
+    'client_name',
+    'work_order_number',
+    'notes'
+  ];
+
+  const actualColumns = Object.keys(data[0]);
+
+  let displayColumns = preferredColumns.filter(col => actualColumns.includes(col));
+
+  actualColumns.forEach(col => {
+    if (!displayColumns.includes(col)) {
+      displayColumns.push(col);
+    }
+  });
+
+  let reportTitle = adjustmentOnly
+    ? 'ADJUSTMENT REPORT'
+    : 'TRANSACTION LOG';
+
+  let output = `${reportTitle}\n`;
+  output += `Generated from selected date range\n`;
+
+  if (adjustmentOnly) {
+    output += `Included Transaction Types: ADJUSTMENT, CYCLE_COUNT_ADJUSTMENT\n`;
+  } else {
+    const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
+
+    if (selectedTransactionType === 'ALL') {
+      output += `Included Transaction Types: All\n`;
+    } else {
+      output += `Included Transaction Type: ${selectedTransactionType} - ${getTransactionTypeLabel(selectedTransactionType)}\n`;
+    }
+  }
+
+  output += '\n';
+  output += displayColumns.map(col => formatColumnHeader(col)).join(' | ') + '\n';
+  output += '-'.repeat(160) + '\n';
 
   data.forEach(row => {
-    output += columns.map(col => row[col] ?? '').join(' | ') + '\n';
+    output += displayColumns.map(col => formatDisplayValue(col, row[col])).join(' | ') + '\n';
   });
 
   document.getElementById('transactionLogReport').textContent = output;
+}
+
+function formatColumnHeader(columnName) {
+  if (columnName === 'transaction_label') {
+    return 'TRANSACTION LABEL';
+  }
+
+  return String(columnName || '')
+    .replace(/_/g, ' ')
+    .toUpperCase();
+}
+
+function formatDisplayValue(columnName, value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (columnName === 'unit_cost') {
+    return formatCurrency(value);
+  }
+
+  return value;
 }
 
 function exportTransactionLogCSV() {
@@ -432,18 +619,51 @@ function exportTransactionLogCSV() {
     return;
   }
 
-  const columns = Object.keys(transactionLogData[0]);
+  let preferredColumns = [
+    'created_at',
+    'transaction_type',
+    'transaction_label',
+    'part_number',
+    'description',
+    'quantity',
+    'unit_cost',
+    'location_name',
+    'client_name',
+    'work_order_number',
+    'notes'
+  ];
 
-  let csv = columns.map(col => `"${cleanCSV(col)}"`).join(',') + '\n';
+  const actualColumns = Object.keys(transactionLogData[0]);
+
+  let exportColumns = preferredColumns.filter(col => actualColumns.includes(col));
+
+  actualColumns.forEach(col => {
+    if (!exportColumns.includes(col)) {
+      exportColumns.push(col);
+    }
+  });
+
+  let csv = exportColumns.map(col => `"${cleanCSV(formatColumnHeader(col))}"`).join(',') + '\n';
 
   transactionLogData.forEach(row => {
-    csv += columns.map(col => `"${cleanCSV(row[col])}"`).join(',') + '\n';
+    csv += exportColumns.map(col => `"${cleanCSV(row[col])}"`).join(',') + '\n';
   });
 
   const startDate = document.getElementById('transactionStartDate').value;
   const endDate = document.getElementById('transactionEndDate').value;
+  const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
 
-  downloadCSV(csv, `transaction_log_${startDate}_to_${endDate}.csv`);
+  let filename = '';
+
+  if (currentTransactionReportMode === 'adjustment_report') {
+    filename = `adjustment_report_${startDate}_to_${endDate}.csv`;
+  } else if (selectedTransactionType && selectedTransactionType !== 'ALL') {
+    filename = `transaction_log_${selectedTransactionType}_${startDate}_to_${endDate}.csv`;
+  } else {
+    filename = `transaction_log_${startDate}_to_${endDate}.csv`;
+  }
+
+  downloadCSV(csv, filename);
 }
 
 function cleanCSV(value) {
