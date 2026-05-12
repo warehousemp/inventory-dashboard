@@ -139,13 +139,6 @@
       margin-top: 10px;
     }
 
-    .secondary-btn {
-      background: #0b3c5d;
-      color: white;
-      width: 100%;
-      margin-top: 10px;
-    }
-
     pre {
       background: #f0f4f8;
       padding: 15px;
@@ -261,11 +254,10 @@
 
   <div class="card">
 
-    <h2>Transaction Log</h2>
+    <h2>Transaction Report</h2>
 
     <div class="report-note">
-      Transaction reports now identify manual adjustments separately from cycle count adjustments.
-      Cycle count postings are labeled as Cycle Count Adjustment and use transaction type CYCLE_COUNT_ADJUSTMENT.
+      Use the dropdown to choose the transaction report type. Manual adjustments and cycle count adjustments are separated clearly, and the export includes both the raw transaction type and a friendly transaction label.
     </div>
 
     <label>Start Date:</label>
@@ -281,21 +273,18 @@
       <option value="ISSUED">Issued Inventory</option>
       <option value="ADJUSTMENT">Manual Adjustment</option>
       <option value="CYCLE_COUNT_ADJUSTMENT">Cycle Count Adjustment</option>
+      <option value="ALL_ADJUSTMENTS">All Adjustments</option>
     </select>
 
     <div class="help-text">
-      Select a date range and optional transaction type to review inventory activity.
+      All Adjustments includes both Manual Adjustment and Cycle Count Adjustment.
     </div>
 
-    <button class="accounting-btn" onclick="loadTransactionLog()">RUN TRANSACTION LOG</button>
+    <button class="accounting-btn" onclick="loadTransactionLog()">RUN TRANSACTION REPORT</button>
 
-    <button class="secondary-btn" onclick="loadAdjustmentTransactionLog()">RUN ADJUSTMENT REPORT</button>
+    <button class="accounting-btn" onclick="exportTransactionLogCSV()">EXPORT TRANSACTION REPORT CSV</button>
 
-    <button class="secondary-btn" onclick="exportAdjustmentReportCSV()">EXPORT ADJUSTMENT REPORT CSV</button>
-
-    <button class="accounting-btn" onclick="exportTransactionLogCSV()">EXPORT TRANSACTION LOG CSV</button>
-
-    <pre id="transactionLogReport">Select a date range and run transaction log...</pre>
+    <pre id="transactionLogReport">Select a date range and run transaction report...</pre>
 
   </div>
 
@@ -308,7 +297,7 @@ const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let transactionLogData = [];
-let currentTransactionReportMode = 'transaction_log';
+let currentTransactionReportType = 'ALL';
 
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString('en-US', {
@@ -336,12 +325,60 @@ function getTransactionTypeLabel(transactionType) {
     return 'Cycle Count Adjustment';
   }
 
+  if (normalizedType === 'ALL_ADJUSTMENTS') {
+    return 'All Adjustments';
+  }
+
+  if (normalizedType === 'ALL') {
+    return 'All Transaction Types';
+  }
+
   return transactionType || 'Unknown Transaction Type';
 }
 
 function getTransactionDisplayType(row) {
   const rawType = row.transaction_type || row.type || '';
   return getTransactionTypeLabel(rawType);
+}
+
+function getReportTitle(reportType) {
+  if (reportType === 'ALL') {
+    return 'TRANSACTION REPORT - ALL TRANSACTION TYPES';
+  }
+
+  if (reportType === 'ALL_ADJUSTMENTS') {
+    return 'TRANSACTION REPORT - ALL ADJUSTMENTS';
+  }
+
+  return `TRANSACTION REPORT - ${getTransactionTypeLabel(reportType).toUpperCase()}`;
+}
+
+function getReportFilenamePrefix(reportType) {
+  if (reportType === 'ALL') {
+    return 'transaction_report_all';
+  }
+
+  if (reportType === 'RECEIVE') {
+    return 'transaction_report_received_inventory';
+  }
+
+  if (reportType === 'ISSUED') {
+    return 'transaction_report_issued_inventory';
+  }
+
+  if (reportType === 'ADJUSTMENT') {
+    return 'transaction_report_manual_adjustments';
+  }
+
+  if (reportType === 'CYCLE_COUNT_ADJUSTMENT') {
+    return 'transaction_report_cycle_count_adjustments';
+  }
+
+  if (reportType === 'ALL_ADJUSTMENTS') {
+    return 'transaction_report_all_adjustments';
+  }
+
+  return 'transaction_report';
 }
 
 async function loadInventoryValueSummary() {
@@ -444,52 +481,24 @@ async function loadTransactionLog() {
   const endDate = document.getElementById('transactionEndDate').value;
   const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
 
-  currentTransactionReportMode = 'transaction_log';
-
-  await runTransactionLogQuery({
-    startDate,
-    endDate,
-    selectedTransactionType,
-    adjustmentOnly: false
-  });
-}
-
-async function loadAdjustmentTransactionLog() {
-  const startDate = document.getElementById('transactionStartDate').value;
-  const endDate = document.getElementById('transactionEndDate').value;
-
-  currentTransactionReportMode = 'adjustment_report';
-
-  await runTransactionLogQuery({
-    startDate,
-    endDate,
-    selectedTransactionType: 'ALL',
-    adjustmentOnly: true
-  });
-}
-
-async function runTransactionLogQuery(options) {
-  const startDate = options.startDate;
-  const endDate = options.endDate;
-  const selectedTransactionType = options.selectedTransactionType;
-  const adjustmentOnly = options.adjustmentOnly;
+  currentTransactionReportType = selectedTransactionType;
 
   if (!startDate || !endDate) {
     document.getElementById('transactionLogReport').textContent =
       'Please select both a start date and end date.';
+    transactionLogData = [];
     return;
   }
 
   if (startDate > endDate) {
     document.getElementById('transactionLogReport').textContent =
       'Start date cannot be after end date.';
+    transactionLogData = [];
     return;
   }
 
   document.getElementById('transactionLogReport').textContent =
-    adjustmentOnly
-      ? 'Loading adjustment report...'
-      : 'Loading transaction log...';
+    'Loading transaction report...';
 
   let query = client
     .from('inventory_transaction_log_view')
@@ -497,9 +506,9 @@ async function runTransactionLogQuery(options) {
     .gte('created_at', startDate + ' 00:00:00')
     .lte('created_at', endDate + ' 23:59:59');
 
-  if (adjustmentOnly) {
+  if (selectedTransactionType === 'ALL_ADJUSTMENTS') {
     query = query.in('transaction_type', ['ADJUSTMENT', 'CYCLE_COUNT_ADJUSTMENT']);
-  } else if (selectedTransactionType && selectedTransactionType !== 'ALL') {
+  } else if (selectedTransactionType !== 'ALL') {
     query = query.eq('transaction_type', selectedTransactionType);
   }
 
@@ -514,9 +523,7 @@ async function runTransactionLogQuery(options) {
 
   if (!data || data.length === 0) {
     document.getElementById('transactionLogReport').textContent =
-      adjustmentOnly
-        ? 'No adjustment transactions found for selected date range.'
-        : 'No transactions found for selected date range.';
+      'No transactions found for selected date range and report type.';
     transactionLogData = [];
     return;
   }
@@ -528,10 +535,10 @@ async function runTransactionLogQuery(options) {
     };
   });
 
-  displayTransactionLog(transactionLogData, adjustmentOnly);
+  displayTransactionLog(transactionLogData, selectedTransactionType);
 }
 
-function displayTransactionLog(data, adjustmentOnly) {
+function displayTransactionLog(data, reportType) {
   if (!data || data.length === 0) {
     document.getElementById('transactionLogReport').textContent =
       'No transactions found.';
@@ -565,23 +572,12 @@ function displayTransactionLog(data, adjustmentOnly) {
     }
   });
 
-  let reportTitle = adjustmentOnly
-    ? 'ADJUSTMENT REPORT'
-    : 'TRANSACTION LOG';
-
-  let output = `${reportTitle}\n`;
+  let output = `${getReportTitle(reportType)}\n`;
   output += `Generated from selected date range\n`;
+  output += `Included: ${getTransactionTypeLabel(reportType)}\n`;
 
-  if (adjustmentOnly) {
+  if (reportType === 'ALL_ADJUSTMENTS') {
     output += `Included Transaction Types: ADJUSTMENT, CYCLE_COUNT_ADJUSTMENT\n`;
-  } else {
-    const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
-
-    if (selectedTransactionType === 'ALL') {
-      output += `Included Transaction Types: All\n`;
-    } else {
-      output += `Included Transaction Type: ${selectedTransactionType} - ${getTransactionTypeLabel(selectedTransactionType)}\n`;
-    }
   }
 
   output += '\n';
@@ -667,46 +663,7 @@ function buildTransactionCSV() {
 function exportTransactionLogCSV() {
   if (!transactionLogData || transactionLogData.length === 0) {
     document.getElementById('transactionLogReport').textContent =
-      'Run the transaction log before exporting.';
-    return;
-  }
-
-  const startDate = document.getElementById('transactionStartDate').value;
-  const endDate = document.getElementById('transactionEndDate').value;
-  const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
-
-  let filename = '';
-
-  if (currentTransactionReportMode === 'adjustment_report') {
-    filename = `adjustment_report_${startDate}_to_${endDate}.csv`;
-  } else if (selectedTransactionType && selectedTransactionType !== 'ALL') {
-    filename = `transaction_log_${selectedTransactionType}_${startDate}_to_${endDate}.csv`;
-  } else {
-    filename = `transaction_log_${startDate}_to_${endDate}.csv`;
-  }
-
-  const csv = buildTransactionCSV();
-
-  downloadCSV(csv, filename);
-}
-
-function exportAdjustmentReportCSV() {
-  if (!transactionLogData || transactionLogData.length === 0) {
-    document.getElementById('transactionLogReport').textContent =
-      'Run the adjustment report before exporting.';
-    return;
-  }
-
-  const hasOnlyAdjustmentTypes = transactionLogData.every(row => {
-    const transactionType = String(row.transaction_type || '').toUpperCase();
-
-    return transactionType === 'ADJUSTMENT' ||
-           transactionType === 'CYCLE_COUNT_ADJUSTMENT';
-  });
-
-  if (!hasOnlyAdjustmentTypes || currentTransactionReportMode !== 'adjustment_report') {
-    document.getElementById('transactionLogReport').textContent =
-      'Please run the Adjustment Report before exporting the adjustment report CSV.';
+      'Run the transaction report before exporting.';
     return;
   }
 
@@ -714,8 +671,9 @@ function exportAdjustmentReportCSV() {
   const endDate = document.getElementById('transactionEndDate').value;
 
   const csv = buildTransactionCSV();
+  const filenamePrefix = getReportFilenamePrefix(currentTransactionReportType);
 
-  downloadCSV(csv, `adjustment_report_${startDate}_to_${endDate}.csv`);
+  downloadCSV(csv, `${filenamePrefix}_${startDate}_to_${endDate}.csv`);
 }
 
 function cleanCSV(value) {
