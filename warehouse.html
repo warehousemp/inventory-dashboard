@@ -196,6 +196,14 @@
       margin-top: 10px;
     }
 
+    .small-btn {
+      width: auto;
+      margin: 0;
+      padding: 8px 12px;
+      font-size: 13px;
+      border-radius: 7px;
+    }
+
     .button-row {
       display: flex;
       flex-wrap: wrap;
@@ -295,6 +303,7 @@
       text-align: left;
       font-size: 13px;
       vertical-align: top;
+      white-space: nowrap;
     }
 
     th {
@@ -303,6 +312,10 @@
       position: sticky;
       top: 0;
       z-index: 1;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
     }
 
     .count-input,
@@ -344,6 +357,10 @@
       word-break: break-all;
       margin-bottom: 15px;
       white-space: pre-wrap;
+    }
+
+    .selected-row td {
+      background: #ecfdf3 !important;
     }
 
     @media (max-width: 1250px) {
@@ -416,6 +433,12 @@
       pre {
         font-size: 12px;
         max-height: 420px;
+      }
+
+      th,
+      td {
+        font-size: 12px;
+        padding: 8px;
       }
     }
   </style>
@@ -555,6 +578,47 @@
       variance review, and submission for Admin review.
     </div>
 
+    <h3>Recount Required Queue</h3>
+
+    <div class="warning-note">
+      These are cycle counts returned by Admin for recount. Open a session, correct the counted quantities,
+      save the recount, and mark it READY_FOR_REVIEW again. This does not post inventory adjustments.
+    </div>
+
+    <div class="button-row">
+      <button class="cycle-btn" onclick="loadRecountRequiredQueue()">LOAD RECOUNT REQUIRED QUEUE</button>
+    </div>
+
+    <div id="recountQueueStatus" class="session-id-box">
+      Click LOAD RECOUNT REQUIRED QUEUE to check for recounts.
+    </div>
+
+    <div class="count-table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Count Name</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Started By</th>
+            <th>Started At</th>
+            <th>Reviewed By</th>
+            <th>Reviewed At</th>
+            <th>Line Count</th>
+            <th>Counted Lines</th>
+            <th>Variance Qty</th>
+            <th>Variance Value</th>
+          </tr>
+        </thead>
+        <tbody id="recountQueueTableBody">
+          <tr>
+            <td colspan="12">No recount queue loaded.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <h3>Step 1: Export Count Sheet</h3>
 
     <label>Cycle Count Category:</label>
@@ -596,7 +660,7 @@
       Active Cycle Count ID: None
     </div>
 
-    <pre id="cycleCountSessionResult">Create a cycle count session after selecting a category...</pre>
+    <pre id="cycleCountSessionResult">Create a cycle count session after selecting a category, or open a recount from the Recount Required Queue...</pre>
 
     <h3>Step 3: Enter Counts and Review Variances</h3>
 
@@ -632,7 +696,7 @@
         </thead>
         <tbody id="cycleCountLinesTableBody">
           <tr>
-            <td colspan="9">Create or load a cycle count session to enter counts.</td>
+            <td colspan="9">Create, load, or open a cycle count session to enter counts.</td>
           </tr>
         </tbody>
       </table>
@@ -667,6 +731,7 @@ let partsData = [];
 let cycleCountSheetData = [];
 let activeCycleCountId = null;
 let activeCycleCountLines = [];
+let recountRequiredQueueData = [];
 
 async function loadParts() {
   let allParts = [];
@@ -960,6 +1025,106 @@ async function exportSerializedInventoryCSV() {
   downloadCSV(csv, 'serialized_inventory.csv');
 }
 
+async function loadRecountRequiredQueue() {
+  document.getElementById('recountQueueStatus').textContent =
+    'Loading recount required queue...';
+
+  const { data, error } = await client
+    .from('inventory_cycle_count_session_summary')
+    .select('*')
+    .eq('status', 'RECOUNT_REQUIRED')
+    .order('reviewed_at', { ascending: false });
+
+  if (error) {
+    recountRequiredQueueData = [];
+    document.getElementById('recountQueueStatus').textContent = error.message;
+    renderRecountRequiredQueue();
+    return;
+  }
+
+  recountRequiredQueueData = data || [];
+  renderRecountRequiredQueue();
+
+  if (recountRequiredQueueData.length === 0) {
+    document.getElementById('recountQueueStatus').textContent =
+      'No cycle counts currently require recount.';
+    return;
+  }
+
+  document.getElementById('recountQueueStatus').textContent =
+    `${recountRequiredQueueData.length} cycle count(s) require recount. Open one to correct and resubmit.`;
+}
+
+function renderRecountRequiredQueue() {
+  const tbody = document.getElementById('recountQueueTableBody');
+  tbody.innerHTML = '';
+
+  if (!recountRequiredQueueData || recountRequiredQueueData.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="12">No RECOUNT_REQUIRED cycle counts found.</td></tr>';
+    return;
+  }
+
+  recountRequiredQueueData.forEach(row => {
+    const tr = document.createElement('tr');
+
+    if (String(activeCycleCountId) === String(row.cycle_count_id)) {
+      tr.classList.add('selected-row');
+    }
+
+    tr.innerHTML = `
+      <td>
+        <button class="cycle-btn small-btn" onclick="openRecountRequiredSession('${escapeJS(row.cycle_count_id)}')">
+          OPEN RECOUNT
+        </button>
+      </td>
+      <td>${escapeHTML(row.count_name || '')}</td>
+      <td>${escapeHTML(row.cycle_count_category || '')}</td>
+      <td>${escapeHTML(row.status || '')}</td>
+      <td>${escapeHTML(row.started_by || '')}</td>
+      <td>${formatDateTime(row.started_at)}</td>
+      <td>${escapeHTML(row.reviewed_by || '')}</td>
+      <td>${formatDateTime(row.reviewed_at)}</td>
+      <td>${formatNumber(row.line_count)}</td>
+      <td>${formatNumber(row.counted_line_count)}</td>
+      <td class="${getVarianceClass(row.total_variance_quantity)}">${formatNumber(row.total_variance_quantity)}</td>
+      <td class="${getVarianceClass(row.total_variance_value)}">${formatCurrency(row.total_variance_value)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+async function openRecountRequiredSession(cycleCountId) {
+  const session = recountRequiredQueueData.find(
+    row => String(row.cycle_count_id) === String(cycleCountId)
+  );
+
+  if (!session) {
+    document.getElementById('recountQueueStatus').textContent =
+      'Selected recount session was not found in the queue.';
+    return;
+  }
+
+  activeCycleCountId = session.cycle_count_id;
+
+  document.getElementById('activeCycleCountIdBox').textContent =
+    `Active Cycle Count ID: ${activeCycleCountId}\nStatus: RECOUNT_REQUIRED\nCount Name: ${session.count_name || ''}\nCategory: ${session.cycle_count_category || ''}`;
+
+  document.getElementById('cycleCountSessionResult').textContent =
+    `Recount session opened.\nCount Name: ${session.count_name || ''}\nCategory: ${session.cycle_count_category || ''}\nCycle Count ID: ${activeCycleCountId}\n\nEnter corrected counted quantities, save, then mark READY_FOR_REVIEW again.`;
+
+  if (!document.getElementById('cycleCountStartedBy').value.trim()) {
+    document.getElementById('cycleCountStartedBy').value = session.started_by || '';
+  }
+
+  document.getElementById('cycleCountPostResult').textContent =
+    'Recount opened. Save corrected counts before marking ready for review again.';
+
+  renderRecountRequiredQueue();
+  await loadActiveCycleCountLines();
+}
+
 async function loadCycleCountCategories() {
   const categorySelect = document.getElementById('cycleCountCategory');
 
@@ -1145,13 +1310,14 @@ async function createCycleCountSession() {
   document.getElementById('cycleCountPostResult').textContent =
     'Cycle count session created. Enter and save all counts before marking ready for review.';
 
+  renderRecountRequiredQueue();
   await loadActiveCycleCountLines();
 }
 
 async function loadActiveCycleCountLines() {
   if (!activeCycleCountId) {
     document.getElementById('cycleCountSaveResult').textContent =
-      'No active cycle count session. Create a session first.';
+      'No active cycle count session. Create a session first or open a recount.';
     return;
   }
 
@@ -1412,7 +1578,7 @@ function exportActiveCycleCountLinesCSV() {
 async function markActiveCycleCountReadyForReview() {
   if (!activeCycleCountId) {
     document.getElementById('cycleCountPostResult').textContent =
-      'No active cycle count session. Create a session first.';
+      'No active cycle count session. Create a session first or open a recount.';
     return;
   }
 
@@ -1472,7 +1638,23 @@ async function markActiveCycleCountReadyForReview() {
   }
 
   document.getElementById('cycleCountPostResult').textContent =
-    `Cycle count marked READY_FOR_REVIEW.\nCycle Count ID: ${activeCycleCountId}\n\nThis count is now ready for review. No inventory quantities have been changed.`;
+    `Cycle count marked READY_FOR_REVIEW.\nCycle Count ID: ${activeCycleCountId}\n\nThis count is now ready for Admin review. No inventory quantities have been changed.`;
+
+  await loadRecountRequiredQueue();
+}
+
+function getVarianceClass(value) {
+  const number = Number(value || 0);
+
+  if (number > 0) {
+    return 'variance-positive';
+  }
+
+  if (number < 0) {
+    return 'variance-negative';
+  }
+
+  return 'variance-zero';
 }
 
 function formatCurrency(value) {
@@ -1540,6 +1722,17 @@ function escapeHTML(value) {
     .replace(/'/g, '&#039;');
 }
 
+function escapeJS(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"');
+}
+
 function downloadCSV(csv, filename) {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -1558,6 +1751,7 @@ function downloadCSV(csv, filename) {
 loadParts();
 loadReorder();
 loadCycleCountCategories();
+loadRecountRequiredQueue();
 </script>
 
 </body>
