@@ -1964,27 +1964,41 @@ async function exportDeadStockCSV() {
   const filterValue = document.getElementById('deadStockFilter').value;
   const verifiedStatusFilter = document.getElementById('deadStockVerifiedStatusFilter').value;
   const partLookup = document.getElementById('deadStockPartLookup').value.trim();
+
   const filterLabel = document.getElementById('deadStockFilter')
     .selectedOptions[0]
     .textContent;
 
-  if (!deadStockReportData || deadStockReportData.length === 0) {
-    try {
-      deadStockReportData = await fetchDeadStockRows(filterValue, verifiedStatusFilter, partLookup);
-    } catch (error) {
-      document.getElementById('deadStockSummary').textContent = error.message;
-      return;
-    }
-  }
+  const verifiedStatusFilterLabel = document.getElementById('deadStockVerifiedStatusFilter')
+    .selectedOptions[0]
+    .textContent;
 
-  if (!deadStockReportData || deadStockReportData.length === 0) {
-    document.getElementById('deadStockSummary').textContent =
-      'No records available to export for this filter.';
+  document.getElementById('deadStockSummary').textContent =
+    'Preparing filtered Dead Stock CSV export...';
+
+  let exportRows = [];
+
+  try {
+    exportRows = await fetchDeadStockRows(filterValue, verifiedStatusFilter, partLookup);
+  } catch (error) {
+    document.getElementById('deadStockSummary').textContent = error.message;
     return;
   }
 
+  deadStockReportData = exportRows;
+
+  if (!deadStockReportData || deadStockReportData.length === 0) {
+    renderDeadStockTable();
+    document.getElementById('deadStockSummary').textContent =
+      'No records available to export for the current filters.';
+    return;
+  }
+
+  renderDeadStockTable();
+  updateDeadStockSummary();
+
   let csv =
-    'Part Number,Description,Category,Location,Quantity On Hand,Unit Cost,Inventory Value,Last Issued At,Days Since Last Issued,Last Received At,Dead Stock Status,Verified Status,Recommended Action,Verified By,Verified At\n';
+    'Part Number,Description,Category,Location,Quantity On Hand,Unit Cost,Inventory Value,Last Issued At,Days Since Last Issued,Last Received At,Dead Stock Status,Verified Status,Recommended Action,Verified By,Verified At,Verification Reason,Verification Notes\n';
 
   deadStockReportData.forEach(row => {
     csv +=
@@ -2002,18 +2016,19 @@ async function exportDeadStockCSV() {
       `"${cleanCSV(row.verified_status)}",` +
       `"${cleanCSV(row.recommended_action)}",` +
       `"${cleanCSV(row.verified_by)}",` +
-      `"${cleanCSV(row.verified_at)}"\n`;
+      `"${cleanCSV(row.verified_at)}",` +
+      `"${cleanCSV(row.verification_reason)}",` +
+      `"${cleanCSV(row.verification_notes)}"\n`;
   });
-
-  const verifiedStatusFilterLabel = document.getElementById('deadStockVerifiedStatusFilter')
-    .selectedOptions[0]
-    .textContent;
 
   const safeFilter = cleanFilename(filterLabel || 'dead_stock');
   const safeVerifiedStatus = cleanFilename(verifiedStatusFilterLabel || 'verification_status');
   const safePartLookup = cleanFilename(partLookup || 'all_parts');
 
   downloadCSV(csv, `dead_stock_report_${safeFilter}_${safeVerifiedStatus}_${safePartLookup}.csv`);
+
+  document.getElementById('deadStockSummary').textContent +=
+    `\n\nExported ${formatNumber(deadStockReportData.length)} filtered Dead Stock row(s) to CSV.`;
 }
 
 async function fetchNeedsCategoryRows() {
