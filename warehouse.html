@@ -633,6 +633,61 @@
 
   <div class="card wide-card">
 
+    <h2>Dead Stock / No-Movement Reporting</h2>
+
+    <div class="warning-note">
+      This report shows on-hand inventory from stock balances and compares it to issue history.
+      Since the inventory transaction ledger currently has limited history, items with no matching issue history
+      will display as No Issue History Yet.
+    </div>
+
+    <label>Dead Stock Filter:</label>
+    <select id="deadStockFilter">
+      <option value="all_candidates">All Dead Stock Candidates</option>
+      <option value="no_issue" selected>No Issue History Yet</option>
+      <option value="days90">90+ Days No Movement</option>
+      <option value="days180">180+ Days No Movement</option>
+      <option value="days365">365+ Days No Movement</option>
+    </select>
+
+    <div class="button-row">
+      <button class="report-btn" onclick="loadDeadStockReport()">RUN DEAD STOCK REPORT</button>
+      <button class="export-btn" onclick="exportDeadStockCSV()">EXPORT DEAD STOCK CSV</button>
+    </div>
+
+    <div id="deadStockSummary" class="session-id-box">
+      Select a filter and run the Dead Stock report.
+    </div>
+
+    <div class="count-table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Part Number</th>
+            <th>Description</th>
+            <th>Category</th>
+            <th>Location</th>
+            <th>Qty On Hand</th>
+            <th>Unit Cost</th>
+            <th>Inventory Value</th>
+            <th>Last Issued</th>
+            <th>Days Since Issued</th>
+            <th>Last Received</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="deadStockTableBody">
+          <tr>
+            <td colspan="11">No dead stock report loaded.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <div class="card wide-card">
+
     <h2>Cycle Count Management</h2>
 
     <div class="status-note">
@@ -794,6 +849,7 @@ let cycleCountSheetData = [];
 let activeCycleCountId = null;
 let activeCycleCountLines = [];
 let recountRequiredQueueData = [];
+let deadStockReportData = [];
 
 async function loadParts() {
   let allParts = [];
@@ -1134,6 +1190,198 @@ async function exportSerializedInventoryCSV() {
   });
 
   downloadCSV(csv, 'serialized_inventory.csv');
+}
+
+async function fetchDeadStockRows(filterValue) {
+  let allRows = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    let query = client
+      .from('inventory_dead_stock_view')
+      .select('*');
+
+    if (filterValue === 'no_issue') {
+      query = query.eq('dead_stock_status', 'No Issue History Yet');
+    }
+
+    if (filterValue === 'days90') {
+      query = query.gte('days_since_last_issued', 90);
+    }
+
+    if (filterValue === 'days180') {
+      query = query.gte('days_since_last_issued', 180);
+    }
+
+    if (filterValue === 'days365') {
+      query = query.gte('days_since_last_issued', 365);
+    }
+
+    if (filterValue === 'all_candidates') {
+      query = query.neq('dead_stock_status', 'Recently Issued');
+    }
+
+    const { data, error } = await query
+      .order('inventory_value', { ascending: false })
+      .order('part_number', { ascending: true })
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allRows = allRows.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  return allRows;
+}
+
+async function loadDeadStockReport() {
+  const filterValue = document.getElementById('deadStockFilter').value;
+
+  document.getElementById('deadStockSummary').textContent =
+    'Loading dead stock report...';
+
+  const tableBody = document.getElementById('deadStockTableBody');
+  tableBody.innerHTML =
+    '<tr><td colspan="11">Loading dead stock report...</td></tr>';
+
+  try {
+    deadStockReportData = await fetchDeadStockRows(filterValue);
+  } catch (error) {
+    deadStockReportData = [];
+    document.getElementById('deadStockSummary').textContent = error.message;
+    tableBody.innerHTML =
+      `<tr><td colspan="11">${escapeHTML(error.message)}</td></tr>`;
+    return;
+  }
+
+  renderDeadStockTable();
+  updateDeadStockSummary();
+}
+
+function renderDeadStockTable() {
+  const tableBody = document.getElementById('deadStockTableBody');
+  tableBody.innerHTML = '';
+
+  if (!deadStockReportData || deadStockReportData.length === 0) {
+    tableBody.innerHTML =
+      '<tr><td colspan="11">No records found for this filter.</td></tr>';
+    return;
+  }
+
+  deadStockReportData.forEach(row => {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${escapeHTML(row.part_number || '')}</td>
+      <td>${escapeHTML(row.description || '')}</td>
+      <td>${escapeHTML(row.category || 'NULL / BLANK')}</td>
+      <td>${escapeHTML(row.location_name || '')}</td>
+      <td>${formatNumber(row.quantity_on_hand)}</td>
+      <td>${formatCurrency(row.unit_cost)}</td>
+      <td>${formatCurrency(row.inventory_value)}</td>
+      <td>${formatDateTime(row.last_issued_at)}</td>
+      <td>${formatNumber(row.days_since_last_issued)}</td>
+      <td>${formatDateTime(row.last_received_at)}</td>
+      <td>${escapeHTML(row.dead_stock_status || '')}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function updateDeadStockSummary() {
+  if (!deadStockReportData || deadStockReportData.length === 0) {
+    document.getElementById('deadStockSummary').textContent =
+      'No dead stock records found for the selected filter.';
+    return;
+  }
+
+  let totalQty = 0;
+  let totalValue = 0;
+  let noIssueCount = 0;
+  let blankCategoryCount = 0;
+
+  deadStockReportData.forEach(row => {
+    totalQty += Number(row.quantity_on_hand || 0);
+    totalValue += Number(row.inventory_value || 0);
+
+    if (row.dead_stock_status === 'No Issue History Yet') {
+      noIssueCount++;
+    }
+
+    if (!row.category || String(row.category).trim() === '') {
+      blankCategoryCount++;
+    }
+  });
+
+  const filterLabel = document.getElementById('deadStockFilter')
+    .selectedOptions[0]
+    .textContent;
+
+  document.getElementById('deadStockSummary').textContent =
+    `Filter: ${filterLabel}\n` +
+    `Parts Returned: ${deadStockReportData.length}\n` +
+    `Total Quantity On Hand: ${formatNumber(totalQty)}\n` +
+    `Total Inventory Value: ${formatCurrency(totalValue)}\n` +
+    `No Issue History Yet Count: ${formatNumber(noIssueCount)}\n` +
+    `NULL / BLANK Category Count: ${formatNumber(blankCategoryCount)}`;
+}
+
+async function exportDeadStockCSV() {
+  const filterValue = document.getElementById('deadStockFilter').value;
+  const filterLabel = document.getElementById('deadStockFilter')
+    .selectedOptions[0]
+    .textContent;
+
+  if (!deadStockReportData || deadStockReportData.length === 0) {
+    try {
+      deadStockReportData = await fetchDeadStockRows(filterValue);
+    } catch (error) {
+      document.getElementById('deadStockSummary').textContent = error.message;
+      return;
+    }
+  }
+
+  if (!deadStockReportData || deadStockReportData.length === 0) {
+    document.getElementById('deadStockSummary').textContent =
+      'No records available to export for this filter.';
+    return;
+  }
+
+  let csv =
+    'Part Number,Description,Category,Location,Quantity On Hand,Unit Cost,Inventory Value,Last Issued At,Days Since Last Issued,Last Received At,Dead Stock Status\n';
+
+  deadStockReportData.forEach(row => {
+    csv +=
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description)}",` +
+      `"${cleanCSV(row.category)}",` +
+      `"${cleanCSV(row.location_name)}",` +
+      `"${cleanCSV(row.quantity_on_hand)}",` +
+      `"${cleanCSV(row.unit_cost)}",` +
+      `"${cleanCSV(row.inventory_value)}",` +
+      `"${cleanCSV(row.last_issued_at)}",` +
+      `"${cleanCSV(row.days_since_last_issued)}",` +
+      `"${cleanCSV(row.last_received_at)}",` +
+      `"${cleanCSV(row.dead_stock_status)}"\n`;
+  });
+
+  const safeFilter = cleanFilename(filterLabel || 'dead_stock');
+
+  downloadCSV(csv, `dead_stock_report_${safeFilter}.csv`);
 }
 
 async function loadRecountRequiredQueue() {
