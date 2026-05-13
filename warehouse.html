@@ -1676,7 +1676,12 @@ function renderDeadStockTable() {
             >${escapeHTML(row.verification_notes || '')}</textarea>
           </div>
           <div>
-            <button type="button" class="dead-stock-save-btn">
+            <button
+              type="button"
+              id="deadStockSaveButton_${escapeHTML(rowKey)}"
+              class="dead-stock-save-btn"
+              onclick="saveDeadStockVerification('${escapeJS(row.part_number)}', '${escapeJS(rowKey)}')"
+            >
               SAVE VERIFICATION
             </button>
           </div>
@@ -1693,10 +1698,10 @@ function renderDeadStockTable() {
       <td>${formatNumber(row.days_since_last_issued)}</td>
       <td>${formatDateTime(row.last_received_at)}</td>
       <td>${escapeHTML(row.dead_stock_status || '')}</td>
-      <td>${escapeHTML(row.verified_status || '')}</td>
-      <td>${escapeHTML(row.recommended_action || '')}</td>
-      <td>${escapeHTML(row.verified_by || '')}</td>
-      <td>${formatDateTime(row.verified_at)}</td>
+      <td id="deadStockVerifiedStatusDisplay_${escapeHTML(rowKey)}">${escapeHTML(row.verified_status || '')}</td>
+      <td id="deadStockRecommendedActionDisplay_${escapeHTML(rowKey)}">${escapeHTML(row.recommended_action || '')}</td>
+      <td id="deadStockVerifiedByDisplay_${escapeHTML(rowKey)}">${escapeHTML(row.verified_by || '')}</td>
+      <td id="deadStockVerifiedAtDisplay_${escapeHTML(rowKey)}">${formatDateTime(row.verified_at)}</td>
     `;
 
     tableBody.appendChild(tr);
@@ -1725,6 +1730,118 @@ function getDeadStockRecommendedActionOptionsHTML(currentValue) {
   });
 
   return options;
+}
+
+async function saveDeadStockVerification(partNumber, rowKey) {
+  const verifiedStatusElement = document.getElementById(`deadStockVerifiedStatus_${rowKey}`);
+  const recommendedActionElement = document.getElementById(`deadStockRecommendedAction_${rowKey}`);
+  const verifiedByElement = document.getElementById(`deadStockVerifiedBy_${rowKey}`);
+  const reasonElement = document.getElementById(`deadStockReason_${rowKey}`);
+  const notesElement = document.getElementById(`deadStockNotes_${rowKey}`);
+  const saveButton = document.getElementById(`deadStockSaveButton_${rowKey}`);
+
+  const verifiedStatus = verifiedStatusElement ? verifiedStatusElement.value.trim() : '';
+  const recommendedAction = recommendedActionElement ? recommendedActionElement.value.trim() : '';
+  const verifiedBy = verifiedByElement ? verifiedByElement.value.trim() : '';
+  const reason = reasonElement ? reasonElement.value.trim() : '';
+  const notes = notesElement ? notesElement.value.trim() : '';
+
+  if (!partNumber) {
+    document.getElementById('deadStockSummary').textContent =
+      'Unable to save verification because the part number is missing for this row.';
+    return;
+  }
+
+  if (!verifiedStatus) {
+    document.getElementById('deadStockSummary').textContent =
+      `Select a Verified Status before saving ${partNumber}.`;
+    return;
+  }
+
+  if (!verifiedBy) {
+    document.getElementById('deadStockSummary').textContent =
+      `Enter Verified By before saving ${partNumber}.`;
+    return;
+  }
+
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.textContent = 'SAVING...';
+  }
+
+  document.getElementById('deadStockSummary').textContent =
+    `Saving verification for ${partNumber}...`;
+
+  const { error } = await client.rpc('save_dead_stock_verification', {
+    p_part_number: partNumber,
+    p_verified_status: verifiedStatus,
+    p_verified_by: verifiedBy,
+    p_recommended_action: recommendedAction || null,
+    p_reason: reason || null,
+    p_notes: notes || null
+  });
+
+  if (error) {
+    document.getElementById('deadStockSummary').textContent =
+      `Save failed for ${partNumber}: ${error.message}`;
+
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.textContent = 'SAVE VERIFICATION';
+    }
+
+    return;
+  }
+
+  const savedAt = new Date().toISOString();
+
+  const matchingRow = deadStockReportData.find(row =>
+    String(row.part_number || '') === String(partNumber || '')
+  );
+
+  if (matchingRow) {
+    matchingRow.verified_status = verifiedStatus;
+    matchingRow.recommended_action = recommendedAction || null;
+    matchingRow.verified_by = verifiedBy;
+    matchingRow.verification_reason = reason || null;
+    matchingRow.verification_notes = notes || null;
+    matchingRow.verified_at = savedAt;
+  }
+
+  const verifiedStatusDisplay = document.getElementById(`deadStockVerifiedStatusDisplay_${rowKey}`);
+  const recommendedActionDisplay = document.getElementById(`deadStockRecommendedActionDisplay_${rowKey}`);
+  const verifiedByDisplay = document.getElementById(`deadStockVerifiedByDisplay_${rowKey}`);
+  const verifiedAtDisplay = document.getElementById(`deadStockVerifiedAtDisplay_${rowKey}`);
+
+  if (verifiedStatusDisplay) {
+    verifiedStatusDisplay.textContent = verifiedStatus;
+  }
+
+  if (recommendedActionDisplay) {
+    recommendedActionDisplay.textContent = recommendedAction;
+  }
+
+  if (verifiedByDisplay) {
+    verifiedByDisplay.textContent = verifiedBy;
+  }
+
+  if (verifiedAtDisplay) {
+    verifiedAtDisplay.textContent = formatDateTime(savedAt);
+  }
+
+  updateDeadStockSummary();
+
+  document.getElementById('deadStockSummary').textContent +=
+    `\n\nSaved verification for ${partNumber}.`;
+
+  if (saveButton) {
+    saveButton.disabled = false;
+    saveButton.textContent = 'SAVED';
+
+    setTimeout(() => {
+      saveButton.textContent = 'SAVE VERIFICATION';
+    }, 1500);
+  }
 }
 
 function updateDeadStockSummary() {
