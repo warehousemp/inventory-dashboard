@@ -663,23 +663,23 @@
 
   <div class="card full-width">
 
-    <h2>Reverse Issued Inventory</h2>
+    <h2>Reverse Inventory Transaction</h2>
     <button class="secondary-btn section-refresh-btn" onclick="refreshAdminPage()">REFRESH PAGE</button>
 
     <div class="danger-note">
-      Admin-only correction tool. This does not delete or edit the original ISSUED transaction.
-      It creates a new ISSUE_REVERSAL transaction and adds the quantity back to stock.
+      Admin-only correction tool. This does not delete or edit the original transaction.
+      It creates a new reversal transaction and updates stock in the opposite direction of the original transaction.
     </div>
 
     <div class="warning-note">
-      Use only when an item was issued incorrectly. The original issue remains in the audit trail,
+      Use only when an inventory transaction was entered incorrectly. The original transaction remains in the audit trail,
       and the reversal is recorded separately.
     </div>
 
     <div class="three-column-form">
       <div>
-        <label>Search Issued Transactions:</label>
-        <input id="issueReversalSearchInput" placeholder="Part number, client, work order, issued to..." autocomplete="off">
+        <label>Search Inventory Transactions:</label>
+        <input id="issueReversalSearchInput" placeholder="Part number, transaction type, client, vendor, PO, work order..." autocomplete="off">
       </div>
 
       <div>
@@ -694,16 +694,16 @@
     </div>
 
     <label>Reversal Reason:</label>
-    <textarea id="issueReversalReasonInput" placeholder="Explain why this issued transaction is being reversed..."></textarea>
+    <textarea id="issueReversalReasonInput" placeholder="Explain why this inventory transaction is being reversed..."></textarea>
 
     <div class="button-row">
-      <button class="admin-btn" onclick="loadIssuedTransactionsForReversal()">LOAD RECENT ISSUED TRANSACTIONS</button>
+      <button class="admin-btn" onclick="loadIssuedTransactionsForReversal()">LOAD RECENT TRANSACTIONS</button>
       <button class="secondary-btn" onclick="filterIssuedTransactionsForReversal()">SEARCH / FILTER RESULTS</button>
     </div>
 
     <div id="issueReversalMessage" class="message"></div>
 
-    <h3>Selected Issue for Reversal</h3>
+    <h3>Selected Transaction for Reversal</h3>
 
     <div id="selectedIssueReversalInfo" class="info-grid">
       <div class="info-box">
@@ -724,7 +724,7 @@
       </div>
     </div>
 
-    <button class="danger-btn" onclick="reverseSelectedIssuedTransaction()">REVERSE SELECTED ISSUED TRANSACTION</button>
+    <button class="danger-btn" onclick="reverseSelectedIssuedTransaction()">REVERSE SELECTED TRANSACTION</button>
 
     <div class="table-wrap">
       <table>
@@ -732,6 +732,7 @@
           <tr>
             <th>Action</th>
             <th>Status</th>
+            <th>Transaction Type</th>
             <th>Created At</th>
             <th>Part Number</th>
             <th>Description</th>
@@ -746,7 +747,7 @@
         </thead>
         <tbody id="issueReversalBody">
           <tr>
-            <td colspan="12">Click LOAD RECENT ISSUED TRANSACTIONS to begin.</td>
+            <td colspan="13">Click LOAD RECENT TRANSACTIONS to begin.</td>
           </tr>
         </tbody>
       </table>
@@ -1310,38 +1311,37 @@ function clearSelectedCycleCount() {
 
 
 async function loadIssuedTransactionsForReversal() {
-  setMessage('issueReversalMessage', 'info', 'Loading recent ISSUED transactions...');
+  setMessage('issueReversalMessage', 'info', 'Loading recent inventory transactions...');
 
   selectedIssueReversal = null;
   renderSelectedIssueReversalInfo(null);
 
-  const { data: issueRows, error: issueError } = await client
+  const { data: transactionRows, error: transactionError } = await client
     .from('inventory_transactions')
-    .select('id, created_at, part_id, quantity, transaction_type, client_name, work_order, issued_to, unit_cost, notes')
-    .eq('transaction_type', 'ISSUED')
-    .lt('quantity', 0)
+    .select('id, created_at, part_id, quantity, transaction_type, client_name, work_order, issued_to, vendor_name, po_number, unit_cost, notes')
+    .not('transaction_type', 'ilike', '%REVERSAL%')
     .order('created_at', { ascending: false })
-    .limit(150);
+    .limit(250);
 
-  if (issueError) {
+  if (transactionError) {
     issueReversalData = [];
     filteredIssueReversalData = [];
     renderIssueReversalTable([]);
-    setMessage('issueReversalMessage', 'error', issueError.message);
+    setMessage('issueReversalMessage', 'error', transactionError.message);
     return;
   }
 
-  const issues = issueRows || [];
+  const transactions = transactionRows || [];
 
-  if (issues.length === 0) {
+  if (transactions.length === 0) {
     issueReversalData = [];
     filteredIssueReversalData = [];
     renderIssueReversalTable([]);
-    setMessage('issueReversalMessage', 'info', 'No recent ISSUED transactions found.');
+    setMessage('issueReversalMessage', 'info', 'No recent inventory transactions found.');
     return;
   }
 
-  const partIds = [...new Set(issues.map(row => row.part_id).filter(Boolean))];
+  const partIds = [...new Set(transactions.map(row => row.part_id).filter(Boolean))];
 
   let partMap = {};
 
@@ -1364,7 +1364,7 @@ async function loadIssuedTransactionsForReversal() {
   const { data: reversalRows, error: reversalError } = await client
     .from('inventory_transactions')
     .select('id, notes, transaction_type')
-    .eq('transaction_type', 'ISSUE_REVERSAL')
+    .ilike('transaction_type', '%REVERSAL%')
     .order('created_at', { ascending: false })
     .limit(1000);
 
@@ -1384,7 +1384,7 @@ async function loadIssuedTransactionsForReversal() {
     }
   });
 
-  issueReversalData = issues.map(row => {
+  issueReversalData = transactions.map(row => {
     const part = partMap[String(row.part_id)] || {};
 
     return {
@@ -1397,7 +1397,7 @@ async function loadIssuedTransactionsForReversal() {
 
   filterIssuedTransactionsForReversal();
 
-  setMessage('issueReversalMessage', 'success', `${issueReversalData.length} recent ISSUED transaction(s) loaded.`);
+  setMessage('issueReversalMessage', 'success', `${issueReversalData.length} recent inventory transaction(s) loaded.`);
 }
 
 function filterIssuedTransactionsForReversal() {
@@ -1406,7 +1406,7 @@ function filterIssuedTransactionsForReversal() {
   if (!issueReversalData || issueReversalData.length === 0) {
     filteredIssueReversalData = [];
     renderIssueReversalTable([]);
-    setMessage('issueReversalMessage', 'info', 'Load recent ISSUED transactions before filtering.');
+    setMessage('issueReversalMessage', 'info', 'Load recent inventory transactions before filtering.');
     return;
   }
 
@@ -1416,11 +1416,14 @@ function filterIssuedTransactionsForReversal() {
     filteredIssueReversalData = issueReversalData.filter(row => {
       const combined = [
         row.id,
+        row.transaction_type,
         row.part_number,
         row.description,
         row.client_name,
         row.work_order,
         row.issued_to,
+        row.vendor_name,
+        row.po_number,
         row.notes
       ].map(value => String(value || '').toLowerCase()).join(' ');
 
@@ -1431,9 +1434,9 @@ function filterIssuedTransactionsForReversal() {
   renderIssueReversalTable(filteredIssueReversalData);
 
   if (filteredIssueReversalData.length === 0) {
-    setMessage('issueReversalMessage', 'info', 'No issued transactions matched that search.');
+    setMessage('issueReversalMessage', 'info', 'No inventory transactions matched that search.');
   } else {
-    setMessage('issueReversalMessage', 'success', `${filteredIssueReversalData.length} issued transaction(s) shown.`);
+    setMessage('issueReversalMessage', 'success', `${filteredIssueReversalData.length} inventory transaction(s) shown.`);
   }
 }
 
@@ -1442,7 +1445,7 @@ function renderIssueReversalTable(rows) {
   tbody.innerHTML = '';
 
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12">No issued transactions to display.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13">No inventory transactions to display.</td></tr>';
     return;
   }
 
@@ -1469,6 +1472,7 @@ function renderIssueReversalTable(rows) {
     tr.innerHTML = `
       <td>${actionButton}</td>
       <td>${escapeHTML(statusText)}</td>
+      <td>${escapeHTML(row.transaction_type)}</td>
       <td>${escapeHTML(formatDateTime(row.created_at))}</td>
       <td>${escapeHTML(row.part_number)}</td>
       <td>${escapeHTML(row.description)}</td>
@@ -1489,12 +1493,12 @@ function selectIssueForReversal(transactionId) {
   const found = issueReversalData.find(row => String(row.id) === String(transactionId));
 
   if (!found) {
-    setMessage('issueReversalMessage', 'error', 'Selected issued transaction was not found.');
+    setMessage('issueReversalMessage', 'error', 'Selected inventory transaction was not found.');
     return;
   }
 
   if (found.already_reversed) {
-    setMessage('issueReversalMessage', 'error', 'This issued transaction has already been reversed.');
+    setMessage('issueReversalMessage', 'error', 'This inventory transaction has already been reversed.');
     return;
   }
 
@@ -1502,7 +1506,7 @@ function selectIssueForReversal(transactionId) {
   renderSelectedIssueReversalInfo(selectedIssueReversal);
   renderIssueReversalTable(filteredIssueReversalData);
 
-  setMessage('issueReversalMessage', 'success', `Selected ${found.part_number} issue for reversal.`);
+  setMessage('issueReversalMessage', 'success', `Selected ${found.part_number} ${found.transaction_type} transaction for reversal.`);
 }
 
 function renderSelectedIssueReversalInfo(row) {
@@ -1540,6 +1544,10 @@ function renderSelectedIssueReversalInfo(row) {
       <div class="info-value">${escapeHTML(row.part_number)}</div>
     </div>
     <div class="info-box">
+      <div class="info-label">Transaction Type</div>
+      <div class="info-value">${escapeHTML(row.transaction_type)}</div>
+    </div>
+    <div class="info-box">
       <div class="info-label">Description</div>
       <div class="info-value">${escapeHTML(row.description)}</div>
     </div>
@@ -1568,12 +1576,12 @@ function renderSelectedIssueReversalInfo(row) {
 
 async function reverseSelectedIssuedTransaction() {
   if (!selectedIssueReversal) {
-    setMessage('issueReversalMessage', 'error', 'Select an issued transaction before reversing.');
+    setMessage('issueReversalMessage', 'error', 'Select an inventory transaction before reversing.');
     return;
   }
 
   if (selectedIssueReversal.already_reversed) {
-    setMessage('issueReversalMessage', 'error', 'This issued transaction has already been reversed.');
+    setMessage('issueReversalMessage', 'error', 'This transaction has already been reversed.');
     return;
   }
 
@@ -1592,28 +1600,31 @@ async function reverseSelectedIssuedTransaction() {
   }
 
   if (confirmation !== 'REVERSE') {
-    setMessage('issueReversalMessage', 'error', 'Type REVERSE exactly to confirm this issue reversal.');
+    setMessage('issueReversalMessage', 'error', 'Type REVERSE exactly to confirm this transaction reversal.');
     return;
   }
 
   const browserConfirm = confirm(
-    `Reverse issued inventory transaction?\n\n` +
+    `Reverse inventory transaction?\n\n` +
+    `Transaction Type: ${selectedIssueReversal.transaction_type}\n` +
     `Part Number: ${selectedIssueReversal.part_number}\n` +
     `Description: ${selectedIssueReversal.description}\n` +
     `Original Quantity: ${selectedIssueReversal.quantity}\n` +
     `Client: ${selectedIssueReversal.client_name || ''}\n` +
+    `Vendor: ${selectedIssueReversal.vendor_name || ''}\n` +
+    `PO Number: ${selectedIssueReversal.po_number || ''}\n` +
     `Work Order: ${selectedIssueReversal.work_order || ''}\n\n` +
-    `This will create an ISSUE_REVERSAL transaction and add quantity back to stock.`
+    `This will create a reversal transaction and update stock in the opposite direction.`
   );
 
   if (!browserConfirm) {
-    setMessage('issueReversalMessage', 'info', 'Issue reversal cancelled.');
+    setMessage('issueReversalMessage', 'info', 'Transaction reversal cancelled.');
     return;
   }
 
-  setMessage('issueReversalMessage', 'info', 'Creating issue reversal...');
+  setMessage('issueReversalMessage', 'info', 'Creating transaction reversal...');
 
-  const { data, error } = await client.rpc('reverse_issued_inventory', {
+  const { data, error } = await client.rpc('reverse_inventory_transaction', {
     p_original_transaction_id: selectedIssueReversal.id,
     p_reversed_by: reversedBy,
     p_reversal_reason: reason
@@ -1626,13 +1637,16 @@ async function reverseSelectedIssuedTransaction() {
 
   const result = data && data.length > 0 ? data[0] : null;
 
-  let successMessage = 'Issue reversal completed successfully.';
+  let successMessage = 'Inventory transaction reversal completed successfully.';
 
   if (result) {
     successMessage =
-      `Issue reversal completed successfully. ` +
+      `Inventory transaction reversal completed successfully. ` +
+      `Original Type: ${result.original_transaction_type}. ` +
+      `Reversal Type: ${result.reversal_transaction_type}. ` +
       `Part: ${result.part_number}. ` +
-      `Quantity returned: ${result.reversed_quantity}. ` +
+      `Original Qty: ${result.original_quantity}. ` +
+      `Reversal Qty: ${result.reversal_quantity}. ` +
       `New on-hand quantity: ${result.new_quantity_on_hand}.`;
   }
 
@@ -1651,7 +1665,7 @@ async function reverseSelectedIssuedTransaction() {
   renderIssueReversalTable([]);
 
   const tbody = document.getElementById('issueReversalBody');
-  tbody.innerHTML = '<tr><td colspan="12">Reversal completed. Click LOAD RECENT ISSUED TRANSACTIONS to refresh the list.</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="13">Reversal completed. Click LOAD RECENT TRANSACTIONS to refresh the list.</td></tr>';
 }
 
 
