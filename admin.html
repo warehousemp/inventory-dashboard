@@ -635,6 +635,31 @@
 
   </div>
 
+
+  <div class="card">
+
+    <h2>Inventory Category Management</h2>
+
+    <div class="status-note">
+      Admin-only setup area. Use this section to add new active inventory categories for Warehouse part creation,
+      category changes, Needs Category cleanup, and cycle count category selection.
+    </div>
+
+    <label>New Category Name:</label>
+    <input id="newInventoryCategoryInput" placeholder="Example: HEATERS" autocomplete="off">
+
+    <button class="admin-btn" onclick="createInventoryCategory()">CREATE CATEGORY</button>
+
+    <div id="categoryCreateMessage" class="message"></div>
+
+    <h3>Active Categories</h3>
+
+    <button class="secondary-btn" onclick="loadInventoryCategories()">REFRESH ACTIVE CATEGORIES</button>
+
+    <pre id="inventoryCategoryReport">Active inventory categories will load here...</pre>
+
+  </div>
+
   <div class="card">
 
     <h2>Cycle Count Category Summary</h2>
@@ -714,6 +739,7 @@ let categorySummaryData = [];
 let sessionSummaryData = [];
 let unassignedCategoryData = [];
 let cycleCountDetailData = [];
+let inventoryCategoryData = [];
 
 let reviewQueueData = [];
 let selectedCycleCount = null;
@@ -721,6 +747,7 @@ let selectedCycleCountDetailData = [];
 
 window.addEventListener('load', () => {
   loadCycleCountReviewQueue();
+  loadInventoryCategories();
 });
 
 async function loadCycleCountReviewQueue() {
@@ -1147,6 +1174,83 @@ function clearSelectedCycleCount() {
 
   const tbody = document.getElementById('reviewDetailBody');
   tbody.innerHTML = '<tr><td colspan="9">Open a cycle count from the queue to view line-level variances.</td></tr>';
+}
+
+
+async function loadInventoryCategories() {
+  const report = document.getElementById('inventoryCategoryReport');
+
+  if (report) {
+    report.textContent = 'Loading active inventory categories...';
+  }
+
+  const { data, error } = await client
+    .from('inventory_part_categories')
+    .select('category_name, active, created_at, updated_at')
+    .eq('active', true)
+    .order('category_name', { ascending: true });
+
+  if (error) {
+    inventoryCategoryData = [];
+    if (report) {
+      report.textContent = error.message;
+    }
+    return;
+  }
+
+  inventoryCategoryData = data || [];
+
+  if (!inventoryCategoryData || inventoryCategoryData.length === 0) {
+    if (report) {
+      report.textContent = 'No active inventory categories found.';
+    }
+    return;
+  }
+
+  let output = `ACTIVE INVENTORY CATEGORIES (${inventoryCategoryData.length})\n`;
+  output += '------------------------------------------------------------\n';
+
+  inventoryCategoryData.forEach(row => {
+    output += `${row.category_name}\n`;
+  });
+
+  if (report) {
+    report.textContent = output;
+  }
+}
+
+async function createInventoryCategory() {
+  const input = document.getElementById('newInventoryCategoryInput');
+  const categoryName = input.value.trim();
+
+  if (!categoryName) {
+    setMessage('categoryCreateMessage', 'error', 'Category name is required.');
+    return;
+  }
+
+  setMessage('categoryCreateMessage', 'info', 'Creating category...');
+
+  const { data, error } = await client.rpc('create_inventory_category', {
+    p_category_name: categoryName
+  });
+
+  if (error) {
+    setMessage('categoryCreateMessage', 'error', error.message);
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+  const createdCategoryName = result ? result.category_name : categoryName.toUpperCase();
+
+  setMessage(
+    'categoryCreateMessage',
+    'success',
+    `Category created successfully: ${createdCategoryName}`
+  );
+
+  input.value = '';
+
+  await loadInventoryCategories();
 }
 
 async function loadCycleCountCategorySummary() {
