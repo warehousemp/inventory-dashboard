@@ -639,8 +639,8 @@
     <h2>Needs Category Queue</h2>
 
     <div class="warning-note">
-      This report shows active parts with NULL or blank categories. Use it to prioritize category cleanup,
-      then use the Change Existing Part Category tool above to assign the correct approved category.
+      This report shows active parts with NULL or blank categories. Select the correct category directly on each row,
+      then click UPDATE CATEGORY. The row will disappear from this queue after the category is saved.
     </div>
 
     <div class="button-row">
@@ -659,7 +659,7 @@
             <th>Action</th>
             <th>Part Number</th>
             <th>Description</th>
-            <th>Current Category</th>
+            <th>New Category</th>
             <th>Location</th>
             <th>Qty On Hand</th>
             <th>Unit Cost</th>
@@ -1502,16 +1502,21 @@ function renderNeedsCategoryTable() {
 
   needsCategoryReportData.forEach(row => {
     const tr = document.createElement('tr');
+    const rowKey = cleanFilename(row.part_number || 'part');
 
     tr.innerHTML = `
       <td>
-        <button class="category-btn small-btn" onclick="loadPartIntoCategoryTool('${escapeJS(row.part_number)}')">
-          SELECT
+        <button class="category-btn small-btn" onclick="updateNeedsCategoryRow('${escapeJS(row.part_number)}', '${escapeJS(rowKey)}')">
+          UPDATE CATEGORY
         </button>
       </td>
       <td>${escapeHTML(row.part_number || '')}</td>
       <td>${escapeHTML(row.description || '')}</td>
-      <td>${escapeHTML(row.category || 'NULL / BLANK')}</td>
+      <td>
+        <select id="needsCategorySelect_${escapeHTML(rowKey)}" class="count-input">
+          ${getCategoryOptionsHTML()}
+        </select>
+      </td>
       <td>${escapeHTML(row.location_name || '')}</td>
       <td>${formatNumber(row.quantity_on_hand)}</td>
       <td>${formatCurrency(row.unit_cost)}</td>
@@ -1521,6 +1526,56 @@ function renderNeedsCategoryTable() {
 
     tableBody.appendChild(tr);
   });
+}
+
+function getCategoryOptionsHTML() {
+  let options = '<option value="">Select category...</option>';
+
+  categoryData.forEach(row => {
+    options += `<option value="${escapeHTML(row.category_name)}">${escapeHTML(row.category_name)}</option>`;
+  });
+
+  return options;
+}
+
+async function updateNeedsCategoryRow(partNumber, rowKey) {
+  const select = document.getElementById(`needsCategorySelect_${rowKey}`);
+
+  if (!select || !select.value) {
+    document.getElementById('needsCategorySummary').textContent =
+      `Select a category before updating ${partNumber}.`;
+    return;
+  }
+
+  const newCategory = select.value;
+
+  document.getElementById('needsCategorySummary').textContent =
+    `Updating ${partNumber} to ${newCategory}...`;
+
+  const { data, error } = await client.rpc('update_inventory_part_category', {
+    p_part_number: partNumber,
+    p_category: newCategory
+  });
+
+  if (error) {
+    document.getElementById('needsCategorySummary').textContent = error.message;
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+
+  document.getElementById('changeCategoryResult').textContent = result
+    ? `Part category updated successfully.
+
+Part Number: ${result.part_number}
+Description: ${result.description || ''}
+Old Category: ${result.old_category || 'NULL / BLANK'}
+New Category: ${result.new_category}`
+    : `Category update completed for ${partNumber}.`;
+
+  await loadParts();
+  await loadCycleCountCategories();
+  await loadNeedsCategoryReport();
 }
 
 function updateNeedsCategorySummary() {
@@ -1548,7 +1603,7 @@ function updateNeedsCategorySummary() {
     `Total Quantity On Hand: ${formatNumber(totalQty)}\n` +
     `Total Inventory Value: ${formatCurrency(totalValue)}\n` +
     `Rows With No Stock Balance / Zero On Hand: ${formatNumber(noStockBalanceCount)}\n\n` +
-    `Use the SELECT button to load a part number into the Change Existing Part Category tool above.`;
+    `Select a category in the row and click UPDATE CATEGORY to clean up the part immediately.`;
 }
 
 function loadPartIntoCategoryTool(partNumber) {
