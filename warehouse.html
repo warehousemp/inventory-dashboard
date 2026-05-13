@@ -213,6 +213,14 @@
       margin-top: 10px;
     }
 
+    .refresh-btn {
+      background: #64748b;
+      color: white;
+      width: 100%;
+      margin-top: -4px;
+      margin-bottom: 18px;
+    }
+
     .small-btn {
       width: auto;
       margin: 0;
@@ -441,10 +449,9 @@
       font-size: 13px;
     }
 
-
     .dead-stock-table {
       table-layout: fixed;
-      min-width: 1580px;
+      min-width: 1650px;
     }
 
     .dead-stock-table th,
@@ -455,7 +462,7 @@
 
     .dead-stock-table th:nth-child(1),
     .dead-stock-table td:nth-child(1) {
-      width: 110px;
+      width: 170px;
     }
 
     .dead-stock-table th:nth-child(2),
@@ -509,6 +516,14 @@
     .dead-stock-table th:nth-child(16),
     .dead-stock-table td:nth-child(16) {
       width: 145px;
+    }
+
+    .dead-stock-action-select {
+      width: 150px;
+      min-width: 150px;
+      margin-bottom: 0;
+      padding: 8px;
+      font-size: 13px;
     }
 
     .cycle-panel {
@@ -660,6 +675,8 @@
 
     <h2>Inventory Control Panel (Issued / Received)</h2>
 
+    <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+
     <label>Part Number:</label>
     <input id="part" list="partsList" placeholder="Start typing part number..." autocomplete="off">
     <datalist id="partsList"></datalist>
@@ -704,6 +721,8 @@
   <div class="card">
 
     <h2>Warehouse Team Parts Creation</h2>
+
+    <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
 
     <label>New Part Number:</label>
     <input id="newPartNumber" placeholder="Enter new part number" autocomplete="off">
@@ -757,6 +776,8 @@
 
     <h2>Serialized Inventory</h2>
 
+    <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+
     <button class="report-btn" onclick="loadSerializedInventory()">RUN SERIALIZED INVENTORY REPORT</button>
 
     <button class="report-btn" onclick="exportSerializedInventoryCSV()">EXPORT SERIALIZED INVENTORY CSV</button>
@@ -768,6 +789,8 @@
   <div class="card wide-card">
 
     <h2>Cycle Count Management</h2>
+
+    <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
 
     <div class="status-note">
       This section supports count-sheet export, cycle count session creation, counted quantity entry,
@@ -934,6 +957,8 @@
 
     <h2>Dead Stock / No-Movement Reporting</h2>
 
+    <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+
     <div class="warning-note">
       This report shows on-hand inventory from stock balances and compares it to issue history.
       Since the inventory transaction ledger currently has limited history, items with no matching issue history
@@ -979,7 +1004,7 @@
             <th>Verified By</th>
             <th>Verified At</th>
           </tr>
-        </thead>
+      </thead>
         <tbody id="deadStockTableBody">
           <tr>
             <td colspan="16">No dead stock report loaded.</td>
@@ -993,6 +1018,8 @@
   <div class="card wide-card">
 
     <h2>Needs Category Queue</h2>
+
+    <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
 
     <div class="warning-note">
       This report shows active parts with NULL or blank categories. Select the correct category directly on each row,
@@ -1557,9 +1584,14 @@ function renderDeadStockTable() {
 
   deadStockReportData.forEach(row => {
     const tr = document.createElement('tr');
+    const rowKey = cleanFilename(row.part_number || 'part');
 
     tr.innerHTML = `
-      <td></td>
+      <td>
+        <select id="deadStockVerifiedStatus_${escapeHTML(rowKey)}" class="dead-stock-action-select">
+          ${getDeadStockVerifiedStatusOptionsHTML(row.verified_status)}
+        </select>
+      </td>
       <td>${escapeHTML(row.part_number || '')}</td>
       <td>${escapeHTML(row.description || '')}</td>
       <td>${escapeHTML(row.category || 'NULL / BLANK')}</td>
@@ -1579,6 +1611,18 @@ function renderDeadStockTable() {
 
     tableBody.appendChild(tr);
   });
+}
+
+function getDeadStockVerifiedStatusOptionsHTML(currentValue) {
+  let options = '<option value="">Select status...</option>';
+  const selectedValue = currentValue || '';
+
+  DEAD_STOCK_VERIFIED_STATUS_OPTIONS.forEach(status => {
+    const selected = status === selectedValue ? ' selected' : '';
+    options += `<option value="${escapeHTML(status)}"${selected}>${escapeHTML(status)}</option>`;
+  });
+
+  return options;
 }
 
 function updateDeadStockSummary() {
@@ -2594,6 +2638,10 @@ function escapeJS(value) {
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'")
     .replace(/"/g, '\\"');
+}
+
+function refreshPage() {
+  window.location.reload();
 }
 
 function downloadCSV(csv, filename) {
