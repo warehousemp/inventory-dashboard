@@ -109,7 +109,8 @@
     }
 
     select,
-    input {
+    input,
+    textarea {
       width: 100%;
       padding: 12px;
       margin-bottom: 15px;
@@ -117,10 +118,17 @@
       border: 1px solid #cbd5e1;
       background: white;
       font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
     }
 
     select:focus,
-    input:focus {
+    input:focus,
+    textarea:focus {
       outline: none;
       border-color: #2f855a;
       box-shadow: 0 0 0 3px rgba(47,133,90,0.15);
@@ -335,6 +343,11 @@
       background: #ecfdf3 !important;
     }
 
+    .reversed-row td {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
     .two-column-form {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -444,7 +457,8 @@
       }
 
       select,
-      input {
+      input,
+      textarea {
         font-size: 16px;
         padding: 13px;
       }
@@ -636,6 +650,99 @@
   </div>
 
 
+  <div class="card full-width">
+
+    <h2>Reverse Issued Inventory</h2>
+
+    <div class="danger-note">
+      Admin-only correction tool. This does not delete or edit the original ISSUED transaction.
+      It creates a new ISSUE_REVERSAL transaction and adds the quantity back to stock.
+    </div>
+
+    <div class="warning-note">
+      Use only when an item was issued incorrectly. The original issue remains in the audit trail,
+      and the reversal is recorded separately.
+    </div>
+
+    <div class="three-column-form">
+      <div>
+        <label>Search Issued Transactions:</label>
+        <input id="issueReversalSearchInput" placeholder="Part number, client, work order, issued to..." autocomplete="off">
+      </div>
+
+      <div>
+        <label>Reversed By:</label>
+        <input id="issueReversalByInput" placeholder="Example: Tim" autocomplete="off">
+      </div>
+
+      <div>
+        <label>Type REVERSE to Confirm:</label>
+        <input id="issueReversalConfirmInput" placeholder="Type REVERSE here..." autocomplete="off">
+      </div>
+    </div>
+
+    <label>Reversal Reason:</label>
+    <textarea id="issueReversalReasonInput" placeholder="Explain why this issued transaction is being reversed..."></textarea>
+
+    <div class="button-row">
+      <button class="admin-btn" onclick="loadIssuedTransactionsForReversal()">LOAD RECENT ISSUED TRANSACTIONS</button>
+      <button class="secondary-btn" onclick="filterIssuedTransactionsForReversal()">SEARCH / FILTER RESULTS</button>
+    </div>
+
+    <div id="issueReversalMessage" class="message"></div>
+
+    <h3>Selected Issue for Reversal</h3>
+
+    <div id="selectedIssueReversalInfo" class="info-grid">
+      <div class="info-box">
+        <div class="info-label">Transaction ID</div>
+        <div class="info-value">None selected</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Part Number</div>
+        <div class="info-value">None selected</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Quantity</div>
+        <div class="info-value">None selected</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Client</div>
+        <div class="info-value">None selected</div>
+      </div>
+    </div>
+
+    <button class="danger-btn" onclick="reverseSelectedIssuedTransaction()">REVERSE SELECTED ISSUED TRANSACTION</button>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Status</th>
+            <th>Created At</th>
+            <th>Part Number</th>
+            <th>Description</th>
+            <th>Quantity</th>
+            <th>Client</th>
+            <th>Work Order</th>
+            <th>Issued To</th>
+            <th>Unit Cost</th>
+            <th>Notes</th>
+            <th>Transaction ID</th>
+          </tr>
+        </thead>
+        <tbody id="issueReversalBody">
+          <tr>
+            <td colspan="12">Click LOAD RECENT ISSUED TRANSACTIONS to begin.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+
   <div class="card">
 
     <h2>Inventory Category Management</h2>
@@ -744,6 +851,10 @@ let inventoryCategoryData = [];
 let reviewQueueData = [];
 let selectedCycleCount = null;
 let selectedCycleCountDetailData = [];
+
+let issueReversalData = [];
+let filteredIssueReversalData = [];
+let selectedIssueReversal = null;
 
 window.addEventListener('load', () => {
   loadCycleCountReviewQueue();
@@ -1174,6 +1285,345 @@ function clearSelectedCycleCount() {
 
   const tbody = document.getElementById('reviewDetailBody');
   tbody.innerHTML = '<tr><td colspan="9">Open a cycle count from the queue to view line-level variances.</td></tr>';
+}
+
+
+async function loadIssuedTransactionsForReversal() {
+  setMessage('issueReversalMessage', 'info', 'Loading recent ISSUED transactions...');
+
+  selectedIssueReversal = null;
+  renderSelectedIssueReversalInfo(null);
+
+  const { data: issueRows, error: issueError } = await client
+    .from('inventory_transactions')
+    .select('id, created_at, part_id, quantity, transaction_type, client_name, work_order, issued_to, unit_cost, notes')
+    .eq('transaction_type', 'ISSUED')
+    .lt('quantity', 0)
+    .order('created_at', { ascending: false })
+    .limit(150);
+
+  if (issueError) {
+    issueReversalData = [];
+    filteredIssueReversalData = [];
+    renderIssueReversalTable([]);
+    setMessage('issueReversalMessage', 'error', issueError.message);
+    return;
+  }
+
+  const issues = issueRows || [];
+
+  if (issues.length === 0) {
+    issueReversalData = [];
+    filteredIssueReversalData = [];
+    renderIssueReversalTable([]);
+    setMessage('issueReversalMessage', 'info', 'No recent ISSUED transactions found.');
+    return;
+  }
+
+  const partIds = [...new Set(issues.map(row => row.part_id).filter(Boolean))];
+
+  let partMap = {};
+
+  if (partIds.length > 0) {
+    const { data: partsData, error: partsError } = await client
+      .from('parts')
+      .select('id, part_number, description')
+      .in('id', partIds);
+
+    if (partsError) {
+      setMessage('issueReversalMessage', 'error', partsError.message);
+      return;
+    }
+
+    (partsData || []).forEach(part => {
+      partMap[String(part.id)] = part;
+    });
+  }
+
+  const { data: reversalRows, error: reversalError } = await client
+    .from('inventory_transactions')
+    .select('id, notes, transaction_type')
+    .eq('transaction_type', 'ISSUE_REVERSAL')
+    .order('created_at', { ascending: false })
+    .limit(1000);
+
+  if (reversalError) {
+    setMessage('issueReversalMessage', 'error', reversalError.message);
+    return;
+  }
+
+  const reversedOriginalIds = new Set();
+
+  (reversalRows || []).forEach(row => {
+    const notes = row.notes || '';
+    const match = notes.match(/Original transaction id:\s*([0-9a-fA-F-]{36})/);
+
+    if (match && match[1]) {
+      reversedOriginalIds.add(match[1]);
+    }
+  });
+
+  issueReversalData = issues.map(row => {
+    const part = partMap[String(row.part_id)] || {};
+
+    return {
+      ...row,
+      part_number: part.part_number || '',
+      description: part.description || '',
+      already_reversed: reversedOriginalIds.has(String(row.id))
+    };
+  });
+
+  filterIssuedTransactionsForReversal();
+
+  setMessage('issueReversalMessage', 'success', `${issueReversalData.length} recent ISSUED transaction(s) loaded.`);
+}
+
+function filterIssuedTransactionsForReversal() {
+  const searchValue = document.getElementById('issueReversalSearchInput').value.trim().toLowerCase();
+
+  if (!issueReversalData || issueReversalData.length === 0) {
+    filteredIssueReversalData = [];
+    renderIssueReversalTable([]);
+    setMessage('issueReversalMessage', 'info', 'Load recent ISSUED transactions before filtering.');
+    return;
+  }
+
+  if (!searchValue) {
+    filteredIssueReversalData = issueReversalData;
+  } else {
+    filteredIssueReversalData = issueReversalData.filter(row => {
+      const combined = [
+        row.id,
+        row.part_number,
+        row.description,
+        row.client_name,
+        row.work_order,
+        row.issued_to,
+        row.notes
+      ].map(value => String(value || '').toLowerCase()).join(' ');
+
+      return combined.includes(searchValue);
+    });
+  }
+
+  renderIssueReversalTable(filteredIssueReversalData);
+
+  if (filteredIssueReversalData.length === 0) {
+    setMessage('issueReversalMessage', 'info', 'No issued transactions matched that search.');
+  } else {
+    setMessage('issueReversalMessage', 'success', `${filteredIssueReversalData.length} issued transaction(s) shown.`);
+  }
+}
+
+function renderIssueReversalTable(rows) {
+  const tbody = document.getElementById('issueReversalBody');
+  tbody.innerHTML = '';
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12">No issued transactions to display.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+
+    if (
+      selectedIssueReversal &&
+      String(selectedIssueReversal.id) === String(row.id)
+    ) {
+      tr.classList.add('selected-row');
+    }
+
+    if (row.already_reversed) {
+      tr.classList.add('reversed-row');
+    }
+
+    const actionButton = row.already_reversed
+      ? '<button class="small-btn" disabled>REVERSED</button>'
+      : `<button class="secondary-btn small-btn" onclick="selectIssueForReversal('${escapeJS(row.id)}')">SELECT</button>`;
+
+    const statusText = row.already_reversed ? 'Already Reversed' : 'Available';
+
+    tr.innerHTML = `
+      <td>${actionButton}</td>
+      <td>${escapeHTML(statusText)}</td>
+      <td>${escapeHTML(formatDateTime(row.created_at))}</td>
+      <td>${escapeHTML(row.part_number)}</td>
+      <td>${escapeHTML(row.description)}</td>
+      <td>${formatVariance(row.quantity)}</td>
+      <td>${escapeHTML(row.client_name)}</td>
+      <td>${escapeHTML(row.work_order)}</td>
+      <td>${escapeHTML(row.issued_to)}</td>
+      <td>${escapeHTML(formatCurrency(row.unit_cost))}</td>
+      <td>${escapeHTML(row.notes)}</td>
+      <td>${escapeHTML(row.id)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function selectIssueForReversal(transactionId) {
+  const found = issueReversalData.find(row => String(row.id) === String(transactionId));
+
+  if (!found) {
+    setMessage('issueReversalMessage', 'error', 'Selected issued transaction was not found.');
+    return;
+  }
+
+  if (found.already_reversed) {
+    setMessage('issueReversalMessage', 'error', 'This issued transaction has already been reversed.');
+    return;
+  }
+
+  selectedIssueReversal = found;
+  renderSelectedIssueReversalInfo(selectedIssueReversal);
+  renderIssueReversalTable(filteredIssueReversalData);
+
+  setMessage('issueReversalMessage', 'success', `Selected ${found.part_number} issue for reversal.`);
+}
+
+function renderSelectedIssueReversalInfo(row) {
+  const container = document.getElementById('selectedIssueReversalInfo');
+
+  if (!row) {
+    container.innerHTML = `
+      <div class="info-box">
+        <div class="info-label">Transaction ID</div>
+        <div class="info-value">None selected</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Part Number</div>
+        <div class="info-value">None selected</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Quantity</div>
+        <div class="info-value">None selected</div>
+      </div>
+      <div class="info-box">
+        <div class="info-label">Client</div>
+        <div class="info-value">None selected</div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="info-box">
+      <div class="info-label">Transaction ID</div>
+      <div class="info-value">${escapeHTML(row.id)}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Part Number</div>
+      <div class="info-value">${escapeHTML(row.part_number)}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Description</div>
+      <div class="info-value">${escapeHTML(row.description)}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Quantity</div>
+      <div class="info-value">${formatVariance(row.quantity)}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Client</div>
+      <div class="info-value">${escapeHTML(row.client_name)}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Work Order</div>
+      <div class="info-value">${escapeHTML(row.work_order)}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Issued To</div>
+      <div class="info-value">${escapeHTML(row.issued_to)}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-label">Unit Cost</div>
+      <div class="info-value">${escapeHTML(formatCurrency(row.unit_cost))}</div>
+    </div>
+  `;
+}
+
+async function reverseSelectedIssuedTransaction() {
+  if (!selectedIssueReversal) {
+    setMessage('issueReversalMessage', 'error', 'Select an issued transaction before reversing.');
+    return;
+  }
+
+  if (selectedIssueReversal.already_reversed) {
+    setMessage('issueReversalMessage', 'error', 'This issued transaction has already been reversed.');
+    return;
+  }
+
+  const reversedBy = document.getElementById('issueReversalByInput').value.trim();
+  const reason = document.getElementById('issueReversalReasonInput').value.trim();
+  const confirmation = document.getElementById('issueReversalConfirmInput').value.trim();
+
+  if (!reversedBy) {
+    setMessage('issueReversalMessage', 'error', 'Reversed By is required.');
+    return;
+  }
+
+  if (!reason) {
+    setMessage('issueReversalMessage', 'error', 'Reversal Reason is required.');
+    return;
+  }
+
+  if (confirmation !== 'REVERSE') {
+    setMessage('issueReversalMessage', 'error', 'Type REVERSE exactly to confirm this issue reversal.');
+    return;
+  }
+
+  const browserConfirm = confirm(
+    `Reverse issued inventory transaction?\n\n` +
+    `Part Number: ${selectedIssueReversal.part_number}\n` +
+    `Description: ${selectedIssueReversal.description}\n` +
+    `Original Quantity: ${selectedIssueReversal.quantity}\n` +
+    `Client: ${selectedIssueReversal.client_name || ''}\n` +
+    `Work Order: ${selectedIssueReversal.work_order || ''}\n\n` +
+    `This will create an ISSUE_REVERSAL transaction and add quantity back to stock.`
+  );
+
+  if (!browserConfirm) {
+    setMessage('issueReversalMessage', 'info', 'Issue reversal cancelled.');
+    return;
+  }
+
+  setMessage('issueReversalMessage', 'info', 'Creating issue reversal...');
+
+  const { data, error } = await client.rpc('reverse_issued_inventory', {
+    p_original_transaction_id: selectedIssueReversal.id,
+    p_reversed_by: reversedBy,
+    p_reversal_reason: reason
+  });
+
+  if (error) {
+    setMessage('issueReversalMessage', 'error', error.message);
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+
+  let successMessage = 'Issue reversal completed successfully.';
+
+  if (result) {
+    successMessage =
+      `Issue reversal completed successfully. ` +
+      `Part: ${result.part_number}. ` +
+      `Quantity returned: ${result.reversed_quantity}. ` +
+      `New on-hand quantity: ${result.new_quantity_on_hand}.`;
+  }
+
+  setMessage('issueReversalMessage', 'success', successMessage);
+
+  document.getElementById('issueReversalConfirmInput').value = '';
+  document.getElementById('issueReversalReasonInput').value = '';
+
+  selectedIssueReversal = null;
+  renderSelectedIssueReversalInfo(null);
+
+  await loadIssuedTransactionsForReversal();
 }
 
 
