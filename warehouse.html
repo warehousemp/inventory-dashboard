@@ -533,33 +533,7 @@
 
     <label>Category:</label>
     <select id="newPartCategory">
-      <option value="">Select category...</option>
-      <option value="ACCESSORY">ACCESSORY</option>
-      <option value="AUTOFILL">AUTOFILL</option>
-      <option value="AUTOMATION">AUTOMATION</option>
-      <option value="BLOWER">BLOWER</option>
-      <option value="CHLORINATOR">CHLORINATOR</option>
-      <option value="CHLORINATOR PARTS">CHLORINATOR PARTS</option>
-      <option value="ELECTRICAL">ELECTRICAL</option>
-      <option value="FILTER CARTRIDGES">FILTER CARTRIDGES</option>
-      <option value="FILTRATION SYSTEMS">FILTRATION SYSTEMS</option>
-      <option value="GAS HEATER">GAS HEATER</option>
-      <option value="GAS HEATER PARTS">GAS HEATER PARTS</option>
-      <option value="HAYWARD">HAYWARD</option>
-      <option value="HEAT PUMP PARTS">HEAT PUMP PARTS</option>
-      <option value="HEAT PUMPS">HEAT PUMPS</option>
-      <option value="INTERMATIC">INTERMATIC</option>
-      <option value="JANDY">JANDY</option>
-      <option value="LIGHTING">LIGHTING</option>
-      <option value="ORINGS">ORINGS</option>
-      <option value="PARTS">PARTS</option>
-      <option value="PENTAIR">PENTAIR</option>
-      <option value="PUMP PARTS">PUMP PARTS</option>
-      <option value="PUMPS">PUMPS</option>
-      <option value="RAYPAK">RAYPAK</option>
-      <option value="SPA">SPA</option>
-      <option value="VACUUM PARTS">VACUUM PARTS</option>
-      <option value="VACUUMS">VACUUMS</option>
+      <option value="">Loading categories...</option>
     </select>
 
     <label>Serialized Item?</label>
@@ -584,33 +558,7 @@
 
     <label>New Category:</label>
     <select id="changePartCategory">
-      <option value="">Select new category...</option>
-      <option value="ACCESSORY">ACCESSORY</option>
-      <option value="AUTOFILL">AUTOFILL</option>
-      <option value="AUTOMATION">AUTOMATION</option>
-      <option value="BLOWER">BLOWER</option>
-      <option value="CHLORINATOR">CHLORINATOR</option>
-      <option value="CHLORINATOR PARTS">CHLORINATOR PARTS</option>
-      <option value="ELECTRICAL">ELECTRICAL</option>
-      <option value="FILTER CARTRIDGES">FILTER CARTRIDGES</option>
-      <option value="FILTRATION SYSTEMS">FILTRATION SYSTEMS</option>
-      <option value="GAS HEATER">GAS HEATER</option>
-      <option value="GAS HEATER PARTS">GAS HEATER PARTS</option>
-      <option value="HAYWARD">HAYWARD</option>
-      <option value="HEAT PUMP PARTS">HEAT PUMP PARTS</option>
-      <option value="HEAT PUMPS">HEAT PUMPS</option>
-      <option value="INTERMATIC">INTERMATIC</option>
-      <option value="JANDY">JANDY</option>
-      <option value="LIGHTING">LIGHTING</option>
-      <option value="ORINGS">ORINGS</option>
-      <option value="PARTS">PARTS</option>
-      <option value="PENTAIR">PENTAIR</option>
-      <option value="PUMP PARTS">PUMP PARTS</option>
-      <option value="PUMPS">PUMPS</option>
-      <option value="RAYPAK">RAYPAK</option>
-      <option value="SPA">SPA</option>
-      <option value="VACUUM PARTS">VACUUM PARTS</option>
-      <option value="VACUUMS">VACUUMS</option>
+      <option value="">Loading categories...</option>
     </select>
 
     <button class="category-btn" onclick="changePartCategory()">CHANGE PART CATEGORY</button>
@@ -894,6 +842,59 @@ let activeCycleCountLines = [];
 let recountRequiredQueueData = [];
 let deadStockReportData = [];
 let needsCategoryReportData = [];
+let categoryData = [];
+
+async function loadCategoryDropdowns() {
+  const selects = [
+    document.getElementById('newPartCategory'),
+    document.getElementById('changePartCategory')
+  ];
+
+  selects.forEach(select => {
+    if (select) {
+      select.innerHTML = '<option value="">Loading categories...</option>';
+    }
+  });
+
+  const { data, error } = await client
+    .from('inventory_part_categories')
+    .select('category_name')
+    .eq('active', true)
+    .order('category_name', { ascending: true });
+
+  if (error) {
+    selects.forEach(select => {
+      if (select) {
+        select.innerHTML = '<option value="">Category load error</option>';
+      }
+    });
+    console.error('Category dropdown load error:', error);
+    return;
+  }
+
+  categoryData = data || [];
+
+  selects.forEach(select => {
+    if (!select) {
+      return;
+    }
+
+    const placeholder = select.id === 'changePartCategory'
+      ? 'Select new category...'
+      : 'Select category...';
+
+    select.innerHTML = `<option value="">${placeholder}</option>`;
+
+    categoryData.forEach(row => {
+      const option = document.createElement('option');
+      option.value = row.category_name;
+      option.textContent = row.category_name;
+      select.appendChild(option);
+    });
+  });
+
+  console.log('Active inventory categories loaded:', categoryData.length);
+}
 
 async function loadParts() {
   let allParts = [];
@@ -1128,6 +1129,7 @@ async function createPart() {
   document.getElementById('newPartSerialized').value = 'false';
 
   await loadParts();
+  await loadCategoryDropdowns();
   await loadCycleCountCategories();
 }
 
@@ -1177,6 +1179,7 @@ async function changePartCategory() {
   document.getElementById('changePartCategory').value = '';
 
   await loadParts();
+  await loadCategoryDropdowns();
   await loadCycleCountCategories();
 
   if (needsCategoryReportData && needsCategoryReportData.length > 0) {
@@ -2321,6 +2324,7 @@ function downloadCSV(csv, filename) {
   URL.revokeObjectURL(url);
 }
 
+loadCategoryDropdowns();
 loadParts();
 loadReorder();
 loadCycleCountCategories();
