@@ -565,21 +565,50 @@
       border-radius: 7px;
     }
 
-    .dead-stock-filter-grid {
+
+    .inventory-workflow-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(220px, 1fr));
-      gap: 14px;
-      align-items: end;
-      margin-bottom: 4px;
+      grid-template-columns: repeat(2, minmax(300px, 1fr));
+      gap: 18px;
+      align-items: flex-start;
     }
 
-    .dead-stock-filter-grid label {
-      margin-bottom: 5px;
+    .inventory-workflow-panel {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 18px;
+      background: #f8fafc;
     }
 
-    .dead-stock-filter-grid select,
-    .dead-stock-filter-grid input {
-      margin-bottom: 12px;
+    .inventory-workflow-panel h3 {
+      border-top: none;
+      margin-top: 0;
+      padding-top: 0;
+      margin-bottom: 14px;
+      font-size: 18px;
+    }
+
+    .inventory-workflow-panel.issue-panel h3 {
+      color: #1aa3b0;
+    }
+
+    .inventory-workflow-panel.receive-panel h3 {
+      color: #0b3c5d;
+    }
+
+    .inventory-workflow-note {
+      font-size: 12px;
+      color: #667085;
+      line-height: 1.4;
+      margin-top: -6px;
+      margin-bottom: 14px;
+    }
+
+    .inventory-workflow-panel .issue-btn,
+    .inventory-workflow-panel .receive-btn {
+      width: 100%;
+      margin-top: 8px;
+      margin-right: 0;
     }
 
     .cycle-panel {
@@ -711,9 +740,13 @@
         gap: 0;
       }
 
-      .dead-stock-filter-grid {
+
+      .inventory-workflow-grid {
         grid-template-columns: 1fr;
-        gap: 0;
+      }
+
+      .inventory-workflow-panel {
+        padding: 16px;
       }
 
       pre {
@@ -741,41 +774,78 @@
 
   <div class="card">
 
-    <h2>Inventory Control Panel (Issued / Received)</h2>
+    <h2>Inventory Control Panel</h2>
 
     <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
 
-    <label>Part Number:</label>
-    <input id="part" list="partsList" placeholder="Start typing part number..." autocomplete="off">
     <datalist id="partsList"></datalist>
 
-    <div id="serialContainer">
-      <label>Serial Number:</label>
-      <input id="serial" placeholder="Enter manufacturer serial number" autocomplete="off">
-    </div>
+    <div class="inventory-workflow-grid">
 
-    <label>Quantity:</label>
-    <input id="qty" type="number" value="1">
+      <div class="inventory-workflow-panel issue-panel">
+        <h3>ISSUE INVENTORY</h3>
 
-    <label>Price Paid (Include Tax):</label>
-    <input id="unitCost" type="number" step="0.01" placeholder="Enter total landed unit cost including tax">
+        <div class="inventory-workflow-note">
+          Use this section when inventory is issued to a technician, job, work order, or client.
+        </div>
 
-    <div class="help-text">
-      Enter the actual final per-unit cost paid including applicable tax.
-    </div>
+        <label>Part Number:</label>
+        <input id="issuePart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
 
-    <label>Issued To:</label>
-    <input id="tech">
+        <div id="issueSerialContainer" style="display: none;">
+          <label>Serial Number:</label>
+          <input id="issueSerial" placeholder="Enter manufacturer serial number" autocomplete="off">
+        </div>
 
-    <label>Work Order (Quote # or Job #):</label>
-    <input id="job">
+        <label>Quantity:</label>
+        <input id="issueQty" type="number" value="1">
 
-    <label>Client:</label>
-    <input id="client">
+        <label>Issued To:</label>
+        <input id="issueTech" placeholder="Technician or team member">
 
-    <div class="button-row">
-      <button class="issue-btn" onclick="issue()">ISSUE</button>
-      <button class="receive-btn" onclick="receive()">RECEIVE</button>
+        <label>Work Order (Quote # or Job #):</label>
+        <input id="issueJob" placeholder="Work order, quote #, or job #">
+
+        <label>Client:</label>
+        <input id="issueClient" placeholder="Client name">
+
+        <button class="issue-btn" onclick="issue()">ISSUE INVENTORY</button>
+      </div>
+
+      <div class="inventory-workflow-panel receive-panel">
+        <h3>RECEIVE INVENTORY</h3>
+
+        <div class="inventory-workflow-note">
+          Use this section when inventory is received into the Main Warehouse.
+        </div>
+
+        <label>Part Number:</label>
+        <input id="receivePart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
+
+        <div id="receiveSerialContainer" style="display: none;">
+          <label>Serial Number:</label>
+          <input id="receiveSerial" placeholder="Enter manufacturer serial number" autocomplete="off">
+        </div>
+
+        <label>Quantity:</label>
+        <input id="receiveQty" type="number" value="1">
+
+        <label>Price Paid (Include Tax):</label>
+        <input id="receiveUnitCost" type="number" step="0.01" placeholder="Enter total landed unit cost including tax">
+
+        <div class="help-text">
+          Enter the actual final per-unit cost paid including applicable tax.
+        </div>
+
+        <label>Vendor:</label>
+        <input id="receiveVendor" placeholder="Vendor name" autocomplete="off">
+
+        <label>PO #:</label>
+        <input id="receivePO" placeholder="Purchase order number" autocomplete="off">
+
+        <button class="receive-btn" onclick="receive()">RECEIVE INVENTORY</button>
+      </div>
+
     </div>
 
     <h3>Output</h3>
@@ -1033,39 +1103,14 @@
       will display as No Issue History Yet.
     </div>
 
-    <div class="dead-stock-filter-grid">
-      <div>
-        <label>Dead Stock Filter:</label>
-        <select id="deadStockFilter">
-          <option value="all_candidates">All Dead Stock Candidates</option>
-          <option value="no_issue" selected>No Issue History Yet</option>
-          <option value="days90">90+ Days No Movement</option>
-          <option value="days180">180+ Days No Movement</option>
-          <option value="days365">365+ Days No Movement</option>
-        </select>
-      </div>
-
-      <div>
-        <label>Verified Status Filter:</label>
-        <select id="deadStockVerifiedStatusFilter">
-          <option value="all" selected>All Verification Statuses</option>
-          <option value="unreviewed">Unreviewed Only</option>
-          <option value="VERIFIED_DEAD_STOCK">VERIFIED_DEAD_STOCK</option>
-          <option value="NOT_DEAD_STOCK">NOT_DEAD_STOCK</option>
-          <option value="REVIEW_LATER">REVIEW_LATER</option>
-        </select>
-      </div>
-
-      <div>
-        <label>Part Number Lookup:</label>
-        <input
-          id="deadStockPartLookup"
-          placeholder="Exact or partial part number..."
-          autocomplete="off"
-          onkeydown="if (event.key === 'Enter') { loadDeadStockReport(); }"
-        >
-      </div>
-    </div>
+    <label>Dead Stock Filter:</label>
+    <select id="deadStockFilter">
+      <option value="all_candidates">All Dead Stock Candidates</option>
+      <option value="no_issue" selected>No Issue History Yet</option>
+      <option value="days90">90+ Days No Movement</option>
+      <option value="days180">180+ Days No Movement</option>
+      <option value="days365">365+ Days No Movement</option>
+    </select>
 
     <div class="button-row">
       <button class="report-btn" onclick="loadDeadStockReport()">RUN DEAD STOCK REPORT</button>
@@ -1282,35 +1327,53 @@ async function loadParts() {
   console.log('Parts loaded into dropdown:', partsData.length);
 }
 
-function getMatchedPart() {
-  const enteredPart = document.getElementById('part').value.trim().toUpperCase();
+function getMatchedPart(inputId) {
+  const input = document.getElementById(inputId);
+
+  if (!input) {
+    return null;
+  }
+
+  const enteredPart = input.value.trim().toUpperCase();
 
   return partsData.find(
     p => p.part_number.toUpperCase() === enteredPart
   );
 }
 
-function checkSerialized() {
-  const matchedPart = getMatchedPart();
-
+function checkIssueSerialized() {
+  const matchedPart = getMatchedPart('issuePart');
   const isSerialized = matchedPart?.is_serialized === true;
+  const serialContainer = document.getElementById('issueSerialContainer');
 
-  document.getElementById('serialContainer').style.display =
-    isSerialized ? 'block' : 'none';
-
-  if (matchedPart && matchedPart.unit_cost !== null && matchedPart.unit_cost !== undefined) {
-    document.getElementById('unitCost').value = Number(matchedPart.unit_cost).toFixed(2);
+  if (serialContainer) {
+    serialContainer.style.display = isSerialized ? 'block' : 'none';
   }
 }
 
-document.getElementById('part').addEventListener('input', checkSerialized);
+function checkReceiveSerialized() {
+  const matchedPart = getMatchedPart('receivePart');
+  const isSerialized = matchedPart?.is_serialized === true;
+  const serialContainer = document.getElementById('receiveSerialContainer');
+
+  if (serialContainer) {
+    serialContainer.style.display = isSerialized ? 'block' : 'none';
+  }
+
+  if (matchedPart && matchedPart.unit_cost !== null && matchedPart.unit_cost !== undefined) {
+    document.getElementById('receiveUnitCost').value = Number(matchedPart.unit_cost).toFixed(2);
+  }
+}
+
+document.getElementById('issuePart').addEventListener('input', checkIssueSerialized);
+document.getElementById('receivePart').addEventListener('input', checkReceiveSerialized);
 
 async function issue() {
-  checkSerialized();
+  checkIssueSerialized();
 
-  const matchedPart = getMatchedPart();
+  const matchedPart = getMatchedPart('issuePart');
   const isSerialized = matchedPart?.is_serialized === true;
-  const serialValue = document.getElementById('serial').value.trim();
+  const serialValue = document.getElementById('issueSerial').value.trim();
 
   if (isSerialized && serialValue === '') {
     document.getElementById('output').textContent =
@@ -1319,11 +1382,11 @@ async function issue() {
   }
 
   const { error } = await client.rpc('issue_inventory', {
-    p_part_number: document.getElementById('part').value,
-    p_quantity: Number(document.getElementById('qty').value),
-    p_issued_to: document.getElementById('tech').value,
-    p_work_order: document.getElementById('job').value,
-    p_client_name: document.getElementById('client').value,
+    p_part_number: document.getElementById('issuePart').value,
+    p_quantity: Number(document.getElementById('issueQty').value),
+    p_issued_to: document.getElementById('issueTech').value,
+    p_work_order: document.getElementById('issueJob').value,
+    p_client_name: document.getElementById('issueClient').value,
     p_serial_number: serialValue || null
   });
 
@@ -1331,7 +1394,7 @@ async function issue() {
     error ? error.message : 'Issued successfully';
 
   if (!error) {
-    document.getElementById('serial').value = '';
+    document.getElementById('issueSerial').value = '';
   }
 
   await loadReorder();
@@ -1342,12 +1405,14 @@ async function issue() {
 }
 
 async function receive() {
-  checkSerialized();
+  checkReceiveSerialized();
 
-  const matchedPart = getMatchedPart();
+  const matchedPart = getMatchedPart('receivePart');
   const isSerialized = matchedPart?.is_serialized === true;
-  const serialValue = document.getElementById('serial').value.trim();
-  const unitCostValue = document.getElementById('unitCost').value;
+  const serialValue = document.getElementById('receiveSerial').value.trim();
+  const unitCostValue = document.getElementById('receiveUnitCost').value;
+  const vendorValue = document.getElementById('receiveVendor').value.trim();
+  const poValue = document.getElementById('receivePO').value.trim();
 
   if (isSerialized && serialValue === '') {
     document.getElementById('output').textContent =
@@ -1362,20 +1427,22 @@ async function receive() {
   }
 
   const { error } = await client.rpc('receive_inventory', {
-    p_part_number: document.getElementById('part').value,
-    p_quantity: Number(document.getElementById('qty').value),
+    p_part_number: document.getElementById('receivePart').value,
+    p_quantity: Number(document.getElementById('receiveQty').value),
     p_location_id: MAIN_WAREHOUSE_ID,
     p_serial_number: serialValue || null,
-    p_unit_cost: Number(unitCostValue)
+    p_unit_cost: Number(unitCostValue),
+    p_vendor_name: vendorValue || null,
+    p_po_number: poValue || null
   });
 
   document.getElementById('output').textContent =
     error ? error.message : 'Received successfully';
 
   if (!error) {
-    document.getElementById('serial').value = '';
+    document.getElementById('receiveSerial').value = '';
     await loadParts();
-    checkSerialized();
+    checkReceiveSerialized();
   }
 
   await loadReorder();
@@ -1586,7 +1653,7 @@ async function exportSerializedInventoryCSV() {
   downloadCSV(csv, 'serialized_inventory.csv');
 }
 
-async function fetchDeadStockRows(filterValue, verifiedStatusFilter = 'all', partLookup = '') {
+async function fetchDeadStockRows(filterValue) {
   let allRows = [];
   let from = 0;
   const batchSize = 1000;
@@ -1638,34 +1705,11 @@ async function fetchDeadStockRows(filterValue, verifiedStatusFilter = 'all', par
     from += batchSize;
   }
 
-  const normalizedPartLookup = String(partLookup || '').trim().toUpperCase();
-  const normalizedVerifiedStatusFilter = String(verifiedStatusFilter || 'all').trim();
-
-  if (normalizedVerifiedStatusFilter !== 'all') {
-    allRows = allRows.filter(row => {
-      const rowStatus = String(row.verified_status || '').trim();
-
-      if (normalizedVerifiedStatusFilter === 'unreviewed') {
-        return rowStatus === '';
-      }
-
-      return rowStatus === normalizedVerifiedStatusFilter;
-    });
-  }
-
-  if (normalizedPartLookup) {
-    allRows = allRows.filter(row =>
-      String(row.part_number || '').toUpperCase().includes(normalizedPartLookup)
-    );
-  }
-
   return allRows;
 }
 
 async function loadDeadStockReport() {
   const filterValue = document.getElementById('deadStockFilter').value;
-  const verifiedStatusFilter = document.getElementById('deadStockVerifiedStatusFilter').value;
-  const partLookup = document.getElementById('deadStockPartLookup').value.trim();
 
   document.getElementById('deadStockSummary').textContent =
     'Loading dead stock report...';
@@ -1675,7 +1719,7 @@ async function loadDeadStockReport() {
     '<tr><td colspan="16">Loading dead stock report...</td></tr>';
 
   try {
-    deadStockReportData = await fetchDeadStockRows(filterValue, verifiedStatusFilter, partLookup);
+    deadStockReportData = await fetchDeadStockRows(filterValue);
   } catch (error) {
     deadStockReportData = [];
     document.getElementById('deadStockSummary').textContent = error.message;
@@ -1943,16 +1987,8 @@ function updateDeadStockSummary() {
     .selectedOptions[0]
     .textContent;
 
-  const verifiedStatusFilterLabel = document.getElementById('deadStockVerifiedStatusFilter')
-    .selectedOptions[0]
-    .textContent;
-
-  const partLookup = document.getElementById('deadStockPartLookup').value.trim();
-
   document.getElementById('deadStockSummary').textContent =
-    `Dead Stock Filter: ${filterLabel}\n` +
-    `Verified Status Filter: ${verifiedStatusFilterLabel}\n` +
-    `Part Number Lookup: ${partLookup || 'None'}\n` +
+    `Filter: ${filterLabel}\n` +
     `Parts Returned: ${deadStockReportData.length}\n` +
     `Total Quantity On Hand: ${formatNumber(totalQty)}\n` +
     `Total Inventory Value: ${formatCurrency(totalValue)}\n` +
@@ -1962,43 +1998,27 @@ function updateDeadStockSummary() {
 
 async function exportDeadStockCSV() {
   const filterValue = document.getElementById('deadStockFilter').value;
-  const verifiedStatusFilter = document.getElementById('deadStockVerifiedStatusFilter').value;
-  const partLookup = document.getElementById('deadStockPartLookup').value.trim();
-
   const filterLabel = document.getElementById('deadStockFilter')
     .selectedOptions[0]
     .textContent;
 
-  const verifiedStatusFilterLabel = document.getElementById('deadStockVerifiedStatusFilter')
-    .selectedOptions[0]
-    .textContent;
-
-  document.getElementById('deadStockSummary').textContent =
-    'Preparing filtered Dead Stock CSV export...';
-
-  let exportRows = [];
-
-  try {
-    exportRows = await fetchDeadStockRows(filterValue, verifiedStatusFilter, partLookup);
-  } catch (error) {
-    document.getElementById('deadStockSummary').textContent = error.message;
-    return;
+  if (!deadStockReportData || deadStockReportData.length === 0) {
+    try {
+      deadStockReportData = await fetchDeadStockRows(filterValue);
+    } catch (error) {
+      document.getElementById('deadStockSummary').textContent = error.message;
+      return;
+    }
   }
-
-  deadStockReportData = exportRows;
 
   if (!deadStockReportData || deadStockReportData.length === 0) {
-    renderDeadStockTable();
     document.getElementById('deadStockSummary').textContent =
-      'No records available to export for the current filters.';
+      'No records available to export for this filter.';
     return;
   }
 
-  renderDeadStockTable();
-  updateDeadStockSummary();
-
   let csv =
-    'Part Number,Description,Category,Location,Quantity On Hand,Unit Cost,Inventory Value,Last Issued At,Days Since Last Issued,Last Received At,Dead Stock Status,Verified Status,Recommended Action,Verified By,Verified At,Verification Reason,Verification Notes\n';
+    'Part Number,Description,Category,Location,Quantity On Hand,Unit Cost,Inventory Value,Last Issued At,Days Since Last Issued,Last Received At,Dead Stock Status,Verified Status,Recommended Action,Verified By,Verified At\n';
 
   deadStockReportData.forEach(row => {
     csv +=
@@ -2016,19 +2036,12 @@ async function exportDeadStockCSV() {
       `"${cleanCSV(row.verified_status)}",` +
       `"${cleanCSV(row.recommended_action)}",` +
       `"${cleanCSV(row.verified_by)}",` +
-      `"${cleanCSV(row.verified_at)}",` +
-      `"${cleanCSV(row.verification_reason)}",` +
-      `"${cleanCSV(row.verification_notes)}"\n`;
+      `"${cleanCSV(row.verified_at)}"\n`;
   });
 
   const safeFilter = cleanFilename(filterLabel || 'dead_stock');
-  const safeVerifiedStatus = cleanFilename(verifiedStatusFilterLabel || 'verification_status');
-  const safePartLookup = cleanFilename(partLookup || 'all_parts');
 
-  downloadCSV(csv, `dead_stock_report_${safeFilter}_${safeVerifiedStatus}_${safePartLookup}.csv`);
-
-  document.getElementById('deadStockSummary').textContent +=
-    `\n\nExported ${formatNumber(deadStockReportData.length)} filtered Dead Stock row(s) to CSV.`;
+  downloadCSV(csv, `dead_stock_report_${safeFilter}.csv`);
 }
 
 async function fetchNeedsCategoryRows() {
