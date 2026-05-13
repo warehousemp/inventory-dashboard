@@ -175,6 +175,89 @@
       margin-bottom: 15px;
     }
 
+
+
+    .transaction-report-summary {
+      background: #f8f4ff;
+      border: 1px solid #d8c7ff;
+      color: #46336f;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 15px;
+      white-space: pre-wrap;
+    }
+
+    .transaction-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: white;
+      margin-top: 16px;
+      max-height: 650px;
+      overflow-y: auto;
+    }
+
+    .transaction-table {
+      width: 100%;
+      min-width: 1500px;
+      border-collapse: collapse;
+      background: white;
+      table-layout: auto;
+    }
+
+    .transaction-table th,
+    .transaction-table td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px;
+      text-align: left;
+      font-size: 13px;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    .transaction-table th {
+      background: #f0f4f8;
+      color: #0b3c5d;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .transaction-table tr:hover td {
+      background: #f8fafc;
+    }
+
+    .transaction-table .description-cell,
+    .transaction-table .notes-cell {
+      white-space: normal;
+      min-width: 240px;
+      max-width: 360px;
+      line-height: 1.35;
+    }
+
+    .transaction-table .date-cell {
+      min-width: 170px;
+    }
+
+    .transaction-table .money-cell,
+    .transaction-table .qty-cell {
+      text-align: right;
+    }
+
+    .transaction-placeholder {
+      background: #f0f4f8;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 13px;
+      white-space: pre-wrap;
+      border: 1px solid #e2e8f0;
+      line-height: 1.45;
+    }
+
     @media (max-width: 950px) {
       .main-layout {
         grid-template-columns: 1fr;
@@ -292,7 +375,7 @@
 
     <button class="accounting-btn" onclick="exportTransactionLogCSV()">EXPORT TRANSACTION REPORT CSV</button>
 
-    <pre id="transactionLogReport">Select a date range and run transaction report...</pre>
+    <div id="transactionLogReport" class="transaction-placeholder">Select a date range and run transaction report...</div>
 
   </div>
 
@@ -547,9 +630,11 @@ async function loadTransactionLog() {
 }
 
 function displayTransactionLog(data, reportType) {
+  const reportElement = document.getElementById('transactionLogReport');
+
   if (!data || data.length === 0) {
-    document.getElementById('transactionLogReport').textContent =
-      'No transactions found.';
+    reportElement.className = 'transaction-placeholder';
+    reportElement.textContent = 'No transactions found.';
     return;
   }
 
@@ -563,6 +648,8 @@ function displayTransactionLog(data, reportType) {
     'unit_cost',
     'total_value',
     'location_name',
+    'vendor_name',
+    'po_number',
     'client_name',
     'work_order',
     'work_order_number',
@@ -580,23 +667,68 @@ function displayTransactionLog(data, reportType) {
     }
   });
 
-  let output = `${getReportTitle(reportType)}\n`;
-  output += `Generated from selected date range\n`;
-  output += `Included: ${getTransactionTypeLabel(reportType)}\n`;
+  let summary = `${getReportTitle(reportType)}\n`;
+  summary += `Generated from selected date range\n`;
+  summary += `Included: ${getTransactionTypeLabel(reportType)}`;
 
   if (reportType === 'ALL_ADJUSTMENTS') {
-    output += `Included Transaction Types: ADJUSTMENT, CYCLE_COUNT_ADJUSTMENT\n`;
+    summary += `\nIncluded Transaction Types: ADJUSTMENT, CYCLE_COUNT_ADJUSTMENT`;
   }
 
-  output += '\n';
-  output += displayColumns.map(col => formatColumnHeader(col)).join(' | ') + '\n';
-  output += '-'.repeat(160) + '\n';
+  let tableHTML = `
+    <div class="transaction-report-summary">${escapeHTML(summary)}</div>
+    <div class="transaction-table-wrapper">
+      <table class="transaction-table">
+        <thead>
+          <tr>
+            ${displayColumns.map(col => `<th>${escapeHTML(formatColumnHeader(col))}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+  `;
 
   data.forEach(row => {
-    output += displayColumns.map(col => formatDisplayValue(col, row[col])).join(' | ') + '\n';
+    tableHTML += '<tr>';
+
+    displayColumns.forEach(col => {
+      tableHTML += `<td class="${getTransactionCellClass(col)}">${escapeHTML(formatDisplayValue(col, row[col]))}</td>`;
+    });
+
+    tableHTML += '</tr>';
   });
 
-  document.getElementById('transactionLogReport').textContent = output;
+  tableHTML += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  reportElement.className = '';
+  reportElement.innerHTML = tableHTML;
+}
+
+function getTransactionCellClass(columnName) {
+  if (columnName === 'description') {
+    return 'description-cell';
+  }
+
+  if (columnName === 'notes') {
+    return 'notes-cell';
+  }
+
+  if (columnName === 'created_at') {
+    return 'date-cell';
+  }
+
+  if (columnName === 'unit_cost' || columnName === 'total_value') {
+    return 'money-cell';
+  }
+
+  if (columnName === 'quantity') {
+    return 'qty-cell';
+  }
+
+  return '';
 }
 
 function formatColumnHeader(columnName) {
@@ -682,6 +814,19 @@ function exportTransactionLogCSV() {
   const filenamePrefix = getReportFilenamePrefix(currentTransactionReportType);
 
   downloadCSV(csv, `${filenamePrefix}_${startDate}_to_${endDate}.csv`);
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function cleanCSV(value) {
