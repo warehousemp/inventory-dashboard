@@ -688,6 +688,49 @@
 
   <div class="card wide-card">
 
+    <h2>Needs Category Queue</h2>
+
+    <div class="warning-note">
+      This report shows active parts with NULL or blank categories. Use it to prioritize category cleanup,
+      then use the Change Existing Part Category tool above to assign the correct approved category.
+    </div>
+
+    <div class="button-row">
+      <button class="report-btn" onclick="loadNeedsCategoryReport()">RUN NEEDS CATEGORY REPORT</button>
+      <button class="export-btn" onclick="exportNeedsCategoryCSV()">EXPORT NEEDS CATEGORY CSV</button>
+    </div>
+
+    <div id="needsCategorySummary" class="session-id-box">
+      Click RUN NEEDS CATEGORY REPORT to load uncategorized active parts.
+    </div>
+
+    <div class="count-table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Part Number</th>
+            <th>Description</th>
+            <th>Current Category</th>
+            <th>Location</th>
+            <th>Qty On Hand</th>
+            <th>Unit Cost</th>
+            <th>Inventory Value</th>
+            <th>Updated At</th>
+          </tr>
+        </thead>
+        <tbody id="needsCategoryTableBody">
+          <tr>
+            <td colspan="9">No Needs Category report loaded.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <div class="card wide-card">
+
     <h2>Cycle Count Management</h2>
 
     <div class="status-note">
@@ -850,6 +893,7 @@ let activeCycleCountId = null;
 let activeCycleCountLines = [];
 let recountRequiredQueueData = [];
 let deadStockReportData = [];
+let needsCategoryReportData = [];
 
 async function loadParts() {
   let allParts = [];
@@ -1134,6 +1178,10 @@ async function changePartCategory() {
 
   await loadParts();
   await loadCycleCountCategories();
+
+  if (needsCategoryReportData && needsCategoryReportData.length > 0) {
+    await loadNeedsCategoryReport();
+  }
 }
 
 async function loadSerializedInventory() {
@@ -1382,6 +1430,172 @@ async function exportDeadStockCSV() {
   const safeFilter = cleanFilename(filterLabel || 'dead_stock');
 
   downloadCSV(csv, `dead_stock_report_${safeFilter}.csv`);
+}
+
+async function fetchNeedsCategoryRows() {
+  let allRows = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    const { data, error } = await client
+      .from('inventory_needs_category_view')
+      .select('*')
+      .order('inventory_value', { ascending: false })
+      .order('part_number', { ascending: true })
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allRows = allRows.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  return allRows;
+}
+
+async function loadNeedsCategoryReport() {
+  document.getElementById('needsCategorySummary').textContent =
+    'Loading Needs Category report...';
+
+  const tableBody = document.getElementById('needsCategoryTableBody');
+  tableBody.innerHTML =
+    '<tr><td colspan="9">Loading Needs Category report...</td></tr>';
+
+  try {
+    needsCategoryReportData = await fetchNeedsCategoryRows();
+  } catch (error) {
+    needsCategoryReportData = [];
+    document.getElementById('needsCategorySummary').textContent = error.message;
+    tableBody.innerHTML =
+      `<tr><td colspan="9">${escapeHTML(error.message)}</td></tr>`;
+    return;
+  }
+
+  renderNeedsCategoryTable();
+  updateNeedsCategorySummary();
+}
+
+function renderNeedsCategoryTable() {
+  const tableBody = document.getElementById('needsCategoryTableBody');
+  tableBody.innerHTML = '';
+
+  if (!needsCategoryReportData || needsCategoryReportData.length === 0) {
+    tableBody.innerHTML =
+      '<tr><td colspan="9">No active parts currently need category cleanup.</td></tr>';
+    return;
+  }
+
+  needsCategoryReportData.forEach(row => {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>
+        <button class="category-btn small-btn" onclick="loadPartIntoCategoryTool('${escapeJS(row.part_number)}')">
+          SELECT
+        </button>
+      </td>
+      <td>${escapeHTML(row.part_number || '')}</td>
+      <td>${escapeHTML(row.description || '')}</td>
+      <td>${escapeHTML(row.category || 'NULL / BLANK')}</td>
+      <td>${escapeHTML(row.location_name || '')}</td>
+      <td>${formatNumber(row.quantity_on_hand)}</td>
+      <td>${formatCurrency(row.unit_cost)}</td>
+      <td>${formatCurrency(row.inventory_value)}</td>
+      <td>${formatDateTime(row.updated_at)}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function updateNeedsCategorySummary() {
+  if (!needsCategoryReportData || needsCategoryReportData.length === 0) {
+    document.getElementById('needsCategorySummary').textContent =
+      'No active parts currently need category cleanup.';
+    return;
+  }
+
+  let totalQty = 0;
+  let totalValue = 0;
+  let noStockBalanceCount = 0;
+
+  needsCategoryReportData.forEach(row => {
+    totalQty += Number(row.quantity_on_hand || 0);
+    totalValue += Number(row.inventory_value || 0);
+
+    if (row.location_name === 'No Stock Balance' || Number(row.quantity_on_hand || 0) === 0) {
+      noStockBalanceCount++;
+    }
+  });
+
+  document.getElementById('needsCategorySummary').textContent =
+    `Active Parts Needing Category: ${formatNumber(needsCategoryReportData.length)}\n` +
+    `Total Quantity On Hand: ${formatNumber(totalQty)}\n` +
+    `Total Inventory Value: ${formatCurrency(totalValue)}\n` +
+    `Rows With No Stock Balance / Zero On Hand: ${formatNumber(noStockBalanceCount)}\n\n` +
+    `Use the SELECT button to load a part number into the Change Existing Part Category tool above.`;
+}
+
+function loadPartIntoCategoryTool(partNumber) {
+  document.getElementById('changeCategoryPartNumber').value = partNumber || '';
+  document.getElementById('changePartCategory').value = '';
+  document.getElementById('changeCategoryResult').textContent =
+    `Selected part for category update: ${partNumber}\nChoose a new category and click CHANGE PART CATEGORY.`;
+
+  const categoryInput = document.getElementById('changeCategoryPartNumber');
+
+  if (categoryInput) {
+    categoryInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    categoryInput.focus();
+  }
+}
+
+async function exportNeedsCategoryCSV() {
+  if (!needsCategoryReportData || needsCategoryReportData.length === 0) {
+    try {
+      needsCategoryReportData = await fetchNeedsCategoryRows();
+    } catch (error) {
+      document.getElementById('needsCategorySummary').textContent = error.message;
+      return;
+    }
+  }
+
+  if (!needsCategoryReportData || needsCategoryReportData.length === 0) {
+    document.getElementById('needsCategorySummary').textContent =
+      'No Needs Category records available to export.';
+    return;
+  }
+
+  let csv =
+    'Part Number,Description,Current Category,Location,Quantity On Hand,Unit Cost,Inventory Value,Active,Created At,Updated At\n';
+
+  needsCategoryReportData.forEach(row => {
+    csv +=
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description)}",` +
+      `"${cleanCSV(row.category)}",` +
+      `"${cleanCSV(row.location_name)}",` +
+      `"${cleanCSV(row.quantity_on_hand)}",` +
+      `"${cleanCSV(row.unit_cost)}",` +
+      `"${cleanCSV(row.inventory_value)}",` +
+      `"${cleanCSV(row.active)}",` +
+      `"${cleanCSV(row.created_at)}",` +
+      `"${cleanCSV(row.updated_at)}"\n`;
+  });
+
+  downloadCSV(csv, 'needs_category_queue.csv');
 }
 
 async function loadRecountRequiredQueue() {
