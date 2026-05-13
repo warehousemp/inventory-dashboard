@@ -178,6 +178,13 @@
       margin-top: 10px;
     }
 
+    .category-btn {
+      background: #805ad5;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
     .cycle-btn {
       background: #2f855a;
       color: white;
@@ -564,6 +571,51 @@
     <button class="create-btn" onclick="createPart()">CREATE PART</button>
 
     <pre id="createPartResult">Create new inventory parts here...</pre>
+
+    <h3>Change Existing Part Category</h3>
+
+    <div class="warning-note">
+      Use this section to correct or update the category for an existing active part.
+      UNASSIGNED is not allowed.
+    </div>
+
+    <label>Existing Part Number:</label>
+    <input id="changeCategoryPartNumber" list="partsList" placeholder="Start typing existing part number..." autocomplete="off">
+
+    <label>New Category:</label>
+    <select id="changePartCategory">
+      <option value="">Select new category...</option>
+      <option value="ACCESSORY">ACCESSORY</option>
+      <option value="AUTOFILL">AUTOFILL</option>
+      <option value="AUTOMATION">AUTOMATION</option>
+      <option value="BLOWER">BLOWER</option>
+      <option value="CHLORINATOR">CHLORINATOR</option>
+      <option value="CHLORINATOR PARTS">CHLORINATOR PARTS</option>
+      <option value="ELECTRICAL">ELECTRICAL</option>
+      <option value="FILTER CARTRIDGES">FILTER CARTRIDGES</option>
+      <option value="FILTRATION SYSTEMS">FILTRATION SYSTEMS</option>
+      <option value="GAS HEATER">GAS HEATER</option>
+      <option value="GAS HEATER PARTS">GAS HEATER PARTS</option>
+      <option value="HAYWARD">HAYWARD</option>
+      <option value="HEAT PUMP PARTS">HEAT PUMP PARTS</option>
+      <option value="HEAT PUMPS">HEAT PUMPS</option>
+      <option value="INTERMATIC">INTERMATIC</option>
+      <option value="JANDY">JANDY</option>
+      <option value="LIGHTING">LIGHTING</option>
+      <option value="ORINGS">ORINGS</option>
+      <option value="PARTS">PARTS</option>
+      <option value="PENTAIR">PENTAIR</option>
+      <option value="PUMP PARTS">PUMP PARTS</option>
+      <option value="PUMPS">PUMPS</option>
+      <option value="RAYPAK">RAYPAK</option>
+      <option value="SPA">SPA</option>
+      <option value="VACUUM PARTS">VACUUM PARTS</option>
+      <option value="VACUUMS">VACUUMS</option>
+    </select>
+
+    <button class="category-btn" onclick="changePartCategory()">CHANGE PART CATEGORY</button>
+
+    <pre id="changeCategoryResult">Change an existing part category here...</pre>
 
   </div>
 
@@ -974,6 +1026,55 @@ async function createPart() {
   document.getElementById('newPartReorderPoint').value = '0';
   document.getElementById('newPartCategory').value = '';
   document.getElementById('newPartSerialized').value = 'false';
+
+  await loadParts();
+  await loadCycleCountCategories();
+}
+
+async function changePartCategory() {
+  const partNumber = document.getElementById('changeCategoryPartNumber').value.trim();
+  const newCategory = document.getElementById('changePartCategory').value;
+
+  if (!partNumber) {
+    document.getElementById('changeCategoryResult').textContent =
+      'Part number is required.';
+    return;
+  }
+
+  if (!newCategory) {
+    document.getElementById('changeCategoryResult').textContent =
+      'New category is required.';
+    return;
+  }
+
+  document.getElementById('changeCategoryResult').textContent =
+    'Changing part category...';
+
+  const { data, error } = await client.rpc('update_inventory_part_category', {
+    p_part_number: partNumber,
+    p_category: newCategory
+  });
+
+  if (error) {
+    document.getElementById('changeCategoryResult').textContent = error.message;
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+
+  if (!result) {
+    document.getElementById('changeCategoryResult').textContent =
+      'Category update completed, but no result was returned.';
+  } else {
+    document.getElementById('changeCategoryResult').textContent =
+      `Part category updated successfully.\n\n` +
+      `Part Number: ${result.part_number}\n` +
+      `Description: ${result.description || ''}\n` +
+      `Old Category: ${result.old_category || 'NULL / BLANK'}\n` +
+      `New Category: ${result.new_category}`;
+  }
+
+  document.getElementById('changePartCategory').value = '';
 
   await loadParts();
   await loadCycleCountCategories();
