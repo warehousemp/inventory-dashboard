@@ -588,7 +588,7 @@
 
   <div class="card">
 
-    <h2>Inventory Control Panel (Issued / Received)</h2>
+    <h2>Inventory Control Panel</h2>
 
     <label>Part Number:</label>
     <input id="part" list="partsList" placeholder="Start typing part number..." autocomplete="off">
@@ -612,7 +612,7 @@
     <label>Issued To:</label>
     <input id="tech">
 
-    <label>Work Order (Quote # or Job #):</label>
+    <label>Work Order:</label>
     <input id="job">
 
     <label>Client:</label>
@@ -901,11 +901,17 @@
             <th>Days Since Issued</th>
             <th>Last Received</th>
             <th>Status</th>
+            <th>Verified Status</th>
+            <th>Recommended Action</th>
+            <th>Verified By</th>
+            <th>Verified At</th>
+            <th>Verification Reason</th>
+            <th>Verification Notes</th>
           </tr>
         </thead>
         <tbody id="deadStockTableBody">
           <tr>
-            <td colspan="11">No dead stock report loaded.</td>
+            <td colspan="17">No dead stock report loaded.</td>
           </tr>
         </tbody>
       </table>
@@ -1439,7 +1445,7 @@ async function loadDeadStockReport() {
 
   const tableBody = document.getElementById('deadStockTableBody');
   tableBody.innerHTML =
-    '<tr><td colspan="11">Loading dead stock report...</td></tr>';
+    '<tr><td colspan="17">Loading dead stock report...</td></tr>';
 
   try {
     deadStockReportData = await fetchDeadStockRows(filterValue);
@@ -1447,7 +1453,7 @@ async function loadDeadStockReport() {
     deadStockReportData = [];
     document.getElementById('deadStockSummary').textContent = error.message;
     tableBody.innerHTML =
-      `<tr><td colspan="11">${escapeHTML(error.message)}</td></tr>`;
+      `<tr><td colspan="17">${escapeHTML(error.message)}</td></tr>`;
     return;
   }
 
@@ -1461,7 +1467,7 @@ function renderDeadStockTable() {
 
   if (!deadStockReportData || deadStockReportData.length === 0) {
     tableBody.innerHTML =
-      '<tr><td colspan="11">No records found for this filter.</td></tr>';
+      '<tr><td colspan="17">No records found for this filter.</td></tr>';
     return;
   }
 
@@ -1480,6 +1486,12 @@ function renderDeadStockTable() {
       <td>${formatNumber(row.days_since_last_issued)}</td>
       <td>${formatDateTime(row.last_received_at)}</td>
       <td>${escapeHTML(row.dead_stock_status || '')}</td>
+      <td>${escapeHTML(row.verified_status || '')}</td>
+      <td>${escapeHTML(row.recommended_action || '')}</td>
+      <td>${escapeHTML(row.verified_by || '')}</td>
+      <td>${formatDateTime(row.verified_at)}</td>
+      <td>${escapeHTML(row.verification_reason || '')}</td>
+      <td>${escapeHTML(row.verification_notes || '')}</td>
     `;
 
     tableBody.appendChild(tr);
@@ -1497,6 +1509,7 @@ function updateDeadStockSummary() {
   let totalValue = 0;
   let noIssueCount = 0;
   let blankCategoryCount = 0;
+  let verifiedDeadStockCount = 0;
 
   deadStockReportData.forEach(row => {
     totalQty += Number(row.quantity_on_hand || 0);
@@ -1508,6 +1521,10 @@ function updateDeadStockSummary() {
 
     if (!row.category || String(row.category).trim() === '') {
       blankCategoryCount++;
+    }
+
+    if (row.verified_status === 'VERIFIED_DEAD_STOCK') {
+      verifiedDeadStockCount++;
     }
   });
 
@@ -1521,7 +1538,9 @@ function updateDeadStockSummary() {
     `Total Quantity On Hand: ${formatNumber(totalQty)}\n` +
     `Total Inventory Value: ${formatCurrency(totalValue)}\n` +
     `No Issue History Yet Count: ${formatNumber(noIssueCount)}\n` +
-    `NULL / BLANK Category Count: ${formatNumber(blankCategoryCount)}`;
+    `NULL / BLANK Category Count: ${formatNumber(blankCategoryCount)}
+` +
+    `Verified Dead Stock Count: ${formatNumber(verifiedDeadStockCount)}`;
 }
 
 async function exportDeadStockCSV() {
@@ -1546,7 +1565,8 @@ async function exportDeadStockCSV() {
   }
 
   let csv =
-    'Part Number,Description,Category,Location,Quantity On Hand,Unit Cost,Inventory Value,Last Issued At,Days Since Last Issued,Last Received At,Dead Stock Status\n';
+    'Part Number,Description,Category,Location,Quantity On Hand,Unit Cost,Inventory Value,Last Issued At,Days Since Last Issued,Last Received At,Dead Stock Status,Verified Status,Recommended Action,Verified By,Verified At,Verification Reason,Verification Notes
+';
 
   deadStockReportData.forEach(row => {
     csv +=
@@ -1560,7 +1580,14 @@ async function exportDeadStockCSV() {
       `"${cleanCSV(row.last_issued_at)}",` +
       `"${cleanCSV(row.days_since_last_issued)}",` +
       `"${cleanCSV(row.last_received_at)}",` +
-      `"${cleanCSV(row.dead_stock_status)}"\n`;
+      `"${cleanCSV(row.dead_stock_status)}",` +
+      `"${cleanCSV(row.verified_status)}",` +
+      `"${cleanCSV(row.recommended_action)}",` +
+      `"${cleanCSV(row.verified_by)}",` +
+      `"${cleanCSV(row.verified_at)}",` +
+      `"${cleanCSV(row.verification_reason)}",` +
+      `"${cleanCSV(row.verification_notes)}"
+`;
   });
 
   const safeFilter = cleanFilename(filterLabel || 'dead_stock');
