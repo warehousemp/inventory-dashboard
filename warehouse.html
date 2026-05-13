@@ -565,6 +565,23 @@
       border-radius: 7px;
     }
 
+    .dead-stock-filter-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      gap: 14px;
+      align-items: end;
+      margin-bottom: 4px;
+    }
+
+    .dead-stock-filter-grid label {
+      margin-bottom: 5px;
+    }
+
+    .dead-stock-filter-grid select,
+    .dead-stock-filter-grid input {
+      margin-bottom: 12px;
+    }
+
     .cycle-panel {
       border: 1px solid #e2e8f0;
       border-radius: 12px;
@@ -691,6 +708,11 @@
 
       .button-row {
         flex-direction: column;
+        gap: 0;
+      }
+
+      .dead-stock-filter-grid {
+        grid-template-columns: 1fr;
         gap: 0;
       }
 
@@ -1011,14 +1033,39 @@
       will display as No Issue History Yet.
     </div>
 
-    <label>Dead Stock Filter:</label>
-    <select id="deadStockFilter">
-      <option value="all_candidates">All Dead Stock Candidates</option>
-      <option value="no_issue" selected>No Issue History Yet</option>
-      <option value="days90">90+ Days No Movement</option>
-      <option value="days180">180+ Days No Movement</option>
-      <option value="days365">365+ Days No Movement</option>
-    </select>
+    <div class="dead-stock-filter-grid">
+      <div>
+        <label>Dead Stock Filter:</label>
+        <select id="deadStockFilter">
+          <option value="all_candidates">All Dead Stock Candidates</option>
+          <option value="no_issue" selected>No Issue History Yet</option>
+          <option value="days90">90+ Days No Movement</option>
+          <option value="days180">180+ Days No Movement</option>
+          <option value="days365">365+ Days No Movement</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Verified Status Filter:</label>
+        <select id="deadStockVerifiedStatusFilter">
+          <option value="all" selected>All Verification Statuses</option>
+          <option value="unreviewed">Unreviewed Only</option>
+          <option value="VERIFIED_DEAD_STOCK">VERIFIED_DEAD_STOCK</option>
+          <option value="NOT_DEAD_STOCK">NOT_DEAD_STOCK</option>
+          <option value="REVIEW_LATER">REVIEW_LATER</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Part Number Lookup:</label>
+        <input
+          id="deadStockPartLookup"
+          placeholder="Exact or partial part number..."
+          autocomplete="off"
+          onkeydown="if (event.key === 'Enter') { loadDeadStockReport(); }"
+        >
+      </div>
+    </div>
 
     <div class="button-row">
       <button class="report-btn" onclick="loadDeadStockReport()">RUN DEAD STOCK REPORT</button>
@@ -1539,7 +1586,7 @@ async function exportSerializedInventoryCSV() {
   downloadCSV(csv, 'serialized_inventory.csv');
 }
 
-async function fetchDeadStockRows(filterValue) {
+async function fetchDeadStockRows(filterValue, verifiedStatusFilter = 'all', partLookup = '') {
   let allRows = [];
   let from = 0;
   const batchSize = 1000;
@@ -1591,11 +1638,34 @@ async function fetchDeadStockRows(filterValue) {
     from += batchSize;
   }
 
+  const normalizedPartLookup = String(partLookup || '').trim().toUpperCase();
+  const normalizedVerifiedStatusFilter = String(verifiedStatusFilter || 'all').trim();
+
+  if (normalizedVerifiedStatusFilter !== 'all') {
+    allRows = allRows.filter(row => {
+      const rowStatus = String(row.verified_status || '').trim();
+
+      if (normalizedVerifiedStatusFilter === 'unreviewed') {
+        return rowStatus === '';
+      }
+
+      return rowStatus === normalizedVerifiedStatusFilter;
+    });
+  }
+
+  if (normalizedPartLookup) {
+    allRows = allRows.filter(row =>
+      String(row.part_number || '').toUpperCase().includes(normalizedPartLookup)
+    );
+  }
+
   return allRows;
 }
 
 async function loadDeadStockReport() {
   const filterValue = document.getElementById('deadStockFilter').value;
+  const verifiedStatusFilter = document.getElementById('deadStockVerifiedStatusFilter').value;
+  const partLookup = document.getElementById('deadStockPartLookup').value.trim();
 
   document.getElementById('deadStockSummary').textContent =
     'Loading dead stock report...';
@@ -1605,7 +1675,7 @@ async function loadDeadStockReport() {
     '<tr><td colspan="16">Loading dead stock report...</td></tr>';
 
   try {
-    deadStockReportData = await fetchDeadStockRows(filterValue);
+    deadStockReportData = await fetchDeadStockRows(filterValue, verifiedStatusFilter, partLookup);
   } catch (error) {
     deadStockReportData = [];
     document.getElementById('deadStockSummary').textContent = error.message;
@@ -1873,8 +1943,16 @@ function updateDeadStockSummary() {
     .selectedOptions[0]
     .textContent;
 
+  const verifiedStatusFilterLabel = document.getElementById('deadStockVerifiedStatusFilter')
+    .selectedOptions[0]
+    .textContent;
+
+  const partLookup = document.getElementById('deadStockPartLookup').value.trim();
+
   document.getElementById('deadStockSummary').textContent =
-    `Filter: ${filterLabel}\n` +
+    `Dead Stock Filter: ${filterLabel}\n` +
+    `Verified Status Filter: ${verifiedStatusFilterLabel}\n` +
+    `Part Number Lookup: ${partLookup || 'None'}\n` +
     `Parts Returned: ${deadStockReportData.length}\n` +
     `Total Quantity On Hand: ${formatNumber(totalQty)}\n` +
     `Total Inventory Value: ${formatCurrency(totalValue)}\n` +
@@ -1884,13 +1962,15 @@ function updateDeadStockSummary() {
 
 async function exportDeadStockCSV() {
   const filterValue = document.getElementById('deadStockFilter').value;
+  const verifiedStatusFilter = document.getElementById('deadStockVerifiedStatusFilter').value;
+  const partLookup = document.getElementById('deadStockPartLookup').value.trim();
   const filterLabel = document.getElementById('deadStockFilter')
     .selectedOptions[0]
     .textContent;
 
   if (!deadStockReportData || deadStockReportData.length === 0) {
     try {
-      deadStockReportData = await fetchDeadStockRows(filterValue);
+      deadStockReportData = await fetchDeadStockRows(filterValue, verifiedStatusFilter, partLookup);
     } catch (error) {
       document.getElementById('deadStockSummary').textContent = error.message;
       return;
@@ -1925,9 +2005,15 @@ async function exportDeadStockCSV() {
       `"${cleanCSV(row.verified_at)}"\n`;
   });
 
-  const safeFilter = cleanFilename(filterLabel || 'dead_stock');
+  const verifiedStatusFilterLabel = document.getElementById('deadStockVerifiedStatusFilter')
+    .selectedOptions[0]
+    .textContent;
 
-  downloadCSV(csv, `dead_stock_report_${safeFilter}.csv`);
+  const safeFilter = cleanFilename(filterLabel || 'dead_stock');
+  const safeVerifiedStatus = cleanFilename(verifiedStatusFilterLabel || 'verification_status');
+  const safePartLookup = cleanFilename(partLookup || 'all_parts');
+
+  downloadCSV(csv, `dead_stock_report_${safeFilter}_${safeVerifiedStatus}_${safePartLookup}.csv`);
 }
 
 async function fetchNeedsCategoryRows() {
