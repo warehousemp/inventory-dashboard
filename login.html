@@ -253,11 +253,11 @@
       <div id="profileBox" class="status-note"></div>
 
       <div class="button-grid">
-        <button class="page-btn" onclick="goToPage('warehouse.html')">OPEN WAREHOUSE</button>
-        <button class="page-btn" onclick="goToPage('service.html')">OPEN SERVICE</button>
-        <button class="page-btn" onclick="goToPage('accounting.html')">OPEN ACCOUNTING</button>
-        <button class="page-btn" onclick="goToPage('admin.html')">OPEN ADMIN</button>
-        <button class="secondary-btn" onclick="goToPage('index.html')">OPEN MAIN MENU</button>
+        <button id="warehouseButton" class="page-btn hidden" onclick="goToPage('warehouse.html')">OPEN WAREHOUSE</button>
+        <button id="serviceButton" class="page-btn hidden" onclick="goToPage('service.html')">OPEN SERVICE</button>
+        <button id="accountingButton" class="page-btn hidden" onclick="goToPage('accounting.html')">OPEN ACCOUNTING</button>
+        <button id="adminButton" class="page-btn hidden" onclick="goToPage('admin.html')">OPEN ADMIN</button>
+        <button id="mainMenuButton" class="secondary-btn hidden" onclick="goToPage('index.html')">OPEN MAIN MENU</button>
         <button class="logout-btn" onclick="logout()">LOGOUT</button>
       </div>
     </div>
@@ -282,6 +282,85 @@ function setStatus(message, type = 'warning') {
     'warning-note';
 
   statusBox.textContent = message;
+}
+
+function hideAllPageButtons() {
+  const buttonIds = [
+    'warehouseButton',
+    'serviceButton',
+    'accountingButton',
+    'adminButton',
+    'mainMenuButton'
+  ];
+
+  buttonIds.forEach(buttonId => {
+    const button = document.getElementById(buttonId);
+
+    if (button) {
+      button.classList.add('hidden');
+    }
+  });
+}
+
+function showButton(buttonId) {
+  const button = document.getElementById(buttonId);
+
+  if (button) {
+    button.classList.remove('hidden');
+  }
+}
+
+function applyRoleButtons(role) {
+  hideAllPageButtons();
+
+  if (role === 'ADMIN') {
+    showButton('warehouseButton');
+    showButton('serviceButton');
+    showButton('accountingButton');
+    showButton('adminButton');
+    showButton('mainMenuButton');
+    return;
+  }
+
+  if (role === 'WAREHOUSE') {
+    showButton('warehouseButton');
+    showButton('serviceButton');
+    showButton('mainMenuButton');
+    return;
+  }
+
+  if (role === 'ACCOUNTING') {
+    showButton('accountingButton');
+    showButton('serviceButton');
+    showButton('mainMenuButton');
+    return;
+  }
+
+  if (role === 'SERVICE') {
+    showButton('serviceButton');
+    showButton('mainMenuButton');
+    return;
+  }
+
+  if (role === 'SALES') {
+    showButton('serviceButton');
+    showButton('mainMenuButton');
+    return;
+  }
+
+  if (role === 'TECHS') {
+    showButton('serviceButton');
+    showButton('mainMenuButton');
+    return;
+  }
+
+  if (role === 'READ_ONLY') {
+    showButton('serviceButton');
+    showButton('mainMenuButton');
+    return;
+  }
+
+  showButton('mainMenuButton');
 }
 
 async function login() {
@@ -325,8 +404,12 @@ async function loadCurrentUser() {
 
   if (!session || !session.user) {
     currentProfile = null;
+
+    hideAllPageButtons();
+
     document.getElementById('loginForm').classList.remove('hidden');
     document.getElementById('loggedInPanel').classList.add('hidden');
+
     setStatus('Enter your assigned Molinari Pools inventory login.', 'warning');
     return;
   }
@@ -358,6 +441,8 @@ async function loadCurrentUser() {
     `Email: ${session.user.email}\n` +
     `Role: ${profileData.role}`;
 
+  applyRoleButtons(profileData.role);
+
   setStatus('Login successful.', 'success');
 }
 
@@ -372,6 +457,8 @@ async function logout() {
 
   document.getElementById('email').value = '';
   document.getElementById('password').value = '';
+
+  hideAllPageButtons();
 
   document.getElementById('loginForm').classList.remove('hidden');
   document.getElementById('loggedInPanel').classList.add('hidden');
