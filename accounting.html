@@ -48,6 +48,13 @@
       font-weight: bold;
     }
 
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
     .nav-link {
       color: white;
       text-decoration: none;
@@ -56,14 +63,82 @@
       border-radius: 8px;
       font-size: 14px;
       font-weight: bold;
+      border: none;
+      cursor: pointer;
+      display: inline-block;
     }
 
     .nav-link:hover {
       background: rgba(255,255,255,0.24);
     }
 
+    .logout-btn {
+      color: white;
+      text-decoration: none;
+      background: rgba(255,255,255,0.16);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      margin: 0;
+      width: auto;
+    }
+
+    .logout-btn:hover {
+      background: rgba(255,255,255,0.24);
+      opacity: 1;
+    }
+
+    .access-status {
+      max-width: 1300px;
+      margin: 20px auto 0 auto;
+      padding: 0 20px;
+    }
+
+    .access-message {
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      border: 1px solid transparent;
+    }
+
+    .access-message.info {
+      background: #eef2ff;
+      color: #3730a3;
+      border-color: #c7d2fe;
+    }
+
+    .access-message.danger {
+      background: #fff1f2;
+      color: #9f1239;
+      border-color: #fecdd3;
+    }
+
+    .access-message.success {
+      background: #ecfdf3;
+      color: #027a48;
+      border-color: #abefc6;
+    }
+
+    .login-link {
+      display: inline-block;
+      margin-top: 12px;
+      color: white;
+      background: #805ad5;
+      padding: 10px 14px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
     .main-layout {
-      display: grid;
+      display: none;
       grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr);
       gap: 20px;
       max-width: 1300px;
@@ -185,8 +260,6 @@
       margin-bottom: 15px;
     }
 
-
-
     .transaction-report-summary {
       background: #f8f4ff;
       border: 1px solid #d8c7ff;
@@ -286,7 +359,12 @@
         text-align: center;
       }
 
-      .nav-link {
+      .header-actions {
+        width: 100%;
+      }
+
+      .nav-link,
+      .logout-btn {
         width: 100%;
         text-align: center;
       }
@@ -295,6 +373,10 @@
         margin: 18px auto;
         padding: 0 12px;
         gap: 16px;
+      }
+
+      .access-status {
+        padding: 0 12px;
       }
 
       .wide-card {
@@ -334,10 +416,19 @@
 
 <div class="header-bar">
   <div class="header-title">Molinari Pools – Accounting</div>
-  <a class="nav-link" href="index.html">Back to Main Menu</a>
+  <div class="header-actions">
+    <a class="nav-link" href="index.html">Back to Main Menu</a>
+    <button class="logout-btn" onclick="logoutUser()">Logout</button>
+  </div>
 </div>
 
-<div class="main-layout">
+<div class="access-status">
+  <div id="accountingAccessMessage" class="access-message info">
+    Checking accounting access...
+  </div>
+</div>
+
+<div id="accountingMainLayout" class="main-layout">
 
   <div class="card">
 
@@ -401,6 +492,129 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let transactionLogData = [];
 let currentTransactionReportType = 'ALL';
+let currentAccountingUserProfile = null;
+
+document.addEventListener('DOMContentLoaded', initializeAccountingAccess);
+
+async function initializeAccountingAccess() {
+  const allowedRoles = ['SYSTEM_ADMIN', 'ADMIN', 'ACCOUNTING'];
+
+  showAccountingAccessMessage('Checking accounting access...', 'info');
+  hideAccountingMainLayout();
+
+  const {
+    data: { session },
+    error: sessionError
+  } = await client.auth.getSession();
+
+  if (sessionError) {
+    showAccountingAccessGate(
+      `Access check failed.\n\n${sessionError.message}`,
+      'danger'
+    );
+    return false;
+  }
+
+  if (!session || !session.user) {
+    showAccountingAccessGate(
+      'You must be logged in to access the Accounting page.',
+      'danger',
+      true
+    );
+    return false;
+  }
+
+  const { data: profileData, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError || !profileData) {
+    showAccountingAccessGate(
+      `Access denied.\n\nNo active user profile was found for: ${session.user.email}`,
+      'danger'
+    );
+    return false;
+  }
+
+  if (profileData.active !== true) {
+    showAccountingAccessGate(
+      `Access denied.\n\nYour user profile is inactive.\n\nLogged in as: ${session.user.email}`,
+      'danger'
+    );
+    return false;
+  }
+
+  if (!allowedRoles.includes(profileData.role)) {
+    showAccountingAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page requires SYSTEM_ADMIN, ADMIN, or ACCOUNTING access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentAccountingUserProfile = profileData;
+
+  showAccountingAccessMessage(
+    `Access granted.\nLogged in as: ${profileData.full_name || session.user.email}\nRole: ${profileData.role}`,
+    'success'
+  );
+
+  showAccountingMainLayout();
+  return true;
+}
+
+function showAccountingMainLayout() {
+  const mainLayout = document.getElementById('accountingMainLayout');
+
+  if (mainLayout) {
+    mainLayout.style.display = 'grid';
+  }
+}
+
+function hideAccountingMainLayout() {
+  const mainLayout = document.getElementById('accountingMainLayout');
+
+  if (mainLayout) {
+    mainLayout.style.display = 'none';
+  }
+}
+
+function showAccountingAccessMessage(message, type) {
+  const messageElement = document.getElementById('accountingAccessMessage');
+
+  if (!messageElement) {
+    return;
+  }
+
+  messageElement.className = `access-message ${type || 'info'}`;
+  messageElement.textContent = message;
+}
+
+function showAccountingAccessGate(message, type, showLoginLink = false) {
+  const messageElement = document.getElementById('accountingAccessMessage');
+
+  if (!messageElement) {
+    return;
+  }
+
+  messageElement.className = `access-message ${type || 'danger'}`;
+
+  if (showLoginLink) {
+    messageElement.innerHTML =
+      `${escapeHTML(message)}<br><a class="login-link" href="login.html">Go to Login</a>`;
+  } else {
+    messageElement.textContent = message;
+  }
+
+  hideAccountingMainLayout();
+}
+
+async function logoutUser() {
+  await client.auth.signOut();
+  window.location.href = 'login.html';
+}
 
 function refreshAccountingPage() {
   window.location.reload();
