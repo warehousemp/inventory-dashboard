@@ -308,6 +308,16 @@
       line-height: 1.45;
     }
 
+    .workflow-output {
+      margin-top: 10px;
+      margin-bottom: 0;
+      min-height: 48px;
+      max-height: 180px;
+      background: #f0f4f8;
+      border: 1px solid #d7e3ee;
+      color: #1f2933;
+    }
+
     #serialContainer {
       display: none;
     }
@@ -830,6 +840,8 @@
         <input id="receivePO" placeholder="Purchase order number" autocomplete="off">
 
         <button class="receive-btn" onclick="receive()">RECEIVE INVENTORY</button>
+
+        <pre id="receiveOutput" class="workflow-output">Receive status will appear here...</pre>
       </div>
 
       <div class="inventory-workflow-panel issue-panel">
@@ -860,6 +872,8 @@
         <input id="issueClient" placeholder="Client name">
 
         <button class="issue-btn" onclick="issue()">ISSUE INVENTORY</button>
+
+        <pre id="issueOutput" class="workflow-output">Issue status will appear here...</pre>
       </div>
 
       <div class="inventory-workflow-panel adjustment-panel">
@@ -897,12 +911,11 @@
         <textarea id="adjustmentNotes" placeholder="Add clear notes explaining why this adjustment is being made"></textarea>
 
         <button class="adjustment-btn" onclick="warehouseAdjustment()">SAVE WAREHOUSE ADJUSTMENT</button>
+
+        <pre id="adjustmentOutput" class="workflow-output">Adjustment status will appear here...</pre>
       </div>
 
     </div>
-
-    <h3>Output</h3>
-    <pre id="output"></pre>
 
     <h3>Reorder Dashboard</h3>
     <pre id="reorder"></pre>
@@ -1466,7 +1479,7 @@ async function issue() {
   const serialValue = document.getElementById('issueSerial').value.trim();
 
   if (isSerialized && serialValue === '') {
-    document.getElementById('output').textContent =
+    document.getElementById('issueOutput').textContent =
       'Serial number required for serialized parts';
     return;
   }
@@ -1480,7 +1493,7 @@ async function issue() {
     p_serial_number: serialValue || null
   });
 
-  document.getElementById('output').textContent =
+  document.getElementById('issueOutput').textContent =
     error ? error.message : 'Issued successfully';
 
   if (!error) {
@@ -1505,13 +1518,13 @@ async function receive() {
   const poValue = document.getElementById('receivePO').value.trim();
 
   if (isSerialized && serialValue === '') {
-    document.getElementById('output').textContent =
+    document.getElementById('receiveOutput').textContent =
       'Serial number required for serialized parts';
     return;
   }
 
   if (unitCostValue === '' || Number(unitCostValue) < 0) {
-    document.getElementById('output').textContent =
+    document.getElementById('receiveOutput').textContent =
       'Valid price paid is required when receiving inventory';
     return;
   }
@@ -1526,7 +1539,7 @@ async function receive() {
     p_po_number: poValue || null
   });
 
-  document.getElementById('output').textContent =
+  document.getElementById('receiveOutput').textContent =
     error ? error.message : 'Received successfully';
 
   if (!error) {
@@ -1550,38 +1563,38 @@ async function warehouseAdjustment() {
   const matchedPart = getMatchedPart('adjustmentPart');
 
   if (!partNumber) {
-    document.getElementById('output').textContent = 'Part number is required for warehouse adjustment.';
+    document.getElementById('adjustmentOutput').textContent = 'Part number is required for warehouse adjustment.';
     return;
   }
 
   if (!matchedPart) {
-    document.getElementById('output').textContent = `Active part not found in dropdown: ${partNumber}`;
+    document.getElementById('adjustmentOutput').textContent = `Active part not found in dropdown: ${partNumber}`;
     return;
   }
 
   if (matchedPart.is_serialized === true) {
-    document.getElementById('output').textContent =
+    document.getElementById('adjustmentOutput').textContent =
       'Serialized parts are blocked from Warehouse Inventory Adjustment. Use Receive Inventory with a serial number so serialized tracking stays accurate.';
     return;
   }
 
   if (!quantity || quantity <= 0) {
-    document.getElementById('output').textContent =
+    document.getElementById('adjustmentOutput').textContent =
       'Adjustment quantity must be greater than zero. Only positive warehouse adjustments are currently allowed.';
     return;
   }
 
   if (!adjustedBy) {
-    document.getElementById('output').textContent = 'Adjusted By is required.';
+    document.getElementById('adjustmentOutput').textContent = 'Adjusted By is required.';
     return;
   }
 
   if (!reason) {
-    document.getElementById('output').textContent = 'Adjustment Reason is required.';
+    document.getElementById('adjustmentOutput').textContent = 'Adjustment Reason is required.';
     return;
   }
 
-  document.getElementById('output').textContent = 'Saving warehouse inventory adjustment...';
+  document.getElementById('adjustmentOutput').textContent = 'Saving warehouse inventory adjustment...';
 
   const { data, error } = await client.rpc('warehouse_inventory_adjustment', {
     p_part_number: partNumber,
@@ -1593,14 +1606,14 @@ async function warehouseAdjustment() {
   });
 
   if (error) {
-    document.getElementById('output').textContent = error.message;
+    document.getElementById('adjustmentOutput').textContent = error.message;
     return;
   }
 
   const result = data && data.length > 0 ? data[0] : null;
 
   if (result) {
-    document.getElementById('output').textContent =
+    document.getElementById('adjustmentOutput').textContent =
       `Warehouse adjustment saved successfully.\n\n` +
       `Part Number: ${result.part_number}\n` +
       `Description: ${result.description || ''}\n` +
@@ -1610,7 +1623,7 @@ async function warehouseAdjustment() {
       `Reason: ${result.adjustment_reason}\n` +
       `Transaction ID: ${result.transaction_id}`;
   } else {
-    document.getElementById('output').textContent =
+    document.getElementById('adjustmentOutput').textContent =
       'Warehouse adjustment saved successfully, but no result was returned.';
   }
 
