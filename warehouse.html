@@ -262,6 +262,24 @@
       line-height: 1.4;
     }
 
+    .part-description-display {
+      margin-top: -8px;
+      margin-bottom: 15px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #d7e3ee;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.4;
+      min-height: 39px;
+    }
+
+    .part-description-label {
+      font-weight: bold;
+      color: #0b3c5d;
+    }
+
     .status-note {
       background: #ecfdf3;
       border: 1px solid #bbf7d0;
@@ -817,6 +835,7 @@
 
         <label>Part Number:</label>
         <input id="receivePart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
+        <div id="receivePartDescription" class="part-description-display">Part description will appear here after a part number is selected.</div>
 
         <div id="receiveSerialContainer" style="display: none;">
           <label>Serial Number:</label>
@@ -853,6 +872,7 @@
 
         <label>Part Number:</label>
         <input id="issuePart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
+        <div id="issuePartDescription" class="part-description-display">Part description will appear here after a part number is selected.</div>
 
         <div id="issueSerialContainer" style="display: none;">
           <label>Serial Number:</label>
@@ -889,6 +909,7 @@
 
         <label>Part Number:</label>
         <input id="adjustmentPart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
+        <div id="adjustmentPartDescription" class="part-description-display">Part description will appear here after a part number is selected.</div>
 
         <label>Adjustment Quantity:</label>
         <input id="adjustmentQty" type="number" step="1" value="1">
@@ -1390,6 +1411,10 @@ async function loadParts() {
     datalist.appendChild(option);
   });
 
+  updateReceivePartDescription();
+  updateIssuePartDescription();
+  updateAdjustmentPartDescription();
+
   console.log('Parts loaded into dropdown:', partsData.length);
 }
 
@@ -1407,7 +1432,47 @@ function getMatchedPart(inputId) {
   );
 }
 
+function updatePartDescription(inputId, descriptionId) {
+  const descriptionElement = document.getElementById(descriptionId);
+
+  if (!descriptionElement) {
+    return;
+  }
+
+  const input = document.getElementById(inputId);
+  const enteredPart = input ? input.value.trim() : '';
+
+  if (!enteredPart) {
+    descriptionElement.innerHTML = 'Part description will appear here after a part number is selected.';
+    return;
+  }
+
+  const matchedPart = getMatchedPart(inputId);
+
+  if (!matchedPart) {
+    descriptionElement.innerHTML = '<span class="part-description-label">Description:</span> No matching active part found yet.';
+    return;
+  }
+
+  descriptionElement.innerHTML =
+    `<span class="part-description-label">Description:</span> ${escapeHTML(matchedPart.description || 'No description on file')}`;
+}
+
+function updateReceivePartDescription() {
+  updatePartDescription('receivePart', 'receivePartDescription');
+}
+
+function updateIssuePartDescription() {
+  updatePartDescription('issuePart', 'issuePartDescription');
+}
+
+function updateAdjustmentPartDescription() {
+  updatePartDescription('adjustmentPart', 'adjustmentPartDescription');
+}
+
 function checkIssueSerialized() {
+  updateIssuePartDescription();
+
   const matchedPart = getMatchedPart('issuePart');
   const isSerialized = matchedPart?.is_serialized === true;
   const serialContainer = document.getElementById('issueSerialContainer');
@@ -1418,6 +1483,8 @@ function checkIssueSerialized() {
 }
 
 function checkReceiveSerialized() {
+  updateReceivePartDescription();
+
   const matchedPart = getMatchedPart('receivePart');
   const isSerialized = matchedPart?.is_serialized === true;
   const serialContainer = document.getElementById('receiveSerialContainer');
@@ -1434,6 +1501,7 @@ function checkReceiveSerialized() {
 
 document.getElementById('issuePart').addEventListener('input', checkIssueSerialized);
 document.getElementById('receivePart').addEventListener('input', checkReceiveSerialized);
+document.getElementById('adjustmentPart').addEventListener('input', updateAdjustmentPartDescription);
 
 function resetIssueFields() {
   document.getElementById('issuePart').value = '';
@@ -1447,6 +1515,8 @@ function resetIssueFields() {
   if (serialContainer) {
     serialContainer.style.display = 'none';
   }
+
+  updateIssuePartDescription();
 }
 
 function resetReceiveFields() {
@@ -1461,6 +1531,8 @@ function resetReceiveFields() {
   if (serialContainer) {
     serialContainer.style.display = 'none';
   }
+
+  updateReceivePartDescription();
 }
 
 function resetAdjustmentFields() {
@@ -1469,6 +1541,8 @@ function resetAdjustmentFields() {
   document.getElementById('adjustedBy').value = '';
   document.getElementById('adjustmentReason').value = '';
   document.getElementById('adjustmentNotes').value = '';
+
+  updateAdjustmentPartDescription();
 }
 
 async function issue() {
