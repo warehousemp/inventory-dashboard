@@ -710,6 +710,56 @@
       padding-top: 12px;
     }
 
+
+
+    .hidden {
+      display: none !important;
+    }
+
+    .access-layout {
+      max-width: 680px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .access-card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .access-actions .nav-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      color: white;
+      background: #0b3c5d;
+    }
+
+    .access-actions .logout-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      background: #b91c1c;
+      color: white;
+    }
+
     @media (max-width: 1250px) {
       .main-layout {
         grid-template-columns: repeat(2, minmax(340px, 1fr));
@@ -814,7 +864,23 @@
   <a class="nav-link" href="index.html">Back to Main Menu</a>
 </div>
 
-<div class="main-layout">
+<div id="warehouseAccessGate" class="access-layout">
+  <div class="access-card">
+    <h2>Warehouse Access Required</h2>
+
+    <div id="warehouseAccessMessage" class="warning-note">
+      Checking warehouse access...
+    </div>
+
+    <div class="access-actions">
+      <a class="nav-action-btn" href="login.html">GO TO LOGIN</a>
+      <a class="nav-action-btn" href="index.html">BACK TO MAIN MENU</a>
+      <button class="logout-action-btn" onclick="warehouseLogout()">LOGOUT</button>
+    </div>
+  </div>
+</div>
+
+<div id="warehouseContent" class="main-layout hidden">
 
   <div class="card wide-card">
 
@@ -1306,6 +1372,9 @@ let deadStockReportData = [];
 let needsCategoryReportData = [];
 let categoryData = [];
 
+let currentWarehouseProfile = null;
+let currentWarehouseSession = null;
+
 const DEAD_STOCK_VERIFIED_STATUS_OPTIONS = [
   'VERIFIED_DEAD_STOCK',
   'NOT_DEAD_STOCK',
@@ -1318,6 +1387,130 @@ const DEAD_STOCK_RECOMMENDED_ACTION_OPTIONS = [
   'RETURN_TO_VENDOR',
   'KEEP_IN_STOCK'
 ];
+
+window.addEventListener('load', async () => {
+  const hasAccess = await enforceWarehouseAccess();
+
+  if (!hasAccess) {
+    return;
+  }
+
+  await loadCategoryDropdowns();
+  await loadParts();
+  await loadReorder();
+  await loadCycleCountCategories();
+  await loadRecountRequiredQueue();
+});
+
+function showWarehouseAccessGate(message, type = 'warning') {
+  const gate = document.getElementById('warehouseAccessGate');
+  const content = document.getElementById('warehouseContent');
+  const messageBox = document.getElementById('warehouseAccessMessage');
+
+  if (gate) {
+    gate.classList.remove('hidden');
+  }
+
+  if (content) {
+    content.classList.add('hidden');
+  }
+
+  if (messageBox) {
+    messageBox.className =
+      type === 'success' ? 'status-note' :
+      type === 'danger' ? 'danger-note' :
+      'warning-note';
+
+    messageBox.textContent = message;
+  }
+}
+
+function showWarehouseContent(profile, email) {
+  const gate = document.getElementById('warehouseAccessGate');
+  const content = document.getElementById('warehouseContent');
+
+  if (gate) {
+    gate.classList.add('hidden');
+  }
+
+  if (content) {
+    content.classList.remove('hidden');
+  }
+
+  console.log('Warehouse access granted:', {
+    full_name: profile?.full_name || '',
+    email: email || '',
+    role: profile?.role || ''
+  });
+}
+
+async function enforceWarehouseAccess() {
+  showWarehouseAccessGate('Checking warehouse access...', 'warning');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showWarehouseAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session || !session.user) {
+    showWarehouseAccessGate(
+      'You must be logged in as an ADMIN or WAREHOUSE user to access this page.',
+      'danger'
+    );
+    return false;
+  }
+
+  currentWarehouseSession = session;
+
+  const { data: profileData, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showWarehouseAccessGate(
+      'Login found, but user profile could not be loaded: ' + profileError.message,
+      'danger'
+    );
+    return false;
+  }
+
+  if (!profileData || profileData.active !== true) {
+    showWarehouseAccessGate(
+      'This user profile is inactive or unavailable. Contact an admin.',
+      'danger'
+    );
+    return false;
+  }
+
+  const allowedRoles = ['ADMIN', 'WAREHOUSE'];
+
+  if (!allowedRoles.includes(profileData.role)) {
+    showWarehouseAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page requires ADMIN or WAREHOUSE access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentWarehouseProfile = profileData;
+
+  showWarehouseContent(profileData, session.user.email);
+
+  return true;
+}
+
+async function warehouseLogout() {
+  await client.auth.signOut();
+  currentWarehouseProfile = null;
+  currentWarehouseSession = null;
+  window.location.href = 'login.html';
+}
 
 async function loadCategoryDropdowns() {
   const selects = [
@@ -3245,11 +3438,6 @@ function downloadCSV(csv, filename) {
   URL.revokeObjectURL(url);
 }
 
-loadCategoryDropdowns();
-loadParts();
-loadReorder();
-loadCycleCountCategories();
-loadRecountRequiredQueue();
 </script>
 
 </body>
