@@ -783,57 +783,6 @@
 
   <div class="card">
 
-    <h2>Cycle Count Category Summary</h2>
-    <button class="secondary-btn section-refresh-btn" onclick="refreshAdminPage()">REFRESH PAGE</button>
-
-    <div class="status-note">
-      Read-only report. This does not create cycle counts, post adjustments, or modify inventory.
-    </div>
-
-    <button class="admin-btn" onclick="loadCycleCountCategorySummary()">LOAD CATEGORY SUMMARY</button>
-
-    <button class="secondary-btn" onclick="exportCycleCountCategorySummaryCSV()">EXPORT CATEGORY SUMMARY CSV</button>
-
-    <pre id="categorySummaryReport">Click button to load cycle count category summary...</pre>
-
-  </div>
-
-  <div class="card">
-
-    <h2>Cycle Count Session Summary</h2>
-    <button class="secondary-btn section-refresh-btn" onclick="refreshAdminPage()">REFRESH PAGE</button>
-
-    <div class="status-note">
-      Read-only report showing existing cycle count sessions from Supabase.
-    </div>
-
-    <button class="admin-btn" onclick="loadCycleCountSessionSummary()">LOAD SESSION SUMMARY</button>
-
-    <button class="secondary-btn" onclick="exportCycleCountSessionSummaryCSV()">EXPORT SESSION SUMMARY CSV</button>
-
-    <pre id="sessionSummaryReport">Click button to load cycle count session summary...</pre>
-
-  </div>
-
-  <div class="card">
-
-    <h2>Unassigned Category Cleanup</h2>
-    <button class="secondary-btn section-refresh-btn" onclick="refreshAdminPage()">REFRESH PAGE</button>
-
-    <div class="status-note">
-      Read-only report for parts still assigned to UNASSIGNED cycle count category.
-    </div>
-
-    <button class="warning-btn" onclick="loadUnassignedCategoryCleanup()">LOAD UNASSIGNED PARTS</button>
-
-    <button class="secondary-btn" onclick="exportUnassignedCategoryCleanupCSV()">EXPORT UNASSIGNED PARTS CSV</button>
-
-    <pre id="unassignedReport">Click button to load UNASSIGNED category cleanup report...</pre>
-
-  </div>
-
-  <div class="card">
-
     <h2>Cycle Count Detail Lookup</h2>
     <button class="secondary-btn section-refresh-btn" onclick="refreshAdminPage()">REFRESH PAGE</button>
 
@@ -860,9 +809,6 @@ const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let categorySummaryData = [];
-let sessionSummaryData = [];
-let unassignedCategoryData = [];
 let cycleCountDetailData = [];
 let inventoryCategoryData = [];
 
@@ -1175,7 +1121,6 @@ async function markSelectedCycleCountForRecount() {
   clearSelectedCycleCount();
 
   await loadCycleCountReviewQueue();
-  await loadCycleCountSessionSummary();
 }
 
 async function voidSelectedCycleCount() {
@@ -1237,7 +1182,6 @@ async function voidSelectedCycleCount() {
   clearSelectedCycleCount();
 
   await loadCycleCountReviewQueue();
-  await loadCycleCountSessionSummary();
 }
 
 async function postSelectedCycleCountAdjustments() {
@@ -1297,7 +1241,6 @@ async function postSelectedCycleCountAdjustments() {
   clearSelectedCycleCount();
 
   await loadCycleCountReviewQueue();
-  await loadCycleCountSessionSummary();
 }
 
 function clearSelectedCycleCount() {
@@ -1745,132 +1688,6 @@ async function createInventoryCategory() {
   await loadInventoryCategories();
 }
 
-async function loadCycleCountCategorySummary() {
-  document.getElementById('categorySummaryReport').textContent =
-    'Loading cycle count category summary...';
-
-  const { data, error } = await client
-    .from('inventory_cycle_count_category_summary')
-    .select('*')
-    .order('cycle_count_category', { ascending: true });
-
-  if (error) {
-    document.getElementById('categorySummaryReport').textContent = error.message;
-    categorySummaryData = [];
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    document.getElementById('categorySummaryReport').textContent =
-      'No cycle count category summary data found.';
-    categorySummaryData = [];
-    return;
-  }
-
-  categorySummaryData = data;
-
-  document.getElementById('categorySummaryReport').textContent =
-    formatRowsAsText(data);
-}
-
-async function exportCycleCountCategorySummaryCSV() {
-  if (!categorySummaryData || categorySummaryData.length === 0) {
-    await loadCycleCountCategorySummary();
-  }
-
-  if (!categorySummaryData || categorySummaryData.length === 0) {
-    document.getElementById('categorySummaryReport').textContent =
-      'Load category summary before exporting.';
-    return;
-  }
-
-  exportRowsToCSV(categorySummaryData, 'cycle_count_category_summary.csv');
-}
-
-async function loadCycleCountSessionSummary() {
-  document.getElementById('sessionSummaryReport').textContent =
-    'Loading cycle count session summary...';
-
-  const { data, error } = await client
-    .from('inventory_cycle_count_session_summary')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    document.getElementById('sessionSummaryReport').textContent = error.message;
-    sessionSummaryData = [];
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    document.getElementById('sessionSummaryReport').textContent =
-      'No cycle count session summary data found.';
-    sessionSummaryData = [];
-    return;
-  }
-
-  sessionSummaryData = data;
-
-  document.getElementById('sessionSummaryReport').textContent =
-    formatRowsAsText(data);
-}
-
-async function exportCycleCountSessionSummaryCSV() {
-  if (!sessionSummaryData || sessionSummaryData.length === 0) {
-    await loadCycleCountSessionSummary();
-  }
-
-  if (!sessionSummaryData || sessionSummaryData.length === 0) {
-    document.getElementById('sessionSummaryReport').textContent =
-      'Load session summary before exporting.';
-    return;
-  }
-
-  exportRowsToCSV(sessionSummaryData, 'cycle_count_session_summary.csv');
-}
-
-async function loadUnassignedCategoryCleanup() {
-  document.getElementById('unassignedReport').textContent =
-    'Loading UNASSIGNED parts...';
-
-  const { data, error } = await client
-    .from('inventory_cycle_count_category_view')
-    .select('*')
-    .eq('cycle_count_category', 'UNASSIGNED')
-    .order('part_number', { ascending: true });
-
-  if (error) {
-    document.getElementById('unassignedReport').textContent = error.message;
-    unassignedCategoryData = [];
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    document.getElementById('unassignedReport').textContent =
-      'No UNASSIGNED parts found.';
-    unassignedCategoryData = [];
-    return;
-  }
-
-  unassignedCategoryData = data;
-
-  document.getElementById('unassignedReport').textContent =
-    formatRowsAsText(data);
-}
-
-async function exportUnassignedCategoryCleanupCSV() {
-  if (!unassignedCategoryData || unassignedCategoryData.length === 0) {
-    await loadUnassignedCategoryCleanup();
-  }
-
-  if (!unassignedCategoryData || unassignedCategoryData.length === 0) {
-    document.getElementById('unassignedReport').textContent =
-      'Load UNASSIGNED parts before exporting.';
-    return;
-  }
-
-  exportRowsToCSV(unassignedCategoryData, 'unassigned_category_cleanup.csv');
-}
 
 async function loadCycleCountDetail() {
   const cycleCountId = document.getElementById('cycleCountIdInput').value.trim();
