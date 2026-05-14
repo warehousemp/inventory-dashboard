@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>User Access Management - Inventory System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Molinari Inventory">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f8fb;
+      margin: 0;
+      padding: 0;
+      color: #1f2933;
+    }
+
+    .header-bar {
+      background: #0b3c5d;
+      color: white;
+      padding: 18px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .nav-link,
+    .logout-btn {
+      color: white;
+      text-decoration: none;
+      background: rgba(255,255,255,0.16);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      display: inline-block;
+    }
+
+    .nav-link:hover,
+    .logout-btn:hover {
+      background: rgba(255,255,255,0.24);
+    }
+
+    .logout-btn {
+      margin: 0;
+      width: auto;
+      font-family: Arial, sans-serif;
+    }
+
+    .access-status {
+      max-width: 1300px;
+      margin: 20px auto 0 auto;
+      padding: 0 20px;
+    }
+
+    .access-message {
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      border: 1px solid transparent;
+    }
+
+    .access-message.info {
+      background: #eef2ff;
+      color: #3730a3;
+      border-color: #c7d2fe;
+    }
+
+    .access-message.danger {
+      background: #fff1f2;
+      color: #9f1239;
+      border-color: #fecdd3;
+    }
+
+    .access-message.success {
+      background: #ecfdf3;
+      color: #027a48;
+      border-color: #abefc6;
+    }
+
+    .login-link {
+      display: inline-block;
+      margin-top: 12px;
+      color: white;
+      background: #0b3c5d;
+      padding: 10px 14px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .main-layout {
+      display: none;
+      max-width: 1300px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      color: #0b3c5d;
+      font-size: 22px;
+    }
+
+    .section-note {
+      background: #f0f4f8;
+      border: 1px solid #d9e2ec;
+      color: #334e68;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 18px;
+    }
+
+    button {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 14px;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+      font-family: Arial, sans-serif;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .primary-btn {
+      background: #0b3c5d;
+      color: white;
+    }
+
+    .save-btn {
+      background: #027a48;
+      color: white;
+      padding: 9px 12px;
+      font-size: 13px;
+      margin: 0;
+      white-space: nowrap;
+    }
+
+    .refresh-btn {
+      width: auto;
+      min-width: 120px;
+      margin-top: 0;
+      margin-bottom: 18px;
+      padding: 7px 11px;
+      font-size: 12px;
+      border-radius: 7px;
+    }
+
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: white;
+      margin-top: 16px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 950px;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px;
+      text-align: left;
+      font-size: 13px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f0f4f8;
+      color: #0b3c5d;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    select {
+      width: 100%;
+      min-width: 145px;
+      padding: 9px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 13px;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .output-box {
+      background: #f0f4f8;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 13px;
+      white-space: pre-wrap;
+      border: 1px solid #e2e8f0;
+      line-height: 1.45;
+      margin-top: 15px;
+      min-height: 48px;
+    }
+
+    .role-pill {
+      display: inline-block;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .active-pill {
+      display: inline-block;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: #ecfdf3;
+      color: #027a48;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .inactive-pill {
+      display: inline-block;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: #fff1f2;
+      color: #9f1239;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    @media (max-width: 650px) {
+      .header-bar {
+        padding: 16px 18px;
+        text-align: center;
+        justify-content: center;
+      }
+
+      .header-title {
+        width: 100%;
+        text-align: center;
+      }
+
+      .header-actions {
+        width: 100%;
+      }
+
+      .nav-link,
+      .logout-btn {
+        width: 100%;
+        text-align: center;
+      }
+
+      .main-layout,
+      .access-status {
+        padding: 0 12px;
+      }
+
+      .main-layout {
+        margin: 18px auto;
+      }
+
+      .card {
+        padding: 20px;
+        border-radius: 12px;
+      }
+
+      h2 {
+        font-size: 20px;
+      }
+
+      button {
+        width: 100%;
+        padding: 14px;
+        font-size: 15px;
+      }
+
+      .save-btn {
+        width: auto;
+        padding: 9px 12px;
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="header-bar">
+  <div class="header-title">Molinari Pools – User Access Management</div>
+  <div class="header-actions">
+    <a class="nav-link" href="index.html">Back to Main Menu</a>
+    <button class="logout-btn" onclick="logoutUser()">Logout</button>
+  </div>
+</div>
+
+<div class="access-status">
+  <div id="usersAccessMessage" class="access-message info">
+    Checking user access management permission...
+  </div>
+</div>
+
+<div id="usersMainLayout" class="main-layout">
+
+  <div class="card">
+    <h2>User Access Management</h2>
+
+    <div class="section-note">
+      This page is restricted to SYSTEM_ADMIN only. Use it to manage user roles and active status. ADMIN is for inventory/admin operations oversight, not user access control.
+    </div>
+
+    <button class="primary-btn refresh-btn" onclick="refreshUsersPage()">REFRESH PAGE</button>
+    <button class="primary-btn" onclick="loadUserProfiles()">LOAD USER PROFILES</button>
+
+    <div id="usersOutput" class="output-box">Click LOAD USER PROFILES to view users...</div>
+
+    <div id="usersTableContainer"></div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentSystemAdminProfile = null;
+let userProfilesData = [];
+
+const AVAILABLE_ROLES = [
+  'SYSTEM_ADMIN',
+  'ADMIN',
+  'WAREHOUSE',
+  'ACCOUNTING',
+  'SERVICE',
+  'READ_ONLY',
+  'SALES',
+  'TECHS'
+];
+
+document.addEventListener('DOMContentLoaded', initializeUsersAccess);
+
+async function initializeUsersAccess() {
+  showUsersAccessMessage('Checking user access management permission...', 'info');
+  hideUsersMainLayout();
+
+  const {
+    data: { session },
+    error: sessionError
+  } = await client.auth.getSession();
+
+  if (sessionError) {
+    showUsersAccessGate(
+      `Access check failed.\n\n${sessionError.message}`,
+      'danger'
+    );
+    return false;
+  }
+
+  if (!session || !session.user) {
+    showUsersAccessGate(
+      'You must be logged in to access User Access Management.',
+      'danger',
+      true
+    );
+    return false;
+  }
+
+  const { data: profileData, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError || !profileData) {
+    showUsersAccessGate(
+      `Access denied.\n\nNo active user profile was found for: ${session.user.email}`,
+      'danger'
+    );
+    return false;
+  }
+
+  if (profileData.active !== true) {
+    showUsersAccessGate(
+      `Access denied.\n\nYour user profile is inactive.\n\nLogged in as: ${session.user.email}`,
+      'danger'
+    );
+    return false;
+  }
+
+  if (profileData.role !== 'SYSTEM_ADMIN') {
+    showUsersAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page requires SYSTEM_ADMIN access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentSystemAdminProfile = profileData;
+
+  showUsersAccessMessage(
+    `Access granted.\nLogged in as: ${profileData.full_name || session.user.email}\nRole: ${profileData.role}`,
+    'success'
+  );
+
+  showUsersMainLayout();
+  await loadUserProfiles();
+
+  return true;
+}
+
+function showUsersMainLayout() {
+  const mainLayout = document.getElementById('usersMainLayout');
+
+  if (mainLayout) {
+    mainLayout.style.display = 'block';
+  }
+}
+
+function hideUsersMainLayout() {
+  const mainLayout = document.getElementById('usersMainLayout');
+
+  if (mainLayout) {
+    mainLayout.style.display = 'none';
+  }
+}
+
+function showUsersAccessMessage(message, type) {
+  const messageElement = document.getElementById('usersAccessMessage');
+
+  if (!messageElement) {
+    return;
+  }
+
+  messageElement.className = `access-message ${type || 'info'}`;
+  messageElement.textContent = message;
+}
+
+function showUsersAccessGate(message, type, showLoginLink = false) {
+  const messageElement = document.getElementById('usersAccessMessage');
+
+  if (!messageElement) {
+    return;
+  }
+
+  messageElement.className = `access-message ${type || 'danger'}`;
+
+  if (showLoginLink) {
+    messageElement.innerHTML =
+      `${escapeHTML(message)}<br><a class="login-link" href="login.html">Go to Login</a>`;
+  } else {
+    messageElement.textContent = message;
+  }
+
+  hideUsersMainLayout();
+}
+
+async function logoutUser() {
+  await client.auth.signOut();
+  window.location.href = 'login.html';
+}
+
+function refreshUsersPage() {
+  window.location.reload();
+}
+
+async function loadUserProfiles() {
+  const outputElement = document.getElementById('usersOutput');
+  const tableContainer = document.getElementById('usersTableContainer');
+
+  outputElement.textContent = 'Loading user profiles...';
+  tableContainer.innerHTML = '';
+
+  const { data, error } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active, created_at, updated_at')
+    .order('full_name', { ascending: true });
+
+  if (error) {
+    outputElement.textContent = `Error loading user profiles:\n${error.message}`;
+    userProfilesData = [];
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    outputElement.textContent = 'No user profiles found.';
+    userProfilesData = [];
+    return;
+  }
+
+  userProfilesData = data;
+  outputElement.textContent = `Loaded ${data.length} user profile(s).`;
+
+  renderUserProfilesTable(data);
+}
+
+function renderUserProfilesTable(data) {
+  const tableContainer = document.getElementById('usersTableContainer');
+
+  let tableHTML = `
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Full Name</th>
+            <th>Current Role</th>
+            <th>New Role</th>
+            <th>Status</th>
+            <th>Active</th>
+            <th>Created At</th>
+            <th>Updated At</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  data.forEach(profile => {
+    const safeId = escapeHTML(profile.id);
+    const currentRole = profile.role || '';
+    const activeChecked = profile.active === true ? 'checked' : '';
+
+    tableHTML += `
+      <tr>
+        <td>${escapeHTML(profile.full_name || '')}</td>
+        <td><span class="role-pill">${escapeHTML(currentRole)}</span></td>
+        <td>
+          <select id="role_${safeId}">
+            ${AVAILABLE_ROLES.map(role => {
+              const selected = role === currentRole ? 'selected' : '';
+              return `<option value="${escapeHTML(role)}" ${selected}>${escapeHTML(role)}</option>`;
+            }).join('')}
+          </select>
+        </td>
+        <td>
+          ${profile.active === true
+            ? '<span class="active-pill">ACTIVE</span>'
+            : '<span class="inactive-pill">INACTIVE</span>'}
+        </td>
+        <td>
+          <input id="active_${safeId}" type="checkbox" ${activeChecked}>
+        </td>
+        <td>${escapeHTML(formatDate(profile.created_at))}</td>
+        <td>${escapeHTML(formatDate(profile.updated_at))}</td>
+        <td>
+          <button class="save-btn" onclick="saveUserProfile('${safeId}')">SAVE</button>
+        </td>
+      </tr>
+    `;
+  });
+
+  tableHTML += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  tableContainer.innerHTML = tableHTML;
+}
+
+async function saveUserProfile(profileId) {
+  const outputElement = document.getElementById('usersOutput');
+  const roleElement = document.getElementById(`role_${profileId}`);
+  const activeElement = document.getElementById(`active_${profileId}`);
+
+  if (!roleElement || !activeElement) {
+    outputElement.textContent = 'Could not find row controls for this user.';
+    return;
+  }
+
+  const newRole = roleElement.value;
+  const newActive = activeElement.checked;
+
+  if (!AVAILABLE_ROLES.includes(newRole)) {
+    outputElement.textContent = `Invalid role selected: ${newRole}`;
+    return;
+  }
+
+  const matchingProfile = userProfilesData.find(profile => profile.id === profileId);
+
+  if (!matchingProfile) {
+    outputElement.textContent = 'Could not find selected user profile in loaded data.';
+    return;
+  }
+
+  if (
+    matchingProfile.id === currentSystemAdminProfile.id &&
+    newActive !== true
+  ) {
+    outputElement.textContent =
+      'Blocked: you cannot deactivate your own SYSTEM_ADMIN profile while using this page.';
+    return;
+  }
+
+  outputElement.textContent =
+    `Saving user profile update...\nUser: ${matchingProfile.full_name || profileId}\nNew Role: ${newRole}\nActive: ${newActive}`;
+
+  const { error } = await client
+    .from('user_profiles')
+    .update({
+      role: newRole,
+      active: newActive,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', profileId);
+
+  if (error) {
+    outputElement.textContent = `Error saving user profile:\n${error.message}`;
+    return;
+  }
+
+  outputElement.textContent =
+    `User profile updated successfully.\nUser: ${matchingProfile.full_name || profileId}\nRole: ${newRole}\nActive: ${newActive}`;
+
+  await loadUserProfiles();
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+
+</body>
+</html>
