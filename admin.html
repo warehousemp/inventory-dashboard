@@ -781,25 +781,87 @@
 
   </div>
 
-  <div class="card">
 
-    <h2>Cycle Count Detail Lookup</h2>
+  <div class="card full-width">
+
+    <h2>Cycle Count Reporting</h2>
     <button class="secondary-btn section-refresh-btn" onclick="refreshAdminPage()">REFRESH PAGE</button>
 
     <div class="status-note">
-      Read-only lookup by cycle count ID. Use this to review existing count lines and variances.
+      Admin reporting area for completed cycle counts and incomplete aging cycle counts.
+      Completed counts show POSTED cycle counts. Aging counts show OPEN cycle counts that have not been completed within the selected threshold.
     </div>
 
-    <label>Cycle Count ID:</label>
-    <input id="cycleCountIdInput" placeholder="Paste cycle_count_id here..." autocomplete="off">
+    <div class="three-column-form">
+      <div>
+        <label>Report Type:</label>
+        <select id="cycleCountReportType">
+          <option value="COMPLETED">Completed Cycle Counts</option>
+          <option value="AGING">Incomplete / Aging Cycle Counts</option>
+        </select>
+      </div>
 
-    <button class="admin-btn" onclick="loadCycleCountDetail()">LOAD CYCLE COUNT DETAIL</button>
+      <div>
+        <label>Aging Threshold:</label>
+        <select id="cycleCountAgingThreshold">
+          <option value="30">30 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days</option>
+        </select>
+      </div>
 
-    <button class="secondary-btn" onclick="exportCycleCountDetailCSV()">EXPORT CYCLE COUNT DETAIL CSV</button>
+      <div>
+        <label>Category Filter:</label>
+        <select id="cycleCountCategoryFilter">
+          <option value="ALL">All Categories</option>
+        </select>
+      </div>
+    </div>
 
-    <pre id="cycleCountDetailReport">Enter a cycle count ID and load detail...</pre>
+    <div class="help-text">
+      Aging threshold applies only to Incomplete / Aging Cycle Counts. Aging report currently includes OPEN cycle counts only.
+    </div>
+
+    <div class="button-row">
+      <button class="admin-btn" onclick="loadCycleCountReporting()">LOAD REPORT</button>
+      <button class="secondary-btn" onclick="exportCycleCountReportingCSV()">EXPORT REPORT CSV</button>
+    </div>
+
+    <div id="cycleCountReportingMessage" class="message"></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Count Name</th>
+            <th>Category</th>
+            <th>Status</th>
+            <th>Location</th>
+            <th>Started By</th>
+            <th>Started At</th>
+            <th>Days Open</th>
+            <th>Reviewed By</th>
+            <th>Reviewed At</th>
+            <th>Posted By</th>
+            <th>Posted At</th>
+            <th>Line Count</th>
+            <th>Counted Lines</th>
+            <th>Uncounted Lines</th>
+            <th>Variance Qty</th>
+            <th>Variance Value</th>
+            <th>Cycle Count ID</th>
+          </tr>
+        </thead>
+        <tbody id="cycleCountReportingBody">
+          <tr>
+            <td colspan="17">Select report filters and click LOAD REPORT.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
   </div>
+
 
 </div>
 
@@ -809,7 +871,7 @@ const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let cycleCountDetailData = [];
+let cycleCountReportData = [];
 let inventoryCategoryData = [];
 
 let reviewQueueData = [];
@@ -823,6 +885,7 @@ let selectedIssueReversal = null;
 window.addEventListener('load', () => {
   loadCycleCountReviewQueue();
   loadInventoryCategories();
+  loadCycleCountReportCategories();
 });
 
 function refreshAdminPage() {
@@ -1689,62 +1752,206 @@ async function createInventoryCategory() {
 }
 
 
-async function loadCycleCountDetail() {
-  const cycleCountId = document.getElementById('cycleCountIdInput').value.trim();
 
-  if (!cycleCountId) {
-    document.getElementById('cycleCountDetailReport').textContent =
-      'Please enter a cycle count ID.';
-    cycleCountDetailData = [];
+
+
+async function loadCycleCountReportCategories() {
+  const categorySelect = document.getElementById('cycleCountCategoryFilter');
+
+  if (!categorySelect) {
     return;
   }
-
-  document.getElementById('cycleCountDetailReport').textContent =
-    'Loading cycle count detail...';
 
   const { data, error } = await client
-    .from('inventory_cycle_count_detail_view')
-    .select('*')
-    .eq('cycle_count_id', cycleCountId)
-    .order('part_number', { ascending: true });
+    .from('inventory_cycle_count_session_summary')
+    .select('cycle_count_category')
+    .not('cycle_count_category', 'is', null)
+    .order('cycle_count_category', { ascending: true })
+    .limit(1000);
 
   if (error) {
-    document.getElementById('cycleCountDetailReport').textContent = error.message;
-    cycleCountDetailData = [];
+    console.error('Cycle count category filter load error:', error);
     return;
   }
 
-  if (!data || data.length === 0) {
-    document.getElementById('cycleCountDetailReport').textContent =
-      'No detail records found for this cycle count ID.';
-    cycleCountDetailData = [];
-    return;
-  }
+  const categories = [...new Set((data || [])
+    .map(row => row.cycle_count_category)
+    .filter(value => value && String(value).trim() !== ''))];
 
-  cycleCountDetailData = data;
+  categorySelect.innerHTML = '<option value="ALL">All Categories</option>';
 
-  document.getElementById('cycleCountDetailReport').textContent =
-    formatRowsAsText(data);
+  categories.forEach(category => {
+    const option = document.createElement('option');
+    option.value = category;
+    option.textContent = category;
+    categorySelect.appendChild(option);
+  });
 }
 
-async function exportCycleCountDetailCSV() {
-  if (!cycleCountDetailData || cycleCountDetailData.length === 0) {
-    await loadCycleCountDetail();
+async function loadCycleCountReporting() {
+  const reportType = document.getElementById('cycleCountReportType').value;
+  const agingThreshold = Number(document.getElementById('cycleCountAgingThreshold').value || 30);
+  const categoryFilter = document.getElementById('cycleCountCategoryFilter').value;
+
+  setMessage('cycleCountReportingMessage', 'info', 'Loading cycle count report...');
+
+  let query = client
+    .from('inventory_cycle_count_session_summary')
+    .select('*');
+
+  if (reportType === 'COMPLETED') {
+    query = query
+      .eq('status', 'POSTED')
+      .order('posted_at', { ascending: false });
+  } else {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - agingThreshold);
+
+    query = query
+      .eq('status', 'OPEN')
+      .lte('started_at', cutoffDate.toISOString())
+      .order('started_at', { ascending: true });
   }
 
-  if (!cycleCountDetailData || cycleCountDetailData.length === 0) {
-    document.getElementById('cycleCountDetailReport').textContent =
-      'Load cycle count detail before exporting.';
+  if (categoryFilter && categoryFilter !== 'ALL') {
+    query = query.eq('cycle_count_category', categoryFilter);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    cycleCountReportData = [];
+    renderCycleCountReportingTable([]);
+    setMessage('cycleCountReportingMessage', 'error', error.message);
     return;
   }
 
-  const cycleCountId = document.getElementById('cycleCountIdInput').value.trim();
+  cycleCountReportData = (data || []).map(row => ({
+    ...row,
+    days_open: calculateDaysOpen(row.started_at, row.posted_at)
+  }));
 
-  exportRowsToCSV(
-    cycleCountDetailData,
-    `cycle_count_detail_${cycleCountId || 'export'}.csv`
-  );
+  renderCycleCountReportingTable(cycleCountReportData);
+
+  if (!cycleCountReportData || cycleCountReportData.length === 0) {
+    if (reportType === 'COMPLETED') {
+      setMessage('cycleCountReportingMessage', 'info', 'No completed POSTED cycle counts found for the selected filters.');
+    } else {
+      setMessage('cycleCountReportingMessage', 'info', `No OPEN cycle counts older than ${agingThreshold} days found for the selected filters.`);
+    }
+    return;
+  }
+
+  if (reportType === 'COMPLETED') {
+    setMessage('cycleCountReportingMessage', 'success', `${cycleCountReportData.length} completed cycle count(s) found.`);
+  } else {
+    setMessage('cycleCountReportingMessage', 'success', `${cycleCountReportData.length} aging OPEN cycle count(s) found older than ${agingThreshold} days.`);
+  }
 }
+
+function renderCycleCountReportingTable(rows) {
+  const tbody = document.getElementById('cycleCountReportingBody');
+  tbody.innerHTML = '';
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="17">No cycle count records found.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${escapeHTML(row.count_name)}</td>
+      <td>${escapeHTML(row.cycle_count_category)}</td>
+      <td>${escapeHTML(row.status)}</td>
+      <td>${escapeHTML(row.location_name)}</td>
+      <td>${escapeHTML(row.started_by)}</td>
+      <td>${escapeHTML(formatDateTime(row.started_at))}</td>
+      <td>${escapeHTML(row.days_open)}</td>
+      <td>${escapeHTML(row.reviewed_by)}</td>
+      <td>${escapeHTML(formatDateTime(row.reviewed_at))}</td>
+      <td>${escapeHTML(row.posted_by)}</td>
+      <td>${escapeHTML(formatDateTime(row.posted_at))}</td>
+      <td>${escapeHTML(formatNumber(row.line_count))}</td>
+      <td>${escapeHTML(formatNumber(row.counted_line_count))}</td>
+      <td>${escapeHTML(formatNumber(row.uncounted_line_count))}</td>
+      <td>${formatVariance(row.total_variance_quantity)}</td>
+      <td>${formatCurrencyVariance(row.total_variance_value)}</td>
+      <td>${escapeHTML(row.cycle_count_id)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function calculateDaysOpen(startedAt, completedAt) {
+  if (!startedAt) {
+    return '';
+  }
+
+  const startDate = new Date(startedAt);
+  const endDate = completedAt ? new Date(completedAt) : new Date();
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return '';
+  }
+
+  const millisecondsPerDay = 1000 * 60 * 60 * 24;
+  return Math.floor((endDate - startDate) / millisecondsPerDay);
+}
+
+async function exportCycleCountReportingCSV() {
+  if (!cycleCountReportData || cycleCountReportData.length === 0) {
+    await loadCycleCountReporting();
+  }
+
+  if (!cycleCountReportData || cycleCountReportData.length === 0) {
+    setMessage('cycleCountReportingMessage', 'info', 'No cycle count report data available to export.');
+    return;
+  }
+
+  const reportType = document.getElementById('cycleCountReportType').value;
+  const agingThreshold = document.getElementById('cycleCountAgingThreshold').value;
+  const categoryFilter = document.getElementById('cycleCountCategoryFilter').value;
+
+  const exportRows = cycleCountReportData.map(row => ({
+    count_name: row.count_name,
+    cycle_count_category: row.cycle_count_category,
+    status: row.status,
+    location_name: row.location_name,
+    started_by: row.started_by,
+    started_at: row.started_at,
+    days_open: row.days_open,
+    reviewed_by: row.reviewed_by,
+    reviewed_at: row.reviewed_at,
+    posted_by: row.posted_by,
+    posted_at: row.posted_at,
+    line_count: row.line_count,
+    counted_line_count: row.counted_line_count,
+    uncounted_line_count: row.uncounted_line_count,
+    total_system_quantity: row.total_system_quantity,
+    total_counted_quantity: row.total_counted_quantity,
+    total_variance_quantity: row.total_variance_quantity,
+    total_variance_value: row.total_variance_value,
+    cycle_count_id: row.cycle_count_id
+  }));
+
+  const fileCategory = categoryFilter === 'ALL' ? 'all_categories' : cleanFilename(categoryFilter);
+  const filename = reportType === 'COMPLETED'
+    ? `completed_cycle_counts_${fileCategory}.csv`
+    : `aging_cycle_counts_${agingThreshold}_days_${fileCategory}.csv`;
+
+  exportRowsToCSV(exportRows, filename);
+}
+
+function cleanFilename(value) {
+  return String(value || 'export')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
 
 function formatRowsAsText(rows) {
   if (!rows || rows.length === 0) {
