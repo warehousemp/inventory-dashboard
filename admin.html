@@ -415,6 +415,55 @@
       color: #1d4ed8;
     }
 
+
+    .hidden {
+      display: none !important;
+    }
+
+    .access-layout {
+      max-width: 680px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .access-card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .access-actions .nav-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      color: white;
+      background: #0b3c5d;
+    }
+
+    .access-actions .logout-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      background: #b42318;
+      color: white;
+    }
+
     @media (max-width: 950px) {
       .main-layout {
         grid-template-columns: 1fr;
@@ -512,7 +561,23 @@
   <a class="nav-link" href="index.html">Back to Main Menu</a>
 </div>
 
-<div class="main-layout">
+<div id="adminAccessGate" class="access-layout">
+  <div class="access-card">
+    <h2>Admin Access Required</h2>
+
+    <div id="adminAccessMessage" class="warning-note">
+      Checking admin access...
+    </div>
+
+    <div class="access-actions">
+      <a class="nav-action-btn" href="login.html">GO TO LOGIN</a>
+      <a class="nav-action-btn" href="index.html">BACK TO MAIN MENU</a>
+      <button class="logout-action-btn" onclick="adminLogout()">LOGOUT</button>
+    </div>
+  </div>
+</div>
+
+<div id="adminContent" class="main-layout hidden">
 
   <div class="card full-width">
 
@@ -882,11 +947,129 @@ let issueReversalData = [];
 let filteredIssueReversalData = [];
 let selectedIssueReversal = null;
 
-window.addEventListener('load', () => {
+let currentAdminProfile = null;
+let currentAdminSession = null;
+
+window.addEventListener('load', async () => {
+  const hasAccess = await enforceAdminAccess();
+
+  if (!hasAccess) {
+    return;
+  }
+
   loadCycleCountReviewQueue();
   loadInventoryCategories();
   loadCycleCountReportCategories();
 });
+
+
+function showAdminAccessGate(message, type = 'warning') {
+  const gate = document.getElementById('adminAccessGate');
+  const content = document.getElementById('adminContent');
+  const messageBox = document.getElementById('adminAccessMessage');
+
+  if (gate) {
+    gate.classList.remove('hidden');
+  }
+
+  if (content) {
+    content.classList.add('hidden');
+  }
+
+  if (messageBox) {
+    messageBox.className =
+      type === 'success' ? 'status-note' :
+      type === 'danger' ? 'danger-note' :
+      'warning-note';
+
+    messageBox.textContent = message;
+  }
+}
+
+function showAdminContent(profile, email) {
+  const gate = document.getElementById('adminAccessGate');
+  const content = document.getElementById('adminContent');
+
+  if (gate) {
+    gate.classList.add('hidden');
+  }
+
+  if (content) {
+    content.classList.remove('hidden');
+  }
+
+  console.log('Admin access granted:', {
+    full_name: profile?.full_name || '',
+    email: email || '',
+    role: profile?.role || ''
+  });
+}
+
+async function enforceAdminAccess() {
+  showAdminAccessGate('Checking admin access...', 'warning');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showAdminAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session || !session.user) {
+    showAdminAccessGate(
+      'You must be logged in as an ADMIN user to access this page.',
+      'danger'
+    );
+    return false;
+  }
+
+  currentAdminSession = session;
+
+  const { data: profileData, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showAdminAccessGate(
+      'Login found, but user profile could not be loaded: ' + profileError.message,
+      'danger'
+    );
+    return false;
+  }
+
+  if (!profileData || profileData.active !== true) {
+    showAdminAccessGate(
+      'This user profile is inactive or unavailable. Contact an admin.',
+      'danger'
+    );
+    return false;
+  }
+
+  if (profileData.role !== 'ADMIN') {
+    showAdminAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page requires ADMIN access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentAdminProfile = profileData;
+
+  showAdminContent(profileData, session.user.email);
+
+  return true;
+}
+
+async function adminLogout() {
+  await client.auth.signOut();
+  currentAdminProfile = null;
+  currentAdminSession = null;
+  window.location.href = 'login.html';
+}
 
 function refreshAdminPage() {
   window.location.reload();
