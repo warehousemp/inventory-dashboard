@@ -164,6 +164,14 @@
       color: white;
     }
 
+    .adjustment-btn {
+      background: #d97706;
+      color: white;
+      width: 100%;
+      margin-top: 8px;
+      margin-right: 0;
+    }
+
     .report-btn {
       background: #2f855a;
       color: white;
@@ -596,6 +604,14 @@
       color: #0b3c5d;
     }
 
+    .inventory-workflow-panel.adjustment-panel {
+      grid-column: 1 / -1;
+    }
+
+    .inventory-workflow-panel.adjustment-panel h3 {
+      color: #d97706;
+    }
+
     .inventory-workflow-note {
       font-size: 12px;
       color: #667085;
@@ -844,6 +860,43 @@
         <input id="issueClient" placeholder="Client name">
 
         <button class="issue-btn" onclick="issue()">ISSUE INVENTORY</button>
+      </div>
+
+      <div class="inventory-workflow-panel adjustment-panel">
+        <h3>WAREHOUSE INVENTORY ADJUSTMENT</h3>
+
+        <div class="inventory-workflow-note">
+          Use this section only for positive, audit-preserving warehouse adjustments such as found inventory, missed cycle count items, restock found, or physical count corrections. This does not edit or delete original transactions.
+        </div>
+
+        <div class="warning-note">
+          Positive adjustments only. Serialized items are blocked in this workflow so serial-number tracking stays accurate. Use Receive Inventory for serialized items.
+        </div>
+
+        <label>Part Number:</label>
+        <input id="adjustmentPart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
+
+        <label>Adjustment Quantity:</label>
+        <input id="adjustmentQty" type="number" step="1" value="1">
+
+        <label>Adjusted By:</label>
+        <input id="adjustedBy" placeholder="Warehouse team member name" autocomplete="off">
+
+        <label>Adjustment Reason:</label>
+        <select id="adjustmentReason">
+          <option value="">Select reason...</option>
+          <option value="FOUND_ON_SHELF">FOUND_ON_SHELF</option>
+          <option value="MISSED_IN_CYCLE_COUNT">MISSED_IN_CYCLE_COUNT</option>
+          <option value="RECEIVING_ERROR_CORRECTION">RECEIVING_ERROR_CORRECTION</option>
+          <option value="RESTOCK_FOUND">RESTOCK_FOUND</option>
+          <option value="PHYSICAL_COUNT_CORRECTION">PHYSICAL_COUNT_CORRECTION</option>
+          <option value="OTHER">OTHER</option>
+        </select>
+
+        <label>Notes:</label>
+        <textarea id="adjustmentNotes" placeholder="Add clear notes explaining why this adjustment is being made"></textarea>
+
+        <button class="adjustment-btn" onclick="warehouseAdjustment()">SAVE WAREHOUSE ADJUSTMENT</button>
       </div>
 
     </div>
@@ -1397,6 +1450,14 @@ function resetReceiveFields() {
   }
 }
 
+function resetAdjustmentFields() {
+  document.getElementById('adjustmentPart').value = '';
+  document.getElementById('adjustmentQty').value = '1';
+  document.getElementById('adjustedBy').value = '';
+  document.getElementById('adjustmentReason').value = '';
+  document.getElementById('adjustmentNotes').value = '';
+}
+
 async function issue() {
   checkIssueSerialized();
 
@@ -1478,6 +1539,83 @@ async function receive() {
   if (isSerialized) {
     await loadSerializedInventory();
   }
+}
+
+async function warehouseAdjustment() {
+  const partNumber = document.getElementById('adjustmentPart').value.trim();
+  const quantity = Number(document.getElementById('adjustmentQty').value);
+  const adjustedBy = document.getElementById('adjustedBy').value.trim();
+  const reason = document.getElementById('adjustmentReason').value;
+  const notes = document.getElementById('adjustmentNotes').value.trim();
+  const matchedPart = getMatchedPart('adjustmentPart');
+
+  if (!partNumber) {
+    document.getElementById('output').textContent = 'Part number is required for warehouse adjustment.';
+    return;
+  }
+
+  if (!matchedPart) {
+    document.getElementById('output').textContent = `Active part not found in dropdown: ${partNumber}`;
+    return;
+  }
+
+  if (matchedPart.is_serialized === true) {
+    document.getElementById('output').textContent =
+      'Serialized parts are blocked from Warehouse Inventory Adjustment. Use Receive Inventory with a serial number so serialized tracking stays accurate.';
+    return;
+  }
+
+  if (!quantity || quantity <= 0) {
+    document.getElementById('output').textContent =
+      'Adjustment quantity must be greater than zero. Only positive warehouse adjustments are currently allowed.';
+    return;
+  }
+
+  if (!adjustedBy) {
+    document.getElementById('output').textContent = 'Adjusted By is required.';
+    return;
+  }
+
+  if (!reason) {
+    document.getElementById('output').textContent = 'Adjustment Reason is required.';
+    return;
+  }
+
+  document.getElementById('output').textContent = 'Saving warehouse inventory adjustment...';
+
+  const { data, error } = await client.rpc('warehouse_inventory_adjustment', {
+    p_part_number: partNumber,
+    p_location_id: MAIN_WAREHOUSE_ID,
+    p_quantity: quantity,
+    p_adjusted_by: adjustedBy,
+    p_adjustment_reason: reason,
+    p_notes: notes || null
+  });
+
+  if (error) {
+    document.getElementById('output').textContent = error.message;
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+
+  if (result) {
+    document.getElementById('output').textContent =
+      `Warehouse adjustment saved successfully.\n\n` +
+      `Part Number: ${result.part_number}\n` +
+      `Description: ${result.description || ''}\n` +
+      `Location: ${result.location_name || 'Main Warehouse'}\n` +
+      `Adjustment Quantity: ${formatNumber(result.adjustment_quantity)}\n` +
+      `New Quantity On Hand: ${formatNumber(result.new_quantity_on_hand)}\n` +
+      `Reason: ${result.adjustment_reason}\n` +
+      `Transaction ID: ${result.transaction_id}`;
+  } else {
+    document.getElementById('output').textContent =
+      'Warehouse adjustment saved successfully, but no result was returned.';
+  }
+
+  resetAdjustmentFields();
+  await loadReorder();
 }
 
 async function loadReorder() {
