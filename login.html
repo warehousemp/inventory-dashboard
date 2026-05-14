@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login - Molinari Pools Inventory System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f8fb;
+      margin: 0;
+      padding: 0;
+      color: #1f2933;
+    }
+
+    .header-bar {
+      background: #0b3c5d;
+      color: white;
+      padding: 18px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .main-layout {
+      max-width: 520px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 28px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      color: #0b3c5d;
+      font-size: 22px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #1aa3b0;
+      box-shadow: 0 0 0 3px rgba(26,163,176,0.15);
+    }
+
+    button {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 14px;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+      width: 100%;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .login-btn {
+      background: #0b3c5d;
+      color: white;
+    }
+
+    .logout-btn {
+      background: #b91c1c;
+      color: white;
+    }
+
+    .page-btn {
+      background: #1aa3b0;
+      color: white;
+    }
+
+    .secondary-btn {
+      background: #64748b;
+      color: white;
+    }
+
+    .status-note {
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+    }
+
+    .warning-note {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+    }
+
+    .danger-note {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .small-text {
+      font-size: 12px;
+      color: #667085;
+      line-height: 1.4;
+      margin-top: -6px;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 760px) {
+      .header-bar {
+        padding: 16px 18px;
+        font-size: 18px;
+        text-align: center;
+        justify-content: center;
+      }
+
+      .header-title {
+        width: 100%;
+        text-align: center;
+      }
+
+      .main-layout {
+        margin: 22px auto;
+        padding: 0 12px;
+      }
+
+      .card {
+        padding: 22px;
+      }
+
+      input {
+        font-size: 16px;
+        padding: 13px;
+      }
+
+      button {
+        padding: 14px;
+        font-size: 15px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="header-bar">
+  <div class="header-title">Molinari Pools – Inventory Login</div>
+</div>
+
+<div class="main-layout">
+  <div class="card">
+
+    <h2>Login</h2>
+
+    <div id="statusBox" class="warning-note">
+      Enter your assigned Molinari Pools inventory login.
+    </div>
+
+    <div id="loginForm">
+      <label>Email:</label>
+      <input id="email" type="email" placeholder="email@molinaripools.com" autocomplete="username">
+
+      <label>Password:</label>
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+
+      <button class="login-btn" onclick="login()">LOGIN</button>
+
+      <div class="small-text">
+        User access is controlled by assigned system role.
+      </div>
+    </div>
+
+    <div id="loggedInPanel" class="hidden">
+      <div id="profileBox" class="status-note"></div>
+
+      <div class="button-grid">
+        <button class="page-btn" onclick="goToPage('warehouse.html')">OPEN WAREHOUSE</button>
+        <button class="page-btn" onclick="goToPage('service.html')">OPEN SERVICE</button>
+        <button class="page-btn" onclick="goToPage('accounting.html')">OPEN ACCOUNTING</button>
+        <button class="page-btn" onclick="goToPage('admin.html')">OPEN ADMIN</button>
+        <button class="secondary-btn" onclick="goToPage('index.html')">OPEN MAIN MENU</button>
+        <button class="logout-btn" onclick="logout()">LOGOUT</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentProfile = null;
+
+function setStatus(message, type = 'warning') {
+  const statusBox = document.getElementById('statusBox');
+
+  statusBox.className =
+    type === 'success' ? 'status-note' :
+    type === 'danger' ? 'danger-note' :
+    'warning-note';
+
+  statusBox.textContent = message;
+}
+
+async function login() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  if (!email) {
+    setStatus('Email is required.', 'danger');
+    return;
+  }
+
+  if (!password) {
+    setStatus('Password is required.', 'danger');
+    return;
+  }
+
+  setStatus('Logging in...', 'warning');
+
+  const { data, error } = await client.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if (error) {
+    setStatus(error.message, 'danger');
+    return;
+  }
+
+  await loadCurrentUser();
+}
+
+async function loadCurrentUser() {
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    setStatus(sessionError.message, 'danger');
+    return;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session || !session.user) {
+    currentProfile = null;
+    document.getElementById('loginForm').classList.remove('hidden');
+    document.getElementById('loggedInPanel').classList.add('hidden');
+    setStatus('Enter your assigned Molinari Pools inventory login.', 'warning');
+    return;
+  }
+
+  const { data: profileData, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    setStatus('Login succeeded, but profile could not be loaded: ' + profileError.message, 'danger');
+    return;
+  }
+
+  if (!profileData || profileData.active !== true) {
+    setStatus('This user profile is inactive or unavailable.', 'danger');
+    return;
+  }
+
+  currentProfile = profileData;
+
+  document.getElementById('loginForm').classList.add('hidden');
+  document.getElementById('loggedInPanel').classList.remove('hidden');
+
+  document.getElementById('profileBox').textContent =
+    `Logged in successfully.\n\n` +
+    `Name: ${profileData.full_name || session.user.email}\n` +
+    `Email: ${session.user.email}\n` +
+    `Role: ${profileData.role}`;
+
+  setStatus('Login successful.', 'success');
+}
+
+function goToPage(pageName) {
+  window.location.href = pageName;
+}
+
+async function logout() {
+  await client.auth.signOut();
+
+  currentProfile = null;
+
+  document.getElementById('email').value = '';
+  document.getElementById('password').value = '';
+
+  document.getElementById('loginForm').classList.remove('hidden');
+  document.getElementById('loggedInPanel').classList.add('hidden');
+
+  setStatus('Logged out successfully.', 'warning');
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadCurrentUser();
+});
+</script>
+
+</body>
+</html>
