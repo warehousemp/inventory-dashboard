@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Active Projects - Projects Command Center</title>
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --green: #16a34a;
+      --blue: #2563eb;
+      --orange: #f97316;
+      --purple: #7c3aed;
+      --red: #dc2626;
+      --gray: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .side-nav {
+      padding: 14px 10px;
+    }
+
+    .side-nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+    }
+
+    .nav-icon {
+      width: 20px;
+      text-align: center;
+    }
+
+    .main {
+      min-width: 0;
+    }
+
+    .topbar {
+      background: var(--header);
+      color: white;
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      box-shadow: 0 2px 12px rgba(15,23,42,0.18);
+    }
+
+    .topbar-title h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 800;
+    }
+
+    .topbar-title p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      opacity: 0.88;
+    }
+
+    .topbar-pill {
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .content {
+      padding: 22px;
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .summary-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      font-size: 28px;
+      font-weight: 900;
+      color: #111827;
+    }
+
+    .summary-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      color: #102a43;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr 1fr auto;
+      gap: 10px;
+      width: 100%;
+      padding: 16px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f8fafc;
+    }
+
+    input,
+    select,
+    button {
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text);
+      width: 100%;
+    }
+
+    input {
+      font-weight: 600;
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--header);
+      color: white;
+      border-color: var(--header);
+      white-space: nowrap;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      padding: 0 14px 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1250px;
+    }
+
+    th {
+      text-align: left;
+      color: #475467;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      padding: 12px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      white-space: nowrap;
+      background: white;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    td {
+      padding: 12px 8px;
+      border-bottom: 1px solid #eef2f7;
+      font-size: 12px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    .project-name {
+      font-weight: 900;
+      color: #0b3c5d;
+      display: block;
+    }
+
+    .project-number {
+      color: var(--muted);
+      font-size: 11px;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .money {
+      font-weight: 900;
+      color: #111827;
+    }
+
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      border: 1px solid transparent;
+    }
+
+    .pill.green {
+      color: #166534;
+      background: #ecfdf3;
+      border-color: #bbf7d0;
+    }
+
+    .pill.blue {
+      color: #1d4ed8;
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    .pill.orange {
+      color: #9a3412;
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+
+    .pill.red {
+      color: #b42318;
+      background: #fef3f2;
+      border-color: #fecdca;
+    }
+
+    .pill.purple {
+      color: #6d28d9;
+      background: #f5f3ff;
+      border-color: #ddd6fe;
+    }
+
+    .pill.gray {
+      color: #475467;
+      background: #f2f4f7;
+      border-color: #e4e7ec;
+    }
+
+    .validation-good {
+      color: #166534;
+      font-weight: 900;
+    }
+
+    .validation-warning {
+      color: #b42318;
+      font-weight: 900;
+    }
+
+    .action-link {
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: 900;
+    }
+
+    .action-link:hover {
+      text-decoration: underline;
+    }
+
+    .message {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      display: none;
+    }
+
+    .message.info {
+      display: block;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .message.error {
+      display: block;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: #b42318;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 18px;
+    }
+
+    @media (max-width: 1250px) {
+      .summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .filters {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .side-nav {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .topbar {
+        position: relative;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .filters {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .content {
+        padding: 14px;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .side-nav {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">MP</div>
+        <div class="brand-text">
+          <strong>MOLINARI</strong>
+          <span>POOLS</span>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <a href="dashboard.html"><span class="nav-icon">⌂</span>Dashboard</a>
+        <a class="active" href="projects.html"><span class="nav-icon">▣</span>Active Projects</a>
+        <a href="projects-command.html"><span class="nav-icon">◆</span>Projects Home</a>
+        <a href="project-accounting.html"><span class="nav-icon">$</span>Accounting Draws</a>
+        <a href="project-documents.html"><span class="nav-icon">□</span>Documents</a>
+        <a href="project-admin.html"><span class="nav-icon">⚙</span>Admin</a>
+        <a href="index.html"><span class="nav-icon">↩</span>Main Menu</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h1>Active Projects</h1>
+          <p>Projects Command Center</p>
+        </div>
+
+        <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
+      </header>
+
+      <section class="content">
+
+        <div id="pageMessage" class="message info">Loading active projects...</div>
+
+        <section class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Total Projects</div>
+            <div class="summary-value" id="totalProjectsValue">0</div>
+            <div class="summary-sub">Records in project list</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Active Projects</div>
+            <div class="summary-value" id="activeProjectsValue">0</div>
+            <div class="summary-sub">Currently active</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Contract Value</div>
+            <div class="summary-value" id="contractValueValue">$0</div>
+            <div class="summary-sub">Filtered total</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Setup Valid</div>
+            <div class="summary-value" id="validSetupValue">0</div>
+            <div class="summary-sub">Stages/draws match templates</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Needs Review</div>
+            <div class="summary-value" id="needsReviewValue">0</div>
+            <div class="summary-sub">Setup or draw mismatch</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Project List</h2>
+          </div>
+
+          <div class="filters">
+            <input id="searchInput" placeholder="Search project, client, PM, superintendent..." oninput="applyFilters()">
+
+            <select id="projectTypeFilter" onchange="applyFilters()">
+              <option value="ALL">All Project Types</option>
+              <option value="NEW_BUILD">New Build</option>
+              <option value="RENOVATION">Renovation</option>
+            </select>
+
+            <select id="projectStatusFilter" onchange="applyFilters()">
+              <option value="ALL">All Statuses</option>
+            </select>
+
+            <select id="setupStatusFilter" onchange="applyFilters()">
+              <option value="ALL">All Setup Statuses</option>
+              <option value="VALID">Valid Setup</option>
+              <option value="REVIEW">Needs Review</option>
+            </select>
+
+            <button onclick="loadProjects()">Refresh</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Action</th>
+                  <th>Project</th>
+                  <th>Client</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Contract</th>
+                  <th>Change Orders</th>
+                  <th>Projected Start</th>
+                  <th>Projected Completion</th>
+                  <th>PM</th>
+                  <th>Superintendent</th>
+                  <th>Permit</th>
+                  <th>Engineering</th>
+                  <th>Stages</th>
+                  <th>Draws</th>
+                  <th>Scheduled Draw Total</th>
+                  <th>Setup Validation</th>
+                </tr>
+              </thead>
+
+              <tbody id="projectsTableBody">
+                <tr>
+                  <td colspan="17">Loading projects...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="footer">
+          © 2026 Molinari Pools. All rights reserved.
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let allProjectRows = [];
+let filteredProjectRows = [];
+
+window.addEventListener('load', async () => {
+  await loadProjects();
+});
+
+async function loadProjects() {
+  setMessage('info', 'Loading active projects...');
+
+  const { data, error } = await client
+    .from('project_list_page_view')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1000);
+
+  if (error) {
+    allProjectRows = [];
+    filteredProjectRows = [];
+    renderProjectsTable([]);
+    updateSummary([]);
+    setMessage('error', 'Project list error: ' + error.message);
+    return;
+  }
+
+  allProjectRows = data || [];
+  populateStatusFilter(allProjectRows);
+  applyFilters();
+
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  clearMessage();
+}
+
+function populateStatusFilter(rows) {
+  const statusSelect = document.getElementById('projectStatusFilter');
+  const currentValue = statusSelect.value || 'ALL';
+
+  const statuses = [...new Set(
+    rows
+      .map(row => row.project_status)
+      .filter(value => value && String(value).trim() !== '')
+  )].sort();
+
+  statusSelect.innerHTML = '<option value="ALL">All Statuses</option>';
+
+  statuses.forEach(status => {
+    const option = document.createElement('option');
+    option.value = status;
+    option.textContent = status;
+    statusSelect.appendChild(option);
+  });
+
+  if ([...statusSelect.options].some(option => option.value === currentValue)) {
+    statusSelect.value = currentValue;
+  }
+}
+
+function applyFilters() {
+  const searchValue = document.getElementById('searchInput').value.trim().toLowerCase();
+  const projectType = document.getElementById('projectTypeFilter').value;
+  const projectStatus = document.getElementById('projectStatusFilter').value;
+  const setupStatus = document.getElementById('setupStatusFilter').value;
+
+  filteredProjectRows = allProjectRows.filter(row => {
+    const searchableText = [
+      row.project_number,
+      row.project_name,
+      row.client_name,
+      row.project_type,
+      row.project_type_label,
+      row.project_status,
+      row.project_manager,
+      row.superintendent,
+      row.permit_status,
+      row.engineering_status,
+      row.setup_validation_status
+    ].map(value => String(value || '').toLowerCase()).join(' ');
+
+    const matchesSearch = !searchValue || searchableText.includes(searchValue);
+    const matchesType = projectType === 'ALL' || row.project_type === projectType;
+    const matchesStatus = projectStatus === 'ALL' || row.project_status === projectStatus;
+
+    let matchesSetup = true;
+
+    if (setupStatus === 'VALID') {
+      matchesSetup = normalize(row.setup_validation_status).includes('VALID');
+    }
+
+    if (setupStatus === 'REVIEW') {
+      matchesSetup = !normalize(row.setup_validation_status).includes('VALID');
+    }
+
+    return matchesSearch && matchesType && matchesStatus && matchesSetup;
+  });
+
+  renderProjectsTable(filteredProjectRows);
+  updateSummary(filteredProjectRows);
+}
+
+function renderProjectsTable(rows) {
+  const tbody = document.getElementById('projectsTableBody');
+  tbody.innerHTML = '';
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="17">No projects found for the selected filters.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+
+    const setupValid = normalize(row.setup_validation_status).includes('VALID');
+    const setupClass = setupValid ? 'validation-good' : 'validation-warning';
+
+    tr.innerHTML = `
+      <td>
+        <a class="action-link" href="project-detail.html?project_id=${encodeURIComponent(row.project_id)}">
+          Open
+        </a>
+      </td>
+
+      <td>
+        <span class="project-name">${escapeHTML(row.project_name || 'Unnamed Project')}</span>
+        <span class="project-number">${escapeHTML(row.project_number || '')}</span>
+      </td>
+
+      <td>${escapeHTML(row.client_name)}</td>
+      <td>${statusPill(row.project_type_label || row.project_type)}</td>
+      <td>${statusPill(row.project_status)}</td>
+      <td class="money">${formatCurrency(row.contract_amount)}</td>
+      <td class="money">${formatCurrency(row.approved_change_order_total)}</td>
+      <td>${escapeHTML(formatDate(row.projected_start_date))}</td>
+      <td>${escapeHTML(formatDate(row.projected_completion_date))}</td>
+      <td>${escapeHTML(row.project_manager)}</td>
+      <td>${escapeHTML(row.superintendent)}</td>
+      <td>${statusPill(row.permit_status || permitRequiredText(row.needs_permit))}</td>
+      <td>${statusPill(row.engineering_status)}</td>
+      <td>${escapeHTML(row.stage_count)} / ${escapeHTML(row.expected_stage_count)}</td>
+      <td>${escapeHTML(row.draw_count)} / ${escapeHTML(row.expected_draw_count)}</td>
+      <td class="money">${formatCurrency(row.scheduled_draw_total)}</td>
+      <td class="${setupClass}">${escapeHTML(row.setup_validation_status)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function updateSummary(rows) {
+  const totalProjects = rows.length;
+  const activeProjects = rows.filter(row => row.active === true).length;
+
+  const contractTotal = rows.reduce((sum, row) => {
+    return sum + Number(row.contract_amount || 0);
+  }, 0);
+
+  const validSetup = rows.filter(row => {
+    return normalize(row.setup_validation_status).includes('VALID');
+  }).length;
+
+  const needsReview = totalProjects - validSetup;
+
+  setText('totalProjectsValue', totalProjects);
+  setText('activeProjectsValue', activeProjects);
+  setText('contractValueValue', formatCurrencyShort(contractTotal));
+  setText('validSetupValue', validSetup);
+  setText('needsReviewValue', needsReview);
+}
+
+function permitRequiredText(value) {
+  if (value === true) {
+    return 'Permit Required';
+  }
+
+  if (value === false) {
+    return 'No Permit Required';
+  }
+
+  return 'N/A';
+}
+
+function statusPill(value) {
+  const text = value || 'N/A';
+  const normalized = normalize(text);
+
+  let cls = 'gray';
+
+  if (
+    normalized.includes('APPROVED') ||
+    normalized.includes('PAID') ||
+    normalized.includes('COMPLETE') ||
+    normalized.includes('VALID') ||
+    normalized.includes('ACTIVE')
+  ) {
+    cls = 'green';
+  } else if (
+    normalized.includes('NEW_BUILD') ||
+    normalized.includes('SUBMITTED') ||
+    normalized.includes('PROGRESS') ||
+    normalized.includes('SETUP') ||
+    normalized.includes('COMMENCEMENT')
+  ) {
+    cls = 'blue';
+  } else if (
+    normalized.includes('WAIT') ||
+    normalized.includes('PENDING') ||
+    normalized.includes('REVIEW') ||
+    normalized.includes('DUE')
+  ) {
+    cls = 'orange';
+  } else if (
+    normalized.includes('OVERDUE') ||
+    normalized.includes('DELAY') ||
+    normalized.includes('HOLD') ||
+    normalized.includes('NOT_SUBMITTED') ||
+    normalized.includes('REQUIRED')
+  ) {
+    cls = 'red';
+  } else if (
+    normalized.includes('RENOVATION') ||
+    normalized.includes('ENGINEERING') ||
+    normalized.includes('PERMIT') ||
+    normalized.includes('PLASTER') ||
+    normalized.includes('TILE')
+  ) {
+    cls = 'purple';
+  }
+
+  return `<span class="pill ${cls}">${escapeHTML(text)}</span>`;
+}
+
+function setMessage(type, message) {
+  const el = document.getElementById('pageMessage');
+
+  el.className = `message ${type}`;
+  el.textContent = message;
+}
+
+function clearMessage() {
+  const el = document.getElementById('pageMessage');
+
+  el.className = 'message';
+  el.textContent = '';
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+
+  if (el) {
+    el.textContent = value;
+  }
+}
+
+function normalize(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '_');
+}
+
+function formatCurrency(value) {
+  const number = Number(value || 0);
+
+  return number.toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function formatCurrencyShort(value) {
+  const number = Number(value || 0);
+
+  if (Math.abs(number) >= 1000000) {
+    return '$' + (number / 1000000).toFixed(2) + 'M';
+  }
+
+  if (Math.abs(number) >= 1000) {
+    return '$' + (number / 1000).toFixed(0) + 'K';
+  }
+
+  return formatCurrency(number);
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString();
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+
+</body>
+</html>
