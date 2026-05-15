@@ -334,15 +334,57 @@
       font-weight: 700;
     }
 
+    .draw-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f8fafc;
+    }
+
+    .draw-summary-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .draw-summary-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 900;
+      letter-spacing: 0.25px;
+      margin-bottom: 5px;
+    }
+
+    .draw-summary-value {
+      font-size: 17px;
+      font-weight: 900;
+      color: #111827;
+    }
+
     .table-wrap {
       overflow-x: auto;
       padding: 0 14px 14px;
+    }
+
+    .draw-table-wrap {
+      overflow: auto;
+      max-height: 440px;
+      padding: 0 14px 14px;
+      border-top: 1px solid #eef2f7;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
       min-width: 1000px;
+    }
+
+    .draw-table {
+      min-width: 1450px;
     }
 
     th {
@@ -357,12 +399,19 @@
       background: white;
     }
 
+    .draw-table th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+
     td {
       padding: 12px 8px;
       border-bottom: 1px solid #eef2f7;
       font-size: 12px;
       vertical-align: top;
       white-space: nowrap;
+      background: white;
     }
 
     tr:hover td {
@@ -435,6 +484,16 @@
       color: #111827;
     }
 
+    .money-positive {
+      font-weight: 900;
+      color: #166534;
+    }
+
+    .money-warning {
+      font-weight: 900;
+      color: #b42318;
+    }
+
     .timeline {
       padding: 16px 18px 18px;
       display: grid;
@@ -490,7 +549,8 @@
     }
 
     @media (max-width: 1250px) {
-      .kpi-grid {
+      .kpi-grid,
+      .draw-summary-grid {
         grid-template-columns: repeat(3, 1fr);
       }
 
@@ -520,7 +580,8 @@
         flex-direction: column;
       }
 
-      .kpi-grid {
+      .kpi-grid,
+      .draw-summary-grid {
         grid-template-columns: repeat(2, 1fr);
       }
 
@@ -534,7 +595,8 @@
         padding: 14px;
       }
 
-      .kpi-grid {
+      .kpi-grid,
+      .draw-summary-grid {
         grid-template-columns: 1fr;
       }
 
@@ -703,17 +765,45 @@
             <div class="panel-header">
               <div>
                 <h2>Draw Schedule</h2>
-                <div class="panel-subtitle">Scheduled, invoiced, paid, remaining, and outstanding draw amounts.</div>
+                <div class="panel-subtitle">Expected draw dates, scheduled amounts, invoicing, payments, and outstanding balances.</div>
               </div>
             </div>
 
-            <div class="table-wrap">
-              <table>
+            <div class="draw-summary-grid">
+              <div class="draw-summary-card">
+                <div class="draw-summary-label">Scheduled Draw Total</div>
+                <div class="draw-summary-value" id="detailScheduledDrawTotal">$0.00</div>
+              </div>
+
+              <div class="draw-summary-card">
+                <div class="draw-summary-label">Remaining to Invoice</div>
+                <div class="draw-summary-value" id="detailRemainingToInvoice">$0.00</div>
+              </div>
+
+              <div class="draw-summary-card">
+                <div class="draw-summary-label">Invoiced Total</div>
+                <div class="draw-summary-value" id="detailInvoicedTotal">$0.00</div>
+              </div>
+
+              <div class="draw-summary-card">
+                <div class="draw-summary-label">Paid Total</div>
+                <div class="draw-summary-value" id="detailPaidTotal">$0.00</div>
+              </div>
+
+              <div class="draw-summary-card">
+                <div class="draw-summary-label">Outstanding</div>
+                <div class="draw-summary-value" id="detailOutstandingTotal">$0.00</div>
+              </div>
+            </div>
+
+            <div class="draw-table-wrap">
+              <table class="draw-table">
                 <thead>
                   <tr>
                     <th>#</th>
                     <th>Draw Name</th>
                     <th>Status</th>
+                    <th>Expected Draw Date</th>
                     <th>Scheduled</th>
                     <th>Invoiced</th>
                     <th>Paid</th>
@@ -724,10 +814,12 @@
                     <th>Invoice Date</th>
                     <th>Due Date</th>
                     <th>Paid Date</th>
+                    <th>Expected Draw Notes</th>
+                    <th>Notes</th>
                   </tr>
                 </thead>
                 <tbody id="drawsTableBody">
-                  <tr><td colspan="13">Loading draws...</td></tr>
+                  <tr><td colspan="16">Loading draws...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1067,14 +1159,18 @@ async function loadDraws(projectId) {
   tbody.innerHTML = '';
 
   if (error) {
-    tbody.innerHTML = `<tr><td colspan="13">${escapeHTML(error.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16">${escapeHTML(error.message)}</td></tr>`;
+    renderDrawSummary([]);
     return;
   }
 
   if (!data || data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="13">No draws found for this project.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="16">No draws found for this project.</td></tr>';
+    renderDrawSummary([]);
     return;
   }
+
+  renderDrawSummary(data);
 
   data.forEach(row => {
     const tr = document.createElement('tr');
@@ -1083,20 +1179,37 @@ async function loadDraws(projectId) {
       <td>${escapeHTML(row.draw_number)}</td>
       <td>${escapeHTML(row.draw_name)}</td>
       <td>${statusPill(row.draw_status)}</td>
+      <td>${escapeHTML(formatDate(row.expected_draw_date))}</td>
       <td class="money">${formatCurrency(row.scheduled_amount)}</td>
       <td class="money">${formatCurrency(row.invoiced_amount)}</td>
-      <td class="money">${formatCurrency(row.paid_amount)}</td>
-      <td class="money">${formatCurrency(row.remaining_to_invoice)}</td>
-      <td class="money">${formatCurrency(row.outstanding_amount)}</td>
+      <td class="money-positive">${formatCurrency(row.paid_amount)}</td>
+      <td class="${Number(row.remaining_to_invoice || 0) > 0 ? 'money-warning' : 'money'}">${formatCurrency(row.remaining_to_invoice)}</td>
+      <td class="${Number(row.outstanding_amount || 0) > 0 ? 'money-warning' : 'money'}">${formatCurrency(row.outstanding_amount)}</td>
       <td>${escapeHTML(row.trigger_stage)}</td>
       <td>${escapeHTML(row.invoice_number)}</td>
       <td>${escapeHTML(formatDate(row.invoice_date))}</td>
       <td>${escapeHTML(formatDate(row.due_date))}</td>
       <td>${escapeHTML(formatDate(row.paid_date))}</td>
+      <td class="wide-text">${escapeHTML(row.expected_draw_notes)}</td>
+      <td class="wide-text">${escapeHTML(row.notes)}</td>
     `;
 
     tbody.appendChild(tr);
   });
+}
+
+function renderDrawSummary(rows) {
+  const scheduledTotal = sumColumn(rows, 'scheduled_amount');
+  const remainingTotal = sumColumn(rows, 'remaining_to_invoice');
+  const invoicedTotal = sumColumn(rows, 'invoiced_amount');
+  const paidTotal = sumColumn(rows, 'paid_amount');
+  const outstandingTotal = sumColumn(rows, 'outstanding_amount');
+
+  document.getElementById('detailScheduledDrawTotal').textContent = formatCurrency(scheduledTotal);
+  document.getElementById('detailRemainingToInvoice').textContent = formatCurrency(remainingTotal);
+  document.getElementById('detailInvoicedTotal').textContent = formatCurrency(invoicedTotal);
+  document.getElementById('detailPaidTotal').textContent = formatCurrency(paidTotal);
+  document.getElementById('detailOutstandingTotal').textContent = formatCurrency(outstandingTotal);
 }
 
 async function loadDocuments(projectId) {
@@ -1288,6 +1401,7 @@ function renderEmptyPage() {
   document.getElementById('projectTitle').textContent = 'No Project Found';
   document.getElementById('projectSubtitle').textContent = 'Open a project from the Active Projects page.';
   document.getElementById('projectStatusPill').innerHTML = '';
+  renderDrawSummary([]);
 }
 
 function getQueryParam(name) {
@@ -1304,8 +1418,8 @@ function formatCityStateZip(row) {
 }
 
 function statusPill(value) {
-  const text = value || 'N/A';
-  const normalized = normalize(text);
+  const text = displayLabel(value || 'N/A');
+  const normalized = normalize(value || text);
 
   let cls = 'gray';
 
@@ -1315,7 +1429,8 @@ function statusPill(value) {
     normalized.includes('COMPLETE') ||
     normalized.includes('VALID') ||
     normalized.includes('ACTIVE') ||
-    normalized.includes('RECEIVED')
+    normalized.includes('RECEIVED') ||
+    normalized.includes('READY')
   ) {
     cls = 'green';
   } else if (
@@ -1323,14 +1438,17 @@ function statusPill(value) {
     normalized.includes('SUBMITTED') ||
     normalized.includes('PROGRESS') ||
     normalized.includes('SETUP') ||
-    normalized.includes('COMMENCEMENT')
+    normalized.includes('COMMENCEMENT') ||
+    normalized.includes('INVOICED')
   ) {
     cls = 'blue';
   } else if (
     normalized.includes('WAIT') ||
     normalized.includes('PENDING') ||
     normalized.includes('REVIEW') ||
-    normalized.includes('DUE')
+    normalized.includes('DUE') ||
+    normalized.includes('NOT_BILLED') ||
+    normalized.includes('SALES_HANDOFF')
   ) {
     cls = 'orange';
   } else if (
@@ -1346,7 +1464,9 @@ function statusPill(value) {
     normalized.includes('ENGINEERING') ||
     normalized.includes('PERMIT') ||
     normalized.includes('PLASTER') ||
-    normalized.includes('TILE')
+    normalized.includes('TILE') ||
+    normalized.includes('NEEDS_ENGINEERING') ||
+    normalized.includes('NEEDS_TO_BE_PERMITTED')
   ) {
     cls = 'purple';
   }
@@ -1361,6 +1481,12 @@ function normalize(value) {
     .replace(/\s+/g, '_');
 }
 
+function displayLabel(value) {
+  return String(value || 'N/A')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
 function setMessage(type, message) {
   const el = document.getElementById('pageMessage');
 
@@ -1373,6 +1499,12 @@ function clearMessage() {
 
   el.className = 'message';
   el.textContent = '';
+}
+
+function sumColumn(rows, columnName) {
+  return rows.reduce((sum, row) => {
+    return sum + Number(row[columnName] || 0);
+  }, 0);
 }
 
 function formatCurrency(value) {
@@ -1391,9 +1523,9 @@ function formatDate(value) {
     return '';
   }
 
-  const date = new Date(value);
+  const date = parseLocalDate(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (!date) {
     return value;
   }
 
@@ -1412,6 +1544,29 @@ function formatDateTime(value) {
   }
 
   return date.toLocaleString();
+}
+
+function parseLocalDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parts = String(value).split('-');
+
+  if (parts.length === 3) {
+    const year = Number(parts[0]);
+    const month = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    return new Date(year, month, day);
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
 }
 
 function escapeHTML(value) {
