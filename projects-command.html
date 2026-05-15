@@ -298,6 +298,12 @@
       font-family: Arial, Helvetica, sans-serif;
     }
 
+    input[readonly] {
+      background: #f8fafc;
+      color: #0b3c5d;
+      cursor: not-allowed;
+    }
+
     textarea {
       resize: vertical;
       min-height: 82px;
@@ -310,6 +316,20 @@
     textarea:focus {
       outline: 2px solid rgba(26,163,176,0.25);
       border-color: var(--accent);
+    }
+
+    .project-number-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .small-button {
+      width: auto;
+      padding: 10px 12px;
+      font-size: 12px;
+      white-space: nowrap;
     }
 
     .form-actions {
@@ -368,6 +388,13 @@
       background: #fef3f2;
       border: 1px solid #fecdca;
       color: #b42318;
+    }
+
+    .form-message.info {
+      display: block;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
     }
 
     .quick-grid {
@@ -581,6 +608,14 @@
       .form-grid {
         grid-template-columns: 1fr;
       }
+
+      .project-number-row {
+        grid-template-columns: 1fr;
+      }
+
+      .small-button {
+        width: 100%;
+      }
     }
 
     @media (max-width: 520px) {
@@ -627,7 +662,7 @@
 
         <div class="topbar-actions">
           <span class="topbar-pill">Post-Acceptance Workflow</span>
-          <span class="topbar-pill">Create Project Enabled</span>
+          <span class="topbar-pill">Auto Numbering Enabled</span>
         </div>
       </header>
 
@@ -645,7 +680,7 @@
 
           <div class="status-box">
             Current Phase: First Controlled Workflow Active
-            <span>Create New Project now uses the approved Supabase template setup process.</span>
+            <span>Create New Project now auto-generates the next project number and captures engineering/permit status.</span>
           </div>
         </section>
 
@@ -664,7 +699,10 @@
               <div class="form-grid">
                 <div class="form-field">
                   <label for="projectNumber">Project Number *</label>
-                  <input id="projectNumber" type="text" placeholder="Example: PROJ-2026-001" required>
+                  <div class="project-number-row">
+                    <input id="projectNumber" type="text" placeholder="Loading next project number..." readonly required>
+                    <button type="button" class="secondary small-button" onclick="loadNextProjectNumber()">Refresh Number</button>
+                  </div>
                 </div>
 
                 <div class="form-field">
@@ -705,6 +743,33 @@
                 <div class="form-field">
                   <label for="contractAmount">Contract Amount *</label>
                   <input id="contractAmount" type="number" min="0" step="0.01" placeholder="Example: 100000.00" required>
+                </div>
+
+                <div class="form-field">
+                  <label for="engineeringStatus">Engineering Status *</label>
+                  <select id="engineeringStatus" required>
+                    <option value="NEEDS_REVIEW">Needs Review</option>
+                    <option value="NOT_REQUIRED">Not Required</option>
+                    <option value="NEEDS_ENGINEERING">Needs Engineering</option>
+                    <option value="SUBMITTED_TO_ENGINEERING">Submitted to Engineering</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="REVISIONS_REQUIRED">Revisions Required</option>
+                    <option value="RECEIVED_PLANS_FROM_ENGINEERING">Received Plans from Engineering</option>
+                    <option value="RECEIVED_FINAL_PLANS">Received Final Plans</option>
+                  </select>
+                </div>
+
+                <div class="form-field">
+                  <label for="permitStatus">Permit Status *</label>
+                  <select id="permitStatus" required>
+                    <option value="NEEDS_REVIEW">Needs Review</option>
+                    <option value="NOT_REQUIRED">Not Required</option>
+                    <option value="NEEDS_TO_BE_PERMITTED">Needs to be Permitted</option>
+                    <option value="SUBMITTED_TO_PERMITTING">Submitted to Permitting</option>
+                    <option value="IN_REVIEW">In Review</option>
+                    <option value="REVISIONS_REQUIRED">Revisions Required</option>
+                    <option value="RECEIVED_FINAL_PERMIT">Received Final Permit</option>
+                  </select>
                 </div>
 
                 <div class="form-field">
@@ -872,7 +937,7 @@
                 </li>
                 <li>
                   <span class="check">✓</span>
-                  <span>Create New Project workflow added to Projects Home.</span>
+                  <span>Create New Project workflow now includes auto-numbering, engineering status, and permit status.</span>
                 </li>
               </ul>
             </div>
@@ -899,14 +964,32 @@ const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+window.addEventListener('load', async () => {
+  await loadNextProjectNumber();
+});
+
 document.getElementById('createProjectForm').addEventListener('submit', async function(event) {
   event.preventDefault();
   await createProject();
 });
 
+async function loadNextProjectNumber() {
+  const projectNumberInput = document.getElementById('projectNumber');
+  projectNumberInput.value = 'Loading...';
+
+  const result = await client.rpc('get_next_project_number');
+
+  if (result.error) {
+    projectNumberInput.value = '';
+    setCreateProjectMessage('error', 'Unable to load next project number: ' + result.error.message);
+    return;
+  }
+
+  projectNumberInput.value = result.data || '';
+}
+
 async function createProject() {
   const createButton = document.getElementById('createProjectButton');
-  const message = document.getElementById('createProjectMessage');
 
   const projectNumber = cleanValue('projectNumber').toUpperCase();
   const projectName = cleanValue('projectName');
@@ -915,19 +998,34 @@ async function createProject() {
   const contractAmountRaw = cleanValue('contractAmount');
   const projectManager = cleanValue('projectManager');
   const projectStatus = cleanValue('projectStatus');
+  const engineeringStatus = cleanValue('engineeringStatus');
+  const permitStatus = cleanValue('permitStatus');
   const projectedStartDate = cleanValue('projectedStartDate');
   const projectedCompletionDate = cleanValue('projectedCompletionDate');
   const projectNotes = cleanValue('projectNotes');
 
-  if (!projectNumber || !projectName || !projectType || !clientName || !contractAmountRaw || !projectStatus) {
-    setCreateProjectMessage('error', 'Project Number, Project Name, Client Name, Project Type, Project Status, and Contract Amount are required.');
+  if (
+    !projectNumber ||
+    projectNumber === 'LOADING...' ||
+    !projectName ||
+    !projectType ||
+    !clientName ||
+    !contractAmountRaw ||
+    !projectStatus ||
+    !engineeringStatus ||
+    !permitStatus
+  ) {
+    setCreateProjectMessage(
+      'error',
+      'Project Number, Project Name, Client Name, Project Type, Project Status, Contract Amount, Engineering Status, and Permit Status are required.'
+    );
     return;
   }
 
   const contractAmount = Number(contractAmountRaw);
 
-  if (Number.isNaN(contractAmount) || contractAmount < 0) {
-    setCreateProjectMessage('error', 'Contract Amount must be a valid number greater than or equal to zero.');
+  if (Number.isNaN(contractAmount) || contractAmount <= 0) {
+    setCreateProjectMessage('error', 'Contract Amount must be a valid number greater than zero.');
     return;
   }
 
@@ -945,7 +1043,9 @@ async function createProject() {
     p_project_status: projectStatus,
     p_projected_start_date: projectedStartDate || null,
     p_projected_completion_date: projectedCompletionDate || null,
-    p_notes: projectNotes || null
+    p_notes: projectNotes || null,
+    p_engineering_status: engineeringStatus,
+    p_permit_status: permitStatus
   };
 
   const result = await client.rpc('create_project_record_with_templates', rpcPayload);
@@ -955,6 +1055,7 @@ async function createProject() {
 
   if (result.error) {
     setCreateProjectMessage('error', 'Create Project failed: ' + result.error.message);
+    await loadNextProjectNumber();
     return;
   }
 
@@ -964,15 +1065,20 @@ async function createProject() {
   );
 
   clearCreateProjectForm(false);
+  await loadNextProjectNumber();
 }
 
-function clearCreateProjectForm(clearMessage = true) {
+async function clearCreateProjectForm(clearMessage = true) {
   document.getElementById('createProjectForm').reset();
   document.getElementById('projectStatus').value = 'SALES_HANDOFF';
+  document.getElementById('engineeringStatus').value = 'NEEDS_REVIEW';
+  document.getElementById('permitStatus').value = 'NEEDS_REVIEW';
 
   if (clearMessage) {
     setCreateProjectMessage('', '');
   }
+
+  await loadNextProjectNumber();
 }
 
 function setCreateProjectMessage(type, text) {
