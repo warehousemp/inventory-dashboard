@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Project Documents - Projects Command Center</title>
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --green: #16a34a;
+      --blue: #2563eb;
+      --orange: #f97316;
+      --purple: #7c3aed;
+      --red: #dc2626;
+      --gray: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .side-nav {
+      padding: 14px 10px;
+    }
+
+    .side-nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+    }
+
+    .nav-icon {
+      width: 20px;
+      text-align: center;
+    }
+
+    .main {
+      min-width: 0;
+    }
+
+    .topbar {
+      background: var(--header);
+      color: white;
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      box-shadow: 0 2px 12px rgba(15,23,42,0.18);
+    }
+
+    .topbar-title h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 800;
+    }
+
+    .topbar-title p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      opacity: 0.88;
+    }
+
+    .topbar-pill {
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .content {
+      padding: 22px;
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    .message {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      display: none;
+    }
+
+    .message.info {
+      display: block;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .message.error {
+      display: block;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: #b42318;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .summary-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      font-size: 26px;
+      font-weight: 900;
+      color: #111827;
+      word-break: break-word;
+    }
+
+    .summary-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      color: #102a43;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr auto auto;
+      gap: 10px;
+      width: 100%;
+      padding: 16px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f8fafc;
+    }
+
+    input,
+    select,
+    button {
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text);
+      width: 100%;
+    }
+
+    input {
+      font-weight: 600;
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--header);
+      color: white;
+      border-color: var(--header);
+      white-space: nowrap;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    .secondary-btn {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      padding: 0 14px 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1350px;
+    }
+
+    th {
+      text-align: left;
+      color: #475467;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      padding: 12px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      white-space: nowrap;
+      background: white;
+    }
+
+    td {
+      padding: 12px 8px;
+      border-bottom: 1px solid #eef2f7;
+      font-size: 12px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    .project-name {
+      font-weight: 900;
+      color: #0b3c5d;
+      display: block;
+    }
+
+    .project-number {
+      color: var(--muted);
+      font-size: 11px;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .document-name {
+      font-weight: 900;
+      color: #111827;
+      display: block;
+    }
+
+    .file-name {
+      color: var(--muted);
+      font-size: 11px;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .wide-text {
+      white-space: normal;
+      min-width: 260px;
+      line-height: 1.35;
+    }
+
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      border: 1px solid transparent;
+    }
+
+    .pill.green {
+      color: #166534;
+      background: #ecfdf3;
+      border-color: #bbf7d0;
+    }
+
+    .pill.blue {
+      color: #1d4ed8;
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    .pill.orange {
+      color: #9a3412;
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+
+    .pill.red {
+      color: #b42318;
+      background: #fef3f2;
+      border-color: #fecdca;
+    }
+
+    .pill.purple {
+      color: #6d28d9;
+      background: #f5f3ff;
+      border-color: #ddd6fe;
+    }
+
+    .pill.gray {
+      color: #475467;
+      background: #f2f4f7;
+      border-color: #e4e7ec;
+    }
+
+    .action-link {
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: 900;
+    }
+
+    .action-link:hover {
+      text-decoration: underline;
+    }
+
+    .file-link {
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: 900;
+    }
+
+    .file-link:hover {
+      text-decoration: underline;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 18px;
+    }
+
+    @media (max-width: 1250px) {
+      .summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .filters {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .side-nav {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .topbar {
+        position: relative;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .filters {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .content {
+        padding: 14px;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .side-nav {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">MP</div>
+        <div class="brand-text">
+          <strong>MOLINARI</strong>
+          <span>POOLS</span>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <a href="dashboard.html"><span class="nav-icon">⌂</span>Dashboard</a>
+        <a href="projects.html"><span class="nav-icon">▣</span>Active Projects</a>
+        <a href="projects-command.html"><span class="nav-icon">◆</span>Projects Home</a>
+        <a href="project-accounting.html"><span class="nav-icon">$</span>Accounting Draws</a>
+        <a class="active" href="project-documents.html"><span class="nav-icon">□</span>Documents</a>
+        <a href="project-admin.html"><span class="nav-icon">⚙</span>Admin</a>
+        <a href="index.html"><span class="nav-icon">↩</span>Main Menu</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h1>Project Documents</h1>
+          <p>Document tracking by project, type, status, file, uploaded date, and notes.</p>
+        </div>
+
+        <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
+      </header>
+
+      <section class="content">
+
+        <div id="pageMessage" class="message info">Loading project documents...</div>
+
+        <section class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Active Documents</div>
+            <div class="summary-value" id="activeDocumentCountValue">0</div>
+            <div class="summary-sub">Active document records</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Projects With Docs</div>
+            <div class="summary-value" id="projectCountWithDocumentsValue">0</div>
+            <div class="summary-sub">Projects represented</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Contract Docs</div>
+            <div class="summary-value" id="contractDocumentCountValue">0</div>
+            <div class="summary-sub">Contract document count</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Permit Docs</div>
+            <div class="summary-value" id="permitDocumentCountValue">0</div>
+            <div class="summary-sub">Permit document count</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Engineering Docs</div>
+            <div class="summary-value" id="engineeringDocumentCountValue">0</div>
+            <div class="summary-sub">Engineering document count</div>
+          </div>
+        </section>
+
+        <section class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Active Status Count</div>
+            <div class="summary-value" id="activeStatusCountValue">0</div>
+            <div class="summary-sub">Documents marked active status</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Non-Active Status Count</div>
+            <div class="summary-value" id="nonActiveStatusCountValue">0</div>
+            <div class="summary-sub">Needs review / inactive status</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Change Order Docs</div>
+            <div class="summary-value" id="changeOrderDocumentCountValue">0</div>
+            <div class="summary-sub">Change order documents</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Other Docs</div>
+            <div class="summary-value" id="otherDocumentCountValue">0</div>
+            <div class="summary-sub">Other document types</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Total File Size</div>
+            <div class="summary-value" id="totalFileSizeValue">0 KB</div>
+            <div class="summary-sub">Stored file size summary</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Document Report</h2>
+          </div>
+
+          <div class="filters">
+            <input id="searchInput" placeholder="Search project, client, document, file, uploaded by..." oninput="applyFilters()">
+
+            <select id="documentTypeFilter" onchange="applyFilters()">
+              <option value="ALL">All Document Types</option>
+            </select>
+
+            <select id="documentStatusFilter" onchange="applyFilters()">
+              <option value="ALL">All Document Statuses</option>
+            </select>
+
+            <select id="projectTypeFilter" onchange="applyFilters()">
+              <option value="ALL">All Project Types</option>
+              <option value="NEW_BUILD">New Build</option>
+              <option value="RENOVATION">Renovation</option>
+            </select>
+
+            <button onclick="loadDocumentsPage()">Refresh</button>
+            <button class="secondary-btn" onclick="exportDocumentsCSV()">Export CSV</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th>Client</th>
+                  <th>Project Type</th>
+                  <th>Project Status</th>
+                  <th>Document</th>
+                  <th>Document Type</th>
+                  <th>Status</th>
+                  <th>File</th>
+                  <th>File Size</th>
+                  <th>Uploaded By</th>
+                  <th>Uploaded At</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+
+              <tbody id="documentsTableBody">
+                <tr>
+                  <td colspan="12">Loading project documents...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="footer">
+          © 2026 Molinari Pools. All rights reserved.
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let allDocumentRows = [];
+let filteredDocumentRows = [];
+
+window.addEventListener('load', async () => {
+  await loadDocumentsPage();
+});
+
+async function loadDocumentsPage() {
+  setMessage('info', 'Loading project documents...');
+
+  await Promise.all([
+    loadSummary(),
+    loadDocuments()
+  ]);
+
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  clearMessage();
+}
+
+async function loadSummary() {
+  const { data, error } = await client
+    .from('project_documents_summary_page_view')
+    .select('*')
+    .limit(1);
+
+  if (error) {
+    setMessage('error', 'Documents summary error: ' + error.message);
+    return;
+  }
+
+  const row = data && data.length > 0 ? data[0] : {};
+
+  setText('activeDocumentCountValue', row.active_document_count || 0);
+  setText('projectCountWithDocumentsValue', row.project_count_with_documents || 0);
+  setText('contractDocumentCountValue', row.contract_document_count || 0);
+  setText('permitDocumentCountValue', row.permit_document_count || 0);
+  setText('engineeringDocumentCountValue', row.engineering_document_count || 0);
+
+  setText('activeStatusCountValue', row.active_status_count || 0);
+  setText('nonActiveStatusCountValue', row.non_active_status_count || 0);
+  setText('changeOrderDocumentCountValue', row.change_order_document_count || 0);
+  setText('otherDocumentCountValue', row.other_document_count || 0);
+  setText('totalFileSizeValue', formatFileSize(row.total_file_size_bytes || 0));
+}
+
+async function loadDocuments() {
+  const { data, error } = await client
+    .from('project_documents_page_view')
+    .select('*')
+    .order('uploaded_at', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(2000);
+
+  if (error) {
+    allDocumentRows = [];
+    filteredDocumentRows = [];
+    renderDocumentsTable([]);
+    setMessage('error', 'Documents report error: ' + error.message);
+    return;
+  }
+
+  allDocumentRows = data || [];
+  populateFilters(allDocumentRows);
+  applyFilters();
+}
+
+function populateFilters(rows) {
+  populateSelectFromRows('documentTypeFilter', rows, 'document_type', 'All Document Types');
+  populateSelectFromRows('documentStatusFilter', rows, 'document_status', 'All Document Statuses');
+}
+
+function populateSelectFromRows(elementId, rows, columnName, defaultLabel) {
+  const select = document.getElementById(elementId);
+  const currentValue = select.value || 'ALL';
+
+  const values = [...new Set(
+    rows
+      .map(row => row[columnName])
+      .filter(value => value && String(value).trim() !== '')
+  )].sort();
+
+  select.innerHTML = `<option value="ALL">${defaultLabel}</option>`;
+
+  values.forEach(value => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+  });
+
+  if ([...select.options].some(option => option.value === currentValue)) {
+    select.value = currentValue;
+  }
+}
+
+function applyFilters() {
+  const searchValue = document.getElementById('searchInput').value.trim().toLowerCase();
+  const documentType = document.getElementById('documentTypeFilter').value;
+  const documentStatus = document.getElementById('documentStatusFilter').value;
+  const projectType = document.getElementById('projectTypeFilter').value;
+
+  filteredDocumentRows = allDocumentRows.filter(row => {
+    const searchableText = [
+      row.project_number,
+      row.project_name,
+      row.client_name,
+      row.project_type,
+      row.project_type_label,
+      row.project_status,
+      row.document_name,
+      row.document_type,
+      row.document_status,
+      row.file_name,
+      row.uploaded_by,
+      row.notes
+    ].map(value => String(value || '').toLowerCase()).join(' ');
+
+    const matchesSearch = !searchValue || searchableText.includes(searchValue);
+    const matchesDocumentType = documentType === 'ALL' || row.document_type === documentType;
+    const matchesDocumentStatus = documentStatus === 'ALL' || row.document_status === documentStatus;
+    const matchesProjectType = projectType === 'ALL' || row.project_type === projectType;
+
+    return matchesSearch && matchesDocumentType && matchesDocumentStatus && matchesProjectType;
+  });
+
+  renderDocumentsTable(filteredDocumentRows);
+}
+
+function renderDocumentsTable(rows) {
+  const tbody = document.getElementById('documentsTableBody');
+  tbody.innerHTML = '';
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12">No project documents found for the selected filters.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+
+    const fileDisplay = row.file_url
+      ? `<a class="file-link" href="${escapeAttribute(row.file_url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(row.file_name || 'Open File')}</a>`
+      : `${escapeHTML(row.file_name || '')}`;
+
+    tr.innerHTML = `
+      <td>
+        <a class="action-link" href="project-detail.html?project_id=${encodeURIComponent(row.project_id)}">
+          <span class="project-name">${escapeHTML(row.project_name || 'Unnamed Project')}</span>
+          <span class="project-number">${escapeHTML(row.project_number || '')}</span>
+        </a>
+      </td>
+      <td>${escapeHTML(row.client_name)}</td>
+      <td>${statusPill(row.project_type_label || row.project_type)}</td>
+      <td>${statusPill(row.project_status)}</td>
+      <td>
+        <span class="document-name">${escapeHTML(row.document_name)}</span>
+        <span class="file-name">${escapeHTML(row.document_id)}</span>
+      </td>
+      <td>${statusPill(row.document_type)}</td>
+      <td>${statusPill(row.document_status)}</td>
+      <td>${fileDisplay}</td>
+      <td>${escapeHTML(formatFileSize(row.file_size_bytes))}</td>
+      <td>${escapeHTML(row.uploaded_by)}</td>
+      <td>${escapeHTML(formatDateTime(row.uploaded_at))}</td>
+      <td class="wide-text">${escapeHTML(row.notes)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function exportDocumentsCSV() {
+  if (!filteredDocumentRows || filteredDocumentRows.length === 0) {
+    setMessage('info', 'No document records available to export.');
+    return;
+  }
+
+  const exportRows = filteredDocumentRows.map(row => ({
+    project_number: row.project_number,
+    project_name: row.project_name,
+    client_name: row.client_name,
+    project_type: row.project_type,
+    project_type_label: row.project_type_label,
+    project_status: row.project_status,
+    document_name: row.document_name,
+    document_type: row.document_type,
+    document_status: row.document_status,
+    file_url: row.file_url,
+    file_name: row.file_name,
+    file_size_bytes: row.file_size_bytes,
+    uploaded_by: row.uploaded_by,
+    uploaded_at: row.uploaded_at,
+    notes: row.notes,
+    project_id: row.project_id,
+    document_id: row.document_id
+  }));
+
+  exportRowsToCSV(exportRows, 'project_documents.csv');
+}
+
+function exportRowsToCSV(rows, filename) {
+  if (!rows || rows.length === 0) {
+    return;
+  }
+
+  const columns = Object.keys(rows[0]);
+
+  let csv = columns.map(col => `"${cleanCSV(col)}"`).join(',') + '\n';
+
+  rows.forEach(row => {
+    csv += columns.map(col => `"${cleanCSV(row[col])}"`).join(',') + '\n';
+  });
+
+  downloadCSV(csv, filename);
+}
+
+function cleanCSV(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).replace(/"/g, '""');
+}
+
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+}
+
+function statusPill(value) {
+  const text = value || 'N/A';
+  const normalized = normalize(text);
+
+  let cls = 'gray';
+
+  if (
+    normalized.includes('APPROVED') ||
+    normalized.includes('PAID') ||
+    normalized.includes('COMPLETE') ||
+    normalized.includes('VALID') ||
+    normalized.includes('ACTIVE') ||
+    normalized.includes('RECEIVED') ||
+    normalized.includes('UPLOADED')
+  ) {
+    cls = 'green';
+  } else if (
+    normalized.includes('NEW_BUILD') ||
+    normalized.includes('SUBMITTED') ||
+    normalized.includes('PROGRESS') ||
+    normalized.includes('SETUP') ||
+    normalized.includes('COMMENCEMENT') ||
+    normalized.includes('CONTRACT')
+  ) {
+    cls = 'blue';
+  } else if (
+    normalized.includes('WAIT') ||
+    normalized.includes('PENDING') ||
+    normalized.includes('REVIEW') ||
+    normalized.includes('DUE') ||
+    normalized.includes('MISSING')
+  ) {
+    cls = 'orange';
+  } else if (
+    normalized.includes('OVERDUE') ||
+    normalized.includes('DELAY') ||
+    normalized.includes('HOLD') ||
+    normalized.includes('NOT_SUBMITTED') ||
+    normalized.includes('REQUIRED') ||
+    normalized.includes('EXPIRED')
+  ) {
+    cls = 'red';
+  } else if (
+    normalized.includes('RENOVATION') ||
+    normalized.includes('ENGINEERING') ||
+    normalized.includes('PERMIT') ||
+    normalized.includes('PLASTER') ||
+    normalized.includes('TILE') ||
+    normalized.includes('CHANGE_ORDER')
+  ) {
+    cls = 'purple';
+  }
+
+  return `<span class="pill ${cls}">${escapeHTML(text)}</span>`;
+}
+
+function setMessage(type, message) {
+  const el = document.getElementById('pageMessage');
+
+  el.className = `message ${type}`;
+  el.textContent = message;
+}
+
+function clearMessage() {
+  const el = document.getElementById('pageMessage');
+
+  el.className = 'message';
+  el.textContent = '';
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+
+  if (el) {
+    el.textContent = value;
+  }
+}
+
+function normalize(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '_');
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
+function formatFileSize(bytes) {
+  const number = Number(bytes || 0);
+
+  if (number >= 1024 * 1024) {
+    return (number / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  if (number >= 1024) {
+    return (number / 1024).toFixed(1) + ' KB';
+  }
+
+  return number.toLocaleString() + ' B';
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeAttribute(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+</script>
+
+</body>
+</html>
