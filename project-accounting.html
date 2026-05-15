@@ -290,12 +290,26 @@
 
     .filters {
       display: grid;
-      grid-template-columns: 1.5fr 1fr 1fr 1fr auto auto;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr auto auto;
       gap: 10px;
       width: 100%;
       padding: 16px 18px;
       border-bottom: 1px solid #e5e7eb;
       background: #f8fafc;
+    }
+
+    .custom-date-row {
+      display: none;
+      grid-template-columns: repeat(2, 220px) 1fr;
+      gap: 10px;
+      width: 100%;
+      padding: 0 18px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f8fafc;
+    }
+
+    .custom-date-row.visible {
+      display: grid;
     }
 
     input,
@@ -334,7 +348,7 @@
 
     .mini-summary {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 10px;
       padding: 14px 18px;
       border-bottom: 1px solid #e5e7eb;
@@ -364,14 +378,16 @@
     }
 
     .table-wrap {
-      overflow-x: auto;
+      overflow: auto;
       padding: 0 14px 14px;
+      max-height: 560px;
+      border-top: 1px solid #eef2f7;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1500px;
+      min-width: 1650px;
     }
 
     th {
@@ -384,6 +400,9 @@
       border-bottom: 1px solid #e5e7eb;
       white-space: nowrap;
       background: white;
+      position: sticky;
+      top: 0;
+      z-index: 5;
     }
 
     td {
@@ -392,6 +411,7 @@
       font-size: 12px;
       vertical-align: middle;
       white-space: nowrap;
+      background: white;
     }
 
     tr:hover td {
@@ -520,6 +540,10 @@
       .mini-summary {
         grid-template-columns: repeat(2, 1fr);
       }
+
+      .custom-date-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
 
     @media (max-width: 820px) {
@@ -552,6 +576,10 @@
       }
 
       .mini-summary {
+        grid-template-columns: 1fr;
+      }
+
+      .custom-date-row {
         grid-template-columns: 1fr;
       }
     }
@@ -599,7 +627,7 @@
       <header class="topbar">
         <div class="topbar-title">
           <h1>Project Accounting</h1>
-          <p>Draw schedules, invoicing, paid amounts, remaining balances, and outstanding amounts.</p>
+          <p>Draw schedules, forecasted draw dates, invoicing, paid amounts, and outstanding balances.</p>
         </div>
 
         <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
@@ -676,13 +704,22 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <h2>Project Draw Schedule Report</h2>
-              <p class="panel-subtitle">Use filters to review billable draw schedules by project, type, status, and invoice condition.</p>
+              <h2>Project Draw Forecast & Schedule Report</h2>
+              <p class="panel-subtitle">Accounting can filter by week, month, or custom date range to forecast expected draw dollars.</p>
             </div>
           </div>
 
           <div class="filters">
             <input id="searchInput" placeholder="Search project number, client, invoice, draw name..." oninput="applyFilters()">
+
+            <select id="forecastFilter" onchange="handleForecastFilterChange()">
+              <option value="ALL">All Forecast Dates</option>
+              <option value="THIS_WEEK">This Week</option>
+              <option value="NEXT_WEEK">Next Week</option>
+              <option value="THIS_MONTH">This Month</option>
+              <option value="NEXT_MONTH">Next Month</option>
+              <option value="CUSTOM">Custom Date Range</option>
+            </select>
 
             <select id="projectTypeFilter" onchange="applyFilters()">
               <option value="ALL">All Project Types</option>
@@ -702,15 +739,26 @@
             <button class="secondary-btn" onclick="exportAccountingCSV()">Export CSV</button>
           </div>
 
+          <div id="customDateRow" class="custom-date-row">
+            <input id="customStartDate" type="date" onchange="applyFilters()">
+            <input id="customEndDate" type="date" onchange="applyFilters()">
+            <div></div>
+          </div>
+
           <div class="mini-summary">
             <div class="mini-card">
-              <div class="mini-label">Filtered Draws</div>
-              <div class="mini-value" id="filteredDrawCountValue">0</div>
+              <div class="mini-label">Forecast Period</div>
+              <div class="mini-value" id="forecastPeriodValue">All Dates</div>
             </div>
 
             <div class="mini-card">
-              <div class="mini-label">Filtered Scheduled</div>
-              <div class="mini-value" id="filteredScheduledValue">$0</div>
+              <div class="mini-label">Forecast Draws</div>
+              <div class="mini-value" id="forecastDrawCountValue">0</div>
+            </div>
+
+            <div class="mini-card">
+              <div class="mini-label">Expected Draw Dollars</div>
+              <div class="mini-value" id="forecastScheduledValue">$0</div>
             </div>
 
             <div class="mini-card">
@@ -736,6 +784,7 @@
                   <th>Draw #</th>
                   <th>Draw Name</th>
                   <th>Draw Status</th>
+                  <th>Expected Draw Date</th>
                   <th>Scheduled</th>
                   <th>Invoiced</th>
                   <th>Paid</th>
@@ -746,13 +795,14 @@
                   <th>Invoice Date</th>
                   <th>Due Date</th>
                   <th>Paid Date</th>
+                  <th>Expected Draw Notes</th>
                   <th>Notes</th>
                 </tr>
               </thead>
 
               <tbody id="drawsTableBody">
                 <tr>
-                  <td colspan="19">Loading accounting draws...</td>
+                  <td colspan="21">Loading accounting draws...</td>
                 </tr>
               </tbody>
             </table>
@@ -822,6 +872,7 @@ async function loadDraws() {
   const { data, error } = await client
     .from('project_accounting_draws_page_view')
     .select('*')
+    .order('expected_draw_date', { ascending: true })
     .order('project_number', { ascending: true })
     .order('draw_number', { ascending: true })
     .limit(2000);
@@ -868,11 +919,39 @@ function populateSelectFromRows(elementId, rows, columnName, defaultLabel) {
   }
 }
 
+function handleForecastFilterChange() {
+  const forecastFilter = document.getElementById('forecastFilter').value;
+  const customDateRow = document.getElementById('customDateRow');
+
+  if (forecastFilter === 'CUSTOM') {
+    customDateRow.classList.add('visible');
+
+    if (!document.getElementById('customStartDate').value) {
+      const today = new Date();
+      document.getElementById('customStartDate').value = toDateInputValue(today);
+    }
+
+    if (!document.getElementById('customEndDate').value) {
+      const today = new Date();
+      const end = new Date(today);
+      end.setDate(today.getDate() + 30);
+      document.getElementById('customEndDate').value = toDateInputValue(end);
+    }
+  } else {
+    customDateRow.classList.remove('visible');
+  }
+
+  applyFilters();
+}
+
 function applyFilters() {
   const searchValue = document.getElementById('searchInput').value.trim().toLowerCase();
+  const forecastFilter = document.getElementById('forecastFilter').value;
   const projectType = document.getElementById('projectTypeFilter').value;
   const drawStatus = document.getElementById('drawStatusFilter').value;
   const projectStatus = document.getElementById('projectStatusFilter').value;
+
+  const forecastRange = getForecastRange(forecastFilter);
 
   filteredDrawRows = allDrawRows.filter(row => {
     const searchableText = [
@@ -885,6 +964,8 @@ function applyFilters() {
       row.draw_number,
       row.draw_name,
       row.draw_status,
+      row.expected_draw_date,
+      row.expected_draw_notes,
       row.trigger_stage,
       row.trigger_description,
       row.invoice_number,
@@ -895,21 +976,129 @@ function applyFilters() {
     const matchesProjectType = projectType === 'ALL' || row.project_type === projectType;
     const matchesDrawStatus = drawStatus === 'ALL' || row.draw_status === drawStatus;
     const matchesProjectStatus = projectStatus === 'ALL' || row.project_status === projectStatus;
+    const matchesForecast = matchesForecastRange(row.expected_draw_date, forecastRange);
 
-    return matchesSearch && matchesProjectType && matchesDrawStatus && matchesProjectStatus;
+    return matchesSearch && matchesProjectType && matchesDrawStatus && matchesProjectStatus && matchesForecast;
   });
 
   renderDrawsTable(filteredDrawRows);
-  updateFilteredSummary(filteredDrawRows);
+  updateForecastSummary(filteredDrawRows, forecastRange);
 }
 
-function updateFilteredSummary(rows) {
+function getForecastRange(forecastFilter) {
+  const today = startOfDay(new Date());
+
+  if (forecastFilter === 'ALL') {
+    return {
+      label: 'All Dates',
+      start: null,
+      end: null
+    };
+  }
+
+  if (forecastFilter === 'THIS_WEEK') {
+    const start = startOfWeek(today);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    return {
+      label: `${formatDate(start)} - ${formatDate(end)}`,
+      start,
+      end
+    };
+  }
+
+  if (forecastFilter === 'NEXT_WEEK') {
+    const start = startOfWeek(today);
+    start.setDate(start.getDate() + 7);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    return {
+      label: `${formatDate(start)} - ${formatDate(end)}`,
+      start,
+      end
+    };
+  }
+
+  if (forecastFilter === 'THIS_MONTH') {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    return {
+      label: `${start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`,
+      start,
+      end
+    };
+  }
+
+  if (forecastFilter === 'NEXT_MONTH') {
+    const start = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+
+    return {
+      label: `${start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`,
+      start,
+      end
+    };
+  }
+
+  if (forecastFilter === 'CUSTOM') {
+    const startValue = document.getElementById('customStartDate').value;
+    const endValue = document.getElementById('customEndDate').value;
+
+    const start = startValue ? parseLocalDate(startValue) : null;
+    const end = endValue ? parseLocalDate(endValue) : null;
+
+    return {
+      label: `${startValue || 'Start'} - ${endValue || 'End'}`,
+      start,
+      end
+    };
+  }
+
+  return {
+    label: 'All Dates',
+    start: null,
+    end: null
+  };
+}
+
+function matchesForecastRange(value, range) {
+  if (!range || (!range.start && !range.end)) {
+    return true;
+  }
+
+  if (!value) {
+    return false;
+  }
+
+  const date = parseLocalDate(value);
+
+  if (!date) {
+    return false;
+  }
+
+  if (range.start && date < range.start) {
+    return false;
+  }
+
+  if (range.end && date > range.end) {
+    return false;
+  }
+
+  return true;
+}
+
+function updateForecastSummary(rows, forecastRange) {
   const filteredScheduled = sumColumn(rows, 'scheduled_amount');
   const filteredRemaining = sumColumn(rows, 'remaining_to_invoice');
   const filteredOutstanding = sumColumn(rows, 'outstanding_amount');
 
-  setText('filteredDrawCountValue', rows.length);
-  setText('filteredScheduledValue', formatCurrencyShort(filteredScheduled));
+  setText('forecastPeriodValue', forecastRange.label || 'All Dates');
+  setText('forecastDrawCountValue', rows.length);
+  setText('forecastScheduledValue', formatCurrencyShort(filteredScheduled));
   setText('filteredRemainingValue', formatCurrencyShort(filteredRemaining));
   setText('filteredOutstandingValue', formatCurrencyShort(filteredOutstanding));
 }
@@ -919,7 +1108,7 @@ function renderDrawsTable(rows) {
   tbody.innerHTML = '';
 
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="19">No accounting draw records found for the selected filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="21">No accounting draw records found for the selected filters.</td></tr>';
     return;
   }
 
@@ -942,6 +1131,7 @@ function renderDrawsTable(rows) {
       <td>${escapeHTML(row.draw_number)}</td>
       <td>${escapeHTML(row.draw_name)}</td>
       <td>${statusPill(row.draw_status)}</td>
+      <td>${escapeHTML(formatDate(row.expected_draw_date))}</td>
       <td class="money">${formatCurrency(row.scheduled_amount)}</td>
       <td class="money">${formatCurrency(row.invoiced_amount)}</td>
       <td class="money-positive">${formatCurrency(row.paid_amount)}</td>
@@ -952,6 +1142,7 @@ function renderDrawsTable(rows) {
       <td>${escapeHTML(formatDate(row.invoice_date))}</td>
       <td>${escapeHTML(formatDate(row.due_date))}</td>
       <td>${escapeHTML(formatDate(row.paid_date))}</td>
+      <td class="wide-text">${escapeHTML(row.expected_draw_notes)}</td>
       <td class="wide-text">${escapeHTML(row.notes)}</td>
     `;
 
@@ -978,6 +1169,7 @@ function exportAccountingCSV() {
     draw_number: row.draw_number,
     draw_name: row.draw_name,
     draw_status: row.draw_status,
+    expected_draw_date: row.expected_draw_date,
     scheduled_amount: row.scheduled_amount,
     invoiced_amount: row.invoiced_amount,
     paid_amount: row.paid_amount,
@@ -989,13 +1181,14 @@ function exportAccountingCSV() {
     invoice_date: row.invoice_date,
     due_date: row.due_date,
     paid_date: row.paid_date,
+    expected_draw_notes: row.expected_draw_notes,
     notes: row.notes,
     project_id: row.project_id,
     draw_id: row.draw_id
   }));
 
   const datePart = new Date().toISOString().slice(0, 10);
-  exportRowsToCSV(exportRows, `project_accounting_draws_${datePart}.csv`);
+  exportRowsToCSV(exportRows, `project_accounting_draw_forecast_${datePart}.csv`);
 }
 
 function exportRowsToCSV(rows, filename) {
@@ -1091,6 +1284,47 @@ function statusPill(value) {
   return `<span class="pill ${cls}">${escapeHTML(text)}</span>`;
 }
 
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function startOfWeek(date) {
+  const day = date.getDay();
+  const diff = date.getDate() - day;
+  return new Date(date.getFullYear(), date.getMonth(), diff);
+}
+
+function parseLocalDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parts = String(value).split('-');
+
+  if (parts.length === 3) {
+    const year = Number(parts[0]);
+    const month = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    return new Date(year, month, day);
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return startOfDay(date);
+}
+
+function toDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
 function setMessage(type, message) {
   const el = document.getElementById('pageMessage');
 
@@ -1162,9 +1396,9 @@ function formatDate(value) {
     return '';
   }
 
-  const date = new Date(value);
+  const date = parseLocalDate(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (!date) {
     return value;
   }
 
