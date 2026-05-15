@@ -754,8 +754,8 @@ function renderProjectsTable(rows) {
       <td>${escapeHTML(formatDate(row.projected_completion_date))}</td>
       <td>${escapeHTML(row.project_manager)}</td>
       <td>${escapeHTML(row.superintendent)}</td>
-      <td>${statusPill(row.permit_status || permitRequiredText(row.needs_permit))}</td>
-      <td>${statusPill(row.engineering_status)}</td>
+      <td>${statusPill(displayWorkflowStatus(row.permit_status))}</td>
+      <td>${statusPill(displayWorkflowStatus(row.engineering_status))}</td>
       <td>${escapeHTML(row.stage_count)} / ${escapeHTML(row.expected_stage_count)}</td>
       <td>${escapeHTML(row.draw_count)} / ${escapeHTML(row.expected_draw_count)}</td>
       <td class="money">${formatCurrency(row.scheduled_draw_total)}</td>
@@ -787,20 +787,16 @@ function updateSummary(rows) {
   setText('needsReviewValue', needsReview);
 }
 
-function permitRequiredText(value) {
-  if (value === true) {
-    return 'Permit Required';
+function displayWorkflowStatus(value) {
+  if (value === null || value === undefined || String(value).trim() === '') {
+    return 'Not Set';
   }
 
-  if (value === false) {
-    return 'No Permit Required';
-  }
-
-  return 'N/A';
+  return value;
 }
 
 function statusPill(value) {
-  const text = value || 'N/A';
+  const text = value || 'Not Set';
   const normalized = normalize(text);
 
   let cls = 'gray';
@@ -825,7 +821,8 @@ function statusPill(value) {
     normalized.includes('WAIT') ||
     normalized.includes('PENDING') ||
     normalized.includes('REVIEW') ||
-    normalized.includes('DUE')
+    normalized.includes('DUE') ||
+    normalized.includes('NOT_SET')
   ) {
     cls = 'orange';
   } else if (
