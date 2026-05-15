@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Project Accounting - Projects Command Center</title>
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --green: #16a34a;
+      --blue: #2563eb;
+      --orange: #f97316;
+      --purple: #7c3aed;
+      --red: #dc2626;
+      --gray: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .side-nav {
+      padding: 14px 10px;
+    }
+
+    .side-nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+    }
+
+    .nav-icon {
+      width: 20px;
+      text-align: center;
+    }
+
+    .main {
+      min-width: 0;
+    }
+
+    .topbar {
+      background: var(--header);
+      color: white;
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      box-shadow: 0 2px 12px rgba(15,23,42,0.18);
+    }
+
+    .topbar-title h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 800;
+    }
+
+    .topbar-title p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      opacity: 0.88;
+    }
+
+    .topbar-pill {
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .content {
+      padding: 22px;
+      max-width: 1500px;
+      margin: 0 auto;
+    }
+
+    .message {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      display: none;
+    }
+
+    .message.info {
+      display: block;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .message.error {
+      display: block;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: #b42318;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .summary-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      font-size: 26px;
+      font-weight: 900;
+      color: #111827;
+      word-break: break-word;
+    }
+
+    .summary-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      color: #102a43;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr auto auto;
+      gap: 10px;
+      width: 100%;
+      padding: 16px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f8fafc;
+    }
+
+    input,
+    select,
+    button {
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text);
+      width: 100%;
+    }
+
+    input {
+      font-weight: 600;
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--header);
+      color: white;
+      border-color: var(--header);
+      white-space: nowrap;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    .secondary-btn {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      padding: 0 14px 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1450px;
+    }
+
+    th {
+      text-align: left;
+      color: #475467;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      padding: 12px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      white-space: nowrap;
+      background: white;
+    }
+
+    td {
+      padding: 12px 8px;
+      border-bottom: 1px solid #eef2f7;
+      font-size: 12px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    .project-name {
+      font-weight: 900;
+      color: #0b3c5d;
+      display: block;
+    }
+
+    .project-number {
+      color: var(--muted);
+      font-size: 11px;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .money {
+      font-weight: 900;
+      color: #111827;
+    }
+
+    .money-positive {
+      font-weight: 900;
+      color: #166534;
+    }
+
+    .money-warning {
+      font-weight: 900;
+      color: #b42318;
+    }
+
+    .wide-text {
+      white-space: normal;
+      min-width: 260px;
+      line-height: 1.35;
+    }
+
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      border: 1px solid transparent;
+    }
+
+    .pill.green {
+      color: #166534;
+      background: #ecfdf3;
+      border-color: #bbf7d0;
+    }
+
+    .pill.blue {
+      color: #1d4ed8;
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    .pill.orange {
+      color: #9a3412;
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+
+    .pill.red {
+      color: #b42318;
+      background: #fef3f2;
+      border-color: #fecdca;
+    }
+
+    .pill.purple {
+      color: #6d28d9;
+      background: #f5f3ff;
+      border-color: #ddd6fe;
+    }
+
+    .pill.gray {
+      color: #475467;
+      background: #f2f4f7;
+      border-color: #e4e7ec;
+    }
+
+    .action-link {
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: 900;
+    }
+
+    .action-link:hover {
+      text-decoration: underline;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 18px;
+    }
+
+    @media (max-width: 1250px) {
+      .summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .filters {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .side-nav {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .topbar {
+        position: relative;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .filters {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .content {
+        padding: 14px;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .side-nav {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">MP</div>
+        <div class="brand-text">
+          <strong>MOLINARI</strong>
+          <span>POOLS</span>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <a href="dashboard.html"><span class="nav-icon">⌂</span>Dashboard</a>
+        <a href="projects.html"><span class="nav-icon">▣</span>Active Projects</a>
+        <a href="projects-command.html"><span class="nav-icon">◆</span>Projects Home</a>
+        <a class="active" href="project-accounting.html"><span class="nav-icon">$</span>Accounting Draws</a>
+        <a href="project-documents.html"><span class="nav-icon">□</span>Documents</a>
+        <a href="project-admin.html"><span class="nav-icon">⚙</span>Admin</a>
+        <a href="index.html"><span class="nav-icon">↩</span>Main Menu</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h1>Project Accounting</h1>
+          <p>Draw schedules, invoicing, paid amounts, remaining balances, and outstanding amounts.</p>
+        </div>
+
+        <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
+      </header>
+
+      <section class="content">
+
+        <div id="pageMessage" class="message info">Loading project accounting data...</div>
+
+        <section class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Active Projects</div>
+            <div class="summary-value" id="activeProjectCountValue">0</div>
+            <div class="summary-sub">Accounting summary</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Total Project Value</div>
+            <div class="summary-value" id="totalProjectValueValue">$0</div>
+            <div class="summary-sub">Contracts + approved COs</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Ready to Invoice</div>
+            <div class="summary-value" id="readyToInvoiceValue">0</div>
+            <div class="summary-sub">Draw count</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Remaining to Invoice</div>
+            <div class="summary-value" id="remainingToInvoiceValue">$0</div>
+            <div class="summary-sub">Open scheduled amount</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Outstanding Amount</div>
+            <div class="summary-value" id="outstandingAmountValue">$0</div>
+            <div class="summary-sub">Invoiced but unpaid</div>
+          </div>
+        </section>
+
+        <section class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Total Draws</div>
+            <div class="summary-value" id="totalDrawCountValue">0</div>
+            <div class="summary-sub">All draw records</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Not Billed</div>
+            <div class="summary-value" id="notBilledDrawCountValue">0</div>
+            <div class="summary-sub">Not invoiced yet</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Invoiced</div>
+            <div class="summary-value" id="invoicedDrawCountValue">0</div>
+            <div class="summary-sub">Invoice generated</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Paid</div>
+            <div class="summary-value" id="paidDrawCountValue">0</div>
+            <div class="summary-sub">Paid draw count</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Total Paid</div>
+            <div class="summary-value" id="totalPaidAmountValue">$0</div>
+            <div class="summary-sub">Collected draw payments</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Project Draw Schedule Report</h2>
+          </div>
+
+          <div class="filters">
+            <input id="searchInput" placeholder="Search project, client, invoice, draw name..." oninput="applyFilters()">
+
+            <select id="projectTypeFilter" onchange="applyFilters()">
+              <option value="ALL">All Project Types</option>
+              <option value="NEW_BUILD">New Build</option>
+              <option value="RENOVATION">Renovation</option>
+            </select>
+
+            <select id="drawStatusFilter" onchange="applyFilters()">
+              <option value="ALL">All Draw Statuses</option>
+            </select>
+
+            <select id="projectStatusFilter" onchange="applyFilters()">
+              <option value="ALL">All Project Statuses</option>
+            </select>
+
+            <button onclick="loadAccountingPage()">Refresh</button>
+            <button class="secondary-btn" onclick="exportAccountingCSV()">Export CSV</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th>Client</th>
+                  <th>Type</th>
+                  <th>Project Status</th>
+                  <th>Total Project Value</th>
+                  <th>Draw #</th>
+                  <th>Draw Name</th>
+                  <th>Draw Status</th>
+                  <th>Scheduled</th>
+                  <th>Invoiced</th>
+                  <th>Paid</th>
+                  <th>Remaining to Invoice</th>
+                  <th>Outstanding</th>
+                  <th>Trigger Stage</th>
+                  <th>Invoice #</th>
+                  <th>Invoice Date</th>
+                  <th>Due Date</th>
+                  <th>Paid Date</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+
+              <tbody id="drawsTableBody">
+                <tr>
+                  <td colspan="19">Loading accounting draws...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="footer">
+          © 2026 Molinari Pools. All rights reserved.
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let allDrawRows = [];
+let filteredDrawRows = [];
+
+window.addEventListener('load', async () => {
+  await loadAccountingPage();
+});
+
+async function loadAccountingPage() {
+  setMessage('info', 'Loading project accounting data...');
+
+  await Promise.all([
+    loadSummary(),
+    loadDraws()
+  ]);
+
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  clearMessage();
+}
+
+async function loadSummary() {
+  const { data, error } = await client
+    .from('project_accounting_summary_page_view')
+    .select('*')
+    .limit(1);
+
+  if (error) {
+    setMessage('error', 'Accounting summary error: ' + error.message);
+    return;
+  }
+
+  const row = data && data.length > 0 ? data[0] : {};
+
+  setText('activeProjectCountValue', row.active_project_count || 0);
+  setText('totalProjectValueValue', formatCurrencyShort(row.total_project_value || 0));
+  setText('readyToInvoiceValue', row.ready_to_invoice_draw_count || 0);
+  setText('remainingToInvoiceValue', formatCurrencyShort(row.total_remaining_to_invoice || 0));
+  setText('outstandingAmountValue', formatCurrencyShort(row.total_outstanding_amount || 0));
+
+  setText('totalDrawCountValue', row.total_draw_count || 0);
+  setText('notBilledDrawCountValue', row.not_billed_draw_count || 0);
+  setText('invoicedDrawCountValue', row.invoiced_draw_count || 0);
+  setText('paidDrawCountValue', row.paid_draw_count || 0);
+  setText('totalPaidAmountValue', formatCurrencyShort(row.total_paid_amount || 0));
+}
+
+async function loadDraws() {
+  const { data, error } = await client
+    .from('project_accounting_draws_page_view')
+    .select('*')
+    .order('project_number', { ascending: true })
+    .order('draw_number', { ascending: true })
+    .limit(2000);
+
+  if (error) {
+    allDrawRows = [];
+    filteredDrawRows = [];
+    renderDrawsTable([]);
+    setMessage('error', 'Accounting draw report error: ' + error.message);
+    return;
+  }
+
+  allDrawRows = data || [];
+  populateFilters(allDrawRows);
+  applyFilters();
+}
+
+function populateFilters(rows) {
+  populateSelectFromRows('drawStatusFilter', rows, 'draw_status', 'All Draw Statuses');
+  populateSelectFromRows('projectStatusFilter', rows, 'project_status', 'All Project Statuses');
+}
+
+function populateSelectFromRows(elementId, rows, columnName, defaultLabel) {
+  const select = document.getElementById(elementId);
+  const currentValue = select.value || 'ALL';
+
+  const values = [...new Set(
+    rows
+      .map(row => row[columnName])
+      .filter(value => value && String(value).trim() !== '')
+  )].sort();
+
+  select.innerHTML = `<option value="ALL">${defaultLabel}</option>`;
+
+  values.forEach(value => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+  });
+
+  if ([...select.options].some(option => option.value === currentValue)) {
+    select.value = currentValue;
+  }
+}
+
+function applyFilters() {
+  const searchValue = document.getElementById('searchInput').value.trim().toLowerCase();
+  const projectType = document.getElementById('projectTypeFilter').value;
+  const drawStatus = document.getElementById('drawStatusFilter').value;
+  const projectStatus = document.getElementById('projectStatusFilter').value;
+
+  filteredDrawRows = allDrawRows.filter(row => {
+    const searchableText = [
+      row.project_number,
+      row.project_name,
+      row.client_name,
+      row.project_type,
+      row.project_type_label,
+      row.project_status,
+      row.draw_number,
+      row.draw_name,
+      row.draw_status,
+      row.trigger_stage,
+      row.trigger_description,
+      row.invoice_number,
+      row.notes
+    ].map(value => String(value || '').toLowerCase()).join(' ');
+
+    const matchesSearch = !searchValue || searchableText.includes(searchValue);
+    const matchesProjectType = projectType === 'ALL' || row.project_type === projectType;
+    const matchesDrawStatus = drawStatus === 'ALL' || row.draw_status === drawStatus;
+    const matchesProjectStatus = projectStatus === 'ALL' || row.project_status === projectStatus;
+
+    return matchesSearch && matchesProjectType && matchesDrawStatus && matchesProjectStatus;
+  });
+
+  renderDrawsTable(filteredDrawRows);
+}
+
+function renderDrawsTable(rows) {
+  const tbody = document.getElementById('drawsTableBody');
+  tbody.innerHTML = '';
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="19">No accounting draw records found for the selected filters.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>
+        <a class="action-link" href="project-detail.html?project_id=${encodeURIComponent(row.project_id)}">
+          <span class="project-name">${escapeHTML(row.project_name || 'Unnamed Project')}</span>
+          <span class="project-number">${escapeHTML(row.project_number || '')}</span>
+        </a>
+      </td>
+      <td>${escapeHTML(row.client_name)}</td>
+      <td>${statusPill(row.project_type_label || row.project_type)}</td>
+      <td>${statusPill(row.project_status)}</td>
+      <td class="money">${formatCurrency(row.total_project_value)}</td>
+      <td>${escapeHTML(row.draw_number)}</td>
+      <td>${escapeHTML(row.draw_name)}</td>
+      <td>${statusPill(row.draw_status)}</td>
+      <td class="money">${formatCurrency(row.scheduled_amount)}</td>
+      <td class="money">${formatCurrency(row.invoiced_amount)}</td>
+      <td class="money-positive">${formatCurrency(row.paid_amount)}</td>
+      <td class="${Number(row.remaining_to_invoice || 0) > 0 ? 'money-warning' : 'money'}">${formatCurrency(row.remaining_to_invoice)}</td>
+      <td class="${Number(row.outstanding_amount || 0) > 0 ? 'money-warning' : 'money'}">${formatCurrency(row.outstanding_amount)}</td>
+      <td>${escapeHTML(row.trigger_stage)}</td>
+      <td>${escapeHTML(row.invoice_number)}</td>
+      <td>${escapeHTML(formatDate(row.invoice_date))}</td>
+      <td>${escapeHTML(formatDate(row.due_date))}</td>
+      <td>${escapeHTML(formatDate(row.paid_date))}</td>
+      <td class="wide-text">${escapeHTML(row.notes)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function exportAccountingCSV() {
+  if (!filteredDrawRows || filteredDrawRows.length === 0) {
+    setMessage('info', 'No accounting draw records available to export.');
+    return;
+  }
+
+  const exportRows = filteredDrawRows.map(row => ({
+    project_number: row.project_number,
+    project_name: row.project_name,
+    client_name: row.client_name,
+    project_type: row.project_type,
+    project_type_label: row.project_type_label,
+    project_status: row.project_status,
+    contract_amount: row.contract_amount,
+    approved_change_order_total: row.approved_change_order_total,
+    total_project_value: row.total_project_value,
+    draw_number: row.draw_number,
+    draw_name: row.draw_name,
+    draw_status: row.draw_status,
+    scheduled_amount: row.scheduled_amount,
+    invoiced_amount: row.invoiced_amount,
+    paid_amount: row.paid_amount,
+    remaining_to_invoice: row.remaining_to_invoice,
+    outstanding_amount: row.outstanding_amount,
+    trigger_stage: row.trigger_stage,
+    trigger_description: row.trigger_description,
+    invoice_number: row.invoice_number,
+    invoice_date: row.invoice_date,
+    due_date: row.due_date,
+    paid_date: row.paid_date,
+    notes: row.notes,
+    project_id: row.project_id,
+    draw_id: row.draw_id
+  }));
+
+  exportRowsToCSV(exportRows, 'project_accounting_draws.csv');
+}
+
+function exportRowsToCSV(rows, filename) {
+  if (!rows || rows.length === 0) {
+    return;
+  }
+
+  const columns = Object.keys(rows[0]);
+
+  let csv = columns.map(col => `"${cleanCSV(col)}"`).join(',') + '\n';
+
+  rows.forEach(row => {
+    csv += columns.map(col => `"${cleanCSV(row[col])}"`).join(',') + '\n';
+  });
+
+  downloadCSV(csv, filename);
+}
+
+function cleanCSV(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).replace(/"/g, '""');
+}
+
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+}
+
+function statusPill(value) {
+  const text = value || 'N/A';
+  const normalized = normalize(text);
+
+  let cls = 'gray';
+
+  if (
+    normalized.includes('APPROVED') ||
+    normalized.includes('PAID') ||
+    normalized.includes('COMPLETE') ||
+    normalized.includes('VALID') ||
+    normalized.includes('ACTIVE') ||
+    normalized.includes('READY')
+  ) {
+    cls = 'green';
+  } else if (
+    normalized.includes('NEW_BUILD') ||
+    normalized.includes('SUBMITTED') ||
+    normalized.includes('PROGRESS') ||
+    normalized.includes('SETUP') ||
+    normalized.includes('COMMENCEMENT') ||
+    normalized.includes('INVOICED')
+  ) {
+    cls = 'blue';
+  } else if (
+    normalized.includes('WAIT') ||
+    normalized.includes('PENDING') ||
+    normalized.includes('REVIEW') ||
+    normalized.includes('DUE') ||
+    normalized.includes('NOT_BILLED')
+  ) {
+    cls = 'orange';
+  } else if (
+    normalized.includes('OVERDUE') ||
+    normalized.includes('DELAY') ||
+    normalized.includes('HOLD') ||
+    normalized.includes('NOT_SUBMITTED') ||
+    normalized.includes('REQUIRED')
+  ) {
+    cls = 'red';
+  } else if (
+    normalized.includes('RENOVATION') ||
+    normalized.includes('ENGINEERING') ||
+    normalized.includes('PERMIT') ||
+    normalized.includes('PLASTER') ||
+    normalized.includes('TILE')
+  ) {
+    cls = 'purple';
+  }
+
+  return `<span class="pill ${cls}">${escapeHTML(text)}</span>`;
+}
+
+function setMessage(type, message) {
+  const el = document.getElementById('pageMessage');
+
+  el.className = `message ${type}`;
+  el.textContent = message;
+}
+
+function clearMessage() {
+  const el = document.getElementById('pageMessage');
+
+  el.className = 'message';
+  el.textContent = '';
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+
+  if (el) {
+    el.textContent = value;
+  }
+}
+
+function normalize(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '_');
+}
+
+function formatCurrency(value) {
+  const number = Number(value || 0);
+
+  return number.toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function formatCurrencyShort(value) {
+  const number = Number(value || 0);
+
+  if (Math.abs(number) >= 1000000) {
+    return '$' + (number / 1000000).toFixed(2) + 'M';
+  }
+
+  if (Math.abs(number) >= 1000) {
+    return '$' + (number / 1000).toFixed(0) + 'K';
+  }
+
+  return formatCurrency(number);
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString();
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+
+</body>
+</html>
