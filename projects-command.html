@@ -12,6 +12,8 @@
 
   <meta name="theme-color" content="#0b3c5d">
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
   <style>
     :root {
       --nav: #062f4f;
@@ -223,6 +225,151 @@
       margin-top: 4px;
     }
 
+    .create-project-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+
+    .create-project-header {
+      padding: 16px 18px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .create-project-header h2 {
+      margin: 0;
+      color: #102a43;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .create-project-header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .form-body {
+      padding: 10px 18px 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-field.full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 900;
+      color: #344054;
+    }
+
+    input,
+    select,
+    textarea {
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text);
+      width: 100%;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 82px;
+      font-weight: 600;
+      line-height: 1.45;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: 2px solid rgba(26,163,176,0.25);
+      border-color: var(--accent);
+    }
+
+    .form-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    button {
+      border: 1px solid var(--header);
+      background: var(--header);
+      color: white;
+      border-radius: 10px;
+      padding: 11px 16px;
+      font-weight: 900;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button.secondary {
+      background: white;
+      color: var(--header);
+      border-color: var(--border);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .form-message {
+      display: none;
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .form-message.success {
+      display: block;
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    .form-message.error {
+      display: block;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: #b42318;
+    }
+
     .quick-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -399,6 +546,10 @@
       .info-grid {
         grid-template-columns: 1fr;
       }
+
+      .form-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
 
     @media (max-width: 820px) {
@@ -426,7 +577,8 @@
         justify-content: flex-start;
       }
 
-      .quick-grid {
+      .quick-grid,
+      .form-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -475,7 +627,7 @@
 
         <div class="topbar-actions">
           <span class="topbar-pill">Post-Acceptance Workflow</span>
-          <span class="topbar-pill">Version 1 Read-Only</span>
+          <span class="topbar-pill">Create Project Enabled</span>
         </div>
       </header>
 
@@ -492,8 +644,98 @@
           </div>
 
           <div class="status-box">
-            Current Phase: Navigation and Visibility Layer Active
-            <span>Create, update, delete, permissions, RLS, and workflow action buttons are postponed.</span>
+            Current Phase: First Controlled Workflow Active
+            <span>Create New Project now uses the approved Supabase template setup process.</span>
+          </div>
+        </section>
+
+        <section class="create-project-card">
+          <div class="create-project-header">
+            <div>
+              <h2>Create New Project</h2>
+              <p>
+                This creates the project record and automatically builds the approved stage and draw schedule templates.
+              </p>
+            </div>
+          </div>
+
+          <div class="form-body">
+            <form id="createProjectForm">
+              <div class="form-grid">
+                <div class="form-field">
+                  <label for="projectNumber">Project Number *</label>
+                  <input id="projectNumber" type="text" placeholder="Example: PROJ-2026-001" required>
+                </div>
+
+                <div class="form-field">
+                  <label for="projectName">Project Name *</label>
+                  <input id="projectName" type="text" placeholder="Example: Smith Residence Pool" required>
+                </div>
+
+                <div class="form-field">
+                  <label for="clientName">Client Name *</label>
+                  <input id="clientName" type="text" placeholder="Example: Smith" required>
+                </div>
+
+                <div class="form-field">
+                  <label for="projectType">Project Type *</label>
+                  <select id="projectType" required>
+                    <option value="">Select Project Type</option>
+                    <option value="NEW_BUILD">New Build</option>
+                    <option value="RENOVATION">Renovation</option>
+                  </select>
+                </div>
+
+                <div class="form-field">
+                  <label for="projectStatus">Project Status *</label>
+                  <select id="projectStatus" required>
+                    <option value="SALES_HANDOFF">Sales Handoff</option>
+                    <option value="PROJECT_SETUP">Project Setup</option>
+                    <option value="ENGINEERING_PLANS">Engineering / Plans</option>
+                    <option value="PERMITTING">Permitting</option>
+                    <option value="READY_TO_START">Ready to Start</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="ON_HOLD">On Hold</option>
+                    <option value="FINAL_COMPLETION">Final Completion</option>
+                    <option value="CLOSED">Closed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+
+                <div class="form-field">
+                  <label for="contractAmount">Contract Amount *</label>
+                  <input id="contractAmount" type="number" min="0" step="0.01" placeholder="Example: 100000.00" required>
+                </div>
+
+                <div class="form-field">
+                  <label for="projectManager">Project Manager</label>
+                  <input id="projectManager" type="text" placeholder="Example: Tim">
+                </div>
+
+                <div class="form-field">
+                  <label for="projectedStartDate">Projected Start Date</label>
+                  <input id="projectedStartDate" type="date">
+                </div>
+
+                <div class="form-field">
+                  <label for="projectedCompletionDate">Projected Completion Date</label>
+                  <input id="projectedCompletionDate" type="date">
+                </div>
+
+                <div class="form-field full">
+                  <label for="projectNotes">Notes</label>
+                  <textarea id="projectNotes" placeholder="Optional notes from Sales-to-Projects handoff."></textarea>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" id="createProjectButton">Create Project</button>
+                <button type="button" class="secondary" onclick="clearCreateProjectForm()">Clear Form</button>
+                <button type="button" class="secondary" onclick="window.location.href='projects.html'">View Active Projects</button>
+              </div>
+
+              <div id="createProjectMessage" class="form-message"></div>
+            </form>
           </div>
         </section>
 
@@ -630,7 +872,7 @@
                 </li>
                 <li>
                   <span class="check">✓</span>
-                  <span>Projects Home now matches the dashboard sidebar layout.</span>
+                  <span>Create New Project workflow added to Projects Home.</span>
                 </li>
               </ul>
             </div>
@@ -638,9 +880,9 @@
         </section>
 
         <div class="warning-note">
-          <strong>Current Phase:</strong> These pages are read-only. Create, update, delete,
-          permissions, RLS, and workflow action buttons will be added after the navigation
-          and visibility layer are confirmed stable.
+          <strong>Current Phase:</strong> Create New Project is now enabled. Other update, delete,
+          permissions, RLS, and workflow action buttons will be added after this first controlled
+          workflow is confirmed stable.
         </div>
 
         <div class="footer">
@@ -650,5 +892,112 @@
       </section>
     </main>
   </div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+document.getElementById('createProjectForm').addEventListener('submit', async function(event) {
+  event.preventDefault();
+  await createProject();
+});
+
+async function createProject() {
+  const createButton = document.getElementById('createProjectButton');
+  const message = document.getElementById('createProjectMessage');
+
+  const projectNumber = cleanValue('projectNumber').toUpperCase();
+  const projectName = cleanValue('projectName');
+  const projectType = cleanValue('projectType');
+  const clientName = cleanValue('clientName');
+  const contractAmountRaw = cleanValue('contractAmount');
+  const projectManager = cleanValue('projectManager');
+  const projectStatus = cleanValue('projectStatus');
+  const projectedStartDate = cleanValue('projectedStartDate');
+  const projectedCompletionDate = cleanValue('projectedCompletionDate');
+  const projectNotes = cleanValue('projectNotes');
+
+  if (!projectNumber || !projectName || !projectType || !clientName || !contractAmountRaw || !projectStatus) {
+    setCreateProjectMessage('error', 'Project Number, Project Name, Client Name, Project Type, Project Status, and Contract Amount are required.');
+    return;
+  }
+
+  const contractAmount = Number(contractAmountRaw);
+
+  if (Number.isNaN(contractAmount) || contractAmount < 0) {
+    setCreateProjectMessage('error', 'Contract Amount must be a valid number greater than or equal to zero.');
+    return;
+  }
+
+  createButton.disabled = true;
+  createButton.textContent = 'Creating Project...';
+  setCreateProjectMessage('', '');
+
+  const rpcPayload = {
+    p_project_number: projectNumber,
+    p_project_name: projectName,
+    p_project_type: projectType,
+    p_client_name: clientName,
+    p_contract_amount: contractAmount,
+    p_project_manager: projectManager || null,
+    p_project_status: projectStatus,
+    p_projected_start_date: projectedStartDate || null,
+    p_projected_completion_date: projectedCompletionDate || null,
+    p_notes: projectNotes || null
+  };
+
+  const result = await client.rpc('create_project_record_with_templates', rpcPayload);
+
+  createButton.disabled = false;
+  createButton.textContent = 'Create Project';
+
+  if (result.error) {
+    setCreateProjectMessage('error', 'Create Project failed: ' + result.error.message);
+    return;
+  }
+
+  setCreateProjectMessage(
+    'success',
+    'Project created successfully. Stages and draw schedule were created from the approved template. Project Number: ' + projectNumber
+  );
+
+  clearCreateProjectForm(false);
+}
+
+function clearCreateProjectForm(clearMessage = true) {
+  document.getElementById('createProjectForm').reset();
+  document.getElementById('projectStatus').value = 'SALES_HANDOFF';
+
+  if (clearMessage) {
+    setCreateProjectMessage('', '');
+  }
+}
+
+function setCreateProjectMessage(type, text) {
+  const message = document.getElementById('createProjectMessage');
+
+  if (!type || !text) {
+    message.className = 'form-message';
+    message.textContent = '';
+    return;
+  }
+
+  message.className = 'form-message ' + type;
+  message.textContent = text;
+}
+
+function cleanValue(id) {
+  const element = document.getElementById(id);
+
+  if (!element) {
+    return '';
+  }
+
+  return String(element.value || '').trim();
+}
+</script>
+
 </body>
 </html>
