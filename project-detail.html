@@ -370,6 +370,14 @@
       font-family: Arial, Helvetica, sans-serif;
     }
 
+    .form-field input[readonly] {
+      background: #f8fafc;
+      color: #0b3c5d;
+      cursor: not-allowed;
+      border-color: #d9e2ec;
+      font-weight: 900;
+    }
+
     .form-field textarea {
       min-height: 82px;
       resize: vertical;
@@ -876,16 +884,17 @@
         <section class="panel" style="margin-bottom:16px;">
           <div class="panel-header">
             <div>
-              <h2>Project Manager Update Panel</h2>
-              <div class="panel-subtitle">Update project-level workflow fields through the audit-safe Supabase RPC.</div>
+              <h2>Project Setup / Manager Update Panel</h2>
+              <div class="panel-subtitle">Update setup fields through the audit-safe Supabase RPC. Project Status is display-only for now.</div>
             </div>
           </div>
 
           <div class="form-body">
             <div class="form-grid">
               <div class="form-field">
-                <label for="pmProjectStatus">Project Status</label>
-                <select id="pmProjectStatus"></select>
+                <label for="pmProjectStatusDisplay">Project Status</label>
+                <input id="pmProjectStatusDisplay" type="text" readonly>
+                <input id="pmProjectStatus" type="hidden">
               </div>
 
               <div class="form-field">
@@ -932,7 +941,7 @@
 
               <div class="form-field">
                 <label for="pmChangeNotes">Change Notes / Reason</label>
-                <textarea id="pmChangeNotes" placeholder="Example: PM updated project status after handoff review."></textarea>
+                <textarea id="pmChangeNotes" placeholder="Example: Setup fields updated after handoff review."></textarea>
               </div>
             </div>
 
@@ -1196,11 +1205,7 @@ async function loadProjectDetailPage() {
   await loadDropdownOptions();
 
   if (!currentProjectId) {
-    await loadFirstAvailableProject();
-  }
-
-  if (!currentProjectId) {
-    setMessage('error', 'No project_id was provided and no project records were found.');
+    setMessage('error', 'No project selected. Please open Project Detail from Active Projects.');
     renderEmptyPage();
     return;
   }
@@ -1263,20 +1268,6 @@ async function loadDropdownOptions() {
   } else {
     permitStatusOptions = permitStatusResult.data || [];
   }
-}
-
-async function loadFirstAvailableProject() {
-  const { data, error } = await client
-    .from('project_detail_page_view')
-    .select('project_id')
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  if (error || !data || data.length === 0) {
-    return;
-  }
-
-  currentProjectId = data[0].project_id;
 }
 
 async function loadProjectHeader(projectId) {
@@ -1348,7 +1339,9 @@ function renderProjectHeader(row) {
 }
 
 function populateProjectManagerForm(row) {
-  fillProjectStatusSelect('pmProjectStatus', row.project_status);
+  document.getElementById('pmProjectStatus').value = row.project_status || '';
+  document.getElementById('pmProjectStatusDisplay').value = displayLabel(row.project_status || 'Not Set');
+
   fillEngineeringStatusSelect('pmEngineeringStatus', row.engineering_status);
   fillPermitStatusSelect('pmPermitStatus', row.permit_status);
 
@@ -1367,7 +1360,7 @@ function resetProjectManagerForm() {
   }
 
   populateProjectManagerForm(currentProject);
-  setMessage('info', 'Project Manager update form reset to current saved values.');
+  setMessage('info', 'Project setup update form reset to current saved values.');
 }
 
 async function saveProjectManagerProjectFields() {
@@ -1414,7 +1407,7 @@ async function saveProjectManagerProjectFields() {
   }
 
   status.textContent = 'Project updates saved.';
-  setMessage('success', 'Project Manager project-level updates saved successfully.');
+  setMessage('success', 'Project setup fields saved successfully.');
 
   await loadProjectHeader(currentProjectId);
   await Promise.all([
@@ -1817,18 +1810,10 @@ async function loadAuditLog(projectId) {
 }
 
 function renderEmptyPage() {
-  document.getElementById('projectTitle').textContent = 'No Project Found';
+  document.getElementById('projectTitle').textContent = 'No Project Selected';
   document.getElementById('projectSubtitle').textContent = 'Open a project from the Active Projects page.';
   document.getElementById('projectStatusPill').innerHTML = '';
   renderDrawSummary([]);
-}
-
-function fillProjectStatusSelect(elementId, selectedValue) {
-  const el = document.getElementById(elementId);
-  el.innerHTML = projectStatusOptions.map(row => {
-    const selected = row.project_status === selectedValue ? 'selected' : '';
-    return `<option value="${escapeHTML(row.project_status)}" ${selected}>${escapeHTML(row.project_status_label || displayLabel(row.project_status))}</option>`;
-  }).join('');
 }
 
 function fillEngineeringStatusSelect(elementId, selectedValue) {
