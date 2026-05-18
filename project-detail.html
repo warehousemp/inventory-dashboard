@@ -419,6 +419,65 @@
       color: white;
     }
 
+    .setup-complete-summary {
+      padding: 18px;
+      background: #f0fdf4;
+      border-bottom: 1px solid #bbf7d0;
+    }
+
+    .setup-complete-banner {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .setup-complete-title {
+      color: #166534;
+      font-size: 17px;
+      font-weight: 900;
+      margin-bottom: 4px;
+    }
+
+    .setup-complete-text {
+      color: #166534;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .setup-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .setup-summary-box {
+      background: white;
+      border: 1px solid #bbf7d0;
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .setup-summary-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 900;
+      letter-spacing: 0.35px;
+      margin-bottom: 6px;
+    }
+
+    .setup-summary-value {
+      font-size: 13px;
+      color: #111827;
+      font-weight: 800;
+      word-break: break-word;
+      line-height: 1.35;
+    }
+
     .btn-small {
       padding: 8px 10px;
       font-size: 11px;
@@ -677,7 +736,8 @@
       }
 
       .detail-grid,
-      .form-grid {
+      .form-grid,
+      .setup-summary-grid {
         grid-template-columns: repeat(2, 1fr);
       }
 
@@ -719,6 +779,7 @@
       .detail-grid,
       .form-grid,
       .form-grid.two-col,
+      .setup-summary-grid,
       .stage-edit-grid {
         grid-template-columns: 1fr;
       }
@@ -890,11 +951,43 @@
           <div class="panel-header">
             <div>
               <h2>Project Setup / Manager Update Panel</h2>
-              <div class="panel-subtitle">Update setup fields through audit-safe Supabase RPCs. Project Status is display-only for now.</div>
+              <div class="panel-subtitle">Update setup fields through the audit-safe Supabase RPC. Project Status is display-only for now.</div>
             </div>
           </div>
 
-          <div class="form-body">
+          <div class="setup-complete-summary" id="projectSetupCompleteSummary" style="display:none;">
+            <div class="setup-complete-banner">
+              <div>
+                <div class="setup-complete-title">Project Setup Complete</div>
+                <div class="setup-complete-text">The Project Setup stage has been completed. The setup edit form is minimized because this project should no longer be an active setup queue item.</div>
+              </div>
+              <div id="projectSetupCompletePill"></div>
+            </div>
+
+            <div class="setup-summary-grid">
+              <div class="setup-summary-box">
+                <div class="setup-summary-label">Project Manager</div>
+                <div class="setup-summary-value" id="setupSummaryProjectManager"></div>
+              </div>
+
+              <div class="setup-summary-box">
+                <div class="setup-summary-label">Project Coordinator</div>
+                <div class="setup-summary-value" id="setupSummaryProjectCoordinator"></div>
+              </div>
+
+              <div class="setup-summary-box">
+                <div class="setup-summary-label">Completed Date</div>
+                <div class="setup-summary-value" id="setupSummaryCompletedDate"></div>
+              </div>
+
+              <div class="setup-summary-box">
+                <div class="setup-summary-label">Assigned To</div>
+                <div class="setup-summary-value" id="setupSummaryAssignedTo"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-body" id="projectSetupEditBody">
             <div class="form-grid">
               <div class="form-field">
                 <label for="pmProjectStatusDisplay">Project Status</label>
@@ -1193,6 +1286,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentProjectId = null;
 let currentProject = null;
+let currentProjectSetupStage = null;
 
 let projectStatusOptions = [];
 let stageStatusOptions = [];
@@ -1387,7 +1481,9 @@ async function saveProjectManagerProjectFields() {
   const status = document.getElementById('pmProjectSaveStatus');
 
   button.disabled = true;
-  completeButton.disabled = true;
+  if (completeButton) {
+    completeButton.disabled = true;
+  }
   status.textContent = 'Saving project...';
 
   const payload = {
@@ -1407,7 +1503,9 @@ async function saveProjectManagerProjectFields() {
   const { error } = await client.rpc('update_project_manager_project_fields', payload);
 
   button.disabled = false;
-  completeButton.disabled = false;
+  if (completeButton) {
+    completeButton.disabled = false;
+  }
 
   if (error) {
     status.textContent = '';
@@ -1466,7 +1564,7 @@ async function completeProjectSetupStage() {
   }
 
   status.textContent = 'Project Setup completed.';
-  setMessage('success', 'Project Setup completed successfully. If Project Manager and Project Coordinator are filled in, this project should now drop from the Project Setup Queue.');
+  setMessage('success', 'Project Setup completed successfully. The setup panel has been minimized. If Project Manager and Project Coordinator are filled in, this project should now drop from the Project Setup Queue.');
 
   await loadProjectHeader(currentProjectId);
   await Promise.all([
@@ -1475,6 +1573,32 @@ async function completeProjectSetupStage() {
   ]);
 
   document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+function renderProjectSetupPanelState() {
+  const summary = document.getElementById('projectSetupCompleteSummary');
+  const editBody = document.getElementById('projectSetupEditBody');
+
+  if (!summary || !editBody) {
+    return;
+  }
+
+  const isComplete = currentProjectSetupStage && normalize(currentProjectSetupStage.stage_status) === 'COMPLETE';
+
+  if (!isComplete) {
+    summary.style.display = 'none';
+    editBody.style.display = 'block';
+    return;
+  }
+
+  summary.style.display = 'block';
+  editBody.style.display = 'none';
+
+  document.getElementById('projectSetupCompletePill').innerHTML = statusPill(currentProjectSetupStage.stage_status);
+  document.getElementById('setupSummaryProjectManager').textContent = currentProject?.project_manager || '';
+  document.getElementById('setupSummaryProjectCoordinator').textContent = currentProject?.superintendent || '';
+  document.getElementById('setupSummaryCompletedDate').textContent = formatDate(currentProjectSetupStage.actual_completion_date);
+  document.getElementById('setupSummaryAssignedTo').textContent = currentProjectSetupStage.assigned_to || currentProject?.project_manager || '';
 }
 
 async function loadStages(projectId) {
@@ -1488,14 +1612,21 @@ async function loadStages(projectId) {
   container.innerHTML = '';
 
   if (error) {
+    currentProjectSetupStage = null;
+    renderProjectSetupPanelState();
     container.innerHTML = `<div class="message error" style="display:block;">${escapeHTML(error.message)}</div>`;
     return;
   }
 
   if (!data || data.length === 0) {
+    currentProjectSetupStage = null;
+    renderProjectSetupPanelState();
     container.innerHTML = '<div class="panel-subtitle">No stages found for this project.</div>';
     return;
   }
+
+  currentProjectSetupStage = data.find(row => row.stage_name === 'Project Setup') || null;
+  renderProjectSetupPanelState();
 
   data.forEach(row => {
     const item = document.createElement('div');
@@ -1869,6 +2000,8 @@ async function loadAuditLog(projectId) {
 }
 
 function renderEmptyPage() {
+  currentProjectSetupStage = null;
+  renderProjectSetupPanelState();
   document.getElementById('projectTitle').textContent = 'No Project Selected';
   document.getElementById('projectSubtitle').textContent = 'Open a project from the Active Projects page.';
   document.getElementById('projectStatusPill').innerHTML = '';
