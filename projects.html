@@ -305,7 +305,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1350px;
+      min-width: 1550px;
     }
 
     th {
@@ -359,6 +359,22 @@
       font-size: 13px;
       line-height: 1.35;
       white-space: normal;
+    }
+
+    .progress-text {
+      font-weight: 900;
+      color: #111827;
+    }
+
+    .subtle-text {
+      color: var(--muted);
+      font-size: 11px;
+      display: block;
+      margin-top: 3px;
+      font-weight: 700;
+      white-space: normal;
+      max-width: 180px;
+      line-height: 1.25;
     }
 
     .money {
@@ -596,9 +612,9 @@
           </div>
 
           <div class="summary-card">
-            <div class="summary-label">Needs Review</div>
-            <div class="summary-value" id="needsReviewValue">0</div>
-            <div class="summary-sub">Setup or draw mismatch</div>
+            <div class="summary-label">Draws Paid</div>
+            <div class="summary-value" id="drawsPaidValue">0</div>
+            <div class="summary-sub" id="drawsPaidSubValue">Across filtered projects</div>
           </div>
 
           <div class="summary-card">
@@ -612,7 +628,7 @@
           <div class="panel-header">
             <div>
               <h2>Project List</h2>
-              <p class="panel-subtitle">Project number is shown prominently for faster project lookup.</p>
+              <p class="panel-subtitle">Shows live operational project progress, current stage, draw progress, and setup validation.</p>
             </div>
           </div>
 
@@ -655,8 +671,11 @@
                   <th>Superintendent</th>
                   <th>Permit</th>
                   <th>Engineering</th>
-                  <th>Stages</th>
-                  <th>Draws</th>
+                  <th>Current Stage</th>
+                  <th>Stage Progress</th>
+                  <th>Draw Progress</th>
+                  <th>Next Draw</th>
+                  <th>Next Draw Status</th>
                   <th>Scheduled Draw Total</th>
                   <th>Setup Validation</th>
                 </tr>
@@ -664,7 +683,7 @@
 
               <tbody id="projectsTableBody">
                 <tr>
-                  <td colspan="17">Loading projects...</td>
+                  <td colspan="20">Loading projects...</td>
                 </tr>
               </tbody>
             </table>
@@ -696,7 +715,7 @@ async function loadProjects() {
   setMessage('info', 'Loading active projects...');
 
   const { data, error } = await client
-    .from('project_list_page_view')
+    .from('project_active_progress_view')
     .select('*')
     .order('project_number', { ascending: true })
     .limit(1000);
@@ -754,12 +773,15 @@ function applyFilters() {
       row.project_name,
       row.client_name,
       row.project_type,
-      row.project_type_label,
       row.project_status,
       row.project_manager,
       row.superintendent,
       row.permit_status,
       row.engineering_status,
+      row.current_stage_name,
+      row.current_stage_status,
+      row.next_draw_name,
+      row.next_draw_status,
       row.setup_validation_status
     ].map(value => String(value || '').toLowerCase()).join(' ');
 
@@ -789,7 +811,7 @@ function renderProjectsTable(rows) {
   tbody.innerHTML = '';
 
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="17">No projects found for the selected filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="20">No projects found for the selected filters.</td></tr>';
     return;
   }
 
@@ -798,6 +820,12 @@ function renderProjectsTable(rows) {
 
     const setupValid = normalize(row.setup_validation_status).includes('VALID');
     const setupClass = setupValid ? 'validation-good' : 'validation-warning';
+
+    const totalStages = Number(row.total_stages || 0);
+    const completedStages = Number(row.completed_stages || 0);
+    const totalDraws = Number(row.total_draws || 0);
+    const paidDraws = Number(row.paid_draws || 0);
+    const requestedDraws = Number(row.requested_draws || 0);
 
     tr.innerHTML = `
       <td>
@@ -814,7 +842,7 @@ function renderProjectsTable(rows) {
       </td>
 
       <td>${escapeHTML(row.client_name)}</td>
-      <td>${statusPill(row.project_type_label || row.project_type)}</td>
+      <td>${statusPill(projectTypeLabel(row.project_type))}</td>
       <td>${statusPill(displayWorkflowStatus(row.project_status))}</td>
       <td class="money">${formatCurrency(row.contract_amount)}</td>
       <td class="money">${formatCurrency(row.approved_change_order_total)}</td>
@@ -824,8 +852,27 @@ function renderProjectsTable(rows) {
       <td>${escapeHTML(row.superintendent)}</td>
       <td>${statusPill(displayWorkflowStatus(row.permit_status))}</td>
       <td>${statusPill(displayWorkflowStatus(row.engineering_status))}</td>
-      <td>${escapeHTML(row.stage_count)} / ${escapeHTML(row.expected_stage_count)}</td>
-      <td>${escapeHTML(row.draw_count)} / ${escapeHTML(row.expected_draw_count)}</td>
+
+      <td>
+        <span class="progress-text">${escapeHTML(row.current_stage_name || 'No Current Stage')}</span>
+        <span class="subtle-text">${escapeHTML(displayLabel(row.current_stage_status || 'Not Set'))}</span>
+      </td>
+
+      <td>
+        <span class="progress-text">${completedStages} / ${totalStages} Complete</span>
+      </td>
+
+      <td>
+        <span class="progress-text">${paidDraws} / ${totalDraws} Paid</span>
+        <span class="subtle-text">${requestedDraws} requested/invoiced</span>
+      </td>
+
+      <td>
+        <span class="progress-text">${escapeHTML(row.next_draw_name || 'No Next Draw')}</span>
+        <span class="subtle-text">${row.next_draw_number ? 'Draw #' + escapeHTML(row.next_draw_number) + ' • ' + formatCurrency(row.next_draw_amount) : ''}</span>
+      </td>
+
+      <td>${statusPill(displayWorkflowStatus(row.next_draw_status))}</td>
       <td class="money">${formatCurrency(row.scheduled_draw_total)}</td>
       <td class="${setupClass}">${escapeHTML(row.setup_validation_status)}</td>
     `;
@@ -855,7 +902,13 @@ function updateSummary(rows) {
     return normalize(row.setup_validation_status).includes('VALID');
   }).length;
 
-  const needsReview = totalProjects - validSetup;
+  const totalPaidDraws = rows.reduce((sum, row) => {
+    return sum + Number(row.paid_draws || 0);
+  }, 0);
+
+  const totalDraws = rows.reduce((sum, row) => {
+    return sum + Number(row.total_draws || 0);
+  }, 0);
 
   setText('totalProjectsValue', totalProjects);
   setText('totalProjectsRevenue', formatCurrency(contractTotal));
@@ -874,7 +927,8 @@ function updateSummary(rows) {
 
   setText('contractValueValue', formatCurrencyShort(contractTotal));
   setText('validSetupValue', validSetup);
-  setText('needsReviewValue', needsReview);
+  setText('drawsPaidValue', totalPaidDraws + ' / ' + totalDraws);
+  setText('drawsPaidSubValue', 'Paid draws across filtered projects');
 }
 
 function sumContractAmount(rows) {
@@ -889,6 +943,20 @@ function displayWorkflowStatus(value) {
   }
 
   return value;
+}
+
+function projectTypeLabel(value) {
+  const normalized = normalize(value);
+
+  if (normalized === 'NEW_BUILD') {
+    return 'New Build';
+  }
+
+  if (normalized === 'RENOVATION') {
+    return 'Renovation';
+  }
+
+  return value || 'Not Set';
 }
 
 function statusPill(value) {
@@ -919,7 +987,8 @@ function statusPill(value) {
     normalized.includes('REVIEW') ||
     normalized.includes('DUE') ||
     normalized.includes('NOT_SET') ||
-    normalized.includes('SALES_HANDOFF')
+    normalized.includes('SALES_HANDOFF') ||
+    normalized.includes('NOT_BILLED')
   ) {
     cls = 'orange';
   } else if (
