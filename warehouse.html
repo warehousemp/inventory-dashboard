@@ -1179,6 +1179,34 @@
 
     <pre id="changeCategoryResult">Change an existing part category here...</pre>
 
+    <h3>Change Part Serialization Requirement</h3>
+
+    <div class="warning-note">
+      Use this section to correct whether an existing active part requires serial-number tracking.
+      If a part is changed from No to Yes and stock already exists, existing on-hand quantity must still be serialized.
+    </div>
+
+    <label>Part Number:</label>
+    <input id="changeSerializationPartNumber" list="partsList" placeholder="Start typing existing part number..." autocomplete="off">
+    <div id="changeSerializationPartDescription" class="part-description-display">Part description will appear here after a part number is selected.</div>
+
+    <label>Serialized?</label>
+    <select id="changePartSerialized">
+      <option value="">Select Yes or No...</option>
+      <option value="true">Yes</option>
+      <option value="false">No</option>
+    </select>
+
+    <label>Updated By:</label>
+    <input id="serializationUpdatedBy" placeholder="Warehouse team member name" autocomplete="off">
+
+    <label>Reason:</label>
+    <textarea id="serializationReason" placeholder="Explain why the serialization requirement is being changed"></textarea>
+
+    <button class="category-btn" onclick="changePartSerializationStatus()">UPDATE SERIALIZATION STATUS</button>
+
+    <pre id="changeSerializationResult">Change an existing part serialization requirement here...</pre>
+
   </div>
 
   <div class="card">
@@ -1726,6 +1754,7 @@ async function loadParts() {
   updateReceivePartDescription();
   updateIssuePartDescription();
   updateAdjustmentPartDescription();
+  updateChangeSerializationPartDescription();
 
   console.log('Parts loaded into dropdown:', partsData.length);
 }
@@ -1782,6 +1811,10 @@ function updateAdjustmentPartDescription() {
   updatePartDescription('adjustmentPart', 'adjustmentPartDescription');
 }
 
+function updateChangeSerializationPartDescription() {
+  updatePartDescription('changeSerializationPartNumber', 'changeSerializationPartDescription');
+}
+
 function checkIssueSerialized() {
   updateIssuePartDescription();
 
@@ -1814,6 +1847,7 @@ function checkReceiveSerialized() {
 document.getElementById('issuePart').addEventListener('input', checkIssueSerialized);
 document.getElementById('receivePart').addEventListener('input', checkReceiveSerialized);
 document.getElementById('adjustmentPart').addEventListener('input', updateAdjustmentPartDescription);
+document.getElementById('changeSerializationPartNumber').addEventListener('input', updateChangeSerializationPartDescription);
 
 function resetIssueFields() {
   document.getElementById('issuePart').value = '';
@@ -1855,6 +1889,15 @@ function resetAdjustmentFields() {
   document.getElementById('adjustmentNotes').value = '';
 
   updateAdjustmentPartDescription();
+}
+
+function resetSerializationFields() {
+  document.getElementById('changeSerializationPartNumber').value = '';
+  document.getElementById('changePartSerialized').value = '';
+  document.getElementById('serializationUpdatedBy').value = '';
+  document.getElementById('serializationReason').value = '';
+
+  updateChangeSerializationPartDescription();
 }
 
 async function issue() {
@@ -2375,6 +2418,79 @@ async function changePartCategory() {
 
   if (needsCategoryReportData && needsCategoryReportData.length > 0) {
     await loadNeedsCategoryReport();
+  }
+}
+
+async function changePartSerializationStatus() {
+  const partNumber = document.getElementById('changeSerializationPartNumber').value.trim();
+  const serializedValue = document.getElementById('changePartSerialized').value;
+  const updatedBy = document.getElementById('serializationUpdatedBy').value.trim();
+  const reason = document.getElementById('serializationReason').value.trim();
+  const matchedPart = getMatchedPart('changeSerializationPartNumber');
+
+  if (!partNumber) {
+    document.getElementById('changeSerializationResult').textContent =
+      'Part number is required.';
+    return;
+  }
+
+  if (!matchedPart) {
+    document.getElementById('changeSerializationResult').textContent =
+      `Active part not found in dropdown: ${partNumber}`;
+    return;
+  }
+
+  if (serializedValue !== 'true' && serializedValue !== 'false') {
+    document.getElementById('changeSerializationResult').textContent =
+      'Serialized selection is required. Choose Yes or No.';
+    return;
+  }
+
+  if (!updatedBy) {
+    document.getElementById('changeSerializationResult').textContent =
+      'Updated By is required.';
+    return;
+  }
+
+  document.getElementById('changeSerializationResult').textContent =
+    'Updating part serialization requirement...';
+
+  const { data, error } = await client.rpc('update_part_serialization_status', {
+    p_part_number: partNumber,
+    p_is_serialized: serializedValue === 'true',
+    p_updated_by: updatedBy,
+    p_reason: reason || null
+  });
+
+  if (error) {
+    document.getElementById('changeSerializationResult').textContent = error.message;
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+
+  if (!result) {
+    document.getElementById('changeSerializationResult').textContent =
+      'Serialization status update completed, but no result was returned.';
+  } else {
+    const warningMessage = result.warning_message
+      ? `\n\n${result.warning_message}`
+      : '';
+
+    document.getElementById('changeSerializationResult').textContent =
+      `Serialization status updated successfully.\n\n` +
+      `Part Number: ${result.part_number}\n` +
+      `Description: ${result.description || ''}\n` +
+      `Old Serialized Requirement: ${result.old_is_serialized === true ? 'Yes' : 'No'}\n` +
+      `New Serialized Requirement: ${result.new_is_serialized === true ? 'Yes' : 'No'}` +
+      warningMessage;
+  }
+
+  resetSerializationFields();
+  await loadParts();
+
+  if (document.getElementById('serializedReport')) {
+    await loadSerializedInventory();
   }
 }
 
