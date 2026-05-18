@@ -674,13 +674,13 @@
             <p>
               This command center starts after client acceptance and Sales-to-Projects handoff.
               Version 1 focuses on project visibility, stage tracking, draw schedules, documents,
-              accounting review, and administrative validation.
+              accounting review, project setup, and administrative validation.
             </p>
           </div>
 
           <div class="status-box">
-            Current Phase: First Controlled Workflow Active
-            <span>Create New Project now auto-generates the next project number and requires client first/last name plus starting engineering/permit decisions.</span>
+            Current Phase: Controlled Project Creation Active
+            <span>Create New Project now creates the project shell. Project Manager and Project Coordinator assignment happen during Project Setup.</span>
           </div>
         </section>
 
@@ -689,7 +689,8 @@
             <div>
               <h2>Create New Project</h2>
               <p>
-                This creates the project record and automatically builds the approved stage and draw schedule templates.
+                This creates the project shell and automatically builds the approved stage and draw schedule templates.
+                Project Manager assignment happens later during Project Setup.
               </p>
             </div>
           </div>
@@ -737,8 +738,8 @@
                 <div class="form-field">
                   <label for="projectStatus">Project Status *</label>
                   <select id="projectStatus" required>
-                    <option value="SALES_HANDOFF">Sales Handoff</option>
                     <option value="PROJECT_SETUP">Project Setup</option>
+                    <option value="SALES_HANDOFF">Sales Handoff</option>
                     <option value="ENGINEERING_PLANS">Engineering / Plans</option>
                     <option value="PERMITTING">Permitting</option>
                     <option value="READY_TO_START">Ready to Start</option>
@@ -766,11 +767,6 @@
                     <option value="NEEDS_TO_BE_PERMITTED">Needs to be Permitted</option>
                     <option value="NOT_REQUIRED">Permitting Not Needed</option>
                   </select>
-                </div>
-
-                <div class="form-field">
-                  <label for="projectManager">Project Manager</label>
-                  <input id="projectManager" type="text" placeholder="Example: Tim">
                 </div>
 
                 <div class="form-field">
@@ -837,7 +833,7 @@
             <div class="module-body">
               <p>
                 Open the project detail workspace for stages, draws, documents, notes,
-                client communications, change orders, and audit history.
+                client communications, change orders, Project Setup updates, and audit history.
               </p>
               <a class="module-button" href="project-detail.html">Open Project Detail</a>
             </div>
@@ -899,6 +895,14 @@
                 </li>
                 <li>
                   <span class="check">✓</span>
+                  <span>Create New Project creates the project shell, stages, and draw schedule.</span>
+                </li>
+                <li>
+                  <span class="check">✓</span>
+                  <span>Project Manager and Project Coordinator assignment happen during Project Setup after the project record exists.</span>
+                </li>
+                <li>
+                  <span class="check">✓</span>
                   <span>Tracks project setup, stage visibility, draw schedules, documents, notes, communications, change orders, and audit history.</span>
                 </li>
                 <li>
@@ -929,11 +933,15 @@
                 </li>
                 <li>
                   <span class="check">✓</span>
-                  <span>Read-only project pages created and linked.</span>
+                  <span>Project pages created and linked.</span>
                 </li>
                 <li>
                   <span class="check">✓</span>
-                  <span>Create New Project workflow now includes auto-numbering, client first/last name, and required starting engineering/permit decisions.</span>
+                  <span>Create New Project workflow includes auto-numbering, client first/last name, and required starting engineering/permit decisions.</span>
+                </li>
+                <li>
+                  <span class="check">✓</span>
+                  <span>Project Manager assignment removed from initial project creation and moved to Project Setup workflow.</span>
                 </li>
               </ul>
             </div>
@@ -941,9 +949,9 @@
         </section>
 
         <div class="warning-note">
-          <strong>Current Phase:</strong> Create New Project is now enabled. Other update, delete,
-          permissions, RLS, and workflow action buttons will be added after this first controlled
-          workflow is confirmed stable.
+          <strong>Current Phase:</strong> Create New Project is enabled for project shell creation.
+          Project Manager and Project Coordinator assignment should be completed after creation during Project Setup.
+          Other update, delete, permissions, RLS, and workflow action buttons will be added after the controlled workflows are confirmed stable.
         </div>
 
         <div class="footer">
@@ -993,7 +1001,6 @@ async function createProject() {
   const clientFirstName = cleanValue('clientFirstName');
   const clientLastName = cleanValue('clientLastName');
   const contractAmountRaw = cleanValue('contractAmount');
-  const projectManager = cleanValue('projectManager');
   const projectStatus = cleanValue('projectStatus');
   const engineeringStatus = cleanValue('engineeringStatus');
   const permitStatus = cleanValue('permitStatus');
@@ -1038,7 +1045,7 @@ async function createProject() {
     p_client_first_name: clientFirstName,
     p_client_last_name: clientLastName,
     p_contract_amount: contractAmount,
-    p_project_manager: projectManager || null,
+    p_project_manager: null,
     p_project_status: projectStatus,
     p_projected_start_date: projectedStartDate || null,
     p_projected_completion_date: projectedCompletionDate || null,
@@ -1060,7 +1067,7 @@ async function createProject() {
 
   setCreateProjectMessage(
     'success',
-    'Project created successfully. Stages and draw schedule were created from the approved template. Project Number: ' + projectNumber
+    'Project created successfully. The project shell, stages, and draw schedule were created from the approved template. Project Manager and Project Coordinator assignment should be completed during Project Setup. Project Number: ' + projectNumber
   );
 
   clearCreateProjectForm(false);
@@ -1069,7 +1076,7 @@ async function createProject() {
 
 async function clearCreateProjectForm(clearMessage = true) {
   document.getElementById('createProjectForm').reset();
-  document.getElementById('projectStatus').value = 'SALES_HANDOFF';
+  document.getElementById('projectStatus').value = 'PROJECT_SETUP';
   document.getElementById('engineeringStatus').value = '';
   document.getElementById('permitStatus').value = '';
 
