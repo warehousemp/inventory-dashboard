@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Add New Client Project - Molinari Pools Projects Command Center</title>
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --green: #16a34a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .side-nav {
+      padding: 14px 10px;
+    }
+
+    .side-nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+    }
+
+    .nav-icon {
+      width: 20px;
+      text-align: center;
+      opacity: 0.95;
+    }
+
+    .main {
+      min-width: 0;
+    }
+
+    .topbar {
+      background: var(--header);
+      color: white;
+      padding: 12px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      box-shadow: 0 2px 12px rgba(15,23,42,0.18);
+    }
+
+    .topbar-title h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 800;
+    }
+
+    .topbar-title p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      opacity: 0.88;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .topbar-pill {
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .content {
+      padding: 22px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    .hero-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      padding: 22px;
+      margin-bottom: 18px;
+      display: grid;
+      grid-template-columns: 1.5fr 0.8fr;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .hero-card h2 {
+      margin: 0 0 10px;
+      color: #102a43;
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    .hero-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
+
+    .status-box {
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .status-box span {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #15803d;
+      margin-top: 4px;
+    }
+
+    .create-project-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+
+    .create-project-header {
+      padding: 16px 18px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .create-project-header h2 {
+      margin: 0;
+      color: #102a43;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .create-project-header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .form-body {
+      padding: 10px 18px 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-field.full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 900;
+      color: #344054;
+    }
+
+    input,
+    select,
+    textarea {
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text);
+      width: 100%;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    input[readonly] {
+      background: #f8fafc;
+      color: #0b3c5d;
+      cursor: not-allowed;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 82px;
+      font-weight: 600;
+      line-height: 1.45;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: 2px solid rgba(26,163,176,0.25);
+      border-color: var(--accent);
+    }
+
+    .project-number-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .small-button {
+      width: auto;
+      padding: 10px 12px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .form-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    button {
+      border: 1px solid var(--header);
+      background: var(--header);
+      color: white;
+      border-radius: 10px;
+      padding: 11px 16px;
+      font-weight: 900;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button.secondary {
+      background: white;
+      color: var(--header);
+      border-color: var(--border);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .form-message {
+      display: none;
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .form-message.success {
+      display: block;
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    .form-message.error {
+      display: block;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: #b42318;
+    }
+
+    .form-message.info {
+      display: block;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 18px;
+    }
+
+    @media (max-width: 1100px) {
+      .hero-card {
+        grid-template-columns: 1fr;
+      }
+
+      .form-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .side-nav {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .topbar {
+        position: relative;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .topbar-actions {
+        justify-content: flex-start;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .project-number-row {
+        grid-template-columns: 1fr;
+      }
+
+      .small-button {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .content {
+        padding: 14px;
+      }
+
+      .side-nav {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">MP</div>
+        <div class="brand-text">
+          <strong>MOLINARI</strong>
+          <span>POOLS</span>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <a href="projects-command.html"><span class="nav-icon">◆</span>Projects Home</a>
+        <a href="dashboard.html"><span class="nav-icon">⌂</span>Dashboard</a>
+        <a class="active" href="add-new-client-project.html"><span class="nav-icon">＋</span>Add New Client Project</a>
+        <a href="project-setup.html"><span class="nav-icon">▤</span>Project Setup</a>
+        <a href="projects.html"><span class="nav-icon">▣</span>Active Projects</a>
+        <a href="project-detail.html"><span class="nav-icon">◇</span>Project Detail</a>
+        <a href="project-accounting.html"><span class="nav-icon">$</span>Accounting Draws</a>
+        <a href="project-documents.html"><span class="nav-icon">□</span>Documents</a>
+        <a href="project-admin.html"><span class="nav-icon">⚙</span>Admin</a>
+        <a href="index.html"><span class="nav-icon">↩</span>Main Menu</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h1>Add New Client Project</h1>
+          <p>Molinari Pools Projects Command Center</p>
+        </div>
+
+        <div class="topbar-actions">
+          <span class="topbar-pill">Post-Acceptance Workflow</span>
+          <span class="topbar-pill">Auto Numbering Enabled</span>
+        </div>
+      </header>
+
+      <section class="content">
+
+        <section class="hero-card">
+          <div>
+            <h2>Add New Client Project</h2>
+            <p>
+              This page starts the project record after client approval, Sales Handoff, leadership direction,
+              or another approved Projects Department source. It creates the project shell, stage template,
+              and draw schedule. Project Manager and Project Coordinator assignment happens later during Project Setup.
+            </p>
+          </div>
+
+          <div class="status-box">
+            Current Phase: Controlled Project Creation Active
+            <span>Add New Client Project creates the project shell only. Project Setup is the next operational step.</span>
+          </div>
+        </section>
+
+        <section class="create-project-card">
+          <div class="create-project-header">
+            <div>
+              <h2>Add New Client Project</h2>
+              <p>
+                This creates the project shell and automatically builds the approved stage and draw schedule templates.
+                Use this for approved projects from Sales Handoff, leadership, Projects Department, or other approved client project sources.
+              </p>
+            </div>
+          </div>
+
+          <div class="form-body">
+            <form id="createProjectForm">
+              <div class="form-grid">
+                <div class="form-field">
+                  <label for="projectNumber">Project Number *</label>
+                  <div class="project-number-row">
+                    <input id="projectNumber" type="text" placeholder="Loading next project number..." readonly required>
+                    <button type="button" class="secondary small-button" onclick="loadNextProjectNumber()">Refresh Number</button>
+                  </div>
+                </div>
+
+                <div class="form-field">
+                  <label for="projectSource">Project Source *</label>
+                  <select id="projectSource" required>
+                    <option value="">Select Project Source</option>
+                    <option value="SALES_HANDOFF">Sales Handoff</option>
+                    <option value="LEADERSHIP">Leadership</option>
+                    <option value="PROJECTS_DEPARTMENT">Projects Department</option>
+                    <option value="OTHER">Other Approved Source</option>
+                  </select>
+                </div>
+
+                <div class="form-field">
+                  <label for="projectName">Project Name *</label>
+                  <input id="projectName" type="text" placeholder="Example: Smith Residence Pool" required>
+                </div>
+
+                <div class="form-field">
+                  <label for="projectType">Project Type *</label>
+                  <select id="projectType" required>
+                    <option value="">Select Project Type</option>
+                    <option value="NEW_BUILD">New Build</option>
+                    <option value="RENOVATION">Renovation</option>
+                  </select>
+                </div>
+
+                <div class="form-field">
+                  <label for="clientFirstName">Client First Name *</label>
+                  <input id="clientFirstName" type="text" placeholder="Example: John" required>
+                </div>
+
+                <div class="form-field">
+                  <label for="clientLastName">Client Last Name *</label>
+                  <input id="clientLastName" type="text" placeholder="Example: Smith" required>
+                </div>
+
+                <div class="form-field">
+                  <label for="contractAmount">Contract Amount *</label>
+                  <input id="contractAmount" type="number" min="0" step="0.01" placeholder="Example: 100000.00" required>
+                </div>
+
+                <div class="form-field">
+                  <label for="projectStatus">Project Status *</label>
+                  <select id="projectStatus" required>
+                    <option value="PROJECT_SETUP">Project Setup</option>
+                    <option value="SALES_HANDOFF">Sales Handoff</option>
+                    <option value="ENGINEERING_PLANS">Engineering / Plans</option>
+                    <option value="PERMITTING">Permitting</option>
+                    <option value="READY_TO_START">Ready to Start</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="ON_HOLD">On Hold</option>
+                    <option value="FINAL_COMPLETION">Final Completion</option>
+                    <option value="CLOSED">Closed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+
+                <div class="form-field">
+                  <label for="engineeringStatus">Engineering Status *</label>
+                  <select id="engineeringStatus" required>
+                    <option value="">Select Engineering Status</option>
+                    <option value="NEEDS_ENGINEERING">Needs Engineering</option>
+                    <option value="NOT_REQUIRED">Engineering Not Needed</option>
+                  </select>
+                </div>
+
+                <div class="form-field">
+                  <label for="permitStatus">Permit Status *</label>
+                  <select id="permitStatus" required>
+                    <option value="">Select Permit Status</option>
+                    <option value="NEEDS_TO_BE_PERMITTED">Needs to be Permitted</option>
+                    <option value="NOT_REQUIRED">Permitting Not Needed</option>
+                  </select>
+                </div>
+
+                <div class="form-field">
+                  <label for="projectedStartDate">Projected Start Date</label>
+                  <input id="projectedStartDate" type="date">
+                </div>
+
+                <div class="form-field">
+                  <label for="projectedCompletionDate">Projected Completion Date</label>
+                  <input id="projectedCompletionDate" type="date">
+                </div>
+
+                <div class="form-field full">
+                  <label for="projectNotes">Notes</label>
+                  <textarea id="projectNotes" placeholder="Optional notes from Sales Handoff, leadership direction, or approved project source."></textarea>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" id="createProjectButton">Add Client Project</button>
+                <button type="button" class="secondary" onclick="clearCreateProjectForm()">Clear Form</button>
+                <button type="button" class="secondary" onclick="window.location.href='project-setup.html'">Go to Project Setup</button>
+              </div>
+
+              <div id="createProjectMessage" class="form-message"></div>
+            </form>
+          </div>
+        </section>
+
+        <div class="footer">
+          © 2026 Molinari Pools. All rights reserved.
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+window.addEventListener('load', async () => {
+  await loadNextProjectNumber();
+});
+
+document.getElementById('createProjectForm').addEventListener('submit', async function(event) {
+  event.preventDefault();
+  await createProject();
+});
+
+async function loadNextProjectNumber() {
+  const projectNumberInput = document.getElementById('projectNumber');
+  projectNumberInput.value = 'Loading...';
+
+  const result = await client.rpc('get_next_project_number');
+
+  if (result.error) {
+    projectNumberInput.value = '';
+    setCreateProjectMessage('error', 'Unable to load next project number: ' + result.error.message);
+    return;
+  }
+
+  projectNumberInput.value = result.data || '';
+}
+
+async function createProject() {
+  const createButton = document.getElementById('createProjectButton');
+
+  const projectNumber = cleanValue('projectNumber').toUpperCase();
+  const projectSource = cleanValue('projectSource');
+  const projectName = cleanValue('projectName');
+  const projectType = cleanValue('projectType');
+  const clientFirstName = cleanValue('clientFirstName');
+  const clientLastName = cleanValue('clientLastName');
+  const contractAmountRaw = cleanValue('contractAmount');
+  const projectStatus = cleanValue('projectStatus');
+  const engineeringStatus = cleanValue('engineeringStatus');
+  const permitStatus = cleanValue('permitStatus');
+  const projectedStartDate = cleanValue('projectedStartDate');
+  const projectedCompletionDate = cleanValue('projectedCompletionDate');
+  const projectNotes = cleanValue('projectNotes');
+
+  if (
+    !projectNumber ||
+    projectNumber === 'LOADING...' ||
+    !projectSource ||
+    !projectName ||
+    !projectType ||
+    !clientFirstName ||
+    !clientLastName ||
+    !contractAmountRaw ||
+    !projectStatus ||
+    !engineeringStatus ||
+    !permitStatus
+  ) {
+    setCreateProjectMessage(
+      'error',
+      'Project Number, Project Source, Project Name, Project Type, Client First Name, Client Last Name, Contract Amount, Project Status, Engineering Status, and Permit Status are required.'
+    );
+    return;
+  }
+
+  const contractAmount = Number(contractAmountRaw);
+
+  if (Number.isNaN(contractAmount) || contractAmount <= 0) {
+    setCreateProjectMessage('error', 'Contract Amount must be a valid number greater than zero.');
+    return;
+  }
+
+  createButton.disabled = true;
+  createButton.textContent = 'Adding Client Project...';
+  setCreateProjectMessage('', '');
+
+  const combinedNotes = buildProjectNotes(projectSource, projectNotes);
+
+  const rpcPayload = {
+    p_project_number: projectNumber,
+    p_project_name: projectName,
+    p_project_type: projectType,
+    p_client_first_name: clientFirstName,
+    p_client_last_name: clientLastName,
+    p_contract_amount: contractAmount,
+    p_project_manager: null,
+    p_project_status: projectStatus,
+    p_projected_start_date: projectedStartDate || null,
+    p_projected_completion_date: projectedCompletionDate || null,
+    p_notes: combinedNotes || null,
+    p_engineering_status: engineeringStatus,
+    p_permit_status: permitStatus
+  };
+
+  const result = await client.rpc('create_project_record_with_templates', rpcPayload);
+
+  createButton.disabled = false;
+  createButton.textContent = 'Add Client Project';
+
+  if (result.error) {
+    setCreateProjectMessage('error', 'Add Client Project failed: ' + result.error.message);
+    await loadNextProjectNumber();
+    return;
+  }
+
+  setCreateProjectMessage(
+    'success',
+    'Client project added successfully. The project shell, stages, and draw schedule were created from the approved template. Project Manager and Project Coordinator assignment should be completed during Project Setup. Project Number: ' + projectNumber
+  );
+
+  clearCreateProjectForm(false);
+  await loadNextProjectNumber();
+}
+
+function buildProjectNotes(projectSource, projectNotes) {
+  const sourceLabel = displayProjectSource(projectSource);
+  const sourceLine = 'Project source: ' + sourceLabel + '.';
+
+  if (!projectNotes) {
+    return sourceLine;
+  }
+
+  return sourceLine + '\n\n' + projectNotes;
+}
+
+function displayProjectSource(value) {
+  if (value === 'SALES_HANDOFF') {
+    return 'Sales Handoff';
+  }
+
+  if (value === 'LEADERSHIP') {
+    return 'Leadership';
+  }
+
+  if (value === 'PROJECTS_DEPARTMENT') {
+    return 'Projects Department';
+  }
+
+  if (value === 'OTHER') {
+    return 'Other Approved Source';
+  }
+
+  return value || '';
+}
+
+async function clearCreateProjectForm(clearMessage = true) {
+  document.getElementById('createProjectForm').reset();
+  document.getElementById('projectSource').value = '';
+  document.getElementById('projectStatus').value = 'PROJECT_SETUP';
+  document.getElementById('engineeringStatus').value = '';
+  document.getElementById('permitStatus').value = '';
+
+  if (clearMessage) {
+    setCreateProjectMessage('', '');
+  }
+
+  await loadNextProjectNumber();
+}
+
+function setCreateProjectMessage(type, text) {
+  const message = document.getElementById('createProjectMessage');
+
+  if (!type || !text) {
+    message.className = 'form-message';
+    message.textContent = '';
+    return;
+  }
+
+  message.className = 'form-message ' + type;
+  message.textContent = text;
+}
+
+function cleanValue(id) {
+  const element = document.getElementById(id);
+
+  if (!element) {
+    return '';
+  }
+
+  return String(element.value || '').trim();
+}
+</script>
+
+</body>
+</html>
