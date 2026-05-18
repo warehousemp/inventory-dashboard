@@ -414,6 +414,11 @@
       color: #102a43;
     }
 
+    .btn-success {
+      background: var(--green);
+      color: white;
+    }
+
     .btn-small {
       padding: 8px 10px;
       font-size: 11px;
@@ -885,7 +890,7 @@
           <div class="panel-header">
             <div>
               <h2>Project Setup / Manager Update Panel</h2>
-              <div class="panel-subtitle">Update setup fields through the audit-safe Supabase RPC. Project Status is display-only for now.</div>
+              <div class="panel-subtitle">Update setup fields through audit-safe Supabase RPCs. Project Status is display-only for now.</div>
             </div>
           </div>
 
@@ -949,6 +954,7 @@
               <span class="inline-status" id="pmProjectSaveStatus"></span>
               <button class="btn btn-secondary" type="button" onclick="resetProjectManagerForm()">Reset Form</button>
               <button class="btn btn-primary" type="button" id="saveProjectManagerButton" onclick="saveProjectManagerProjectFields()">Save Project</button>
+              <button class="btn btn-success" type="button" id="completeProjectSetupButton" onclick="completeProjectSetupStage()">Complete Project Setup</button>
             </div>
           </div>
         </section>
@@ -1377,10 +1383,12 @@ async function saveProjectManagerProjectFields() {
   }
 
   const button = document.getElementById('saveProjectManagerButton');
+  const completeButton = document.getElementById('completeProjectSetupButton');
   const status = document.getElementById('pmProjectSaveStatus');
 
   button.disabled = true;
-  status.textContent = 'Saving project updates...';
+  completeButton.disabled = true;
+  status.textContent = 'Saving project...';
 
   const payload = {
     p_project_id: currentProjectId,
@@ -1399,6 +1407,7 @@ async function saveProjectManagerProjectFields() {
   const { error } = await client.rpc('update_project_manager_project_fields', payload);
 
   button.disabled = false;
+  completeButton.disabled = false;
 
   if (error) {
     status.textContent = '';
@@ -1406,8 +1415,58 @@ async function saveProjectManagerProjectFields() {
     return;
   }
 
-  status.textContent = 'Project updates saved.';
-  setMessage('success', 'Project setup fields saved successfully.');
+  status.textContent = 'Project saved.';
+  setMessage('success', 'Project saved successfully.');
+
+  await loadProjectHeader(currentProjectId);
+  await Promise.all([
+    loadStages(currentProjectId),
+    loadAuditLog(currentProjectId)
+  ]);
+
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+async function completeProjectSetupStage() {
+  if (!currentProjectId) {
+    setMessage('error', 'No project selected.');
+    return;
+  }
+
+  const changedBy = getInputValue('pmChangedBy');
+
+  if (!changedBy) {
+    setMessage('error', 'Changed By is required before completing Project Setup.');
+    return;
+  }
+
+  const button = document.getElementById('completeProjectSetupButton');
+  const saveButton = document.getElementById('saveProjectManagerButton');
+  const status = document.getElementById('pmProjectSaveStatus');
+
+  button.disabled = true;
+  saveButton.disabled = true;
+  status.textContent = 'Completing Project Setup...';
+
+  const payload = {
+    p_project_id: currentProjectId,
+    p_changed_by: changedBy,
+    p_notes: getInputValue('pmChangeNotes') || 'Project Setup completed from Project Detail page.'
+  };
+
+  const { error } = await client.rpc('complete_project_setup_stage', payload);
+
+  button.disabled = false;
+  saveButton.disabled = false;
+
+  if (error) {
+    status.textContent = '';
+    setMessage('error', 'Project Setup completion failed: ' + error.message);
+    return;
+  }
+
+  status.textContent = 'Project Setup completed.';
+  setMessage('success', 'Project Setup completed successfully. If Project Manager and Project Coordinator are filled in, this project should now drop from the Project Setup Queue.');
 
   await loadProjectHeader(currentProjectId);
   await Promise.all([
