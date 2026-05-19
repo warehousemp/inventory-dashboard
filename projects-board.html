@@ -757,7 +757,7 @@
               <label for="projectTypeFilter">Project Type</label>
               <select id="projectTypeFilter" onchange="handleProjectTypeFilterChange()">
                 <option value="ALL">All Project Types</option>
-                <option value="NEW_BUILD">New Builds</option>
+                <option value="NEW_BUILD" selected>New Builds</option>
                 <option value="RENOVATION">Renovations</option>
               </select>
             </div>
@@ -788,8 +788,8 @@
         </section>
 
         <div class="tab-row">
-          <button id="masterTab" class="tab-button active" onclick="setBoardMode('MASTER')">Master Status Board</button>
-          <button id="newBuildTab" class="tab-button" onclick="setBoardMode('NEW_BUILD')">New Build Production</button>
+          <button id="masterTab" class="tab-button" onclick="setBoardMode('MASTER')">Master Status Board</button>
+          <button id="newBuildTab" class="tab-button active" onclick="setBoardMode('NEW_BUILD')">New Build Production</button>
           <button id="renovationTab" class="tab-button" onclick="setBoardMode('RENOVATION')">Renovation Production</button>
         </div>
 
@@ -826,7 +826,7 @@
         </section>
 
         <section class="board-wrap">
-          <div id="boardContainer" class="board master"></div>
+          <div id="boardContainer" class="board production"></div>
         </section>
 
         <div class="footer">
@@ -845,7 +845,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let allProjects = [];
 let phaseTemplates = [];
-let boardMode = 'MASTER';
+let boardMode = 'NEW_BUILD';
 
 const MASTER_COLUMNS = [
   {
@@ -908,6 +908,7 @@ async function loadBoard() {
   const phaseResult = await client
     .from('project_production_phase_template_view')
     .select('*')
+    .eq('active', true)
     .order('project_type', { ascending: true })
     .order('sort_order', { ascending: true });
 
@@ -930,7 +931,16 @@ async function loadBoard() {
   allProjects = projectResult.data || [];
 
   populateFilters();
-  renderBoard();
+
+  if (boardMode === 'NEW_BUILD') {
+    document.getElementById('projectTypeFilter').value = 'NEW_BUILD';
+  } else if (boardMode === 'RENOVATION') {
+    document.getElementById('projectTypeFilter').value = 'RENOVATION';
+  } else {
+    document.getElementById('projectTypeFilter').value = 'ALL';
+  }
+
+  setBoardMode(boardMode);
 
   setPageMessage('', '');
   document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
@@ -995,6 +1005,8 @@ function setBoardMode(mode) {
     document.getElementById('projectTypeFilter').value = 'NEW_BUILD';
   } else if (mode === 'RENOVATION') {
     document.getElementById('projectTypeFilter').value = 'RENOVATION';
+  } else {
+    document.getElementById('projectTypeFilter').value = 'ALL';
   }
 
   renderBoard();
@@ -1110,7 +1122,7 @@ function getProductionColumns(projectType) {
   ];
 
   phaseTemplates
-    .filter(template => template.project_type === projectType)
+    .filter(template => template.project_type === projectType && template.active === true)
     .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
     .forEach(template => {
       columns.push({
@@ -1223,7 +1235,7 @@ function renderPhaseControl(project) {
   const notesId = `phaseNotes_${safeId(project.project_id)}`;
 
   const options = phaseTemplates
-    .filter(template => template.project_type === project.project_type)
+    .filter(template => template.project_type === project.project_type && template.active === true)
     .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
 
   wrapper.innerHTML = `
@@ -1357,6 +1369,7 @@ async function moveProjectToPhase(projectId, targetPhase) {
 
   const isValidPhase = phaseTemplates.some(template => {
     return template.project_type === project.project_type &&
+      template.active === true &&
       normalizePhaseName(template.phase_name) === normalizePhaseName(targetPhase);
   });
 
