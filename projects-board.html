@@ -1066,6 +1066,7 @@ function renderBoard() {
 
   const productionProjectType = boardMode;
   const columns = getProductionColumns(productionProjectType);
+
   const productionProjects = filtered.filter(project => {
     return project.project_type === productionProjectType &&
       project.board_status_bucket === 'ACTIVE_PRODUCTION';
@@ -1076,7 +1077,13 @@ function renderBoard() {
 
   columns.forEach(column => {
     const rows = productionProjects.filter(project => {
-      return String(project.production_phase_bucket || 'Unassigned Production Phase') === column.key;
+      const projectPhase = normalizePhaseName(project.current_production_phase);
+
+      if (column.key === 'Unassigned Production Phase') {
+        return !projectPhase;
+      }
+
+      return projectPhase === normalizePhaseName(column.key);
     });
 
     const allowDrop = column.key !== 'Unassigned Production Phase';
@@ -1174,7 +1181,7 @@ function renderProjectCard(project, defaultCardClass) {
 
   const projectTypeLabel = displayLabel(project.project_type);
   const projectStatusLabel = displayLabel(project.project_status);
-  const phaseLabel = project.production_phase_bucket || project.current_production_phase || 'Unassigned Production Phase';
+  const phaseLabel = project.current_production_phase || 'Unassigned Production Phase';
 
   card.innerHTML = `
     <div class="card-top">
@@ -1228,7 +1235,7 @@ function renderPhaseControl(project) {
         <select id="${selectId}">
           <option value="">Select Phase</option>
           ${options.map(option => `
-            <option value="${escapeAttribute(option.phase_name)}" ${option.phase_name === project.current_production_phase ? 'selected' : ''}>
+            <option value="${escapeAttribute(option.phase_name)}" ${normalizePhaseName(option.phase_name) === normalizePhaseName(project.current_production_phase) ? 'selected' : ''}>
               ${escapeHTML(option.phase_name)} (${escapeHTML(option.default_business_days)} days)
             </option>
           `).join('')}
@@ -1325,7 +1332,7 @@ async function handleColumnDrop(event) {
     return;
   }
 
-  if (payload.currentPhase === targetPhase) {
+  if (normalizePhaseName(payload.currentPhase) === normalizePhaseName(targetPhase)) {
     return;
   }
 
@@ -1350,7 +1357,7 @@ async function moveProjectToPhase(projectId, targetPhase) {
 
   const isValidPhase = phaseTemplates.some(template => {
     return template.project_type === project.project_type &&
-      template.phase_name === targetPhase;
+      normalizePhaseName(template.phase_name) === normalizePhaseName(targetPhase);
   });
 
   if (!isValidPhase) {
@@ -1427,7 +1434,7 @@ function renderSummary(rows) {
   const productionCount = rows.filter(row => row.board_status_bucket === 'ACTIVE_PRODUCTION').length;
   const unassignedCount = rows.filter(row => {
     return row.board_status_bucket === 'ACTIVE_PRODUCTION' &&
-      (!row.current_production_phase || row.production_phase_bucket === 'Unassigned Production Phase');
+      !normalizePhaseName(row.current_production_phase);
   }).length;
 
   setText('activeProjectCount', activeCount);
@@ -1515,6 +1522,13 @@ function normalize(value) {
     .trim()
     .toUpperCase()
     .replace(/\s+/g, '_');
+}
+
+function normalizePhaseName(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
 }
 
 function normalizeSearch(value) {
