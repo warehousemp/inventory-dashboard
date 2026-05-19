@@ -572,13 +572,61 @@
     }
 
     .checklist-table {
-      min-width: 1600px;
+      min-width: 2600px;
     }
 
     .checklist-table th {
       position: sticky;
       top: 0;
       z-index: 5;
+    }
+
+    .checklist-table input,
+    .checklist-table select,
+    .checklist-table textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 7px 8px;
+      font-size: 12px;
+      color: #111827;
+      background: white;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .checklist-table textarea {
+      min-height: 62px;
+      resize: vertical;
+      line-height: 1.3;
+    }
+
+    .checklist-table .number-input {
+      max-width: 90px;
+    }
+
+    .checklist-table .date-input {
+      min-width: 135px;
+    }
+
+    .checklist-table .text-input {
+      min-width: 170px;
+    }
+
+    .checklist-table .notes-input {
+      min-width: 230px;
+    }
+
+    .checklist-action-cell {
+      min-width: 160px;
+    }
+
+    .checklist-save-status {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: normal;
     }
 
     .draw-summary-grid {
@@ -1139,7 +1187,7 @@
             <div class="panel-header">
               <div>
                 <h2>Project Completion Checklist</h2>
-                <div class="panel-subtitle">Production checklist generated from the project type template. Editing controls will be added in the next build step.</div>
+                <div class="panel-subtitle">Production checklist generated from the project type template. Edit one row at a time and save the task update.</div>
               </div>
               <div class="panel-actions">
                 <button class="btn btn-secondary btn-small" type="button" onclick="loadScheduleTasks(currentProjectId)">Refresh Checklist</button>
@@ -1195,10 +1243,13 @@
                     <th>Draw Trigger</th>
                     <th>Delay Reason</th>
                     <th>Notes</th>
+                    <th>Changed By</th>
+                    <th>Change Notes</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody id="checklistTableBody">
-                  <tr><td colspan="17">Loading checklist tasks...</td></tr>
+                  <tr><td colspan="20">Loading checklist tasks...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1793,7 +1844,7 @@ function renderScheduleTasks(rows) {
   if (!rows || rows.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="17">
+        <td colspan="20">
           <div class="empty-state">
             <strong>No checklist tasks have been generated for this project yet.</strong>
             Use Generate Checklist Tasks to create the project checklist from the project type template.
@@ -1806,29 +1857,146 @@ function renderScheduleTasks(rows) {
 
   rows.forEach(row => {
     const tr = document.createElement('tr');
+    tr.setAttribute('data-task-id', row.id);
 
     tr.innerHTML = `
       <td>${escapeHTML(row.sort_order)}</td>
       <td class="wide-text">${escapeHTML(row.task_name)}</td>
       <td>${escapeHTML(row.task_group)}</td>
-      <td>${statusPill(row.task_status)}</td>
+      <td>
+        <select class="task-status-input">
+          ${taskStatusOptionsHTML(row.task_status)}
+        </select>
+      </td>
       <td>${escapeHTML(row.required === true ? 'Yes' : 'No')}</td>
       <td>${escapeHTML(row.default_business_days)}</td>
-      <td>${escapeHTML(row.scheduled_business_days)}</td>
-      <td>${escapeHTML(formatDate(row.scheduled_start_date))}</td>
-      <td>${escapeHTML(formatDate(row.scheduled_end_date))}</td>
-      <td>${escapeHTML(formatDate(row.actual_start_date))}</td>
-      <td>${escapeHTML(formatDate(row.actual_completion_date))}</td>
-      <td>${escapeHTML(row.completed_by)}</td>
-      <td>${escapeHTML(row.subcontractor_required === true ? (row.assigned_subcontractor || 'Required') : (row.assigned_subcontractor || ''))}</td>
-      <td>${escapeHTML(row.inspection_required === true ? (row.inspection_status || 'Required') : (row.inspection_status || ''))}</td>
+      <td>
+        <input class="task-scheduled-days-input number-input" type="number" min="0" step="1" value="${escapeHTML(row.scheduled_business_days)}">
+      </td>
+      <td>
+        <input class="task-scheduled-start-input date-input" type="date" value="${escapeHTML(toDateInputValue(row.scheduled_start_date))}">
+      </td>
+      <td>
+        <input class="task-scheduled-end-input date-input" type="date" value="${escapeHTML(toDateInputValue(row.scheduled_end_date))}">
+      </td>
+      <td>
+        <input class="task-actual-start-input date-input" type="date" value="${escapeHTML(toDateInputValue(row.actual_start_date))}">
+      </td>
+      <td>
+        <input class="task-actual-completion-input date-input" type="date" value="${escapeHTML(toDateInputValue(row.actual_completion_date))}">
+      </td>
+      <td>
+        <input class="task-completed-by-input text-input" type="text" value="${escapeHTML(row.completed_by)}" placeholder="Completed By">
+      </td>
+      <td>
+        <input class="task-subcontractor-input text-input" type="text" value="${escapeHTML(row.assigned_subcontractor)}" placeholder="${row.subcontractor_required === true ? 'Required' : 'Subcontractor'}">
+      </td>
+      <td>
+        <select class="task-inspection-status-input text-input">
+          ${inspectionStatusOptionsHTML(row.inspection_status, row.inspection_required)}
+        </select>
+      </td>
       <td>${escapeHTML(row.draw_trigger_group)}</td>
-      <td class="wide-text">${escapeHTML(row.delay_reason)}</td>
-      <td class="wide-text">${escapeHTML(row.notes)}</td>
+      <td>
+        <textarea class="task-delay-reason-input notes-input" placeholder="Delay reason">${escapeHTML(row.delay_reason)}</textarea>
+      </td>
+      <td>
+        <textarea class="task-notes-input notes-input" placeholder="Task notes">${escapeHTML(row.notes)}</textarea>
+      </td>
+      <td>
+        <input class="task-changed-by-input text-input" type="text" placeholder="Example: Tim">
+      </td>
+      <td>
+        <textarea class="task-change-notes-input notes-input" placeholder="Optional change notes"></textarea>
+      </td>
+      <td class="checklist-action-cell">
+        <button class="btn btn-primary btn-small" type="button" onclick="saveScheduleTaskUpdate('${escapeHTML(row.id)}')">Save Task</button>
+        <span class="checklist-save-status"></span>
+      </td>
     `;
 
     tbody.appendChild(tr);
   });
+}
+
+async function saveScheduleTaskUpdate(taskId) {
+  if (!taskId) {
+    setMessage('error', 'Task ID is missing.');
+    return;
+  }
+
+  const row = document.querySelector(`tr[data-task-id="${cssEscape(taskId)}"]`);
+
+  if (!row) {
+    setMessage('error', 'Checklist task row was not found.');
+    return;
+  }
+
+  const changedBy = getScopedInputValue(row, '.task-changed-by-input');
+
+  if (!changedBy) {
+    setMessage('error', 'Changed By is required before saving a checklist task.');
+    return;
+  }
+
+  const scheduledBusinessDaysRaw = getScopedInputValue(row, '.task-scheduled-days-input');
+  const scheduledBusinessDays = scheduledBusinessDaysRaw === '' ? null : Number(scheduledBusinessDaysRaw);
+
+  if (scheduledBusinessDays !== null && (Number.isNaN(scheduledBusinessDays) || scheduledBusinessDays < 0)) {
+    setMessage('error', 'Scheduled Business Days must be zero or greater.');
+    return;
+  }
+
+  const saveButton = row.querySelector('button');
+  const status = row.querySelector('.checklist-save-status');
+
+  saveButton.disabled = true;
+  status.textContent = 'Saving...';
+
+  const payload = {
+    p_task_id: taskId,
+    p_task_status: getScopedInputValue(row, '.task-status-input') || null,
+    p_scheduled_business_days: scheduledBusinessDays,
+    p_scheduled_start_date: getScopedInputValue(row, '.task-scheduled-start-input') || null,
+    p_scheduled_end_date: getScopedInputValue(row, '.task-scheduled-end-input') || null,
+    p_actual_start_date: getScopedInputValue(row, '.task-actual-start-input') || null,
+    p_actual_completion_date: getScopedInputValue(row, '.task-actual-completion-input') || null,
+    p_completed_by: getScopedInputValue(row, '.task-completed-by-input') || null,
+    p_assigned_subcontractor: getScopedInputValue(row, '.task-subcontractor-input') || null,
+    p_inspection_status: getScopedInputValue(row, '.task-inspection-status-input') || null,
+    p_delay_reason: getScopedInputValue(row, '.task-delay-reason-input') || null,
+    p_notes: getScopedInputValue(row, '.task-notes-input') || null,
+    p_changed_by: changedBy,
+    p_change_notes: getScopedInputValue(row, '.task-change-notes-input') || null
+  };
+
+  const { data, error } = await client.rpc('update_project_schedule_task', payload);
+
+  saveButton.disabled = false;
+
+  if (error) {
+    status.textContent = '';
+    setMessage('error', 'Checklist task update failed: ' + error.message);
+    return;
+  }
+
+  const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+
+  if (result && result.success === false) {
+    status.textContent = '';
+    setMessage('error', result.message || 'Checklist task update failed.');
+    return;
+  }
+
+  status.textContent = 'Saved.';
+  setMessage('success', 'Checklist task saved successfully.');
+
+  await Promise.all([
+    loadScheduleTasks(currentProjectId),
+    loadAuditLog(currentProjectId)
+  ]);
+
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
 function renderChecklistSummary(rows) {
@@ -2307,6 +2475,60 @@ function fillPermitStatusSelect(elementId, selectedValue) {
   el.innerHTML = permitStatusOptions.map(row => {
     const selected = row.permit_status === selectedValue ? 'selected' : '';
     return `<option value="${escapeHTML(row.permit_status)}" ${selected}>${escapeHTML(row.permit_status_label || displayLabel(row.permit_status))}</option>`;
+  }).join('');
+}
+
+function taskStatusOptionsHTML(selectedValue) {
+  const fallbackOptions = [
+    { value: 'NOT_STARTED', label: 'Not Started' },
+    { value: 'IN_PROGRESS', label: 'In Progress' },
+    { value: 'BLOCKED', label: 'Blocked' },
+    { value: 'ON_HOLD', label: 'On Hold' },
+    { value: 'COMPLETE', label: 'Complete' },
+    { value: 'COMPLETED', label: 'Completed' }
+  ];
+
+  const options = stageStatusOptions && stageStatusOptions.length > 0
+    ? stageStatusOptions.map(row => ({
+        value: row.stage_status,
+        label: row.stage_status_label || displayLabel(row.stage_status)
+      }))
+    : fallbackOptions;
+
+  const normalizedSelected = normalize(selectedValue || 'NOT_STARTED');
+  const hasSelected = options.some(option => normalize(option.value) === normalizedSelected);
+  const finalOptions = hasSelected || !selectedValue
+    ? options
+    : [{ value: selectedValue, label: displayLabel(selectedValue) }, ...options];
+
+  return finalOptions.map(option => {
+    const selected = normalize(option.value) === normalizedSelected ? 'selected' : '';
+    return `<option value="${escapeHTML(option.value)}" ${selected}>${escapeHTML(option.label)}</option>`;
+  }).join('');
+}
+
+function inspectionStatusOptionsHTML(selectedValue, inspectionRequired) {
+  const options = [
+    { value: '', label: inspectionRequired === true ? 'Select Inspection Status' : 'Not Required / Blank' },
+    { value: 'NOT_REQUIRED', label: 'Not Required' },
+    { value: 'REQUIRED', label: 'Required' },
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'SCHEDULED', label: 'Scheduled' },
+    { value: 'REQUESTED', label: 'Requested' },
+    { value: 'PASSED', label: 'Passed' },
+    { value: 'FAILED', label: 'Failed' },
+    { value: 'REINSPECTION_REQUIRED', label: 'Reinspection Required' }
+  ];
+
+  const normalizedSelected = normalize(selectedValue || '');
+  const hasSelected = !selectedValue || options.some(option => normalize(option.value) === normalizedSelected);
+  const finalOptions = hasSelected
+    ? options
+    : [{ value: selectedValue, label: displayLabel(selectedValue) }, ...options];
+
+  return finalOptions.map(option => {
+    const selected = normalize(option.value) === normalizedSelected ? 'selected' : '';
+    return `<option value="${escapeHTML(option.value)}" ${selected}>${escapeHTML(option.label)}</option>`;
   }).join('');
 }
 
