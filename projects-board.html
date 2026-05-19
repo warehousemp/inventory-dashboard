@@ -44,12 +44,16 @@
       font-family: Arial, Helvetica, sans-serif;
       background: var(--bg);
       color: var(--text);
+      height: 100vh;
+      overflow: hidden;
     }
 
     .app-shell {
       display: grid;
       grid-template-columns: 230px 1fr;
-      min-height: 100vh;
+      height: 100vh;
+      min-height: 0;
+      overflow: hidden;
     }
 
     .sidebar {
@@ -126,6 +130,10 @@
 
     .main {
       min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     .topbar {
@@ -175,7 +183,13 @@
     .content {
       padding: 22px;
       max-width: 100%;
+      width: 100%;
       margin: 0 auto;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     .page-message {
@@ -357,7 +371,31 @@
 
     .board-wrap {
       overflow-x: auto;
-      padding-bottom: 10px;
+      overflow-y: hidden;
+      padding-bottom: 12px;
+      max-width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+      border-radius: 14px;
+    }
+
+    .board-wrap::-webkit-scrollbar {
+      height: 12px;
+    }
+
+    .board-wrap::-webkit-scrollbar-track {
+      background: #e5edf3;
+      border-radius: 999px;
+    }
+
+    .board-wrap::-webkit-scrollbar-thumb {
+      background: #829ab1;
+      border-radius: 999px;
+      border: 2px solid #e5edf3;
+    }
+
+    .board-wrap::-webkit-scrollbar-thumb:hover {
+      background: #627d98;
     }
 
     .board {
@@ -379,8 +417,12 @@
       background: #eef4f8;
       border: 1px solid var(--border);
       border-radius: 14px;
-      min-height: 520px;
+      height: calc(100vh - 388px);
+      min-height: 390px;
+      max-height: 560px;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     .column-header {
@@ -390,6 +432,7 @@
       position: relative;
       top: auto;
       z-index: 1;
+      flex: 0 0 auto;
     }
 
     .column-title-row {
@@ -428,8 +471,30 @@
       padding: 10px;
       display: grid;
       gap: 10px;
-      min-height: 445px;
       align-content: start;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior: contain;
+    }
+
+    .column-body::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .column-body::-webkit-scrollbar-track {
+      background: #e5edf3;
+      border-radius: 999px;
+    }
+
+    .column-body::-webkit-scrollbar-thumb {
+      background: #9fb3c8;
+      border-radius: 999px;
+    }
+
+    .column-body::-webkit-scrollbar-thumb:hover {
+      background: #829ab1;
     }
 
     .column-body.drag-over {
@@ -649,8 +714,15 @@
     }
 
     @media (max-width: 820px) {
+      body {
+        height: auto;
+        overflow: auto;
+      }
+
       .app-shell {
         grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
       }
 
       .sidebar {
@@ -667,6 +739,21 @@
         position: relative;
         align-items: flex-start;
         flex-direction: column;
+      }
+
+      .main,
+      .content {
+        display: block;
+        overflow: visible;
+      }
+
+      .board-wrap {
+        overflow-x: auto;
+        overflow-y: visible;
+      }
+
+      .kanban-column {
+        height: 520px;
       }
 
       .topbar-actions {
@@ -1077,46 +1164,91 @@ function renderBoard() {
   }
 
   const productionProjectType = boardMode;
-  const columns = getProductionColumns(productionProjectType);
-
-  const productionProjects = filtered.filter(project => {
-    return project.project_type === productionProjectType &&
-      project.board_status_bucket === 'ACTIVE_PRODUCTION';
-  });
+  const columns = getProductionBoardColumns(productionProjectType);
 
   board.className = 'board production';
   board.style.setProperty('--column-count', columns.length);
 
   columns.forEach(column => {
-    const rows = productionProjects.filter(project => {
-      const projectPhase = normalizePhaseName(project.current_production_phase);
-
-      if (column.key === 'Unassigned Production Phase') {
-        return !projectPhase;
+    const rows = filtered.filter(project => {
+      if (project.project_type !== productionProjectType) {
+        return false;
       }
 
-      return projectPhase === normalizePhaseName(column.key);
+      if (column.columnType === 'STATUS') {
+        return project.board_status_bucket === column.key;
+      }
+
+      if (column.columnType === 'PHASE') {
+        if (project.board_status_bucket !== 'ACTIVE_PRODUCTION') {
+          return false;
+        }
+
+        const projectPhase = normalizePhaseName(project.current_production_phase);
+
+        if (column.key === 'Unassigned Production Phase') {
+          return !projectPhase;
+        }
+
+        return projectPhase === normalizePhaseName(column.key);
+      }
+
+      return false;
     });
 
-    const allowDrop = column.key !== 'Unassigned Production Phase';
+    const allowDrop = column.columnType === 'PHASE' && column.key !== 'Unassigned Production Phase';
 
     board.appendChild(renderColumn(
       column.title,
       column.sub,
       rows,
-      'production',
+      column.cardClass || 'production',
       column.key,
       allowDrop
     ));
   });
 }
 
-function getProductionColumns(projectType) {
+function getProductionBoardColumns(projectType) {
   const columns = [
     {
+      columnType: 'STATUS',
+      key: 'SALES_HANDOFF',
+      title: 'Sales Handoff',
+      sub: 'New client project entered',
+      cardClass: 'sales',
+      sort_order: -400
+    },
+    {
+      columnType: 'STATUS',
+      key: 'PROJECT_SETUP',
+      title: 'Project Setup',
+      sub: 'PM / coordinator / docs / setup',
+      cardClass: 'setup',
+      sort_order: -300
+    },
+    {
+      columnType: 'STATUS',
+      key: 'PRE_CONSTRUCTION',
+      title: 'Pre-Construction',
+      sub: 'Engineering, permits, planning',
+      cardClass: 'setup',
+      sort_order: -200
+    },
+    {
+      columnType: 'STATUS',
+      key: 'SCHEDULED',
+      title: 'Scheduled',
+      sub: 'Schedule created / ready to start',
+      cardClass: 'production',
+      sort_order: -100
+    },
+    {
+      columnType: 'PHASE',
       key: 'Unassigned Production Phase',
       title: 'Unassigned Phase',
       sub: 'Needs current production phase',
+      cardClass: 'production',
       sort_order: 0
     }
   ];
@@ -1126,12 +1258,41 @@ function getProductionColumns(projectType) {
     .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
     .forEach(template => {
       columns.push({
+        columnType: 'PHASE',
         key: template.phase_name,
         title: template.phase_name,
         sub: `${template.default_business_days || 0} default business day(s)`,
-        sort_order: template.sort_order
+        cardClass: 'production',
+        sort_order: Number(template.sort_order || 0)
       });
     });
+
+  columns.push(
+    {
+      columnType: 'STATUS',
+      key: 'BLOCKED_WAITING',
+      title: 'Blocked / Waiting',
+      sub: 'Needs attention or outside dependency',
+      cardClass: 'blocked',
+      sort_order: 10000
+    },
+    {
+      columnType: 'STATUS',
+      key: 'CLOSEOUT',
+      title: 'Closeout',
+      sub: 'Punch, final draw, final docs',
+      cardClass: 'closeout',
+      sort_order: 10010
+    },
+    {
+      columnType: 'STATUS',
+      key: 'COMPLETED',
+      title: 'Completed',
+      sub: 'Closed project',
+      cardClass: 'completed',
+      sort_order: 10020
+    }
+  );
 
   return columns;
 }
