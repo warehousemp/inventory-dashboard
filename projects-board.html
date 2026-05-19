@@ -1209,7 +1209,7 @@ function updateBoardModeNote() {
   if (boardMode === 'MASTER') {
     note.textContent = 'Master Status View is read-only. Lifecycle movement will stay locked until workflow validation is built.';
   } else {
-    note.textContent = 'Production boards are drag-and-drop. Dropping a card into a phase opens a confirmation window and updates the project source of truth.';
+    note.textContent = 'Production boards are drag-and-drop. Forward phase movement is allowed. Backward movement is blocked and must be handled through an admin correction workflow.';
   }
 }
 
@@ -1580,14 +1580,24 @@ function openMoveModal(projectId, targetPhase) {
     return;
   }
 
-  const isValidPhase = phaseTemplates.some(template => {
-    return template.project_type === project.project_type &&
-      template.active === true &&
-      normalizePhaseName(template.phase_name) === normalizePhaseName(targetPhase);
-  });
+  const targetTemplate = getPhaseTemplate(project.project_type, targetPhase);
 
-  if (!isValidPhase) {
+  if (!targetTemplate) {
     setPageMessage('error', `Invalid production phase "${targetPhase}" for ${displayLabel(project.project_type)}.`);
+    return;
+  }
+
+  const currentTemplate = getPhaseTemplate(project.project_type, project.current_production_phase);
+
+  if (
+    currentTemplate &&
+    targetTemplate &&
+    Number(targetTemplate.sort_order || 0) < Number(currentTemplate.sort_order || 0)
+  ) {
+    setPageMessage(
+      'error',
+      `Backward phase movement is not allowed from the Kanban board. ${project.project_number || 'This project'} is currently in "${project.current_production_phase}" and cannot be moved back to "${targetPhase}". Use Admin / correction workflow if this project phase needs to be corrected.`
+    );
     return;
   }
 
@@ -1613,6 +1623,18 @@ function openMoveModal(projectId, targetPhase) {
   setTimeout(() => {
     document.getElementById('modalUpdatedByInput').focus();
   }, 50);
+}
+
+function getPhaseTemplate(projectType, phaseName) {
+  if (!phaseName) {
+    return null;
+  }
+
+  return phaseTemplates.find(template => {
+    return template.project_type === projectType &&
+      template.active === true &&
+      normalizePhaseName(template.phase_name) === normalizePhaseName(phaseName);
+  }) || null;
 }
 
 function closeMoveModal() {
