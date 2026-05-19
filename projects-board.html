@@ -428,6 +428,15 @@
       padding: 10px;
       display: grid;
       gap: 10px;
+      min-height: 445px;
+      align-content: start;
+    }
+
+    .column-body.drag-over {
+      outline: 3px dashed var(--accent);
+      outline-offset: -6px;
+      background: rgba(26,163,176,0.08);
+      border-radius: 12px;
     }
 
     .project-card {
@@ -437,6 +446,21 @@
       padding: 12px;
       box-shadow: 0 3px 10px rgba(15,23,42,0.07);
       border-left: 5px solid var(--gray);
+      transition: opacity 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .project-card[draggable="true"] {
+      cursor: grab;
+    }
+
+    .project-card[draggable="true"]:active {
+      cursor: grabbing;
+    }
+
+    .project-card.dragging {
+      opacity: 0.45;
+      transform: rotate(1deg);
+      box-shadow: 0 8px 20px rgba(15,23,42,0.15);
     }
 
     .project-card.sales {
@@ -505,35 +529,23 @@
       white-space: nowrap;
     }
 
-    .card-meta {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
+    .compact-pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
       margin: 8px 0;
     }
 
-    .meta-item {
-      background: #f8fafc;
-      border: 1px solid #eef2f7;
-      border-radius: 9px;
-      padding: 7px;
-      min-width: 0;
+    .compact-card-lines {
+      display: grid;
+      gap: 5px;
+      font-size: 12px;
+      color: #344054;
+      line-height: 1.25;
     }
 
-    .meta-label {
-      color: var(--muted);
-      font-size: 10px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.25px;
-      margin-bottom: 2px;
-    }
-
-    .meta-value {
+    .compact-card-lines strong {
       color: #111827;
-      font-size: 11px;
-      font-weight: 800;
-      overflow-wrap: anywhere;
     }
 
     .pill {
@@ -584,8 +596,8 @@
 
     .phase-control {
       border-top: 1px solid #eef2f7;
-      margin-top: 10px;
-      padding-top: 10px;
+      margin-top: 9px;
+      padding-top: 9px;
       display: grid;
       gap: 7px;
     }
@@ -595,6 +607,16 @@
       padding: 8px;
       font-size: 12px;
       border-radius: 8px;
+    }
+
+    .phase-toggle-button {
+      width: 100%;
+    }
+
+    .phase-update-panel {
+      margin-top: 8px;
+      display: grid;
+      gap: 7px;
     }
 
     .empty-column {
@@ -714,7 +736,7 @@
         </div>
 
         <div class="topbar-actions">
-          <span class="topbar-pill">Project Visibility Board</span>
+          <span class="topbar-pill">Production Boards Are Drag-and-Drop</span>
           <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
         </div>
       </header>
@@ -755,7 +777,7 @@
 
             <div>
               <label for="updatedByInput">Update By</label>
-              <input id="updatedByInput" type="text" placeholder="Required to save phase" />
+              <input id="updatedByInput" type="text" placeholder="Required to move cards" />
             </div>
 
             <div>
@@ -803,8 +825,7 @@
         </section>
 
         <section class="board-wrap">
-          <div id="boardContainer" class="board master">
-          </div>
+          <div id="boardContainer" class="board master"></div>
         </section>
 
         <div class="footer">
@@ -1032,10 +1053,11 @@ function renderBoard() {
 
   if (boardMode === 'MASTER') {
     board.className = 'board master';
+    board.style.removeProperty('--column-count');
 
     MASTER_COLUMNS.forEach(column => {
       const rows = filtered.filter(project => project.board_status_bucket === column.key);
-      board.appendChild(renderColumn(column.title, column.sub, rows, column.cardClass));
+      board.appendChild(renderColumn(column.title, column.sub, rows, column.cardClass, column.key, false));
     });
 
     return;
@@ -1056,7 +1078,16 @@ function renderBoard() {
       return String(project.production_phase_bucket || 'Unassigned Production Phase') === column.key;
     });
 
-    board.appendChild(renderColumn(column.title, column.sub, rows, 'production'));
+    const allowDrop = column.key !== 'Unassigned Production Phase';
+
+    board.appendChild(renderColumn(
+      column.title,
+      column.sub,
+      rows,
+      'production',
+      column.key,
+      allowDrop
+    ));
   });
 }
 
@@ -1085,7 +1116,7 @@ function getProductionColumns(projectType) {
   return columns;
 }
 
-function renderColumn(title, sub, rows, cardClass) {
+function renderColumn(title, sub, rows, cardClass, columnKey, allowDrop) {
   const column = document.createElement('div');
   column.className = 'kanban-column';
 
@@ -1101,6 +1132,14 @@ function renderColumn(title, sub, rows, cardClass) {
   `;
 
   const body = column.querySelector('.column-body');
+  body.dataset.phase = columnKey || '';
+  body.dataset.allowDrop = allowDrop ? 'true' : 'false';
+
+  if (allowDrop) {
+    body.addEventListener('dragover', allowColumnDrop);
+    body.addEventListener('dragleave', handleColumnDragLeave);
+    body.addEventListener('drop', handleColumnDrop);
+  }
 
   if (!rows || rows.length === 0) {
     body.innerHTML = '<div class="empty-column">No projects in this bucket.</div>';
@@ -1119,11 +1158,22 @@ function renderColumn(title, sub, rows, cardClass) {
 function renderProjectCard(project, defaultCardClass) {
   const card = document.createElement('div');
   const cardClass = getCardClass(project, defaultCardClass);
+  const isDraggable = boardMode !== 'MASTER' && project.board_status_bucket === 'ACTIVE_PRODUCTION';
+
   card.className = `project-card ${cardClass}`;
+  card.dataset.projectId = project.project_id;
+  card.dataset.projectNumber = project.project_number || '';
+  card.dataset.currentPhase = project.current_production_phase || '';
+
+  if (isDraggable) {
+    card.setAttribute('draggable', 'true');
+    card.addEventListener('dragstart', handleCardDragStart);
+    card.addEventListener('dragend', handleCardDragEnd);
+  }
 
   const projectTypeLabel = displayLabel(project.project_type);
   const projectStatusLabel = displayLabel(project.project_status);
-  const phaseLabel = project.production_phase_bucket || project.current_production_phase || 'N/A';
+  const phaseLabel = project.production_phase_bucket || project.current_production_phase || 'Unassigned Production Phase';
 
   card.innerHTML = `
     <div class="card-top">
@@ -1136,41 +1186,15 @@ function renderProjectCard(project, defaultCardClass) {
       </div>
     </div>
 
-    <div>
+    <div class="compact-pill-row">
       ${statusPill(projectTypeLabel)}
       ${statusPill(projectStatusLabel)}
     </div>
 
-    <div class="card-meta">
-      <div class="meta-item">
-        <div class="meta-label">Client</div>
-        <div class="meta-value">${escapeHTML(project.client_name || 'N/A')}</div>
-      </div>
-
-      <div class="meta-item">
-        <div class="meta-label">Phase</div>
-        <div class="meta-value">${escapeHTML(phaseLabel)}</div>
-      </div>
-
-      <div class="meta-item">
-        <div class="meta-label">PM</div>
-        <div class="meta-value">${escapeHTML(project.project_manager || 'Unassigned')}</div>
-      </div>
-
-      <div class="meta-item">
-        <div class="meta-label">Coordinator</div>
-        <div class="meta-value">${escapeHTML(project.project_coordinator || 'Unassigned')}</div>
-      </div>
-
-      <div class="meta-item">
-        <div class="meta-label">Permit</div>
-        <div class="meta-value">${escapeHTML(displayLabel(project.permit_status || 'N/A'))}</div>
-      </div>
-
-      <div class="meta-item">
-        <div class="meta-label">Engineering</div>
-        <div class="meta-value">${escapeHTML(displayLabel(project.engineering_status || 'N/A'))}</div>
-      </div>
+    <div class="compact-card-lines">
+      <div><strong>Phase:</strong> ${escapeHTML(phaseLabel)}</div>
+      <div><strong>PM:</strong> ${escapeHTML(project.project_manager || 'Unassigned')}</div>
+      <div><strong>Coordinator:</strong> ${escapeHTML(project.project_coordinator || 'Unassigned')}</div>
     </div>
   `;
 
@@ -1185,6 +1209,7 @@ function renderPhaseControl(project) {
   const wrapper = document.createElement('div');
   wrapper.className = 'phase-control';
 
+  const panelId = `phasePanel_${safeId(project.project_id)}`;
   const selectId = `phaseSelect_${safeId(project.project_id)}`;
   const notesId = `phaseNotes_${safeId(project.project_id)}`;
 
@@ -1193,27 +1218,160 @@ function renderPhaseControl(project) {
     .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
 
   wrapper.innerHTML = `
-    <div>
-      <label for="${selectId}">Update Current Phase</label>
-      <select id="${selectId}">
-        <option value="">Select Phase</option>
-        ${options.map(option => `
-          <option value="${escapeAttribute(option.phase_name)}" ${option.phase_name === project.current_production_phase ? 'selected' : ''}>
-            ${escapeHTML(option.phase_name)} (${escapeHTML(option.default_business_days)} days)
-          </option>
-        `).join('')}
-      </select>
-    </div>
+    <button class="small secondary phase-toggle-button" type="button" onclick="togglePhasePanel('${panelId}')">Update Phase</button>
 
-    <div>
-      <label for="${notesId}">Notes</label>
-      <input id="${notesId}" type="text" placeholder="Optional phase update note" />
-    </div>
+    <div id="${panelId}" class="phase-update-panel" style="display:none;">
+      <div>
+        <label for="${selectId}">Current Phase</label>
+        <select id="${selectId}">
+          <option value="">Select Phase</option>
+          ${options.map(option => `
+            <option value="${escapeAttribute(option.phase_name)}" ${option.phase_name === project.current_production_phase ? 'selected' : ''}>
+              ${escapeHTML(option.phase_name)} (${escapeHTML(option.default_business_days)} days)
+            </option>
+          `).join('')}
+        </select>
+      </div>
 
-    <button class="small" onclick="saveProductionPhase('${escapeAttribute(project.project_id)}')">Save Phase</button>
+      <div>
+        <label for="${notesId}">Notes</label>
+        <input id="${notesId}" type="text" placeholder="Optional note" />
+      </div>
+
+      <button class="small" type="button" onclick="saveProductionPhase('${escapeAttribute(project.project_id)}')">Save Phase</button>
+    </div>
   `;
 
   return wrapper;
+}
+
+function togglePhasePanel(panelId) {
+  const panel = document.getElementById(panelId);
+
+  if (!panel) {
+    return;
+  }
+
+  panel.style.display = panel.style.display === 'none' ? 'grid' : 'none';
+}
+
+function handleCardDragStart(event) {
+  const card = event.currentTarget;
+
+  card.classList.add('dragging');
+
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', JSON.stringify({
+    projectId: card.dataset.projectId,
+    projectNumber: card.dataset.projectNumber,
+    currentPhase: card.dataset.currentPhase || ''
+  }));
+}
+
+function handleCardDragEnd(event) {
+  event.currentTarget.classList.remove('dragging');
+
+  document.querySelectorAll('.column-body.drag-over').forEach(element => {
+    element.classList.remove('drag-over');
+  });
+}
+
+function allowColumnDrop(event) {
+  const body = event.currentTarget;
+
+  if (body.dataset.allowDrop !== 'true') {
+    return;
+  }
+
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  body.classList.add('drag-over');
+}
+
+function handleColumnDragLeave(event) {
+  event.currentTarget.classList.remove('drag-over');
+}
+
+async function handleColumnDrop(event) {
+  event.preventDefault();
+
+  const body = event.currentTarget;
+  body.classList.remove('drag-over');
+
+  if (body.dataset.allowDrop !== 'true') {
+    return;
+  }
+
+  let payload;
+
+  try {
+    payload = JSON.parse(event.dataTransfer.getData('text/plain'));
+  } catch (error) {
+    setPageMessage('error', 'Could not read dragged project data.');
+    return;
+  }
+
+  const targetPhase = body.dataset.phase;
+
+  if (!payload || !payload.projectId) {
+    setPageMessage('error', 'Dragged project is missing a project ID.');
+    return;
+  }
+
+  if (!targetPhase || targetPhase === 'Unassigned Production Phase') {
+    setPageMessage('error', 'Projects can only be moved into an active production phase.');
+    return;
+  }
+
+  if (payload.currentPhase === targetPhase) {
+    return;
+  }
+
+  await moveProjectToPhase(payload.projectId, targetPhase);
+}
+
+async function moveProjectToPhase(projectId, targetPhase) {
+  const project = allProjects.find(row => row.project_id === projectId);
+
+  if (!project) {
+    setPageMessage('error', 'Project not found on the current board.');
+    return;
+  }
+
+  const updatedBy = document.getElementById('updatedByInput').value.trim();
+
+  if (!updatedBy) {
+    setPageMessage('error', 'Update By is required before moving a project card.');
+    document.getElementById('updatedByInput').focus();
+    return;
+  }
+
+  const isValidPhase = phaseTemplates.some(template => {
+    return template.project_type === project.project_type &&
+      template.phase_name === targetPhase;
+  });
+
+  if (!isValidPhase) {
+    setPageMessage('error', `Invalid production phase "${targetPhase}" for ${displayLabel(project.project_type)}.`);
+    return;
+  }
+
+  setPageMessage('info', `Moving ${project.project_number || 'project'} to ${targetPhase}...`);
+
+  const result = await client.rpc('update_project_current_production_phase', {
+    p_project_id: projectId,
+    p_current_production_phase: targetPhase,
+    p_updated_by: updatedBy,
+    p_notes: 'Updated by drag-and-drop from Kanban board.'
+  });
+
+  if (result.error) {
+    setPageMessage('error', 'Card move failed: ' + result.error.message);
+    return;
+  }
+
+  setPageMessage('success', `${project.project_number || 'Project'} moved to ${targetPhase}.`);
+  await loadBoard();
 }
 
 async function saveProductionPhase(projectId) {
