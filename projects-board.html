@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>Kanban Dashboard - Projects Command Center</title>
+  <title>Projects Kanban Board - Projects Command Center</title>
 
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/png" href="favicon.png">
@@ -233,7 +233,7 @@
 
     .toolbar-grid {
       display: grid;
-      grid-template-columns: 1.3fr 180px 180px 180px 180px auto;
+      grid-template-columns: 1.5fr 180px 180px 180px auto;
       gap: 10px;
       align-items: end;
     }
@@ -256,6 +256,12 @@
       font-size: 13px;
       background: white;
       color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 76px;
     }
 
     input:focus,
@@ -284,18 +290,14 @@
     button.secondary {
       background: white;
       color: var(--header);
-    }
-
-    button.small {
-      padding: 8px 9px;
-      font-size: 12px;
+      border-color: var(--border);
     }
 
     .tab-row {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      margin-bottom: 14px;
+      margin-bottom: 10px;
     }
 
     .tab-button {
@@ -308,6 +310,18 @@
       background: var(--header);
       color: white;
       border-color: var(--header);
+    }
+
+    .board-mode-note {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.35;
+      margin-bottom: 14px;
     }
 
     .summary-grid {
@@ -537,17 +551,22 @@
     }
 
     .project-title {
-      color: var(--header);
+      color: #111827;
       font-size: 13px;
       font-weight: 900;
       line-height: 1.25;
     }
 
     .project-number {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 800;
-      margin-top: 2px;
+      display: inline-block;
+      color: var(--header);
+      background: #eaf2f8;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 900;
+      margin-top: 4px;
+      padding: 4px 7px;
     }
 
     .card-actions {
@@ -636,31 +655,6 @@
       border-color: #e4e7ec;
     }
 
-    .phase-control {
-      border-top: 1px solid #eef2f7;
-      margin-top: 9px;
-      padding-top: 9px;
-      display: grid;
-      gap: 7px;
-    }
-
-    .phase-control select,
-    .phase-control input {
-      padding: 8px;
-      font-size: 12px;
-      border-radius: 8px;
-    }
-
-    .phase-toggle-button {
-      width: 100%;
-    }
-
-    .phase-update-panel {
-      margin-top: 8px;
-      display: grid;
-      gap: 7px;
-    }
-
     .empty-column {
       background: rgba(255,255,255,0.65);
       border: 1px dashed #cbd5e1;
@@ -670,6 +664,83 @@
       font-size: 12px;
       font-weight: 700;
       text-align: center;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.58);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 100;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .modal-card {
+      width: min(560px, 100%);
+      background: white;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 60px rgba(15,23,42,0.30);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 16px 18px;
+      background: var(--header);
+      color: white;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .modal-header p {
+      margin: 4px 0 0;
+      font-size: 12px;
+      opacity: 0.88;
+      line-height: 1.35;
+    }
+
+    .modal-body {
+      padding: 16px 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .modal-project-box {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      gap: 5px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .modal-project-box strong {
+      color: #111827;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 14px 18px 18px;
+      border-top: 1px solid #eef2f7;
+      flex-wrap: wrap;
+    }
+
+    .modal-actions button {
+      width: auto;
     }
 
     .footer {
@@ -761,6 +832,10 @@
       .side-nav {
         grid-template-columns: 1fr;
       }
+
+      .modal-actions button {
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -794,12 +869,12 @@
     <main class="main">
       <header class="topbar">
         <div class="topbar-title">
-          <h1>Kanban Dashboard</h1>
-          <p>Projects Command Center Board View</p>
+          <h1>Projects Kanban Board</h1>
+          <p>Production phase movement and project board visibility</p>
         </div>
 
         <div class="topbar-actions">
-          <span class="topbar-pill">Production Boards Are Drag-and-Drop</span>
+          <span class="topbar-pill">Production Phase Movement Board</span>
           <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
         </div>
       </header>
@@ -839,20 +914,19 @@
             </div>
 
             <div>
-              <label for="updatedByInput">Update By</label>
-              <input id="updatedByInput" type="text" placeholder="Required to move cards" />
-            </div>
-
-            <div>
               <button onclick="loadBoard()">Refresh Board</button>
             </div>
           </div>
         </section>
 
         <div class="tab-row">
-          <button id="masterTab" class="tab-button" onclick="setBoardMode('MASTER')">Master Status Board</button>
-          <button id="newBuildTab" class="tab-button active" onclick="setBoardMode('NEW_BUILD')">New Build Production</button>
-          <button id="renovationTab" class="tab-button" onclick="setBoardMode('RENOVATION')">Renovation Production</button>
+          <button id="masterTab" class="tab-button" onclick="setBoardMode('MASTER')">Master Status View</button>
+          <button id="newBuildTab" class="tab-button active" onclick="setBoardMode('NEW_BUILD')">New Build Board</button>
+          <button id="renovationTab" class="tab-button" onclick="setBoardMode('RENOVATION')">Renovation Board</button>
+        </div>
+
+        <div id="boardModeNote" class="board-mode-note">
+          Production boards are drag-and-drop. Dropping a card into a phase opens a confirmation window and updates the project source of truth.
         </div>
 
         <section class="summary-grid">
@@ -899,6 +973,39 @@
     </main>
   </div>
 
+  <div id="moveModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="moveModalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="moveModalTitle">Confirm Kanban Move</h2>
+        <p>This move will update the project production phase and set the project status to In Progress.</p>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-project-box">
+          <div><strong>Project:</strong> <span id="modalProjectName">N/A</span></div>
+          <div><strong>Project Number:</strong> <span id="modalProjectNumber">N/A</span></div>
+          <div><strong>From Phase:</strong> <span id="modalFromPhase">N/A</span></div>
+          <div><strong>To Phase:</strong> <span id="modalToPhase">N/A</span></div>
+        </div>
+
+        <div>
+          <label for="modalUpdatedByInput">Updated By *</label>
+          <input id="modalUpdatedByInput" type="text" placeholder="Enter your name" />
+        </div>
+
+        <div>
+          <label for="modalNotesInput">Notes</label>
+          <textarea id="modalNotesInput" rows="3" placeholder="Optional move note"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="secondary" onclick="closeMoveModal()">Cancel</button>
+        <button type="button" onclick="confirmMoveProject()">Confirm Move</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
@@ -908,6 +1015,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let allProjects = [];
 let phaseTemplates = [];
 let boardMode = 'NEW_BUILD';
+let pendingMove = null;
 
 const MASTER_COLUMNS = [
   {
@@ -962,6 +1070,22 @@ const MASTER_COLUMNS = [
 
 window.addEventListener('load', async () => {
   await loadBoard();
+
+  const modal = document.getElementById('moveModal');
+
+  if (modal) {
+    modal.addEventListener('click', event => {
+      if (event.target === modal) {
+        closeMoveModal();
+      }
+    });
+  }
+});
+
+window.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    closeMoveModal();
+  }
 });
 
 async function loadBoard() {
@@ -1071,7 +1195,22 @@ function setBoardMode(mode) {
     document.getElementById('projectTypeFilter').value = 'ALL';
   }
 
+  updateBoardModeNote();
   renderBoard();
+}
+
+function updateBoardModeNote() {
+  const note = document.getElementById('boardModeNote');
+
+  if (!note) {
+    return;
+  }
+
+  if (boardMode === 'MASTER') {
+    note.textContent = 'Master Status View is read-only. Lifecycle movement will stay locked until workflow validation is built.';
+  } else {
+    note.textContent = 'Production boards are drag-and-drop. Dropping a card into a phase opens a confirmation window and updates the project source of truth.';
+  }
 }
 
 function getFilteredProjects() {
@@ -1355,61 +1494,7 @@ function renderProjectCard(project, defaultCardClass) {
     </div>
   `;
 
-  if (project.board_status_bucket === 'ACTIVE_PRODUCTION') {
-    card.appendChild(renderPhaseControl(project));
-  }
-
   return card;
-}
-
-function renderPhaseControl(project) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'phase-control';
-
-  const panelId = `phasePanel_${safeId(project.project_id)}`;
-  const selectId = `phaseSelect_${safeId(project.project_id)}`;
-  const notesId = `phaseNotes_${safeId(project.project_id)}`;
-
-  const options = phaseTemplates
-    .filter(template => template.project_type === project.project_type && template.active === true)
-    .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
-
-  wrapper.innerHTML = `
-    <button class="small secondary phase-toggle-button" type="button" onclick="togglePhasePanel('${panelId}')">Update Phase</button>
-
-    <div id="${panelId}" class="phase-update-panel" style="display:none;">
-      <div>
-        <label for="${selectId}">Current Phase</label>
-        <select id="${selectId}">
-          <option value="">Select Phase</option>
-          ${options.map(option => `
-            <option value="${escapeAttribute(option.phase_name)}" ${normalizePhaseName(option.phase_name) === normalizePhaseName(project.current_production_phase) ? 'selected' : ''}>
-              ${escapeHTML(option.phase_name)} (${escapeHTML(option.default_business_days)} days)
-            </option>
-          `).join('')}
-        </select>
-      </div>
-
-      <div>
-        <label for="${notesId}">Notes</label>
-        <input id="${notesId}" type="text" placeholder="Optional note" />
-      </div>
-
-      <button class="small" type="button" onclick="saveProductionPhase('${escapeAttribute(project.project_id)}')">Save Phase</button>
-    </div>
-  `;
-
-  return wrapper;
-}
-
-function togglePhasePanel(panelId) {
-  const panel = document.getElementById(panelId);
-
-  if (!panel) {
-    return;
-  }
-
-  panel.style.display = panel.style.display === 'none' ? 'grid' : 'none';
 }
 
 function handleCardDragStart(event) {
@@ -1449,7 +1534,7 @@ function handleColumnDragLeave(event) {
   event.currentTarget.classList.remove('drag-over');
 }
 
-async function handleColumnDrop(event) {
+function handleColumnDrop(event) {
   event.preventDefault();
 
   const body = event.currentTarget;
@@ -1484,22 +1569,14 @@ async function handleColumnDrop(event) {
     return;
   }
 
-  await moveProjectToPhase(payload.projectId, targetPhase);
+  openMoveModal(payload.projectId, targetPhase);
 }
 
-async function moveProjectToPhase(projectId, targetPhase) {
+function openMoveModal(projectId, targetPhase) {
   const project = allProjects.find(row => row.project_id === projectId);
 
   if (!project) {
     setPageMessage('error', 'Project not found on the current board.');
-    return;
-  }
-
-  const updatedBy = document.getElementById('updatedByInput').value.trim();
-
-  if (!updatedBy) {
-    setPageMessage('error', 'Update By is required before moving a project card.');
-    document.getElementById('updatedByInput').focus();
     return;
   }
 
@@ -1514,65 +1591,76 @@ async function moveProjectToPhase(projectId, targetPhase) {
     return;
   }
 
-  setPageMessage('info', `Moving ${project.project_number || 'project'} to ${targetPhase}...`);
+  pendingMove = {
+    projectId,
+    targetPhase,
+    projectNumber: project.project_number || '',
+    projectName: project.project_name || 'Unnamed Project',
+    currentPhase: project.current_production_phase || 'Unassigned Production Phase'
+  };
 
-  const result = await client.rpc('update_project_current_production_phase', {
-    p_project_id: projectId,
-    p_current_production_phase: targetPhase,
-    p_updated_by: updatedBy,
-    p_notes: 'Updated by drag-and-drop from Kanban board.'
-  });
+  setText('modalProjectName', pendingMove.projectName);
+  setText('modalProjectNumber', pendingMove.projectNumber || 'N/A');
+  setText('modalFromPhase', pendingMove.currentPhase);
+  setText('modalToPhase', targetPhase);
 
-  if (result.error) {
-    setPageMessage('error', 'Card move failed: ' + result.error.message);
-    return;
-  }
+  document.getElementById('modalUpdatedByInput').value = '';
+  document.getElementById('modalNotesInput').value = '';
 
-  setPageMessage('success', `${project.project_number || 'Project'} moved to ${targetPhase}.`);
-  await loadBoard();
+  const modal = document.getElementById('moveModal');
+  modal.classList.add('active');
+
+  setTimeout(() => {
+    document.getElementById('modalUpdatedByInput').focus();
+  }, 50);
 }
 
-async function saveProductionPhase(projectId) {
-  const project = allProjects.find(row => row.project_id === projectId);
+function closeMoveModal() {
+  pendingMove = null;
 
-  if (!project) {
-    setPageMessage('error', 'Project not found on the current board.');
+  const modal = document.getElementById('moveModal');
+
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+async function confirmMoveProject() {
+  if (!pendingMove) {
+    setPageMessage('error', 'No pending Kanban move was found.');
+    closeMoveModal();
     return;
   }
 
-  const select = document.getElementById(`phaseSelect_${safeId(projectId)}`);
-  const notes = document.getElementById(`phaseNotes_${safeId(projectId)}`);
-  const updatedBy = document.getElementById('updatedByInput').value.trim();
-
-  const newPhase = select ? select.value : '';
-  const updateNotes = notes ? notes.value.trim() : '';
-
-  if (!newPhase) {
-    setPageMessage('error', 'Please select a production phase before saving.');
-    return;
-  }
+  const updatedBy = document.getElementById('modalUpdatedByInput').value.trim();
+  const notes = document.getElementById('modalNotesInput').value.trim();
 
   if (!updatedBy) {
-    setPageMessage('error', 'Update By is required before saving a production phase.');
-    document.getElementById('updatedByInput').focus();
+    setPageMessage('error', 'Updated By is required before confirming the Kanban move.');
+    document.getElementById('modalUpdatedByInput').focus();
     return;
   }
 
-  setPageMessage('info', `Saving production phase for ${project.project_number || 'project'}...`);
+  setPageMessage('info', `Moving ${pendingMove.projectNumber || 'project'} to ${pendingMove.targetPhase}...`);
 
-  const result = await client.rpc('update_project_current_production_phase', {
-    p_project_id: projectId,
-    p_current_production_phase: newPhase,
+  const result = await client.rpc('update_project_kanban_phase', {
+    p_project_id: pendingMove.projectId,
+    p_current_production_phase: pendingMove.targetPhase,
     p_updated_by: updatedBy,
-    p_notes: updateNotes || null
+    p_notes: notes || 'Updated by drag-and-drop from Projects Kanban Board.'
   });
 
   if (result.error) {
-    setPageMessage('error', 'Phase update failed: ' + result.error.message);
+    setPageMessage('error', 'Kanban move failed: ' + result.error.message);
     return;
   }
 
-  setPageMessage('success', `Production phase updated for ${project.project_number || 'project'}.`);
+  const movedProjectNumber = pendingMove.projectNumber || 'Project';
+  const movedTargetPhase = pendingMove.targetPhase;
+
+  closeMoveModal();
+
+  setPageMessage('success', `${movedProjectNumber} moved to ${movedTargetPhase}.`);
   await loadBoard();
 }
 
@@ -1717,10 +1805,6 @@ function setPageMessage(type, message) {
   element.textContent = message;
 }
 
-function safeId(value) {
-  return String(value || '').replace(/[^a-zA-Z0-9]/g, '');
-}
-
 function escapeHTML(value) {
   if (value === null || value === undefined) {
     return '';
@@ -1732,10 +1816,6 @@ function escapeHTML(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
-}
-
-function escapeAttribute(value) {
-  return escapeHTML(value);
 }
 </script>
 
