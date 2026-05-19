@@ -419,12 +419,9 @@
       min-width: max-content;
     }
 
-    .board.master {
-      grid-template-columns: repeat(8, 315px);
-    }
-
+    .board.master,
     .board.production {
-      grid-template-columns: repeat(var(--column-count), 315px);
+      grid-template-columns: var(--board-columns, repeat(var(--column-count), 315px));
     }
 
     .kanban-column {
@@ -433,6 +430,75 @@
       border-radius: 14px;
       min-height: 520px;
       overflow: visible;
+    }
+
+    .kanban-column.collapsed {
+      width: 48px;
+      min-width: 48px;
+      max-width: 48px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .kanban-column.collapsed .column-header {
+      height: 520px;
+      min-height: 520px;
+      padding: 8px 4px;
+      border-bottom: none;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      flex-direction: column;
+    }
+
+    .kanban-column.collapsed .column-title-row {
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      height: 100%;
+      gap: 8px;
+    }
+
+    .kanban-column.collapsed .column-title {
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      white-space: nowrap;
+      font-size: 12px;
+      line-height: 1;
+      color: #102a43;
+      max-height: 430px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .kanban-column.collapsed .column-count {
+      min-width: 24px;
+      padding: 4px 6px;
+      font-size: 11px;
+      flex: 0 0 auto;
+    }
+
+    .kanban-column.collapsed .column-sub,
+    .kanban-column.collapsed .empty-column {
+      display: none;
+    }
+
+    .kanban-column.collapsed .column-body {
+      display: block;
+      position: absolute;
+      inset: 0;
+      min-height: 520px;
+      padding: 0;
+      z-index: 20;
+      background: transparent;
+    }
+
+    .kanban-column.collapsed.drag-target {
+      background: rgba(26,163,176,0.16);
+      outline: 3px dashed var(--accent);
+      outline-offset: -4px;
     }
 
     .column-header {
@@ -1269,9 +1335,20 @@ function renderBoard() {
     board.className = 'board master';
     board.style.removeProperty('--column-count');
 
-    MASTER_COLUMNS.forEach(column => {
-      const rows = filtered.filter(project => project.board_status_bucket === column.key);
-      board.appendChild(renderColumn(column.title, column.sub, rows, column.cardClass, column.key, false));
+    const masterColumnDefinitions = MASTER_COLUMNS.map(column => {
+      return {
+        ...column,
+        rows: filtered.filter(project => project.board_status_bucket === column.key)
+      };
+    });
+
+    board.style.setProperty(
+      '--board-columns',
+      masterColumnDefinitions.map(column => column.rows.length === 0 ? '48px' : '315px').join(' ')
+    );
+
+    masterColumnDefinitions.forEach(column => {
+      board.appendChild(renderColumn(column.title, column.sub, column.rows, column.cardClass, column.key, false));
     });
 
     return;
@@ -1283,7 +1360,7 @@ function renderBoard() {
   board.className = 'board production';
   board.style.setProperty('--column-count', columns.length);
 
-  columns.forEach(column => {
+  const productionColumnDefinitions = columns.map(column => {
     const rows = filtered.filter(project => {
       if (project.project_type !== productionProjectType) {
         return false;
@@ -1310,12 +1387,24 @@ function renderBoard() {
       return false;
     });
 
+    return {
+      ...column,
+      rows
+    };
+  });
+
+  board.style.setProperty(
+    '--board-columns',
+    productionColumnDefinitions.map(column => column.rows.length === 0 ? '48px' : '315px').join(' ')
+  );
+
+  productionColumnDefinitions.forEach(column => {
     const allowDrop = column.columnType === 'PHASE' && column.key !== 'Unassigned Production Phase';
 
     board.appendChild(renderColumn(
       column.title,
       column.sub,
-      rows,
+      column.rows,
       column.cardClass || 'production',
       column.key,
       allowDrop
@@ -1413,7 +1502,8 @@ function getProductionBoardColumns(projectType) {
 
 function renderColumn(title, sub, rows, cardClass, columnKey, allowDrop) {
   const column = document.createElement('div');
-  column.className = 'kanban-column';
+  const isCollapsed = !rows || rows.length === 0;
+  column.className = isCollapsed ? 'kanban-column collapsed' : 'kanban-column';
 
   column.innerHTML = `
     <div class="column-header">
@@ -1516,6 +1606,10 @@ function handleCardDragEnd(event) {
   document.querySelectorAll('.column-body.drag-over').forEach(element => {
     element.classList.remove('drag-over');
   });
+
+  document.querySelectorAll('.kanban-column.drag-target').forEach(element => {
+    element.classList.remove('drag-target');
+  });
 }
 
 function allowColumnDrop(event) {
@@ -1528,10 +1622,20 @@ function allowColumnDrop(event) {
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
   body.classList.add('drag-over');
+
+  const column = body.closest('.kanban-column');
+  if (column && column.classList.contains('collapsed')) {
+    column.classList.add('drag-target');
+  }
 }
 
 function handleColumnDragLeave(event) {
   event.currentTarget.classList.remove('drag-over');
+
+  const column = event.currentTarget.closest('.kanban-column');
+  if (column) {
+    column.classList.remove('drag-target');
+  }
 }
 
 function handleColumnDrop(event) {
@@ -1539,6 +1643,11 @@ function handleColumnDrop(event) {
 
   const body = event.currentTarget;
   body.classList.remove('drag-over');
+
+  const column = body.closest('.kanban-column');
+  if (column) {
+    column.classList.remove('drag-target');
+  }
 
   if (body.dataset.allowDrop !== 'true') {
     return;
