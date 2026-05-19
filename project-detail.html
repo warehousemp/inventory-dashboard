@@ -199,6 +199,45 @@
       color: #166534;
     }
 
+    .toast-message {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 9999;
+      min-width: 280px;
+      max-width: 420px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.35;
+      box-shadow: 0 14px 34px rgba(15,23,42,0.24);
+      display: none;
+      border: 1px solid transparent;
+    }
+
+    .toast-message.show {
+      display: block;
+    }
+
+    .toast-message.info {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .toast-message.success {
+      background: #ecfdf3;
+      border-color: #86efac;
+      color: #166534;
+    }
+
+    .toast-message.error {
+      background: #fef3f2;
+      border-color: #fda29b;
+      color: #b42318;
+    }
+
     .hero-card {
       background: white;
       border: 1px solid var(--border);
@@ -1107,6 +1146,17 @@
         grid-template-columns: 1fr;
       }
     }
+
+    @media (max-width: 520px) {
+      .toast-message {
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        min-width: 0;
+        max-width: none;
+      }
+    }
+
   </style>
 </head>
 
@@ -1404,18 +1454,6 @@
               <div class="empty-state">Loading checklist tasks...</div>
             </div>
           </div>
-
-          <div class="panel">
-            <div class="panel-header">
-              <div>
-                <h2>Legacy Project Workflow Stages</h2>
-                <div class="panel-subtitle">Older stage workflow kept for reference during transition to checklist scheduling.</div>
-              </div>
-            </div>
-
-            <div class="timeline" id="stageTimeline"></div>
-          </div>
-
           <div class="panel">
             <div class="panel-header">
               <div>
@@ -1628,6 +1666,8 @@
       </section>
     </main>
   </div>
+
+  <div id="toastMessage" class="toast-message"></div>
 
 <script>
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
@@ -2242,93 +2282,21 @@ async function loadStages(projectId) {
     .eq('project_id', projectId)
     .order('sort_order', { ascending: true });
 
-  const container = document.getElementById('stageTimeline');
-  container.innerHTML = '';
-
   if (error) {
     currentProjectSetupStage = null;
     renderProjectSetupPanelState();
-    container.innerHTML = `<div class="message error" style="display:block;">${escapeHTML(error.message)}</div>`;
+    setMessage('error', 'Project setup stage error: ' + error.message);
     return;
   }
 
   if (!data || data.length === 0) {
     currentProjectSetupStage = null;
     renderProjectSetupPanelState();
-    container.innerHTML = '<div class="panel-subtitle">No stages found for this project.</div>';
     return;
   }
 
   currentProjectSetupStage = data.find(row => row.stage_name === 'Project Setup') || null;
   renderProjectSetupPanelState();
-
-  data.forEach(row => {
-    const item = document.createElement('div');
-    item.className = 'timeline-item';
-
-    item.innerHTML = `
-      <div class="timeline-dot">${escapeHTML(row.sort_order)}</div>
-      <div class="timeline-box">
-        <div class="timeline-title">${escapeHTML(row.stage_name)} ${statusPill(row.stage_status)}</div>
-        <div class="timeline-meta">
-          Planned: ${escapeHTML(formatDate(row.planned_start_date))} to ${escapeHTML(formatDate(row.planned_completion_date))}
-          <br>
-          Actual: ${escapeHTML(formatDate(row.actual_start_date))} to ${escapeHTML(formatDate(row.actual_completion_date))}
-          <br>
-          Assigned To: ${escapeHTML(row.assigned_to)}
-          ${row.notes ? `<br>Notes: ${escapeHTML(row.notes)}` : ''}
-        </div>
-
-        <div class="stage-edit-box" data-stage-id="${escapeHTML(row.stage_id)}">
-          <div class="stage-edit-grid">
-            <div class="form-field">
-              <label>Stage Status</label>
-              <select class="stage-status-input">
-                ${stageStatusOptionsHTML(row.stage_status)}
-              </select>
-            </div>
-
-            <div class="form-field">
-              <label>Actual Start Date</label>
-              <input class="stage-actual-start-input" type="date" value="${escapeHTML(toDateInputValue(row.actual_start_date))}">
-            </div>
-
-            <div class="form-field">
-              <label>Actual Completion Date</label>
-              <input class="stage-actual-completion-input" type="date" value="${escapeHTML(toDateInputValue(row.actual_completion_date))}">
-            </div>
-
-            <div class="form-field">
-              <label>Assigned To</label>
-              <input class="stage-assigned-to-input" type="text" value="${escapeHTML(row.assigned_to)}" placeholder="Assigned To">
-            </div>
-
-            <div class="form-field">
-              <label>Changed By Required</label>
-              <input class="stage-changed-by-input" type="text" placeholder="Example: Tim">
-            </div>
-
-            <div class="form-field notes-cell">
-              <label>Stage Notes</label>
-              <textarea class="stage-notes-input" placeholder="Stage notes">${escapeHTML(row.notes)}</textarea>
-            </div>
-
-            <div class="form-field notes-cell">
-              <label>Change Notes / Reason</label>
-              <textarea class="stage-change-notes-input" placeholder="Example: PM completed stage after review."></textarea>
-            </div>
-
-            <div class="action-cell">
-              <button class="btn btn-primary btn-small" type="button" onclick="saveStageUpdate('${escapeHTML(row.stage_id)}')">Save Stage</button>
-              <span class="inline-status stage-save-status"></span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    container.appendChild(item);
-  });
 }
 
 async function saveStageUpdate(stageId) {
@@ -2830,6 +2798,10 @@ function setMessage(type, message) {
 
   el.className = `message ${type}`;
   el.textContent = message;
+
+  if (message && !String(message).toLowerCase().includes('loading')) {
+    showToast(type, message);
+  }
 }
 
 function clearMessage() {
@@ -2837,6 +2809,30 @@ function clearMessage() {
 
   el.className = 'message';
   el.textContent = '';
+}
+
+let toastTimer = null;
+
+function showToast(type, message) {
+  const toast = document.getElementById('toastMessage');
+
+  if (!toast) {
+    return;
+  }
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+  }
+
+  const safeType = ['success', 'error', 'info'].includes(type) ? type : 'info';
+
+  toast.className = `toast-message ${safeType} show`;
+  toast.textContent = message;
+
+  toastTimer = setTimeout(() => {
+    toast.className = `toast-message ${safeType}`;
+    toast.textContent = '';
+  }, 5200);
 }
 
 function setText(id, value) {
