@@ -463,6 +463,23 @@
       color: #166534;
     }
 
+    .companycam-collapsible-form {
+      display: none;
+      border-bottom: 1px solid #eef2f7;
+    }
+
+    .companycam-collapsible-form.open {
+      display: block;
+    }
+
+    .companycam-table-note {
+      padding: 12px 18px 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
     .external-link {
       color: white;
       background: var(--header);
@@ -1584,9 +1601,12 @@
                 <h2>CompanyCam Photos</h2>
                 <div class="panel-subtitle">Store CompanyCam photo/project links for this project. Photos remain in CompanyCam; this page stores the link reference.</div>
               </div>
+              <div class="panel-actions">
+                <button class="btn btn-blue btn-small" type="button" id="companyCamToggleButton" onclick="toggleCompanyCamForm()">+ Add CompanyCam Link</button>
+              </div>
             </div>
 
-            <div class="form-body">
+            <div class="form-body companycam-collapsible-form" id="companyCamFormBody">
               <div class="form-grid">
                 <div class="form-field">
                   <label for="companyCamLinkName">Link Name Required</label>
@@ -1618,7 +1638,7 @@
                 <div class="form-field">
                   <label>Save Link</label>
                   <div class="form-actions" style="justify-content:flex-start;margin-top:0;">
-                    <button class="btn btn-secondary" type="button" onclick="resetCompanyCamForm()">Clear Form</button>
+                    <button class="btn btn-secondary" type="button" onclick="resetCompanyCamForm(true, true)">Clear Form</button>
                     <button class="btn btn-primary" type="button" id="saveCompanyCamButton" onclick="saveCompanyCamLink()">Add CompanyCam Link</button>
                   </div>
                 </div>
@@ -1626,6 +1646,10 @@
             </div>
 
             <div id="companyCamMessage" class="companycam-form-message"></div>
+
+            <div class="companycam-table-note">
+              Existing CompanyCam links remain visible below. Use Open Link to view photos directly in CompanyCam.
+            </div>
 
             <div class="table-wrap">
               <table>
@@ -2696,7 +2720,7 @@ async function saveCompanyCamLink() {
     return;
   }
 
-  resetCompanyCamForm(false);
+  resetCompanyCamForm(false, true);
   setCompanyCamMessage('success', 'CompanyCam link added successfully.');
 
   await Promise.all([
@@ -2707,12 +2731,46 @@ async function saveCompanyCamLink() {
   document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
-function resetCompanyCamForm(showMessage = true) {
+function toggleCompanyCamForm(forceOpen = null) {
+  const form = document.getElementById('companyCamFormBody');
+
+  if (!form) {
+    return;
+  }
+
+  const shouldOpen = forceOpen === null
+    ? !form.classList.contains('open')
+    : forceOpen === true;
+
+  if (shouldOpen) {
+    form.classList.add('open');
+  } else {
+    form.classList.remove('open');
+  }
+
+  updateCompanyCamToggleButton(shouldOpen);
+}
+
+function updateCompanyCamToggleButton(isOpen) {
+  const button = document.getElementById('companyCamToggleButton');
+
+  if (!button) {
+    return;
+  }
+
+  button.textContent = isOpen ? 'Hide Add Link Form' : '+ Add CompanyCam Link';
+}
+
+function resetCompanyCamForm(showMessage = true, collapseForm = false) {
   setTextInputValue('companyCamLinkName', '');
   setTextInputValue('companyCamUrl', '');
   setTextInputValue('companyCamRelatedPhase', '');
   setTextInputValue('companyCamAddedBy', '');
   setTextInputValue('companyCamNotes', '');
+
+  if (collapseForm) {
+    toggleCompanyCamForm(false);
+  }
 
   if (showMessage) {
     setCompanyCamMessage('info', 'CompanyCam link form cleared.');
