@@ -199,6 +199,45 @@
       color: #166534;
     }
 
+    .toast-message {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 9999;
+      min-width: 280px;
+      max-width: 420px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.35;
+      box-shadow: 0 14px 34px rgba(15,23,42,0.24);
+      display: none;
+      border: 1px solid transparent;
+    }
+
+    .toast-message.show {
+      display: block;
+    }
+
+    .toast-message.info {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .toast-message.success {
+      background: #ecfdf3;
+      border-color: #86efac;
+      color: #166534;
+    }
+
+    .toast-message.error {
+      background: #fef3f2;
+      border-color: #fda29b;
+      color: #b42318;
+    }
+
     .hero-card {
       background: white;
       border: 1px solid var(--border);
@@ -791,41 +830,6 @@
       flex-wrap: wrap;
     }
 
-    .task-card-message {
-      display: none;
-      max-width: 680px;
-      margin: 14px auto 4px;
-      padding: 12px 14px;
-      border-radius: 12px;
-      font-size: 13px;
-      font-weight: 900;
-      line-height: 1.35;
-      text-align: center;
-      border: 1px solid transparent;
-    }
-
-    .task-card-message.show {
-      display: block;
-    }
-
-    .task-card-message.info {
-      background: #eff6ff;
-      border-color: #bfdbfe;
-      color: #1d4ed8;
-    }
-
-    .task-card-message.success {
-      background: #ecfdf3;
-      border-color: #86efac;
-      color: #166534;
-    }
-
-    .task-card-message.error {
-      background: #fef3f2;
-      border-color: #fda29b;
-      color: #b42318;
-    }
-
 
     .draw-summary-grid {
       display: grid;
@@ -1143,6 +1147,15 @@
       }
     }
 
+    @media (max-width: 520px) {
+      .toast-message {
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        min-width: 0;
+        max-width: none;
+      }
+    }
 
   </style>
 </head>
@@ -1654,6 +1667,8 @@
     </main>
   </div>
 
+  <div id="toastMessage" class="toast-message"></div>
+
 <script>
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
@@ -2113,8 +2128,6 @@ function renderScheduleTasks(rows) {
           </div>
         </div>
 
-        <div class="task-card-message"></div>
-
         <div class="task-card-actions">
           <span class="inline-status checklist-save-status"></span>
           <button class="btn btn-primary btn-small" type="button" onclick="saveScheduleTaskUpdate('${escapeHTML(row.task_id)}')">Save Task</button>
@@ -2152,7 +2165,7 @@ async function saveScheduleTaskUpdate(taskId) {
   const changedBy = getScopedInputValue(card, '.task-changed-by-input');
 
   if (!changedBy) {
-    showTaskCardMessage(card, 'error', 'Changed By is required before saving this checklist task.');
+    setMessage('error', 'Changed By is required before saving a checklist task.');
     return;
   }
 
@@ -2161,7 +2174,6 @@ async function saveScheduleTaskUpdate(taskId) {
 
   saveButton.disabled = true;
   status.textContent = 'Saving...';
-  showTaskCardMessage(card, 'info', 'Saving task update...');
 
   const payload = {
     p_task_id: taskId,
@@ -2186,7 +2198,7 @@ async function saveScheduleTaskUpdate(taskId) {
 
   if (error) {
     status.textContent = '';
-    showTaskCardMessage(card, 'error', 'Checklist task update failed: ' + error.message);
+    setMessage('error', 'Checklist task update failed: ' + error.message);
     return;
   }
 
@@ -2194,55 +2206,19 @@ async function saveScheduleTaskUpdate(taskId) {
 
   if (result && result.success === false) {
     status.textContent = '';
-    showTaskCardMessage(card, 'error', result.message || 'Checklist task update failed.');
+    setMessage('error', result.message || 'Checklist task update failed.');
     return;
   }
 
   status.textContent = 'Saved.';
+  setMessage('success', 'Checklist task saved successfully.');
 
   await Promise.all([
     loadScheduleTasks(currentProjectId),
     loadAuditLog(currentProjectId)
   ]);
 
-  showTaskCardMessageByTaskId(taskId, 'success', 'Checklist task saved successfully.');
   document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
-}
-
-function showTaskCardMessageByTaskId(taskId, type, message) {
-  const card = document.querySelector(`.task-card[data-task-id="${cssEscape(taskId)}"]`);
-
-  if (!card) {
-    setMessage(type, message);
-    return;
-  }
-
-  showTaskCardMessage(card, type, message);
-}
-
-function showTaskCardMessage(card, type, message) {
-  if (!card) {
-    return;
-  }
-
-  const messageBox = card.querySelector('.task-card-message');
-
-  if (!messageBox) {
-    return;
-  }
-
-  const safeType = ['success', 'error', 'info'].includes(type) ? type : 'info';
-  messageBox.className = `task-card-message ${safeType} show`;
-  messageBox.textContent = message;
-
-  messageBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-  if (safeType === 'success') {
-    setTimeout(() => {
-      messageBox.className = 'task-card-message';
-      messageBox.textContent = '';
-    }, 5200);
-  }
 }
 
 function renderChecklistSummary(rows) {
@@ -2822,6 +2798,10 @@ function setMessage(type, message) {
 
   el.className = `message ${type}`;
   el.textContent = message;
+
+  if (message && !String(message).toLowerCase().includes('loading')) {
+    showToast(type, message);
+  }
 }
 
 function clearMessage() {
@@ -2829,6 +2809,30 @@ function clearMessage() {
 
   el.className = 'message';
   el.textContent = '';
+}
+
+let toastTimer = null;
+
+function showToast(type, message) {
+  const toast = document.getElementById('toastMessage');
+
+  if (!toast) {
+    return;
+  }
+
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+  }
+
+  const safeType = ['success', 'error', 'info'].includes(type) ? type : 'info';
+
+  toast.className = `toast-message ${safeType} show`;
+  toast.textContent = message;
+
+  toastTimer = setTimeout(() => {
+    toast.className = `toast-message ${safeType}`;
+    toast.textContent = '';
+  }, 5200);
 }
 
 function setText(id, value) {
