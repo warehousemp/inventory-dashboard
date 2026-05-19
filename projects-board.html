@@ -1275,7 +1275,7 @@ function updateBoardModeNote() {
   if (boardMode === 'MASTER') {
     note.textContent = 'Master Status View is read-only. Lifecycle movement will stay locked until workflow validation is built.';
   } else {
-    note.textContent = 'Production boards are drag-and-drop. Forward phase movement is allowed. Backward movement is blocked and must be handled through an admin correction workflow.';
+    note.textContent = 'Production boards show production phases only. Forward phase movement is allowed. Backward movement is blocked and must be handled through an admin correction workflow.';
   }
 }
 
@@ -1376,11 +1376,6 @@ function renderBoard() {
         }
 
         const projectPhase = normalizePhaseName(project.current_production_phase);
-
-        if (column.key === 'Unassigned Production Phase') {
-          return !projectPhase;
-        }
-
         return projectPhase === normalizePhaseName(column.key);
       }
 
@@ -1399,7 +1394,7 @@ function renderBoard() {
   );
 
   productionColumnDefinitions.forEach(column => {
-    const allowDrop = column.columnType === 'PHASE' && column.key !== 'Unassigned Production Phase';
+    const allowDrop = column.columnType === 'PHASE';
 
     board.appendChild(renderColumn(
       column.title,
@@ -1413,48 +1408,7 @@ function renderBoard() {
 }
 
 function getProductionBoardColumns(projectType) {
-  const columns = [
-    {
-      columnType: 'STATUS',
-      key: 'SALES_HANDOFF',
-      title: 'Sales Handoff',
-      sub: 'New client project entered',
-      cardClass: 'sales',
-      sort_order: -400
-    },
-    {
-      columnType: 'STATUS',
-      key: 'PROJECT_SETUP',
-      title: 'Project Setup',
-      sub: 'PM / coordinator / docs / setup',
-      cardClass: 'setup',
-      sort_order: -300
-    },
-    {
-      columnType: 'STATUS',
-      key: 'PRE_CONSTRUCTION',
-      title: 'Pre-Construction',
-      sub: 'Engineering, permits, planning',
-      cardClass: 'setup',
-      sort_order: -200
-    },
-    {
-      columnType: 'STATUS',
-      key: 'SCHEDULED',
-      title: 'Scheduled',
-      sub: 'Schedule created / ready to start',
-      cardClass: 'production',
-      sort_order: -100
-    },
-    {
-      columnType: 'PHASE',
-      key: 'Unassigned Production Phase',
-      title: 'Unassigned Phase',
-      sub: 'Needs current production phase',
-      cardClass: 'production',
-      sort_order: 0
-    }
-  ];
+  const columns = [];
 
   phaseTemplates
     .filter(template => template.project_type === projectType && template.active === true)
@@ -1669,7 +1623,7 @@ function handleColumnDrop(event) {
     return;
   }
 
-  if (!targetPhase || targetPhase === 'Unassigned Production Phase') {
+  if (!targetPhase) {
     setPageMessage('error', 'Projects can only be moved into an active production phase.');
     return;
   }
