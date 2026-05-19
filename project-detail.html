@@ -329,6 +329,15 @@
       color: var(--muted);
       font-size: 12px;
       font-weight: 700;
+      margin-top: 3px;
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
     }
 
     .form-body {
@@ -416,6 +425,11 @@
 
     .btn-success {
       background: var(--green);
+      color: white;
+    }
+
+    .btn-blue {
+      background: var(--blue);
       color: white;
     }
 
@@ -517,6 +531,54 @@
       display: flex;
       align-items: end;
       gap: 8px;
+    }
+
+    .checklist-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f8fafc;
+    }
+
+    .checklist-summary-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .checklist-summary-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 900;
+      letter-spacing: 0.25px;
+      margin-bottom: 5px;
+    }
+
+    .checklist-summary-value {
+      font-size: 17px;
+      font-weight: 900;
+      color: #111827;
+    }
+
+    .checklist-table-wrap {
+      overflow: auto;
+      max-height: 520px;
+      padding: 0 14px 14px;
+      border-top: 1px solid #eef2f7;
+    }
+
+    .checklist-table {
+      min-width: 1600px;
+    }
+
+    .checklist-table th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
     }
 
     .draw-summary-grid {
@@ -722,6 +784,21 @@
       line-height: 1.35;
     }
 
+    .empty-state {
+      padding: 24px 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .empty-state strong {
+      display: block;
+      color: #102a43;
+      font-size: 17px;
+      margin-bottom: 6px;
+    }
+
     .footer {
       text-align: center;
       color: var(--muted);
@@ -731,7 +808,8 @@
 
     @media (max-width: 1250px) {
       .kpi-grid,
-      .draw-summary-grid {
+      .draw-summary-grid,
+      .checklist-summary-grid {
         grid-template-columns: repeat(3, 1fr);
       }
 
@@ -772,7 +850,8 @@
       }
 
       .kpi-grid,
-      .draw-summary-grid {
+      .draw-summary-grid,
+      .checklist-summary-grid {
         grid-template-columns: repeat(2, 1fr);
       }
 
@@ -793,7 +872,8 @@
       .content { padding: 14px; }
 
       .kpi-grid,
-      .draw-summary-grid {
+      .draw-summary-grid,
+      .checklist-summary-grid {
         grid-template-columns: 1fr;
       }
 
@@ -819,6 +899,7 @@
       <nav class="side-nav">
         <a href="projects-command.html"><span class="nav-icon">◆</span>Projects Home</a>
         <a href="dashboard.html"><span class="nav-icon">⌂</span>Dashboard</a>
+        <a href="projects-board.html"><span class="nav-icon">▦</span>Kanban Board</a>
         <a href="add-new-client-project.html"><span class="nav-icon">＋</span>Add New Client Project</a>
         <a href="project-setup.html"><span class="nav-icon">▤</span>Project Setup</a>
         <a class="active" href="projects.html"><span class="nav-icon">▣</span>Active Projects</a>
@@ -873,8 +954,8 @@
               </div>
 
               <div class="kpi-card">
-                <div class="kpi-label">Stages</div>
-                <div class="kpi-value" id="stageCountValue">0 / 0</div>
+                <div class="kpi-label">Checklist</div>
+                <div class="kpi-value" id="checklistCountValue">0 / 0</div>
               </div>
 
               <div class="kpi-card">
@@ -959,7 +1040,7 @@
             <div class="setup-complete-banner">
               <div>
                 <div class="setup-complete-title">Project Setup Complete</div>
-                <div class="setup-complete-text">The Project Setup stage has been completed. The setup edit form is minimized because this project should no longer be an active setup queue item.</div>
+                <div class="setup-complete-text">The Project Setup stage has been completed. The project should remain in the setup queue until it is released to production through the controlled Release to Production workflow.</div>
               </div>
               <div id="projectSetupCompletePill"></div>
             </div>
@@ -1057,8 +1138,77 @@
           <div class="panel">
             <div class="panel-header">
               <div>
-                <h2>Project Workflow Stages</h2>
-                <div class="panel-subtitle">PM-controlled stage updates with audit-safe save buttons.</div>
+                <h2>Project Completion Checklist</h2>
+                <div class="panel-subtitle">Production checklist generated from the project type template. Editing controls will be added in the next build step.</div>
+              </div>
+              <div class="panel-actions">
+                <button class="btn btn-secondary btn-small" type="button" onclick="loadScheduleTasks(currentProjectId)">Refresh Checklist</button>
+                <button class="btn btn-blue btn-small" type="button" id="generateChecklistButton" onclick="generateChecklistTasks()">Generate Checklist Tasks</button>
+              </div>
+            </div>
+
+            <div class="checklist-summary-grid">
+              <div class="checklist-summary-card">
+                <div class="checklist-summary-label">Total Tasks</div>
+                <div class="checklist-summary-value" id="checklistTotalTasks">0</div>
+              </div>
+
+              <div class="checklist-summary-card">
+                <div class="checklist-summary-label">Completed</div>
+                <div class="checklist-summary-value" id="checklistCompletedTasks">0</div>
+              </div>
+
+              <div class="checklist-summary-card">
+                <div class="checklist-summary-label">In Progress</div>
+                <div class="checklist-summary-value" id="checklistInProgressTasks">0</div>
+              </div>
+
+              <div class="checklist-summary-card">
+                <div class="checklist-summary-label">Not Started</div>
+                <div class="checklist-summary-value" id="checklistNotStartedTasks">0</div>
+              </div>
+
+              <div class="checklist-summary-card">
+                <div class="checklist-summary-label">Scheduled Days</div>
+                <div class="checklist-summary-value" id="checklistScheduledDays">0</div>
+              </div>
+            </div>
+
+            <div class="checklist-table-wrap">
+              <table class="checklist-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Task Name</th>
+                    <th>Group</th>
+                    <th>Status</th>
+                    <th>Required</th>
+                    <th>Default Days</th>
+                    <th>Scheduled Days</th>
+                    <th>Scheduled Start</th>
+                    <th>Scheduled End</th>
+                    <th>Actual Start</th>
+                    <th>Actual Complete</th>
+                    <th>Completed By</th>
+                    <th>Subcontractor</th>
+                    <th>Inspection</th>
+                    <th>Draw Trigger</th>
+                    <th>Delay Reason</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="checklistTableBody">
+                  <tr><td colspan="17">Loading checklist tasks...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Legacy Project Workflow Stages</h2>
+                <div class="panel-subtitle">Older stage workflow kept for reference during transition to checklist scheduling.</div>
               </div>
             </div>
 
@@ -1287,6 +1437,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentProjectId = null;
 let currentProject = null;
 let currentProjectSetupStage = null;
+let scheduleTasks = [];
 
 let projectStatusOptions = [];
 let stageStatusOptions = [];
@@ -1319,6 +1470,7 @@ async function loadProjectDetailPage() {
   }
 
   await Promise.all([
+    loadScheduleTasks(currentProjectId),
     loadStages(currentProjectId),
     loadDraws(currentProjectId),
     loadDocuments(currentProjectId),
@@ -1399,7 +1551,6 @@ function renderProjectHeader(row) {
   document.getElementById('contractAmountValue').textContent = formatCurrency(row.contract_amount);
   document.getElementById('changeOrderValue').textContent = formatCurrency(row.approved_change_order_total);
   document.getElementById('totalProjectValue').textContent = formatCurrency(row.total_project_value);
-  document.getElementById('stageCountValue').textContent = `${row.stage_count || 0} / ${row.expected_stage_count || 0}`;
   document.getElementById('drawCountValue').textContent = `${row.draw_count || 0} / ${row.expected_draw_count || 0}`;
 
   document.getElementById('clientValue').innerHTML = escapeHTML(row.client_name);
@@ -1417,9 +1568,11 @@ function renderProjectHeader(row) {
     `Start: ${escapeHTML(formatDate(row.projected_start_date))}<br>` +
     `Completion: ${escapeHTML(formatDate(row.projected_completion_date))}`;
 
+  const coordinator = row.project_coordinator || row.superintendent || '';
+
   document.getElementById('teamValue').innerHTML =
     `PM: ${escapeHTML(row.project_manager)}<br>` +
-    `Project Coordinator: ${escapeHTML(row.superintendent)}<br>` +
+    `Project Coordinator: ${escapeHTML(coordinator)}<br>` +
     `Sales: ${escapeHTML(row.sales_person)}`;
 
   document.getElementById('engineeringPermitValue').innerHTML =
@@ -1446,7 +1599,7 @@ function populateProjectManagerForm(row) {
   fillPermitStatusSelect('pmPermitStatus', row.permit_status);
 
   document.getElementById('pmProjectManager').value = row.project_manager || '';
-  document.getElementById('pmSuperintendent').value = row.superintendent || '';
+  document.getElementById('pmSuperintendent').value = row.project_coordinator || row.superintendent || '';
   document.getElementById('pmProjectedStartDate').value = toDateInputValue(row.projected_start_date);
   document.getElementById('pmProjectedCompletionDate').value = toDateInputValue(row.projected_completion_date);
   document.getElementById('pmProjectNotes').value = row.notes || '';
@@ -1564,7 +1717,7 @@ async function completeProjectSetupStage() {
   }
 
   status.textContent = 'Project Setup completed.';
-  setMessage('success', 'Project Setup completed successfully. The setup panel has been minimized. If Project Manager and Project Coordinator are filled in, this project should now drop from the Project Setup Queue.');
+  setMessage('success', 'Project Setup completed successfully. This project should remain in the Project Setup Queue until Release to Production is completed.');
 
   await loadProjectHeader(currentProjectId);
   await Promise.all([
@@ -1583,7 +1736,7 @@ function renderProjectSetupPanelState() {
     return;
   }
 
-  const isComplete = currentProjectSetupStage && normalize(currentProjectSetupStage.stage_status) === 'COMPLETE';
+  const isComplete = currentProjectSetupStage && ['COMPLETE', 'COMPLETED'].includes(normalize(currentProjectSetupStage.stage_status));
 
   if (!isComplete) {
     summary.style.display = 'none';
@@ -1594,11 +1747,142 @@ function renderProjectSetupPanelState() {
   summary.style.display = 'block';
   editBody.style.display = 'none';
 
+  const coordinator = currentProject?.project_coordinator || currentProject?.superintendent || '';
+
   document.getElementById('projectSetupCompletePill').innerHTML = statusPill(currentProjectSetupStage.stage_status);
   document.getElementById('setupSummaryProjectManager').textContent = currentProject?.project_manager || '';
-  document.getElementById('setupSummaryProjectCoordinator').textContent = currentProject?.superintendent || '';
+  document.getElementById('setupSummaryProjectCoordinator').textContent = coordinator;
   document.getElementById('setupSummaryCompletedDate').textContent = formatDate(currentProjectSetupStage.actual_completion_date);
   document.getElementById('setupSummaryAssignedTo').textContent = currentProjectSetupStage.assigned_to || currentProject?.project_manager || '';
+}
+
+async function loadScheduleTasks(projectId) {
+  if (!projectId) {
+    renderScheduleTasks([]);
+    return;
+  }
+
+  const { data, error } = await client
+    .from('project_schedule_tasks_view')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    scheduleTasks = [];
+    renderScheduleTasks([]);
+    setMessage('error', 'Project checklist error: ' + error.message);
+    return;
+  }
+
+  scheduleTasks = data || [];
+  renderScheduleTasks(scheduleTasks);
+}
+
+function renderScheduleTasks(rows) {
+  const tbody = document.getElementById('checklistTableBody');
+  tbody.innerHTML = '';
+
+  renderChecklistSummary(rows);
+
+  const generateButton = document.getElementById('generateChecklistButton');
+  if (generateButton) {
+    generateButton.style.display = rows && rows.length > 0 ? 'none' : 'inline-block';
+  }
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="17">
+          <div class="empty-state">
+            <strong>No checklist tasks have been generated for this project yet.</strong>
+            Use Generate Checklist Tasks to create the project checklist from the project type template.
+          </div>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${escapeHTML(row.sort_order)}</td>
+      <td class="wide-text">${escapeHTML(row.task_name)}</td>
+      <td>${escapeHTML(row.task_group)}</td>
+      <td>${statusPill(row.task_status)}</td>
+      <td>${escapeHTML(row.required === true ? 'Yes' : 'No')}</td>
+      <td>${escapeHTML(row.default_business_days)}</td>
+      <td>${escapeHTML(row.scheduled_business_days)}</td>
+      <td>${escapeHTML(formatDate(row.scheduled_start_date))}</td>
+      <td>${escapeHTML(formatDate(row.scheduled_end_date))}</td>
+      <td>${escapeHTML(formatDate(row.actual_start_date))}</td>
+      <td>${escapeHTML(formatDate(row.actual_completion_date))}</td>
+      <td>${escapeHTML(row.completed_by)}</td>
+      <td>${escapeHTML(row.subcontractor_required === true ? (row.assigned_subcontractor || 'Required') : (row.assigned_subcontractor || ''))}</td>
+      <td>${escapeHTML(row.inspection_required === true ? (row.inspection_status || 'Required') : (row.inspection_status || ''))}</td>
+      <td>${escapeHTML(row.draw_trigger_group)}</td>
+      <td class="wide-text">${escapeHTML(row.delay_reason)}</td>
+      <td class="wide-text">${escapeHTML(row.notes)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function renderChecklistSummary(rows) {
+  const total = rows.length;
+  const completed = rows.filter(row => ['COMPLETE', 'COMPLETED'].includes(normalize(row.task_status))).length;
+  const inProgress = rows.filter(row => normalize(row.task_status) === 'IN_PROGRESS').length;
+  const notStarted = rows.filter(row => normalize(row.task_status) === 'NOT_STARTED').length;
+  const scheduledDays = rows.reduce((sum, row) => sum + Number(row.scheduled_business_days || 0), 0);
+
+  setText('checklistTotalTasks', total);
+  setText('checklistCompletedTasks', completed);
+  setText('checklistInProgressTasks', inProgress);
+  setText('checklistNotStartedTasks', notStarted);
+  setText('checklistScheduledDays', scheduledDays);
+  setText('checklistCountValue', `${completed} / ${total}`);
+}
+
+async function generateChecklistTasks() {
+  if (!currentProjectId) {
+    setMessage('error', 'No project selected.');
+    return;
+  }
+
+  const button = document.getElementById('generateChecklistButton');
+  button.disabled = true;
+  button.textContent = 'Generating...';
+
+  const { data, error } = await client.rpc('generate_project_schedule_tasks', {
+    p_project_id: currentProjectId
+  });
+
+  button.disabled = false;
+  button.textContent = 'Generate Checklist Tasks';
+
+  if (error) {
+    setMessage('error', 'Checklist generation failed: ' + error.message);
+    return;
+  }
+
+  const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+  const created = result ? Number(result.tasks_created || 0) : 0;
+
+  if (created > 0) {
+    setMessage('success', `Checklist tasks generated successfully. Tasks created: ${created}.`);
+  } else {
+    setMessage('info', 'Checklist tasks already existed for this project. No duplicate tasks were created.');
+  }
+
+  await Promise.all([
+    loadScheduleTasks(currentProjectId),
+    loadAuditLog(currentProjectId)
+  ]);
+
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
 async function loadStages(projectId) {
@@ -2001,7 +2285,9 @@ async function loadAuditLog(projectId) {
 
 function renderEmptyPage() {
   currentProjectSetupStage = null;
+  scheduleTasks = [];
   renderProjectSetupPanelState();
+  renderScheduleTasks([]);
   document.getElementById('projectTitle').textContent = 'No Project Selected';
   document.getElementById('projectSubtitle').textContent = 'Open a project from the Active Projects page.';
   document.getElementById('projectStatusPill').innerHTML = '';
@@ -2095,7 +2381,8 @@ function statusPill(value) {
     normalized.includes('REVIEW') ||
     normalized.includes('DUE') ||
     normalized.includes('NOT_BILLED') ||
-    normalized.includes('SALES_HANDOFF')
+    normalized.includes('SALES_HANDOFF') ||
+    normalized.includes('NOT_STARTED')
   ) {
     cls = 'orange';
   } else if (
@@ -2146,6 +2433,14 @@ function clearMessage() {
 
   el.className = 'message';
   el.textContent = '';
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+
+  if (el) {
+    el.textContent = value;
+  }
 }
 
 function sumColumn(rows, columnName) {
