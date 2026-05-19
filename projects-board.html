@@ -1,1 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <title>Kanban Dashboard - Projects Command Center</title>
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --green: #16a34a;
+      --blue: #2563eb;
+      --orange: #f97316;
+      --purple: #7c3aed;
+      --red: #dc2626;
+      --yellow: #eab308;
+      --teal: #0d9488;
+      --gray: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .side-nav {
+      padding: 14px 10px;
+    }
+
+    .side-nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+    }
+
+    .nav-icon {
+      width: 20px;
+      text-align: center;
+    }
+
+    .main {
+      min-width: 0;
+    }
+
+    .topbar {
+      background: var(--header);
+      color: white;
+      padding: 12px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      box-shadow: 0 2px 12px rgba(15,23,42,0.18);
+    }
+
+    .topbar-title h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 800;
+    }
+
+    .topbar-title p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      opacity: 0.88;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .topbar-pill {
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .content {
+      padding: 22px;
+      max-width: 100%;
+      margin: 0 auto;
+    }
+
+    .page-message {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      display: none;
+    }
+
+    .page-message.info {
+      display: block;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .page-message.error {
+      display: block;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: #b42318;
+    }
+
+    .page-message.success {
+      display: block;
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    .toolbar-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      margin-bottom: 14px;
+    }
+
+    .toolbar-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 180px 180px 180px 180px auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    label {
+      display: block;
+      color: #344054;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px;
+      font-size: 13px;
+      background: white;
+      color: var(--text);
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: 2px solid rgba(26,163,176,0.22);
+      border-color: var(--accent);
+    }
+
+    button {
+      border: 1px solid var(--header);
+      background: var(--header);
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      color: white;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button.secondary {
+      background: white;
+      color: var(--header);
+    }
+
+    button.small {
+      padding: 8px 9px;
+      font-size: 12px;
+    }
+
+    .tab-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .tab-button {
+      background: white;
+      color: var(--header);
+      border: 1px solid var(--border);
+    }
+
+    .tab-button.active {
+      background: var(--header);
+      color: white;
+      border-color: var(--header);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .summary-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      border-top: 5px solid var(--header);
+    }
+
+    .summary-card.blue {
+      border-top-color: var(--blue);
+    }
+
+    .summary-card.green {
+      border-top-color: var(--green);
+    }
+
+    .summary-card.orange {
+      border-top-color: var(--orange);
+    }
+
+    .summary-card.purple {
+      border-top-color: var(--purple);
+    }
+
+    .summary-card.red {
+      border-top-color: var(--red);
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      margin-bottom: 7px;
+    }
+
+    .summary-value {
+      font-size: 28px;
+      font-weight: 900;
+      color: #111827;
+      line-height: 1.05;
+    }
+
+    .summary-sub {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .board-wrap {
+      overflow-x: auto;
+      padding-bottom: 10px;
+    }
+
+    .board {
+      display: grid;
+      gap: 14px;
+      align-items: start;
+      min-width: max-content;
+    }
+
+    .board.master {
+      grid-template-columns: repeat(8, 315px);
+    }
+
+    .board.production {
+      grid-template-columns: repeat(var(--column-count), 315px);
+    }
+
+    .kanban-column {
+      background: #eef4f8;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      min-height: 520px;
+      overflow: hidden;
+    }
+
+    .column-header {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 12px;
+      position: sticky;
+      top: 65px;
+      z-index: 5;
+    }
+
+    .column-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .column-title {
+      font-size: 14px;
+      font-weight: 900;
+      color: #102a43;
+      line-height: 1.2;
+    }
+
+    .column-count {
+      min-width: 28px;
+      text-align: center;
+      border-radius: 999px;
+      padding: 4px 7px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-weight: 900;
+      font-size: 12px;
+    }
+
+    .column-sub {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    .column-body {
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .project-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 12px;
+      box-shadow: 0 3px 10px rgba(15,23,42,0.07);
+      border-left: 5px solid var(--gray);
+    }
+
+    .project-card.sales {
+      border-left-color: var(--orange);
+    }
+
+    .project-card.setup {
+      border-left-color: var(--blue);
+    }
+
+    .project-card.production {
+      border-left-color: var(--teal);
+    }
+
+    .project-card.blocked {
+      border-left-color: var(--red);
+    }
+
+    .project-card.closeout {
+      border-left-color: var(--purple);
+    }
+
+    .project-card.completed {
+      border-left-color: var(--green);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .project-title {
+      color: var(--header);
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.25;
+    }
+
+    .project-number {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      margin-top: 2px;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .open-link {
+      display: inline-block;
+      color: var(--blue);
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      text-decoration: none;
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .card-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin: 8px 0;
+    }
+
+    .meta-item {
+      background: #f8fafc;
+      border: 1px solid #eef2f7;
+      border-radius: 9px;
+      padding: 7px;
+      min-width: 0;
+    }
+
+    .meta-label {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.25px;
+      margin-bottom: 2px;
+    }
+
+    .meta-value {
+      color: #111827;
+      font-size: 11px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      border: 1px solid transparent;
+      line-height: 1.1;
+    }
+
+    .pill.green {
+      color: #166534;
+      background: #ecfdf3;
+      border-color: #bbf7d0;
+    }
+
+    .pill.blue {
+      color: #1d4ed8;
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    .pill.orange {
+      color: #9a3412;
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+
+    .pill.red {
+      color: #b42318;
+      background: #fef3f2;
+      border-color: #fecdca;
+    }
+
+    .pill.purple {
+      color: #6d28d9;
+      background: #f5f3ff;
+      border-color: #ddd6fe;
+    }
+
+    .pill.gray {
+      color: #475467;
+      background: #f2f4f7;
+      border-color: #e4e7ec;
+    }
+
+    .phase-control {
+      border-top: 1px solid #eef2f7;
+      margin-top: 10px;
+      padding-top: 10px;
+      display: grid;
+      gap: 7px;
+    }
+
+    .phase-control select,
+    .phase-control input {
+      padding: 8px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    .empty-column {
+      background: rgba(255,255,255,0.65);
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 18px;
+    }
+
+    @media (max-width: 1250px) {
+      .toolbar-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .side-nav {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .topbar {
+        position: relative;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .topbar-actions {
+        justify-content: flex-start;
+      }
+
+      .toolbar-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .column-header {
+        position: relative;
+        top: auto;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .content {
+        padding: 14px;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .side-nav {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">MP</div>
+        <div class="brand-text">
+          <strong>MOLINARI</strong>
+          <span>POOLS</span>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <a href="projects-command.html"><span class="nav-icon">◆</span>Projects Home</a>
+        <a href="dashboard.html"><span class="nav-icon">⌂</span>Dashboard</a>
+        <a class="active" href="projects-board.html"><span class="nav-icon">▦</span>Kanban Board</a>
+        <a href="add-new-client-project.html"><span class="nav-icon">＋</span>Add New Client Project</a>
+        <a href="project-setup.html"><span class="nav-icon">▤</span>Project Setup</a>
+        <a href="projects.html"><span class="nav-icon">▣</span>Active Projects</a>
+        <a href="project-accounting.html"><span class="nav-icon">$</span>Accounting Draws</a>
+        <a href="project-documents.html"><span class="nav-icon">□</span>Documents</a>
+        <a href="project-admin.html"><span class="nav-icon">⚙</span>Admin</a>
+        <a href="index.html"><span class="nav-icon">↩</span>Main Menu</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h1>Kanban Dashboard</h1>
+          <p>Projects Command Center Board View</p>
+        </div>
+
+        <div class="topbar-actions">
+          <span class="topbar-pill">Project Visibility Board</span>
+          <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
+        </div>
+      </header>
+
+      <section class="content">
+
+        <div id="pageMessage" class="page-message info">Loading Kanban board...</div>
+
+        <section class="toolbar-card">
+          <div class="toolbar-grid">
+            <div>
+              <label for="searchInput">Search Projects</label>
+              <input id="searchInput" type="text" placeholder="Search project number, name, client, PM, coordinator, city..." oninput="renderBoard()" />
+            </div>
+
+            <div>
+              <label for="projectTypeFilter">Project Type</label>
+              <select id="projectTypeFilter" onchange="handleProjectTypeFilterChange()">
+                <option value="ALL">All Project Types</option>
+                <option value="NEW_BUILD">New Builds</option>
+                <option value="RENOVATION">Renovations</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="pmFilter">Project Manager</label>
+              <select id="pmFilter" onchange="renderBoard()">
+                <option value="ALL">All PMs</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="coordinatorFilter">Coordinator</label>
+              <select id="coordinatorFilter" onchange="renderBoard()">
+                <option value="ALL">All Coordinators</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="updatedByInput">Update By</label>
+              <input id="updatedByInput" type="text" placeholder="Required to save phase" />
+            </div>
+
+            <div>
+              <button onclick="loadBoard()">Refresh Board</button>
+            </div>
+          </div>
+        </section>
+
+        <div class="tab-row">
+          <button id="masterTab" class="tab-button active" onclick="setBoardMode('MASTER')">Master Status Board</button>
+          <button id="newBuildTab" class="tab-button" onclick="setBoardMode('NEW_BUILD')">New Build Production</button>
+          <button id="renovationTab" class="tab-button" onclick="setBoardMode('RENOVATION')">Renovation Production</button>
+        </div>
+
+        <section class="summary-grid">
+          <div class="summary-card blue">
+            <div class="summary-label">Active Projects</div>
+            <div class="summary-value" id="activeProjectCount">0</div>
+            <div class="summary-sub">Visible on current board</div>
+          </div>
+
+          <div class="summary-card orange">
+            <div class="summary-label">Sales Handoff</div>
+            <div class="summary-value" id="salesHandoffCount">0</div>
+            <div class="summary-sub">Awaiting project setup</div>
+          </div>
+
+          <div class="summary-card purple">
+            <div class="summary-label">Project Setup</div>
+            <div class="summary-value" id="projectSetupCount">0</div>
+            <div class="summary-sub">Setup workflow active</div>
+          </div>
+
+          <div class="summary-card green">
+            <div class="summary-label">Active Production</div>
+            <div class="summary-value" id="productionCount">0</div>
+            <div class="summary-sub">In progress projects</div>
+          </div>
+
+          <div class="summary-card red">
+            <div class="summary-label">Unassigned Phase</div>
+            <div class="summary-value" id="unassignedPhaseCount">0</div>
+            <div class="summary-sub">Needs current phase assigned</div>
+          </div>
+        </section>
+
+        <section class="board-wrap">
+          <div id="boardContainer" class="board master">
+          </div>
+        </section>
+
+        <div class="footer">
+          © 2026 Molinari Pools. All rights reserved.
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let allProjects = [];
+let phaseTemplates = [];
+let boardMode = 'MASTER';
+
+const MASTER_COLUMNS = [
+  {
+    key: 'SALES_HANDOFF',
+    title: 'Sales Handoff',
+    sub: 'New client project entered',
+    cardClass: 'sales'
+  },
+  {
+    key: 'PROJECT_SETUP',
+    title: 'Project Setup',
+    sub: 'PM / coordinator / docs / setup',
+    cardClass: 'setup'
+  },
+  {
+    key: 'PRE_CONSTRUCTION',
+    title: 'Pre-Construction',
+    sub: 'Engineering, permits, planning',
+    cardClass: 'setup'
+  },
+  {
+    key: 'SCHEDULED',
+    title: 'Scheduled',
+    sub: 'Schedule created / ready to start',
+    cardClass: 'production'
+  },
+  {
+    key: 'ACTIVE_PRODUCTION',
+    title: 'Active Production',
+    sub: 'Currently in progress',
+    cardClass: 'production'
+  },
+  {
+    key: 'BLOCKED_WAITING',
+    title: 'Blocked / Waiting',
+    sub: 'Needs attention or outside dependency',
+    cardClass: 'blocked'
+  },
+  {
+    key: 'CLOSEOUT',
+    title: 'Closeout',
+    sub: 'Punch, final draw, final docs',
+    cardClass: 'closeout'
+  },
+  {
+    key: 'COMPLETED',
+    title: 'Completed',
+    sub: 'Closed project',
+    cardClass: 'completed'
+  }
+];
+
+window.addEventListener('load', async () => {
+  await loadBoard();
+});
+
+async function loadBoard() {
+  setPageMessage('info', 'Loading Kanban board data...');
+
+  const phaseResult = await client
+    .from('project_production_phase_template_view')
+    .select('*')
+    .order('project_type', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  if (phaseResult.error) {
+    setPageMessage('error', 'Phase template error: ' + phaseResult.error.message);
+    return;
+  }
+
+  const projectResult = await client
+    .from('project_board_view')
+    .select('*')
+    .order('project_number', { ascending: true });
+
+  if (projectResult.error) {
+    setPageMessage('error', 'Project board error: ' + projectResult.error.message);
+    return;
+  }
+
+  phaseTemplates = phaseResult.data || [];
+  allProjects = projectResult.data || [];
+
+  populateFilters();
+  renderBoard();
+
+  setPageMessage('', '');
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+function populateFilters() {
+  const currentPm = document.getElementById('pmFilter').value || 'ALL';
+  const currentCoordinator = document.getElementById('coordinatorFilter').value || 'ALL';
+
+  const pmSet = new Set();
+  const coordinatorSet = new Set();
+
+  allProjects.forEach(project => {
+    if (project.project_manager && String(project.project_manager).trim() !== '') {
+      pmSet.add(String(project.project_manager).trim());
+    }
+
+    if (project.project_coordinator && String(project.project_coordinator).trim() !== '') {
+      coordinatorSet.add(String(project.project_coordinator).trim());
+    }
+  });
+
+  fillSelect('pmFilter', 'All PMs', Array.from(pmSet).sort(), currentPm);
+  fillSelect('coordinatorFilter', 'All Coordinators', Array.from(coordinatorSet).sort(), currentCoordinator);
+}
+
+function fillSelect(id, allLabel, values, currentValue) {
+  const select = document.getElementById(id);
+  select.innerHTML = `<option value="ALL">${escapeHTML(allLabel)}</option>`;
+
+  values.forEach(value => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+  });
+
+  const exists = Array.from(select.options).some(option => option.value === currentValue);
+  select.value = exists ? currentValue : 'ALL';
+}
+
+function handleProjectTypeFilterChange() {
+  const value = document.getElementById('projectTypeFilter').value;
+
+  if (value === 'NEW_BUILD') {
+    setBoardMode('NEW_BUILD');
+  } else if (value === 'RENOVATION') {
+    setBoardMode('RENOVATION');
+  } else {
+    setBoardMode('MASTER');
+  }
+}
+
+function setBoardMode(mode) {
+  boardMode = mode;
+
+  document.getElementById('masterTab').classList.toggle('active', mode === 'MASTER');
+  document.getElementById('newBuildTab').classList.toggle('active', mode === 'NEW_BUILD');
+  document.getElementById('renovationTab').classList.toggle('active', mode === 'RENOVATION');
+
+  if (mode === 'NEW_BUILD') {
+    document.getElementById('projectTypeFilter').value = 'NEW_BUILD';
+  } else if (mode === 'RENOVATION') {
+    document.getElementById('projectTypeFilter').value = 'RENOVATION';
+  }
+
+  renderBoard();
+}
+
+function getFilteredProjects() {
+  const searchText = normalizeSearch(document.getElementById('searchInput').value);
+  const typeFilter = document.getElementById('projectTypeFilter').value;
+  const pmFilter = document.getElementById('pmFilter').value;
+  const coordinatorFilter = document.getElementById('coordinatorFilter').value;
+
+  return allProjects.filter(project => {
+    if (typeFilter !== 'ALL' && project.project_type !== typeFilter) {
+      return false;
+    }
+
+    if (pmFilter !== 'ALL' && String(project.project_manager || '') !== pmFilter) {
+      return false;
+    }
+
+    if (coordinatorFilter !== 'ALL' && String(project.project_coordinator || '') !== coordinatorFilter) {
+      return false;
+    }
+
+    if (searchText) {
+      const haystack = normalizeSearch([
+        project.project_number,
+        project.project_name,
+        project.client_name,
+        project.client_first_name,
+        project.client_last_name,
+        project.project_manager,
+        project.project_coordinator,
+        project.project_status,
+        project.project_type,
+        project.current_production_phase,
+        project.project_city,
+        project.project_address
+      ].join(' '));
+
+      if (!haystack.includes(searchText)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+function renderBoard() {
+  const board = document.getElementById('boardContainer');
+  const filtered = getFilteredProjects();
+
+  renderSummary(filtered);
+
+  board.innerHTML = '';
+
+  if (boardMode === 'MASTER') {
+    board.className = 'board master';
+
+    MASTER_COLUMNS.forEach(column => {
+      const rows = filtered.filter(project => project.board_status_bucket === column.key);
+      board.appendChild(renderColumn(column.title, column.sub, rows, column.cardClass));
+    });
+
+    return;
+  }
+
+  const productionProjectType = boardMode;
+  const columns = getProductionColumns(productionProjectType);
+  const productionProjects = filtered.filter(project => {
+    return project.project_type === productionProjectType &&
+      project.board_status_bucket === 'ACTIVE_PRODUCTION';
+  });
+
+  board.className = 'board production';
+  board.style.setProperty('--column-count', columns.length);
+
+  columns.forEach(column => {
+    const rows = productionProjects.filter(project => {
+      return String(project.production_phase_bucket || 'Unassigned Production Phase') === column.key;
+    });
+
+    board.appendChild(renderColumn(column.title, column.sub, rows, 'production'));
+  });
+}
+
+function getProductionColumns(projectType) {
+  const columns = [
+    {
+      key: 'Unassigned Production Phase',
+      title: 'Unassigned Phase',
+      sub: 'Needs current production phase',
+      sort_order: 0
+    }
+  ];
+
+  phaseTemplates
+    .filter(template => template.project_type === projectType)
+    .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0))
+    .forEach(template => {
+      columns.push({
+        key: template.phase_name,
+        title: template.phase_name,
+        sub: `${template.default_business_days || 0} default business day(s)`,
+        sort_order: template.sort_order
+      });
+    });
+
+  return columns;
+}
+
+function renderColumn(title, sub, rows, cardClass) {
+  const column = document.createElement('div');
+  column.className = 'kanban-column';
+
+  column.innerHTML = `
+    <div class="column-header">
+      <div class="column-title-row">
+        <div class="column-title">${escapeHTML(title)}</div>
+        <div class="column-count">${rows.length}</div>
+      </div>
+      <div class="column-sub">${escapeHTML(sub || '')}</div>
+    </div>
+    <div class="column-body"></div>
+  `;
+
+  const body = column.querySelector('.column-body');
+
+  if (!rows || rows.length === 0) {
+    body.innerHTML = '<div class="empty-column">No projects in this bucket.</div>';
+    return column;
+  }
+
+  rows
+    .sort(sortProjectsForCardDisplay)
+    .forEach(project => {
+      body.appendChild(renderProjectCard(project, cardClass));
+    });
+
+  return column;
+}
+
+function renderProjectCard(project, defaultCardClass) {
+  const card = document.createElement('div');
+  const cardClass = getCardClass(project, defaultCardClass);
+  card.className = `project-card ${cardClass}`;
+
+  const projectTypeLabel = displayLabel(project.project_type);
+  const projectStatusLabel = displayLabel(project.project_status);
+  const phaseLabel = project.production_phase_bucket || project.current_production_phase || 'N/A';
+
+  card.innerHTML = `
+    <div class="card-top">
+      <div>
+        <div class="project-title">${escapeHTML(project.project_name || 'Unnamed Project')}</div>
+        <div class="project-number">${escapeHTML(project.project_number || '')}</div>
+      </div>
+      <div class="card-actions">
+        <a class="open-link" href="project-detail.html?project_id=${encodeURIComponent(project.project_id)}">Open</a>
+      </div>
+    </div>
+
+    <div>
+      ${statusPill(projectTypeLabel)}
+      ${statusPill(projectStatusLabel)}
+    </div>
+
+    <div class="card-meta">
+      <div class="meta-item">
+        <div class="meta-label">Client</div>
+        <div class="meta-value">${escapeHTML(project.client_name || 'N/A')}</div>
+      </div>
+
+      <div class="meta-item">
+        <div class="meta-label">Phase</div>
+        <div class="meta-value">${escapeHTML(phaseLabel)}</div>
+      </div>
+
+      <div class="meta-item">
+        <div class="meta-label">PM</div>
+        <div class="meta-value">${escapeHTML(project.project_manager || 'Unassigned')}</div>
+      </div>
+
+      <div class="meta-item">
+        <div class="meta-label">Coordinator</div>
+        <div class="meta-value">${escapeHTML(project.project_coordinator || 'Unassigned')}</div>
+      </div>
+
+      <div class="meta-item">
+        <div class="meta-label">Permit</div>
+        <div class="meta-value">${escapeHTML(displayLabel(project.permit_status || 'N/A'))}</div>
+      </div>
+
+      <div class="meta-item">
+        <div class="meta-label">Engineering</div>
+        <div class="meta-value">${escapeHTML(displayLabel(project.engineering_status || 'N/A'))}</div>
+      </div>
+    </div>
+  `;
+
+  if (project.board_status_bucket === 'ACTIVE_PRODUCTION') {
+    card.appendChild(renderPhaseControl(project));
+  }
+
+  return card;
+}
+
+function renderPhaseControl(project) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'phase-control';
+
+  const selectId = `phaseSelect_${safeId(project.project_id)}`;
+  const notesId = `phaseNotes_${safeId(project.project_id)}`;
+
+  const options = phaseTemplates
+    .filter(template => template.project_type === project.project_type)
+    .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+
+  wrapper.innerHTML = `
+    <div>
+      <label for="${selectId}">Update Current Phase</label>
+      <select id="${selectId}">
+        <option value="">Select Phase</option>
+        ${options.map(option => `
+          <option value="${escapeAttribute(option.phase_name)}" ${option.phase_name === project.current_production_phase ? 'selected' : ''}>
+            ${escapeHTML(option.phase_name)} (${escapeHTML(option.default_business_days)} days)
+          </option>
+        `).join('')}
+      </select>
+    </div>
+
+    <div>
+      <label for="${notesId}">Notes</label>
+      <input id="${notesId}" type="text" placeholder="Optional phase update note" />
+    </div>
+
+    <button class="small" onclick="saveProductionPhase('${escapeAttribute(project.project_id)}')">Save Phase</button>
+  `;
+
+  return wrapper;
+}
+
+async function saveProductionPhase(projectId) {
+  const project = allProjects.find(row => row.project_id === projectId);
+
+  if (!project) {
+    setPageMessage('error', 'Project not found on the current board.');
+    return;
+  }
+
+  const select = document.getElementById(`phaseSelect_${safeId(projectId)}`);
+  const notes = document.getElementById(`phaseNotes_${safeId(projectId)}`);
+  const updatedBy = document.getElementById('updatedByInput').value.trim();
+
+  const newPhase = select ? select.value : '';
+  const updateNotes = notes ? notes.value.trim() : '';
+
+  if (!newPhase) {
+    setPageMessage('error', 'Please select a production phase before saving.');
+    return;
+  }
+
+  if (!updatedBy) {
+    setPageMessage('error', 'Update By is required before saving a production phase.');
+    document.getElementById('updatedByInput').focus();
+    return;
+  }
+
+  setPageMessage('info', `Saving production phase for ${project.project_number || 'project'}...`);
+
+  const result = await client.rpc('update_project_current_production_phase', {
+    p_project_id: projectId,
+    p_current_production_phase: newPhase,
+    p_updated_by: updatedBy,
+    p_notes: updateNotes || null
+  });
+
+  if (result.error) {
+    setPageMessage('error', 'Phase update failed: ' + result.error.message);
+    return;
+  }
+
+  setPageMessage('success', `Production phase updated for ${project.project_number || 'project'}.`);
+  await loadBoard();
+}
+
+function renderSummary(rows) {
+  const activeCount = rows.length;
+  const salesCount = rows.filter(row => row.board_status_bucket === 'SALES_HANDOFF').length;
+  const setupCount = rows.filter(row => row.board_status_bucket === 'PROJECT_SETUP').length;
+  const productionCount = rows.filter(row => row.board_status_bucket === 'ACTIVE_PRODUCTION').length;
+  const unassignedCount = rows.filter(row => {
+    return row.board_status_bucket === 'ACTIVE_PRODUCTION' &&
+      (!row.current_production_phase || row.production_phase_bucket === 'Unassigned Production Phase');
+  }).length;
+
+  setText('activeProjectCount', activeCount);
+  setText('salesHandoffCount', salesCount);
+  setText('projectSetupCount', setupCount);
+  setText('productionCount', productionCount);
+  setText('unassignedPhaseCount', unassignedCount);
+}
+
+function sortProjectsForCardDisplay(a, b) {
+  const aNumber = String(a.project_number || '');
+  const bNumber = String(b.project_number || '');
+
+  return aNumber.localeCompare(bNumber);
+}
+
+function getCardClass(project, defaultCardClass) {
+  const bucket = project.board_status_bucket;
+
+  if (bucket === 'SALES_HANDOFF') return 'sales';
+  if (bucket === 'PROJECT_SETUP') return 'setup';
+  if (bucket === 'ACTIVE_PRODUCTION') return 'production';
+  if (bucket === 'BLOCKED_WAITING') return 'blocked';
+  if (bucket === 'CLOSEOUT') return 'closeout';
+  if (bucket === 'COMPLETED') return 'completed';
+
+  return defaultCardClass || 'production';
+}
+
+function statusPill(value) {
+  const text = displayLabel(value || 'N/A');
+  const normalized = normalize(value || text);
+
+  let cls = 'gray';
+
+  if (
+    normalized.includes('APPROVED') ||
+    normalized.includes('PAID') ||
+    normalized.includes('COMPLETE') ||
+    normalized.includes('READY')
+  ) {
+    cls = 'green';
+  } else if (
+    normalized.includes('NEW_BUILD') ||
+    normalized.includes('SUBMITTED') ||
+    normalized.includes('PROGRESS') ||
+    normalized.includes('SETUP') ||
+    normalized.includes('COMMENCEMENT')
+  ) {
+    cls = 'blue';
+  } else if (
+    normalized.includes('WAIT') ||
+    normalized.includes('PENDING') ||
+    normalized.includes('REVIEW') ||
+    normalized.includes('DUE') ||
+    normalized.includes('SALES_HANDOFF') ||
+    normalized.includes('NOT_BILLED')
+  ) {
+    cls = 'orange';
+  } else if (
+    normalized.includes('OVERDUE') ||
+    normalized.includes('DELAY') ||
+    normalized.includes('HOLD') ||
+    normalized.includes('NOT_SUBMITTED')
+  ) {
+    cls = 'red';
+  } else if (
+    normalized.includes('RENOVATION') ||
+    normalized.includes('ENGINEERING') ||
+    normalized.includes('PERMIT') ||
+    normalized.includes('PLASTER') ||
+    normalized.includes('TILE') ||
+    normalized.includes('NEEDS_ENGINEERING') ||
+    normalized.includes('NEEDS_TO_BE_PERMITTED') ||
+    normalized.includes('REQUIRED')
+  ) {
+    cls = 'purple';
+  }
+
+  return `<span class="pill ${cls}">${escapeHTML(text)}</span>`;
+}
+
+function normalize(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '_');
+}
+
+function normalizeSearch(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
+}
+
+function displayLabel(value) {
+  return String(value || 'N/A')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+function setPageMessage(type, message) {
+  const element = document.getElementById('pageMessage');
+
+  if (!element) {
+    return;
+  }
+
+  if (!type || !message) {
+    element.className = 'page-message';
+    element.textContent = '';
+    return;
+  }
+
+  element.className = `page-message ${type}`;
+  element.textContent = message;
+}
+
+function safeId(value) {
+  return String(value || '').replace(/[^a-zA-Z0-9]/g, '');
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeAttribute(value) {
+  return escapeHTML(value);
+}
+</script>
+
+</body>
+</html>
