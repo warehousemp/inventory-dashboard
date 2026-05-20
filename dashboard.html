@@ -224,7 +224,8 @@
     }
 
     input,
-    textarea {
+    textarea,
+    select {
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 9px;
@@ -242,7 +243,8 @@
     }
 
     input:focus,
-    textarea:focus {
+    textarea:focus,
+    select:focus {
       outline: 2px solid rgba(26,163,176,0.22);
       border-color: var(--accent);
     }
@@ -394,6 +396,8 @@
       text-decoration: none;
     }
 
+    .mini-link:hover { text-decoration: underline; }
+
     .status-list {
       display: grid;
       gap: 8px;
@@ -458,6 +462,44 @@
       margin-top: 2px;
     }
 
+    .operations-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+      padding: 0 14px 14px;
+    }
+
+    .operations-summary-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 12px;
+    }
+
+    .operations-summary-label {
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      margin-bottom: 6px;
+    }
+
+    .operations-summary-value {
+      font-size: 26px;
+      font-weight: 900;
+      color: #111827;
+      line-height: 1;
+    }
+
+    .operations-controls {
+      display: grid;
+      grid-template-columns: 1.5fr 180px 230px auto;
+      gap: 10px;
+      padding: 0 14px 14px;
+      align-items: center;
+    }
+
     .table-wrap {
       overflow-x: auto;
       padding: 0 14px 14px;
@@ -482,6 +524,7 @@
     }
 
     .doc-draw-review-table { min-width: 1550px; }
+    .operations-alert-table { min-width: 1320px; }
 
     th {
       text-align: left;
@@ -527,11 +570,15 @@
       color: #111827;
     }
 
-    .wide-text {
+    .wide-text,
+    .operations-message {
       white-space: normal;
       min-width: 250px;
       line-height: 1.35;
     }
+
+    .operations-message { min-width: 290px; }
+    .operations-project-cell { min-width: 230px; }
 
     .review-input-cell { min-width: 150px; }
     .review-notes-cell { min-width: 240px; }
@@ -543,7 +590,8 @@
       min-width: 170px;
     }
 
-    .pill {
+    .pill,
+    .severity-pill {
       display: inline-block;
       border-radius: 999px;
       padding: 5px 8px;
@@ -552,7 +600,14 @@
       border: 1px solid transparent;
     }
 
-    .pill.green {
+    .severity-pill {
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.25px;
+    }
+
+    .pill.green,
+    .severity-pill.low {
       color: #166534;
       background: #ecfdf3;
       border-color: #bbf7d0;
@@ -564,13 +619,15 @@
       border-color: #bfdbfe;
     }
 
-    .pill.orange {
+    .pill.orange,
+    .severity-pill.medium {
       color: #9a3412;
       background: #fff7ed;
       border-color: #fed7aa;
     }
 
-    .pill.red {
+    .pill.red,
+    .severity-pill.high {
       color: #b42318;
       background: #fef3f2;
       border-color: #fecdca;
@@ -629,6 +686,8 @@
       .executive-grid { grid-template-columns: repeat(2, 1fr); }
       .kpi-grid { grid-template-columns: repeat(4, 1fr); }
       .dashboard-grid { grid-template-columns: 1fr; }
+      .operations-summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .operations-controls { grid-template-columns: 1fr 1fr; }
     }
 
     @media (max-width: 820px) {
@@ -649,12 +708,14 @@
       .topbar-actions { justify-content: flex-start; }
       .executive-grid,
       .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .operations-controls { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 520px) {
       .content { padding: 14px; }
       .executive-grid,
-      .kpi-grid { grid-template-columns: 1fr; }
+      .kpi-grid,
+      .operations-summary-grid { grid-template-columns: 1fr; }
       .side-nav { grid-template-columns: 1fr; }
     }
   </style>
@@ -914,6 +975,74 @@
         <section class="table-card">
           <div class="card-header">
             <div>
+              <h2>Operations Aging Alerts</h2>
+              <span class="project-small">Current operational exceptions from phase aging, setup assignments, CompanyCam links, and DOC draw review status.</span>
+            </div>
+            <a class="mini-link" href="projects.html">View Active Projects</a>
+          </div>
+
+          <div class="operations-summary-grid">
+            <div class="operations-summary-card">
+              <div class="operations-summary-label">Total Alerts</div>
+              <div class="operations-summary-value" id="operationsTotalAlertsValue">0</div>
+            </div>
+            <div class="operations-summary-card">
+              <div class="operations-summary-label">High Priority</div>
+              <div class="operations-summary-value" id="operationsHighAlertsValue">0</div>
+            </div>
+            <div class="operations-summary-card">
+              <div class="operations-summary-label">Medium Priority</div>
+              <div class="operations-summary-value" id="operationsMediumAlertsValue">0</div>
+            </div>
+            <div class="operations-summary-card">
+              <div class="operations-summary-label">Projects With Alerts</div>
+              <div class="operations-summary-value" id="operationsProjectsWithAlertsValue">0</div>
+            </div>
+          </div>
+
+          <div class="operations-controls">
+            <input id="operationsAlertSearchInput" type="text" placeholder="Search project, phase, draw, or alert message" oninput="applyOperationsAlertFilters()">
+
+            <select id="operationsSeverityFilter" onchange="applyOperationsAlertFilters()">
+              <option value="">All Severities</option>
+              <option value="HIGH">High Only</option>
+              <option value="MEDIUM">Medium Only</option>
+              <option value="LOW">Low Only</option>
+            </select>
+
+            <select id="operationsTypeFilter" onchange="applyOperationsAlertFilters()">
+              <option value="">All Alert Types</option>
+            </select>
+
+            <button class="secondary small" type="button" onclick="clearOperationsAlertFilters()">Clear Filters</button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="operations-alert-table">
+              <thead>
+                <tr>
+                  <th>Severity</th>
+                  <th>Alert</th>
+                  <th>Project</th>
+                  <th>Type</th>
+                  <th>Current Phase</th>
+                  <th>Days / Target</th>
+                  <th>Draw</th>
+                  <th>Message</th>
+                </tr>
+              </thead>
+              <tbody id="operationsAlertsBody">
+                <tr>
+                  <td colspan="8">Loading operations alerts...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="table-card">
+          <div class="card-header">
+            <div>
               <h2>DOC Draw Review Queue</h2>
               <span class="project-small">Kanban-triggered draws waiting for DOC review before Accounting invoices.</span>
             </div>
@@ -991,6 +1120,8 @@ const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+let operationsAlertRows = [];
+
 window.addEventListener('load', async () => {
   await loadDashboard();
 });
@@ -1006,7 +1137,8 @@ async function loadDashboard() {
   if (summaryResult.error) {
     setPageMessage('error', 'Dashboard summary error: ' + summaryResult.error.message);
     renderSummary({});
-    renderAlerts({});
+    renderAlerts({}, []);
+    renderOperationsAlerts([]);
     renderDocDrawReviewQueue([]);
     renderProjectDrawSummary([]);
     return;
@@ -1022,7 +1154,8 @@ async function loadDashboard() {
   if (drawsResult.error) {
     setPageMessage('error', 'Draw summary error: ' + drawsResult.error.message);
     renderSummary(summaryResult.data || {});
-    renderAlerts(summaryResult.data || {});
+    renderAlerts(summaryResult.data || {}, []);
+    renderOperationsAlerts([]);
     renderDocDrawReviewQueue([]);
     renderProjectDrawSummary([]);
     return;
@@ -1040,10 +1173,25 @@ async function loadDashboard() {
   if (docReviewResult.error) {
     setPageMessage('error', 'DOC draw review queue error: ' + docReviewResult.error.message);
     renderSummary(summaryResult.data || {});
-    renderAlerts(summaryResult.data || {});
+    renderAlerts(summaryResult.data || {}, []);
+    renderOperationsAlerts([]);
     renderDocDrawReviewQueue([]);
     renderProjectDrawSummary(buildProjectSummaries(drawsResult.data || []));
     return;
+  }
+
+  const operationsAlertsResult = await client
+    .from('project_dashboard_operations_alerts_view')
+    .select('*')
+    .limit(1000);
+
+  let operationsErrorMessage = '';
+
+  if (operationsAlertsResult.error) {
+    operationsAlertRows = [];
+    operationsErrorMessage = 'Operations alerts error: ' + operationsAlertsResult.error.message;
+  } else {
+    operationsAlertRows = sortOperationsAlerts(operationsAlertsResult.data || []);
   }
 
   const summary = summaryResult.data || {};
@@ -1052,11 +1200,17 @@ async function loadDashboard() {
   const projectSummaries = buildProjectSummaries(drawRows);
 
   renderSummary(summary);
-  renderAlerts(summary);
+  renderAlerts(summary, operationsAlertRows);
+  renderOperationsAlerts(operationsAlertRows);
   renderDocDrawReviewQueue(docReviewRows);
   renderProjectDrawSummary(projectSummaries);
 
-  setPageMessage('', '');
+  if (operationsErrorMessage) {
+    setPageMessage('error', operationsErrorMessage);
+  } else {
+    setPageMessage('', '');
+  }
+
   document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
@@ -1120,13 +1274,34 @@ function renderSummary(summary) {
   setText('paidDrawCountDetail', paidDrawCount);
 }
 
-function renderAlerts(summary) {
+function renderAlerts(summary, operationRows = []) {
   const alerts = [];
 
   const openPermitCount = Number(summary.open_permit_count || 0);
   const openEngineeringCount = Number(summary.open_engineering_count || 0);
   const readyToInvoiceDrawCount = Number(summary.ready_to_invoice_draw_count || 0);
   const setupReviewNeededCount = Number(summary.setup_review_needed_count || 0);
+
+  const highOperationsAlertCount = operationRows.filter(row => String(row.alert_severity || '').toUpperCase() === 'HIGH').length;
+  const mediumOperationsAlertCount = operationRows.filter(row => String(row.alert_severity || '').toUpperCase() === 'MEDIUM').length;
+
+  if (highOperationsAlertCount > 0) {
+    alerts.push({
+      severity: 'red',
+      icon: '!',
+      title: `${highOperationsAlertCount} high priority operations alert(s)`,
+      sub: 'Review missing Project Managers, pending DOC draw reviews, and other high-priority exceptions below.'
+    });
+  }
+
+  if (mediumOperationsAlertCount > 0) {
+    alerts.push({
+      severity: 'orange',
+      icon: '⚠',
+      title: `${mediumOperationsAlertCount} medium priority operations alert(s)`,
+      sub: 'Review CompanyCam links, missing phase dates, and operational data cleanup items below.'
+    });
+  }
 
   if (openEngineeringCount > 0) {
     alerts.push({
@@ -1194,6 +1369,207 @@ function renderAlerts(summary) {
   });
 }
 
+function renderOperationsAlerts(rows) {
+  operationsAlertRows = sortOperationsAlerts(rows || []);
+
+  updateOperationsAlertTypeFilter(operationsAlertRows);
+  renderOperationsAlertSummary(operationsAlertRows);
+  applyOperationsAlertFilters();
+}
+
+function sortOperationsAlerts(rows) {
+  const severityOrder = {
+    HIGH: 1,
+    MEDIUM: 2,
+    LOW: 3
+  };
+
+  return [...(rows || [])].sort((a, b) => {
+    const severityA = severityOrder[String(a.alert_severity || '').toUpperCase()] || 9;
+    const severityB = severityOrder[String(b.alert_severity || '').toUpperCase()] || 9;
+
+    if (severityA !== severityB) {
+      return severityA - severityB;
+    }
+
+    const projectCompare = String(a.project_number || '').localeCompare(String(b.project_number || ''));
+
+    if (projectCompare !== 0) {
+      return projectCompare;
+    }
+
+    return String(a.alert_type || '').localeCompare(String(b.alert_type || ''));
+  });
+}
+
+function renderOperationsAlertSummary(rows) {
+  const totalAlerts = rows.length;
+  const highAlerts = rows.filter(row => String(row.alert_severity || '').toUpperCase() === 'HIGH').length;
+  const mediumAlerts = rows.filter(row => String(row.alert_severity || '').toUpperCase() === 'MEDIUM').length;
+  const projectsWithAlerts = new Set(rows.map(row => row.project_id || row.project_number).filter(Boolean)).size;
+
+  setText('operationsTotalAlertsValue', totalAlerts);
+  setText('operationsHighAlertsValue', highAlerts);
+  setText('operationsMediumAlertsValue', mediumAlerts);
+  setText('operationsProjectsWithAlertsValue', projectsWithAlerts);
+}
+
+function updateOperationsAlertTypeFilter(rows) {
+  const select = document.getElementById('operationsTypeFilter');
+
+  if (!select) {
+    return;
+  }
+
+  const currentValue = select.value;
+  const typeMap = new Map();
+
+  rows.forEach(row => {
+    const type = String(row.alert_type || '').trim();
+
+    if (!type) {
+      return;
+    }
+
+    typeMap.set(type, row.alert_title || displayLabel(type));
+  });
+
+  const options = ['<option value="">All Alert Types</option>'];
+
+  Array.from(typeMap.entries())
+    .sort((a, b) => String(a[1]).localeCompare(String(b[1])))
+    .forEach(([type, label]) => {
+      options.push(`<option value="${escapeHTML(type)}">${escapeHTML(label)}</option>`);
+    });
+
+  select.innerHTML = options.join('');
+
+  if (currentValue && typeMap.has(currentValue)) {
+    select.value = currentValue;
+  }
+}
+
+function applyOperationsAlertFilters() {
+  const tbody = document.getElementById('operationsAlertsBody');
+
+  if (!tbody) {
+    return;
+  }
+
+  const searchValue = String(document.getElementById('operationsAlertSearchInput')?.value || '').trim().toLowerCase();
+  const severityValue = String(document.getElementById('operationsSeverityFilter')?.value || '').trim().toUpperCase();
+  const typeValue = String(document.getElementById('operationsTypeFilter')?.value || '').trim();
+
+  const filteredRows = operationsAlertRows.filter(row => {
+    const rowSeverity = String(row.alert_severity || '').toUpperCase();
+    const rowType = String(row.alert_type || '');
+
+    if (severityValue && rowSeverity !== severityValue) {
+      return false;
+    }
+
+    if (typeValue && rowType !== typeValue) {
+      return false;
+    }
+
+    if (searchValue) {
+      const haystack = [
+        row.project_number,
+        row.project_name,
+        row.project_type,
+        row.project_status,
+        row.current_production_phase,
+        row.alert_type,
+        row.alert_title,
+        row.alert_message,
+        row.related_item,
+        row.draw_name,
+        row.draw_status,
+        row.project_manager,
+        row.project_coordinator
+      ].join(' ').toLowerCase();
+
+      if (!haystack.includes(searchValue)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  tbody.innerHTML = '';
+
+  if (!filteredRows || filteredRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8">No operations alerts match the current filters.</td></tr>';
+    return;
+  }
+
+  filteredRows.forEach(row => {
+    const tr = document.createElement('tr');
+    const severity = String(row.alert_severity || 'N/A').toUpperCase();
+    const phase = row.current_production_phase || '';
+    const daysInPhase = row.days_in_phase === null || row.days_in_phase === undefined ? '' : row.days_in_phase;
+    const defaultDays = row.default_business_days === null || row.default_business_days === undefined ? '' : row.default_business_days;
+    const daysTarget = daysInPhase || defaultDays ? `${daysInPhase || 'N/A'} / ${defaultDays || 'N/A'}` : '';
+    const drawText = row.draw_name ? `#${row.draw_number || ''} ${row.draw_name}` : '';
+
+    tr.innerHTML = `
+      <td>${severityPill(severity)}</td>
+      <td>
+        <span class="project-name">${escapeHTML(row.alert_title || displayLabel(row.alert_type))}</span>
+        <span class="project-small">${escapeHTML(displayLabel(row.alert_type || ''))}</span>
+      </td>
+      <td class="operations-project-cell">
+        <span class="project-name">${projectDetailLink(row.project_id, row.project_name || 'Unnamed Project')}</span>
+        <span class="project-small">${escapeHTML(row.project_number || '')}</span>
+      </td>
+      <td>${statusPill(row.project_type)}</td>
+      <td>${escapeHTML(phase)}</td>
+      <td>${escapeHTML(daysTarget)}</td>
+      <td>
+        <span class="project-name">${escapeHTML(drawText)}</span>
+        <span class="project-small">${row.draw_status ? statusPill(row.draw_status) : ''}</span>
+      </td>
+      <td class="operations-message">${escapeHTML(row.alert_message || '')}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function clearOperationsAlertFilters() {
+  const searchInput = document.getElementById('operationsAlertSearchInput');
+  const severityFilter = document.getElementById('operationsSeverityFilter');
+  const typeFilter = document.getElementById('operationsTypeFilter');
+
+  if (searchInput) searchInput.value = '';
+  if (severityFilter) severityFilter.value = '';
+  if (typeFilter) typeFilter.value = '';
+
+  applyOperationsAlertFilters();
+}
+
+function severityPill(value) {
+  const severity = String(value || 'N/A').toUpperCase();
+  let cls = 'low';
+
+  if (severity === 'HIGH') {
+    cls = 'high';
+  } else if (severity === 'MEDIUM') {
+    cls = 'medium';
+  }
+
+  return `<span class="severity-pill ${cls}">${escapeHTML(severity)}</span>`;
+}
+
+function projectDetailLink(projectId, projectName) {
+  if (!projectId) {
+    return escapeHTML(projectName || 'Unnamed Project');
+  }
+
+  return `<a class="mini-link" href="project-detail.html?project_id=${encodeURIComponent(projectId)}">${escapeHTML(projectName || 'Unnamed Project')}</a>`;
+}
+
 function renderDocDrawReviewQueue(rows) {
   const tbody = document.getElementById('docDrawReviewBody');
 
@@ -1240,9 +1616,9 @@ function renderDocDrawReviewQueue(rows) {
       </td>
       <td>
         <div class="doc-action-buttons">
-          <button class="success small" type="button" onclick="handleDocDrawReviewAction('${escapeHTML(drawId)}', 'APPROVED_FOR_INVOICING')">Approve</button>
-          <button class="warning small" type="button" onclick="handleDocDrawReviewAction('${escapeHTML(drawId)}', 'ON_HOLD')">Hold</button>
-          <button class="danger small" type="button" onclick="handleDocDrawReviewAction('${escapeHTML(drawId)}', 'REJECTED_NOT_READY')">Reject</button>
+          <button class="success small" type="button" onclick="handleDocDrawReviewAction('${escapeAttribute(drawId)}', 'APPROVED_FOR_INVOICING')">Approve</button>
+          <button class="warning small" type="button" onclick="handleDocDrawReviewAction('${escapeAttribute(drawId)}', 'ON_HOLD')">Hold</button>
+          <button class="danger small" type="button" onclick="handleDocDrawReviewAction('${escapeAttribute(drawId)}', 'REJECTED_NOT_READY')">Reject</button>
         </div>
       </td>
     `;
@@ -1415,6 +1791,7 @@ function statusPill(value) {
     normalized.includes('OVERDUE') ||
     normalized.includes('DELAY') ||
     normalized.includes('HOLD') ||
+    normalized.includes('REJECTED') ||
     normalized.includes('NOT_SUBMITTED')
   ) {
     cls = 'red';
@@ -1525,6 +1902,19 @@ function setPageMessage(type, message) {
 
   element.className = `page-message ${type}`;
   element.textContent = message;
+}
+
+function escapeAttribute(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function escapeHTML(value) {
