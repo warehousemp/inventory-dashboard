@@ -219,6 +219,30 @@
       border-color: var(--border);
     }
 
+    button.small-button {
+      padding: 6px 9px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    button.collapse-button {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border-radius: 7px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      line-height: 1;
+      font-weight: 900;
+      margin-right: 8px;
+      background: white;
+      color: var(--header);
+      border: 1px solid var(--border);
+      flex: 0 0 auto;
+    }
+
     input,
     select {
       width: 100%;
@@ -272,7 +296,7 @@
 
     .controls-grid {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr auto auto;
+      grid-template-columns: 1.3fr 1.7fr 1fr 1fr 1fr 1fr auto auto;
       gap: 10px;
       padding: 14px 16px;
       align-items: end;
@@ -418,6 +442,12 @@
       z-index: 7;
     }
 
+    .project-title-wrap {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+
     .project-name {
       font-weight: 800;
       color: #0b3c5d;
@@ -444,6 +474,15 @@
       background: white;
       white-space: nowrap;
       text-align: center;
+    }
+
+    .collapsed-note {
+      padding: 10px 14px;
+      background: white;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      border-top: 1px solid #eef2f7;
     }
 
     .task-row {
@@ -489,21 +528,22 @@
 
     .bar {
       position: absolute;
-      top: 10px;
-      height: 26px;
-      border-radius: 999px;
+      top: 8px;
+      height: 30px;
+      border-radius: 4px;
       color: white;
       font-size: 11px;
       font-weight: 900;
       display: flex;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       padding: 0 8px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      min-width: 16px;
+      min-width: 28px;
       box-shadow: 0 3px 8px rgba(15, 23, 42, 0.16);
+      border: 1px solid rgba(255,255,255,0.25);
     }
 
     .bar.COMPLETE { background: var(--green); }
@@ -600,11 +640,13 @@
       padding: 18px;
     }
 
-    @media (max-width: 1250px) {
+    @media (max-width: 1450px) {
       .controls-grid {
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
       }
+    }
 
+    @media (max-width: 1250px) {
       .summary-grid {
         grid-template-columns: repeat(2, 1fr);
       }
@@ -712,6 +754,13 @@
             </div>
 
             <div>
+              <div class="field-label">Project</div>
+              <select id="projectFilter" onchange="applyFilters()">
+                <option value="">All Projects</option>
+              </select>
+            </div>
+
+            <div>
               <div class="field-label">Project Type</div>
               <select id="projectTypeFilter" onchange="applyFilters()">
                 <option value="">All Project Types</option>
@@ -740,6 +789,17 @@
               </select>
             </div>
 
+            <div>
+              <div class="field-label">Timeline Focus</div>
+              <select id="timelineFocusFilter" onchange="applyFilters()">
+                <option value="CURRENT_WINDOW">Current / Upcoming</option>
+                <option value="ALL_DATES">All Schedule Dates</option>
+                <option value="SELECTED_PROJECT">Selected Project Range</option>
+              </select>
+            </div>
+
+            <button type="button" onclick="expandAllProjects()">Expand All</button>
+            <button type="button" class="secondary" onclick="collapseAllProjects()">Collapse All</button>
             <button type="button" onclick="loadSchedule()">Refresh Schedule</button>
             <button type="button" class="secondary" onclick="exportCsv()">Export CSV</button>
           </div>
@@ -784,8 +844,8 @@
             <div>
               <h2>Planned Production Timeline</h2>
               <p>
-                Each bar represents a planned production bucket. Dates are generated from projected start date,
-                task order, and default business days. Weekends are excluded.
+                Use the + / – button next to each project to expand or minimize that project’s schedule.
+                Each rectangle represents a planned production bucket.
               </p>
             </div>
 
@@ -820,9 +880,10 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let allRows = [];
 let filteredRows = [];
+let collapsedProjects = new Set();
 
 const PIXELS_PER_DAY = 10;
-const MIN_BAR_WIDTH = 16;
+const MIN_BAR_WIDTH = 28;
 
 window.addEventListener('load', async () => {
   await loadSchedule();
@@ -856,14 +917,45 @@ async function loadSchedule() {
 }
 
 function populateFilters() {
+  const projectSelect = document.getElementById('projectFilter');
   const typeSelect = document.getElementById('projectTypeFilter');
   const managerSelect = document.getElementById('managerFilter');
 
+  const currentProject = projectSelect.value;
   const currentType = typeSelect.value;
   const currentManager = managerSelect.value;
 
+  const projectMap = new Map();
+
+  allRows.forEach(row => {
+    const projectKey = getProjectKey(row);
+
+    if (!projectKey) {
+      return;
+    }
+
+    if (!projectMap.has(projectKey)) {
+      projectMap.set(projectKey, {
+        value: projectKey,
+        label: `${row.project_number || ''} — ${row.project_name || 'Unnamed Project'}`
+      });
+    }
+  });
+
+  const projects = Array.from(projectMap.values()).sort((a, b) => {
+    return String(a.label).localeCompare(String(b.label), undefined, { numeric: true });
+  });
+
   const projectTypes = uniqueSorted(allRows.map(row => row.project_type).filter(Boolean));
   const managers = uniqueSorted(allRows.map(row => row.project_manager).filter(Boolean));
+
+  projectSelect.innerHTML = '<option value="">All Projects</option>';
+  projects.forEach(project => {
+    const option = document.createElement('option');
+    option.value = project.value;
+    option.textContent = project.label;
+    projectSelect.appendChild(option);
+  });
 
   typeSelect.innerHTML = '<option value="">All Project Types</option>';
   projectTypes.forEach(type => {
@@ -881,22 +973,25 @@ function populateFilters() {
     managerSelect.appendChild(option);
   });
 
-  if (currentType) {
-    typeSelect.value = currentType;
-  }
-
-  if (currentManager) {
-    managerSelect.value = currentManager;
-  }
+  if (currentProject) projectSelect.value = currentProject;
+  if (currentType) typeSelect.value = currentType;
+  if (currentManager) managerSelect.value = currentManager;
 }
 
 function applyFilters() {
   const searchValue = String(document.getElementById('searchInput').value || '').trim().toLowerCase();
+  const projectValue = String(document.getElementById('projectFilter').value || '').trim();
   const projectTypeValue = String(document.getElementById('projectTypeFilter').value || '').trim();
   const healthValue = String(document.getElementById('healthFilter').value || '').trim();
   const managerValue = String(document.getElementById('managerFilter').value || '').trim();
 
   filteredRows = allRows.filter(row => {
+    const rowProjectValue = getProjectKey(row);
+
+    if (projectValue && rowProjectValue !== projectValue) {
+      return false;
+    }
+
     if (projectTypeValue && row.project_type !== projectTypeValue) {
       return false;
     }
@@ -937,13 +1032,13 @@ function applyFilters() {
 }
 
 function renderSummary() {
-  const projectIds = new Set(filteredRows.map(row => row.project_id).filter(Boolean));
+  const projectIds = new Set(filteredRows.map(row => getProjectKey(row)).filter(Boolean));
   const currentOverdueCount = filteredRows.filter(row => row.schedule_health_status === 'CURRENT_TASK_OVERDUE').length;
 
   const missingStartProjectIds = new Set(
     filteredRows
       .filter(row => row.schedule_health_status === 'MISSING_PROJECTED_START_DATE')
-      .map(row => row.project_id)
+      .map(row => getProjectKey(row))
       .filter(Boolean)
   );
 
@@ -978,7 +1073,7 @@ function renderTimeline() {
     return;
   }
 
-  const datedRows = filteredRows.filter(row => row.planned_start_date && row.planned_end_date);
+  const datedRows = getTimelineDatedRows();
 
   if (!datedRows.length) {
     timeline.innerHTML = '<div class="empty-state">No planned dates available. Check projected start dates.</div>';
@@ -1008,13 +1103,26 @@ function renderTimeline() {
       .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
 
     const project = projectRows[0];
+    const projectKey = getProjectKey(project);
+    const isCollapsed = collapsedProjects.has(projectKey);
+    const currentTask = projectRows.find(row => row.is_current_production_task);
+    const projectHealth = currentTask?.schedule_health_status || projectRows.find(row => row.schedule_health_status === 'CURRENT_TASK_OVERDUE')?.schedule_health_status || '';
 
     html += `
       <div class="project-group">
         <div class="project-group-header">
-          <div>
-            <span class="project-name">${escapeHTML(project.project_number || '')} — ${escapeHTML(project.project_name || '')}</span>
-            <span class="project-small">${escapeHTML(project.client_name || 'No client listed')}</span>
+          <div class="project-title-wrap">
+            <button
+              type="button"
+              class="collapse-button"
+              onclick="toggleProjectCollapse('${escapeAttribute(projectKey)}')"
+              title="${isCollapsed ? 'Expand project' : 'Collapse project'}"
+            >${isCollapsed ? '+' : '−'}</button>
+
+            <div>
+              <span class="project-name">${escapeHTML(project.project_number || '')} — ${escapeHTML(project.project_name || '')}</span>
+              <span class="project-small">${escapeHTML(project.client_name || 'No client listed')}</span>
+            </div>
           </div>
 
           <div>
@@ -1036,62 +1144,133 @@ function renderTimeline() {
         </div>
     `;
 
-    projectRows.forEach(row => {
-      const start = parseLocalDate(row.planned_start_date);
-      const end = parseLocalDate(row.planned_end_date);
-      const health = row.schedule_health_status || 'SCHEDULE_REVIEW';
-
-      let barHtml = '';
-      let todayHtml = '';
-
-      if (start && end) {
-        const left = daysBetween(paddedStart, start) * PIXELS_PER_DAY;
-        const width = Math.max((daysBetween(start, end) + 1) * PIXELS_PER_DAY, MIN_BAR_WIDTH);
-        const currentClass = row.is_current_production_task ? ' current-marker' : '';
-
-        barHtml = `
-          <div
-            class="bar ${escapeAttribute(health)}${currentClass}"
-            style="left:${left}px; width:${width}px;"
-            title="${escapeAttribute(row.task_name || '')}: ${escapeAttribute(formatDate(row.planned_start_date))} to ${escapeAttribute(formatDate(row.planned_end_date))}"
-          >
-            ${escapeHTML(shortBarText(row))}
-          </div>
-        `;
-
-        if (today >= paddedStart && today <= paddedEnd) {
-          const todayLeft = daysBetween(paddedStart, today) * PIXELS_PER_DAY;
-          todayHtml = `<div class="today-line" style="left:${todayLeft}px;"></div>`;
-        }
-      }
-
+    if (isCollapsed) {
       html += `
-        <div class="task-row">
-          <div class="task-label">
-            <div class="task-name">
-              ${escapeHTML(row.task_name || '')}
-              ${row.is_current_production_task ? '<span class="pill blue" style="margin-left:6px;">Current</span>' : ''}
-            </div>
-            <div class="task-meta">
-              Planned: ${escapeHTML(formatDate(row.planned_start_date))} → ${escapeHTML(formatDate(row.planned_end_date))}
-              <br>
-              ${escapeHTML(row.default_business_days || 0)} business days · ${statusPill(health)}
-            </div>
-          </div>
-
-          <div class="task-track" style="width:${trackWidth}px;">
-            ${todayHtml}
-            ${barHtml}
-          </div>
+        <div class="collapsed-note">
+          Project minimized. Current phase: ${escapeHTML(project.current_production_phase || 'Not Set')}
+          ${projectHealth ? ` · ${statusPill(projectHealth)}` : ''}
         </div>
       `;
-    });
+    } else {
+      projectRows.forEach(row => {
+        const start = parseLocalDate(row.planned_start_date);
+        const end = parseLocalDate(row.planned_end_date);
+        const health = row.schedule_health_status || 'SCHEDULE_REVIEW';
+
+        let barHtml = '';
+        let todayHtml = '';
+
+        if (start && end) {
+          const left = daysBetween(paddedStart, start) * PIXELS_PER_DAY;
+          const width = Math.max((daysBetween(start, end) + 1) * PIXELS_PER_DAY, MIN_BAR_WIDTH);
+          const currentClass = row.is_current_production_task ? ' current-marker' : '';
+
+          barHtml = `
+            <div
+              class="bar ${escapeAttribute(health)}${currentClass}"
+              style="left:${left}px; width:${width}px;"
+              title="${escapeAttribute(row.task_name || '')}: ${escapeAttribute(formatDate(row.planned_start_date))} to ${escapeAttribute(formatDate(row.planned_end_date))}"
+            >
+              ${escapeHTML(shortBarText(row))}
+            </div>
+          `;
+
+          if (today >= paddedStart && today <= paddedEnd) {
+            const todayLeft = daysBetween(paddedStart, today) * PIXELS_PER_DAY;
+            todayHtml = `<div class="today-line" style="left:${todayLeft}px;"></div>`;
+          }
+        }
+
+        html += `
+          <div class="task-row">
+            <div class="task-label">
+              <div class="task-name">
+                ${escapeHTML(row.task_name || '')}
+                ${row.is_current_production_task ? '<span class="pill blue" style="margin-left:6px;">Current</span>' : ''}
+              </div>
+              <div class="task-meta">
+                Planned: ${escapeHTML(formatDate(row.planned_start_date))} → ${escapeHTML(formatDate(row.planned_end_date))}
+                <br>
+                ${escapeHTML(row.default_business_days || 0)} business days · ${statusPill(health)}
+              </div>
+            </div>
+
+            <div class="task-track" style="width:${trackWidth}px;">
+              ${todayHtml}
+              ${barHtml}
+            </div>
+          </div>
+        `;
+      });
+    }
 
     html += '</div>';
   });
 
   timeline.innerHTML = html;
   addTodayLabelIfVisible(timeline, paddedStart, paddedEnd);
+}
+
+function getTimelineDatedRows() {
+  const timelineFocus = String(document.getElementById('timelineFocusFilter').value || 'CURRENT_WINDOW');
+  const selectedProject = String(document.getElementById('projectFilter').value || '').trim();
+
+  let rows = filteredRows.filter(row => row.planned_start_date && row.planned_end_date);
+
+  if (timelineFocus === 'ALL_DATES') {
+    return rows;
+  }
+
+  if (timelineFocus === 'SELECTED_PROJECT' && selectedProject) {
+    return rows;
+  }
+
+  if (selectedProject) {
+    return rows;
+  }
+
+  const today = startOfDay(new Date());
+  const lookbackDate = addDays(today, -30);
+
+  const currentOrUpcoming = rows.filter(row => {
+    const end = parseLocalDate(row.planned_end_date);
+    return end && end >= lookbackDate;
+  });
+
+  return currentOrUpcoming.length ? currentOrUpcoming : rows;
+}
+
+function toggleProjectCollapse(projectKey) {
+  if (!projectKey) {
+    return;
+  }
+
+  if (collapsedProjects.has(projectKey)) {
+    collapsedProjects.delete(projectKey);
+  } else {
+    collapsedProjects.add(projectKey);
+  }
+
+  renderTimeline();
+}
+
+function expandAllProjects() {
+  collapsedProjects.clear();
+  renderTimeline();
+}
+
+function collapseAllProjects() {
+  const groups = groupByProject(filteredRows);
+
+  groups.forEach(group => {
+    const project = group.rows[0];
+
+    if (project) {
+      collapsedProjects.add(getProjectKey(project));
+    }
+  });
+
+  renderTimeline();
 }
 
 function addTodayLabelIfVisible(timeline, paddedStart, paddedEnd) {
@@ -1121,7 +1300,7 @@ function groupByProject(rows) {
   const map = new Map();
 
   rows.forEach(row => {
-    const key = row.project_id || row.project_number || 'unknown';
+    const key = getProjectKey(row);
 
     if (!map.has(key)) {
       map.set(key, {
@@ -1139,6 +1318,10 @@ function groupByProject(rows) {
 
     return String(projectA).localeCompare(String(projectB), undefined, { numeric: true });
   });
+}
+
+function getProjectKey(row) {
+  return row?.project_id || row?.project_number || 'unknown';
 }
 
 function buildMonthHeader(start, end) {
@@ -1287,19 +1470,7 @@ function formatHealth(value) {
 }
 
 function shortBarText(row) {
-  if (row.is_current_production_task) {
-    return 'Current';
-  }
-
-  if (row.schedule_health_status === 'COMPLETE') {
-    return 'Done';
-  }
-
-  if (Number(row.default_business_days || 0) <= 2) {
-    return '';
-  }
-
-  return `${row.default_business_days}d`;
+  return row.task_name || '';
 }
 
 function uniqueSorted(values) {
