@@ -1,1 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <title>Production Schedule - Projects Command Center</title>
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --green: #16a34a;
+      --blue: #2563eb;
+      --orange: #f97316;
+      --purple: #7c3aed;
+      --red: #dc2626;
+      --yellow: #eab308;
+      --teal: #0d9488;
+      --gray: #64748b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .brand-text { line-height: 1.1; }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .side-nav { padding: 14px 10px; }
+
+    .side-nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+    }
+
+    .nav-icon {
+      width: 20px;
+      text-align: center;
+    }
+
+    .main { min-width: 0; }
+
+    .topbar {
+      background: var(--header);
+      color: white;
+      padding: 12px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      box-shadow: 0 2px 12px rgba(15,23,42,0.18);
+    }
+
+    .topbar-title h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 800;
+    }
+
+    .topbar-title p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      opacity: 0.88;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .topbar-pill {
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .content {
+      padding: 22px;
+      max-width: 1700px;
+      margin: 0 auto;
+    }
+
+    .page-message {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      display: none;
+    }
+
+    .page-message.info {
+      display: block;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .page-message.error {
+      display: block;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: #b42318;
+    }
+
+    .page-message.success {
+      display: block;
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    button {
+      border: 1px solid var(--header);
+      background: var(--header);
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover { opacity: 0.92; }
+
+    button.secondary {
+      background: white;
+      color: var(--header);
+      border-color: var(--border);
+    }
+
+    input,
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 9px 10px;
+      font-size: 12px;
+      background: white;
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    input:focus,
+    select:focus {
+      outline: 2px solid rgba(26,163,176,0.22);
+      border-color: var(--accent);
+    }
+
+    .controls-card,
+    .schedule-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .card-header {
+      padding: 14px 16px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      border-bottom: 1px solid #eef2f7;
+    }
+
+    .card-header h2 {
+      margin: 0;
+      color: #102a43;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .card-header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr auto auto;
+      gap: 10px;
+      padding: 14px 16px;
+      align-items: end;
+    }
+
+    .field-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      margin-bottom: 6px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .summary-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      border-top: 5px solid var(--header);
+    }
+
+    .summary-card.blue { border-top-color: var(--blue); }
+    .summary-card.green { border-top-color: var(--green); }
+    .summary-card.orange { border-top-color: var(--orange); }
+    .summary-card.red { border-top-color: var(--red); }
+    .summary-card.teal { border-top-color: var(--teal); }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      font-size: 28px;
+      font-weight: 900;
+      color: #111827;
+      line-height: 1.05;
+    }
+
+    .summary-sub {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .legend {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .legend-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .status-line {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .schedule-scroll {
+      overflow: auto;
+      max-height: calc(100vh - 345px);
+      border-top: 1px solid #eef2f7;
+      background: white;
+    }
+
+    .timeline {
+      min-width: 1200px;
+      padding: 14px 16px 20px;
+    }
+
+    .month-header {
+      display: grid;
+      margin-left: 340px;
+      margin-bottom: 8px;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 9;
+      border-bottom: 1px solid #eef2f7;
+      padding-bottom: 4px;
+    }
+
+    .month-cell {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 900;
+      text-align: center;
+      border-left: 1px solid var(--border);
+      padding: 4px 2px;
+      white-space: nowrap;
+    }
+
+    .project-group {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 14px;
+      overflow: hidden;
+      background: white;
+    }
+
+    .project-group-header {
+      background: #f8fafc;
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr auto;
+      gap: 10px;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      left: 0;
+      z-index: 7;
+    }
+
+    .project-name {
+      font-weight: 800;
+      color: #0b3c5d;
+      display: block;
+      font-size: 13px;
+    }
+
+    .project-small {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 2px;
+      line-height: 1.35;
+    }
+
+    .project-pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 6px 9px;
+      font-size: 11px;
+      font-weight: 900;
+      border: 1px solid var(--border);
+      color: #0b3c5d;
+      background: white;
+      white-space: nowrap;
+      text-align: center;
+    }
+
+    .task-row {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      min-height: 46px;
+      border-bottom: 1px solid #eef2f7;
+    }
+
+    .task-row:last-child {
+      border-bottom: none;
+    }
+
+    .task-label {
+      padding: 9px 12px;
+      border-right: 1px solid var(--border);
+      background: white;
+      position: sticky;
+      left: 0;
+      z-index: 5;
+    }
+
+    .task-name {
+      font-size: 12px;
+      font-weight: 900;
+      color: #111827;
+      margin-bottom: 3px;
+    }
+
+    .task-meta {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .task-track {
+      position: relative;
+      min-height: 46px;
+      background-image:
+        linear-gradient(to right, rgba(217,226,236,0.75) 1px, transparent 1px);
+      background-size: 36px 100%;
+    }
+
+    .bar {
+      position: absolute;
+      top: 10px;
+      height: 26px;
+      border-radius: 999px;
+      color: white;
+      font-size: 11px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 16px;
+      box-shadow: 0 3px 8px rgba(15, 23, 42, 0.16);
+    }
+
+    .bar.COMPLETE { background: var(--green); }
+    .bar.CURRENT_TASK_ON_TRACK,
+    .bar.IN_PLANNED_WINDOW { background: var(--teal); }
+    .bar.CURRENT_TASK_AHEAD_OF_PLAN,
+    .bar.UPCOMING { background: var(--blue); }
+    .bar.CURRENT_TASK_OVERDUE,
+    .bar.PLANNED_WINDOW_PASSED { background: var(--red); }
+    .bar.MISSING_PROJECTED_START_DATE,
+    .bar.SCHEDULE_REVIEW { background: var(--gray); }
+
+    .current-marker {
+      outline: 3px solid rgba(26, 163, 176, 0.35);
+      outline-offset: 2px;
+    }
+
+    .today-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ef4444;
+      z-index: 3;
+    }
+
+    .today-label {
+      position: absolute;
+      top: 2px;
+      transform: translateX(-50%);
+      font-size: 10px;
+      font-weight: 900;
+      color: #ef4444;
+      background: white;
+      padding: 2px 4px;
+      border-radius: 5px;
+      border: 1px solid #fecaca;
+      z-index: 4;
+      white-space: nowrap;
+    }
+
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 7px;
+      font-size: 10px;
+      font-weight: 900;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .pill.green {
+      color: #166534;
+      background: #ecfdf3;
+      border-color: #bbf7d0;
+    }
+
+    .pill.blue {
+      color: #1d4ed8;
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    .pill.orange {
+      color: #9a3412;
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+
+    .pill.red {
+      color: #b42318;
+      background: #fef3f2;
+      border-color: #fecdca;
+    }
+
+    .pill.gray {
+      color: #475467;
+      background: #f2f4f7;
+      border-color: #e4e7ec;
+    }
+
+    .empty-state {
+      padding: 30px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 18px;
+    }
+
+    @media (max-width: 1250px) {
+      .controls-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .project-group-header {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell { grid-template-columns: 1fr; }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .side-nav {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .topbar {
+        position: relative;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .topbar-actions { justify-content: flex-start; }
+
+      .controls-grid,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .schedule-scroll {
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .content { padding: 14px; }
+      .side-nav { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">MP</div>
+        <div class="brand-text">
+          <strong>MOLINARI</strong>
+          <span>POOLS</span>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <a href="projects-command.html"><span class="nav-icon">◆</span>Projects Home</a>
+        <a href="dashboard.html"><span class="nav-icon">⌂</span>Dashboard</a>
+        <a href="projects-board.html"><span class="nav-icon">▦</span>Production Workflow</a>
+        <a class="active" href="project-gantt.html"><span class="nav-icon">▥</span>Production Schedule</a>
+        <a href="add-new-client-project.html"><span class="nav-icon">＋</span>Add New Client Project</a>
+        <a href="project-setup.html"><span class="nav-icon">▤</span>Project Setup</a>
+        <a href="projects.html"><span class="nav-icon">▣</span>Active Projects</a>
+        <a href="project-accounting.html"><span class="nav-icon">$</span>Accounting Draws</a>
+        <a href="project-documents.html"><span class="nav-icon">□</span>Documents</a>
+        <a href="project-admin.html"><span class="nav-icon">⚙</span>Admin</a>
+        <a href="index.html"><span class="nav-icon">↩</span>Main Menu</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h1>Production Schedule</h1>
+          <p>Planned production timeline generated from projected start date and default business days</p>
+        </div>
+
+        <div class="topbar-actions">
+          <span class="topbar-pill">Production Schedule</span>
+          <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
+        </div>
+      </header>
+
+      <section class="content">
+        <div id="pageMessage" class="page-message info">Loading production schedule...</div>
+
+        <section class="controls-card">
+          <div class="card-header">
+            <div>
+              <h2>Schedule Controls</h2>
+              <p>
+                Production Workflow remains the real-world phase source of truth.
+                This page shows the planned timeline built from each project’s projected start date.
+              </p>
+            </div>
+          </div>
+
+          <div class="controls-grid">
+            <div>
+              <div class="field-label">Search</div>
+              <input id="searchInput" type="text" placeholder="Search project, client, phase, PM..." oninput="applyFilters()">
+            </div>
+
+            <div>
+              <div class="field-label">Project Type</div>
+              <select id="projectTypeFilter" onchange="applyFilters()">
+                <option value="">All Project Types</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="field-label">Schedule Status</div>
+              <select id="healthFilter" onchange="applyFilters()">
+                <option value="">All Statuses</option>
+                <option value="CURRENT_TASK_OVERDUE">Current Task Overdue</option>
+                <option value="PLANNED_WINDOW_PASSED">Planned Window Passed</option>
+                <option value="CURRENT_TASK_ON_TRACK">Current Task On Track</option>
+                <option value="CURRENT_TASK_AHEAD_OF_PLAN">Current Task Ahead of Plan</option>
+                <option value="IN_PLANNED_WINDOW">In Planned Window</option>
+                <option value="UPCOMING">Upcoming</option>
+                <option value="COMPLETE">Complete</option>
+                <option value="MISSING_PROJECTED_START_DATE">Missing Projected Start Date</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="field-label">Project Manager</div>
+              <select id="managerFilter" onchange="applyFilters()">
+                <option value="">All Managers</option>
+              </select>
+            </div>
+
+            <button type="button" onclick="loadSchedule()">Refresh Schedule</button>
+            <button type="button" class="secondary" onclick="exportCsv()">Export CSV</button>
+          </div>
+        </section>
+
+        <section class="summary-grid">
+          <div class="summary-card teal">
+            <div class="summary-label">Projects</div>
+            <div class="summary-value" id="projectCount">0</div>
+            <div class="summary-sub">Filtered projects</div>
+          </div>
+
+          <div class="summary-card blue">
+            <div class="summary-label">Schedule Rows</div>
+            <div class="summary-value" id="taskCount">0</div>
+            <div class="summary-sub">Visible production buckets</div>
+          </div>
+
+          <div class="summary-card red">
+            <div class="summary-label">Current Overdue</div>
+            <div class="summary-value" id="currentOverdueCount">0</div>
+            <div class="summary-sub">Current task overdue</div>
+          </div>
+
+          <div class="summary-card orange">
+            <div class="summary-label">Missing Start</div>
+            <div class="summary-value" id="missingStartCount">0</div>
+            <div class="summary-sub">No projected start date</div>
+          </div>
+
+          <div class="summary-card green">
+            <div class="summary-label">Latest Completion</div>
+            <div class="summary-value" id="latestCompletion">—</div>
+            <div class="summary-sub">Latest expected completion</div>
+          </div>
+        </section>
+
+        <div class="status-line" id="statusLine">Loading production schedule...</div>
+
+        <section class="schedule-card">
+          <div class="card-header">
+            <div>
+              <h2>Planned Production Timeline</h2>
+              <p>
+                Each bar represents a planned production bucket. Dates are generated from projected start date,
+                task order, and default business days. Weekends are excluded.
+              </p>
+            </div>
+
+            <div class="legend">
+              <span class="legend-item"><span class="legend-dot" style="background:#16a34a;"></span>Complete</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#0d9488;"></span>Current / On Track</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#2563eb;"></span>Upcoming / Ahead</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#dc2626;"></span>Overdue</span>
+              <span class="legend-item"><span class="legend-dot" style="background:#64748b;"></span>Review</span>
+            </div>
+          </div>
+
+          <div class="schedule-scroll">
+            <div class="timeline" id="timeline">
+              <div class="empty-state">Loading schedule...</div>
+            </div>
+          </div>
+        </section>
+
+        <div class="footer">
+          © 2026 Molinari Pools. All rights reserved.
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let allRows = [];
+let filteredRows = [];
+
+const PIXELS_PER_DAY = 10;
+const MIN_BAR_WIDTH = 16;
+
+window.addEventListener('load', async () => {
+  await loadSchedule();
+});
+
+async function loadSchedule() {
+  setPageMessage('info', 'Loading production schedule...');
+
+  const result = await client
+    .from('project_production_schedule_planned_view')
+    .select('*')
+    .order('project_number', { ascending: true })
+    .order('sort_order', { ascending: true })
+    .limit(3000);
+
+  if (result.error) {
+    setPageMessage('error', 'Production Schedule error: ' + result.error.message);
+    allRows = [];
+    filteredRows = [];
+    renderSummary();
+    renderTimeline();
+    return;
+  }
+
+  allRows = result.data || [];
+  populateFilters();
+  applyFilters();
+
+  setPageMessage('', '');
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+function populateFilters() {
+  const typeSelect = document.getElementById('projectTypeFilter');
+  const managerSelect = document.getElementById('managerFilter');
+
+  const currentType = typeSelect.value;
+  const currentManager = managerSelect.value;
+
+  const projectTypes = uniqueSorted(allRows.map(row => row.project_type).filter(Boolean));
+  const managers = uniqueSorted(allRows.map(row => row.project_manager).filter(Boolean));
+
+  typeSelect.innerHTML = '<option value="">All Project Types</option>';
+  projectTypes.forEach(type => {
+    const option = document.createElement('option');
+    option.value = type;
+    option.textContent = displayLabel(type);
+    typeSelect.appendChild(option);
+  });
+
+  managerSelect.innerHTML = '<option value="">All Managers</option>';
+  managers.forEach(manager => {
+    const option = document.createElement('option');
+    option.value = manager;
+    option.textContent = manager;
+    managerSelect.appendChild(option);
+  });
+
+  if (currentType) {
+    typeSelect.value = currentType;
+  }
+
+  if (currentManager) {
+    managerSelect.value = currentManager;
+  }
+}
+
+function applyFilters() {
+  const searchValue = String(document.getElementById('searchInput').value || '').trim().toLowerCase();
+  const projectTypeValue = String(document.getElementById('projectTypeFilter').value || '').trim();
+  const healthValue = String(document.getElementById('healthFilter').value || '').trim();
+  const managerValue = String(document.getElementById('managerFilter').value || '').trim();
+
+  filteredRows = allRows.filter(row => {
+    if (projectTypeValue && row.project_type !== projectTypeValue) {
+      return false;
+    }
+
+    if (healthValue && row.schedule_health_status !== healthValue) {
+      return false;
+    }
+
+    if (managerValue && row.project_manager !== managerValue) {
+      return false;
+    }
+
+    if (searchValue) {
+      const haystack = [
+        row.project_number,
+        row.project_name,
+        row.client_name,
+        row.project_type,
+        row.project_status,
+        row.project_manager,
+        row.project_coordinator,
+        row.current_production_phase,
+        row.task_name,
+        row.task_status,
+        row.schedule_health_status
+      ].join(' ').toLowerCase();
+
+      if (!haystack.includes(searchValue)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  renderSummary();
+  renderTimeline();
+}
+
+function renderSummary() {
+  const projectIds = new Set(filteredRows.map(row => row.project_id).filter(Boolean));
+  const currentOverdueCount = filteredRows.filter(row => row.schedule_health_status === 'CURRENT_TASK_OVERDUE').length;
+
+  const missingStartProjectIds = new Set(
+    filteredRows
+      .filter(row => row.schedule_health_status === 'MISSING_PROJECTED_START_DATE')
+      .map(row => row.project_id)
+      .filter(Boolean)
+  );
+
+  const completionDates = filteredRows
+    .map(row => parseLocalDate(row.expected_completion_date))
+    .filter(Boolean);
+
+  let latestCompletion = '—';
+
+  if (completionDates.length > 0) {
+    const maxTime = Math.max(...completionDates.map(date => date.getTime()));
+    latestCompletion = formatDate(new Date(maxTime));
+  }
+
+  setText('projectCount', projectIds.size);
+  setText('taskCount', filteredRows.length);
+  setText('currentOverdueCount', currentOverdueCount);
+  setText('missingStartCount', missingStartProjectIds.size);
+  setText('latestCompletion', latestCompletion);
+
+  setText(
+    'statusLine',
+    `Showing ${filteredRows.length.toLocaleString()} schedule row(s) across ${projectIds.size.toLocaleString()} project(s).`
+  );
+}
+
+function renderTimeline() {
+  const timeline = document.getElementById('timeline');
+
+  if (!filteredRows.length) {
+    timeline.innerHTML = '<div class="empty-state">No production schedule rows match the current filters.</div>';
+    return;
+  }
+
+  const datedRows = filteredRows.filter(row => row.planned_start_date && row.planned_end_date);
+
+  if (!datedRows.length) {
+    timeline.innerHTML = '<div class="empty-state">No planned dates available. Check projected start dates.</div>';
+    return;
+  }
+
+  const minDate = minDateFromRows(datedRows, 'planned_start_date');
+  const maxDate = maxDateFromRows(datedRows, 'planned_end_date');
+
+  const paddedStart = addDays(minDate, -5);
+  const paddedEnd = addDays(maxDate, 10);
+  const totalDays = daysBetween(paddedStart, paddedEnd) + 1;
+  const trackWidth = Math.max(totalDays * PIXELS_PER_DAY, 900);
+
+  const groups = groupByProject(filteredRows);
+  const today = startOfDay(new Date());
+
+  let html = `
+    <div class="month-header" style="grid-template-columns:${buildMonthGridColumns(paddedStart, paddedEnd)};">
+      ${buildMonthHeader(paddedStart, paddedEnd)}
+    </div>
+  `;
+
+  groups.forEach(group => {
+    const projectRows = group.rows
+      .slice()
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+
+    const project = projectRows[0];
+
+    html += `
+      <div class="project-group">
+        <div class="project-group-header">
+          <div>
+            <span class="project-name">${escapeHTML(project.project_number || '')} — ${escapeHTML(project.project_name || '')}</span>
+            <span class="project-small">${escapeHTML(project.client_name || 'No client listed')}</span>
+          </div>
+
+          <div>
+            <span class="project-small"><strong>Type:</strong> ${escapeHTML(displayLabel(project.project_type || 'Not Set'))}</span>
+            <span class="project-small"><strong>PM:</strong> ${escapeHTML(project.project_manager || 'Unassigned')}</span>
+          </div>
+
+          <div>
+            <span class="project-small"><strong>Projected Start:</strong> ${escapeHTML(formatDate(project.projected_start_date))}</span>
+            <span class="project-small"><strong>Expected Complete:</strong> ${escapeHTML(formatDate(project.expected_completion_date))}</span>
+          </div>
+
+          <div>
+            <span class="project-small"><strong>Current Phase:</strong></span>
+            <span class="project-small">${escapeHTML(project.current_production_phase || 'Not Set')}</span>
+          </div>
+
+          <span class="project-pill">${projectRows.length} Buckets</span>
+        </div>
+    `;
+
+    projectRows.forEach(row => {
+      const start = parseLocalDate(row.planned_start_date);
+      const end = parseLocalDate(row.planned_end_date);
+      const health = row.schedule_health_status || 'SCHEDULE_REVIEW';
+
+      let barHtml = '';
+      let todayHtml = '';
+
+      if (start && end) {
+        const left = daysBetween(paddedStart, start) * PIXELS_PER_DAY;
+        const width = Math.max((daysBetween(start, end) + 1) * PIXELS_PER_DAY, MIN_BAR_WIDTH);
+        const currentClass = row.is_current_production_task ? ' current-marker' : '';
+
+        barHtml = `
+          <div
+            class="bar ${escapeAttribute(health)}${currentClass}"
+            style="left:${left}px; width:${width}px;"
+            title="${escapeAttribute(row.task_name || '')}: ${escapeAttribute(formatDate(row.planned_start_date))} to ${escapeAttribute(formatDate(row.planned_end_date))}"
+          >
+            ${escapeHTML(shortBarText(row))}
+          </div>
+        `;
+
+        if (today >= paddedStart && today <= paddedEnd) {
+          const todayLeft = daysBetween(paddedStart, today) * PIXELS_PER_DAY;
+          todayHtml = `<div class="today-line" style="left:${todayLeft}px;"></div>`;
+        }
+      }
+
+      html += `
+        <div class="task-row">
+          <div class="task-label">
+            <div class="task-name">
+              ${escapeHTML(row.task_name || '')}
+              ${row.is_current_production_task ? '<span class="pill blue" style="margin-left:6px;">Current</span>' : ''}
+            </div>
+            <div class="task-meta">
+              Planned: ${escapeHTML(formatDate(row.planned_start_date))} → ${escapeHTML(formatDate(row.planned_end_date))}
+              <br>
+              ${escapeHTML(row.default_business_days || 0)} business days · ${statusPill(health)}
+            </div>
+          </div>
+
+          <div class="task-track" style="width:${trackWidth}px;">
+            ${todayHtml}
+            ${barHtml}
+          </div>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+  });
+
+  timeline.innerHTML = html;
+  addTodayLabelIfVisible(timeline, paddedStart, paddedEnd);
+}
+
+function addTodayLabelIfVisible(timeline, paddedStart, paddedEnd) {
+  const today = startOfDay(new Date());
+
+  if (today < paddedStart || today > paddedEnd) {
+    return;
+  }
+
+  const firstTrack = timeline.querySelector('.task-track');
+
+  if (!firstTrack) {
+    return;
+  }
+
+  const todayLeft = daysBetween(paddedStart, today) * PIXELS_PER_DAY;
+  const label = document.createElement('div');
+
+  label.className = 'today-label';
+  label.style.left = `${todayLeft}px`;
+  label.textContent = 'Today';
+
+  firstTrack.appendChild(label);
+}
+
+function groupByProject(rows) {
+  const map = new Map();
+
+  rows.forEach(row => {
+    const key = row.project_id || row.project_number || 'unknown';
+
+    if (!map.has(key)) {
+      map.set(key, {
+        project_id: key,
+        rows: []
+      });
+    }
+
+    map.get(key).rows.push(row);
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const projectA = a.rows[0]?.project_number || '';
+    const projectB = b.rows[0]?.project_number || '';
+
+    return String(projectA).localeCompare(String(projectB), undefined, { numeric: true });
+  });
+}
+
+function buildMonthHeader(start, end) {
+  let html = '';
+  let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+
+  while (cursor <= end) {
+    const nextMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    const visibleStart = cursor < start ? start : cursor;
+    const visibleEnd = addDays(nextMonth, -1) > end ? end : addDays(nextMonth, -1);
+    const days = daysBetween(visibleStart, visibleEnd) + 1;
+
+    if (days > 0) {
+      html += `<div class="month-cell" style="grid-column: span ${days};">${escapeHTML(monthName(cursor))} ${cursor.getFullYear()}</div>`;
+    }
+
+    cursor = nextMonth;
+  }
+
+  return html;
+}
+
+function buildMonthGridColumns(start, end) {
+  const totalDays = daysBetween(start, end) + 1;
+  return `repeat(${totalDays}, ${PIXELS_PER_DAY}px)`;
+}
+
+function exportCsv() {
+  if (!filteredRows.length) {
+    alert('No rows to export.');
+    return;
+  }
+
+  const headers = [
+    'Project Number',
+    'Project Name',
+    'Client Name',
+    'Project Type',
+    'Project Status',
+    'Project Manager',
+    'Project Coordinator',
+    'Projected Start Date',
+    'Schedule Anchor Date',
+    'Expected Completion Date',
+    'Current Production Phase',
+    'Sort Order',
+    'Task Name',
+    'Default Business Days',
+    'Planned Start Date',
+    'Planned End Date',
+    'Task Status',
+    'Actual Start Date',
+    'Actual Completion Date',
+    'Is Current Production Task',
+    'Schedule Health Status'
+  ];
+
+  const rows = filteredRows.map(row => [
+    row.project_number,
+    row.project_name,
+    row.client_name,
+    row.project_type,
+    row.project_status,
+    row.project_manager,
+    row.project_coordinator,
+    row.projected_start_date,
+    row.schedule_anchor_date,
+    row.expected_completion_date,
+    row.current_production_phase,
+    row.sort_order,
+    row.task_name,
+    row.default_business_days,
+    row.planned_start_date,
+    row.planned_end_date,
+    row.task_status,
+    row.actual_start_date,
+    row.actual_completion_date,
+    row.is_current_production_task,
+    row.schedule_health_status
+  ]);
+
+  const csv = [
+    headers.join(','),
+    ...rows.map(values => values.map(csvEscape).join(','))
+  ].join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = `production-schedule-${dateStamp}.csv`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+}
+
+function statusPill(value) {
+  const normalized = String(value || 'SCHEDULE_REVIEW').toUpperCase();
+  const text = formatHealth(normalized);
+
+  let cls = 'gray';
+
+  if (normalized === 'COMPLETE') {
+    cls = 'green';
+  } else if (
+    normalized === 'CURRENT_TASK_ON_TRACK' ||
+    normalized === 'IN_PLANNED_WINDOW'
+  ) {
+    cls = 'blue';
+  } else if (
+    normalized === 'CURRENT_TASK_AHEAD_OF_PLAN' ||
+    normalized === 'UPCOMING'
+  ) {
+    cls = 'blue';
+  } else if (
+    normalized === 'CURRENT_TASK_OVERDUE' ||
+    normalized === 'PLANNED_WINDOW_PASSED'
+  ) {
+    cls = 'red';
+  } else if (normalized === 'MISSING_PROJECTED_START_DATE') {
+    cls = 'orange';
+  }
+
+  return `<span class="pill ${cls}">${escapeHTML(text)}</span>`;
+}
+
+function formatHealth(value) {
+  const map = {
+    COMPLETE: 'Complete',
+    CURRENT_TASK_OVERDUE: 'Current Overdue',
+    CURRENT_TASK_ON_TRACK: 'Current On Track',
+    CURRENT_TASK_AHEAD_OF_PLAN: 'Current Ahead',
+    PLANNED_WINDOW_PASSED: 'Window Passed',
+    UPCOMING: 'Upcoming',
+    IN_PLANNED_WINDOW: 'In Window',
+    MISSING_PROJECTED_START_DATE: 'Missing Start',
+    SCHEDULE_REVIEW: 'Review'
+  };
+
+  return map[value] || displayLabel(value);
+}
+
+function shortBarText(row) {
+  if (row.is_current_production_task) {
+    return 'Current';
+  }
+
+  if (row.schedule_health_status === 'COMPLETE') {
+    return 'Done';
+  }
+
+  if (Number(row.default_business_days || 0) <= 2) {
+    return '';
+  }
+
+  return `${row.default_business_days}d`;
+}
+
+function uniqueSorted(values) {
+  return Array.from(new Set(values)).sort((a, b) => String(a).localeCompare(String(b)));
+}
+
+function parseLocalDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parts = String(value).split('-');
+
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '—';
+  }
+
+  const date = value instanceof Date ? value : parseLocalDate(value);
+
+  if (!date || Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function daysBetween(start, end) {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return Math.round((startOfDay(end) - startOfDay(start)) / msPerDay);
+}
+
+function minDateFromRows(rows, field) {
+  const times = rows
+    .map(row => parseLocalDate(row[field]))
+    .filter(Boolean)
+    .map(date => date.getTime());
+
+  return new Date(Math.min(...times));
+}
+
+function maxDateFromRows(rows, field) {
+  const times = rows
+    .map(row => parseLocalDate(row[field]))
+    .filter(Boolean)
+    .map(date => date.getTime());
+
+  return new Date(Math.max(...times));
+}
+
+function monthName(date) {
+  return date.toLocaleDateString(undefined, { month: 'short' });
+}
+
+function displayLabel(value) {
+  return String(value || 'N/A')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function csvEscape(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  const str = String(value);
+
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+
+  return str;
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+function setPageMessage(type, message) {
+  const element = document.getElementById('pageMessage');
+
+  if (!element) {
+    return;
+  }
+
+  if (!type || !message) {
+    element.className = 'page-message';
+    element.textContent = '';
+    return;
+  }
+
+  element.className = `page-message ${type}`;
+  element.textContent = message;
+}
+
+function escapeAttribute(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+
+</body>
+</html>
