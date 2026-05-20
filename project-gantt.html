@@ -296,7 +296,7 @@
 
     .controls-grid {
       display: grid;
-      grid-template-columns: 1.3fr 1.7fr 1fr 1fr 1fr 1fr auto auto;
+      grid-template-columns: 1.3fr 1.7fr 1fr 1fr 1fr 1fr auto auto auto;
       gap: 10px;
       padding: 14px 16px;
       align-items: end;
@@ -798,7 +798,6 @@
               </select>
             </div>
 
-            <button type="button" onclick="expandAllProjects()">Expand All</button>
             <button type="button" class="secondary" onclick="collapseAllProjects()">Collapse All</button>
             <button type="button" onclick="loadSchedule()">Refresh Schedule</button>
             <button type="button" class="secondary" onclick="exportCsv()">Export CSV</button>
@@ -844,7 +843,7 @@
             <div>
               <h2>Planned Production Timeline</h2>
               <p>
-                Use the + / – button next to each project to expand or minimize that project’s schedule.
+                Projects load minimized by default. Use the + / – button next to each project to expand or minimize that project’s schedule.
                 Each rectangle represents a planned production bucket.
               </p>
             </div>
@@ -881,6 +880,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let allRows = [];
 let filteredRows = [];
 let collapsedProjects = new Set();
+let hasInitializedCollapsedState = false;
 
 const PIXELS_PER_DAY = 10;
 const MIN_BAR_WIDTH = 28;
@@ -909,6 +909,18 @@ async function loadSchedule() {
   }
 
   allRows = result.data || [];
+
+  if (!hasInitializedCollapsedState) {
+    const projectKeys = new Set(
+      allRows
+        .map(row => getProjectKey(row))
+        .filter(Boolean)
+    );
+
+    collapsedProjects = projectKeys;
+    hasInitializedCollapsedState = true;
+  }
+
   populateFilters();
   applyFilters();
 
@@ -1251,11 +1263,6 @@ function toggleProjectCollapse(projectKey) {
     collapsedProjects.add(projectKey);
   }
 
-  renderTimeline();
-}
-
-function expandAllProjects() {
-  collapsedProjects.clear();
   renderTimeline();
 }
 
