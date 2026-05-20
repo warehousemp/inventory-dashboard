@@ -521,6 +521,74 @@
       border-color: #93c5fd;
     }
 
+
+    .approved-queue-panel {
+      margin-bottom: 18px;
+      border-top: 5px solid var(--green);
+    }
+
+    .queue-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .queue-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .queue-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(160px, 1fr));
+      gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #ffffff;
+    }
+
+    .approved-table-wrap {
+      overflow: auto;
+      padding: 0 14px 14px;
+      max-height: 420px;
+      border-top: 1px solid #eef2f7;
+    }
+
+    .approved-table {
+      min-width: 1250px;
+    }
+
+    .small-btn {
+      width: auto;
+      padding: 8px 10px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    .outline-btn {
+      background: white;
+      color: var(--header);
+      border-color: var(--header);
+    }
+
+    .invoice-ready-note {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+      max-width: 900px;
+    }
+
     .footer {
       text-align: center;
       color: var(--muted);
@@ -538,6 +606,10 @@
       }
 
       .mini-summary {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .queue-summary {
         grid-template-columns: repeat(2, 1fr);
       }
 
@@ -576,6 +648,10 @@
       }
 
       .mini-summary {
+        grid-template-columns: 1fr;
+      }
+
+      .queue-summary {
         grid-template-columns: 1fr;
       }
 
@@ -704,6 +780,72 @@
           </div>
         </section>
 
+
+        <section class="panel approved-queue-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Approved for Invoicing Queue</h2>
+              <p class="panel-subtitle">Accounting-ready draws approved by DOC. Only APPROVED_FOR_INVOICING draws appear here.</p>
+            </div>
+
+            <div class="queue-toolbar">
+              <span class="queue-pill" id="approvedQueueCountPill">0 Ready</span>
+              <button class="small-btn outline-btn" onclick="showApprovedInFullReport()">Show in Full Report</button>
+              <button class="small-btn secondary-btn" onclick="exportApprovedInvoiceCSV()">Export Queue CSV</button>
+            </div>
+          </div>
+
+          <div class="queue-summary">
+            <div class="mini-card">
+              <div class="mini-label">Ready Draws</div>
+              <div class="mini-value" id="approvedQueueCountValue">0</div>
+            </div>
+
+            <div class="mini-card">
+              <div class="mini-label">Ready Invoice Dollars</div>
+              <div class="mini-value" id="approvedQueueAmountValue">$0</div>
+            </div>
+
+            <div class="mini-card">
+              <div class="mini-label">Accounting Control</div>
+              <div class="mini-value">DOC Approved</div>
+            </div>
+          </div>
+
+          <div class="approved-table-wrap">
+            <table class="approved-table">
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th>Client</th>
+                  <th>Type</th>
+                  <th>Current Status</th>
+                  <th>Draw #</th>
+                  <th>Draw Name</th>
+                  <th>Expected Draw Date</th>
+                  <th>Scheduled Amount</th>
+                  <th>Approved Status</th>
+                  <th>Trigger Stage</th>
+                  <th>Notes</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+
+              <tbody id="approvedInvoiceQueueBody">
+                <tr>
+                  <td colspan="12">Loading approved draws...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="padding: 0 18px 16px;">
+            <div class="invoice-ready-note">
+              This queue intentionally excludes NOT_BILLED, PENDING_DOC_REVIEW, ON_HOLD, REJECTED_NOT_READY, and VOIDED draws so Accounting only works from DOC-approved draw opportunities.
+            </div>
+          </div>
+        </section>
+
         <section class="panel">
           <div class="panel-header">
             <div>
@@ -828,6 +970,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let allDrawRows = [];
 let filteredDrawRows = [];
+let approvedInvoiceRows = [];
 
 window.addEventListener('load', async () => {
   await loadAccountingPage();
@@ -889,6 +1032,7 @@ async function loadDraws() {
   }
 
   allDrawRows = data || [];
+  renderApprovedForInvoicingQueue(allDrawRows);
   populateFilters(allDrawRows);
   applyFilters();
 }
@@ -1153,6 +1297,144 @@ function renderDrawsTable(rows) {
   });
 }
 
+
+function renderApprovedForInvoicingQueue(rows) {
+  approvedInvoiceRows = (rows || [])
+    .filter(row => normalize(row.draw_status) === 'APPROVED_FOR_INVOICING')
+    .sort((a, b) => {
+      const dateA = a.expected_draw_date || '9999-12-31';
+      const dateB = b.expected_draw_date || '9999-12-31';
+
+      if (dateA !== dateB) {
+        return dateA.localeCompare(dateB);
+      }
+
+      const projectCompare = String(a.project_number || '').localeCompare(String(b.project_number || ''));
+
+      if (projectCompare !== 0) {
+        return projectCompare;
+      }
+
+      return Number(a.draw_number || 0) - Number(b.draw_number || 0);
+    });
+
+  const queueTotal = sumColumn(approvedInvoiceRows, 'remaining_to_invoice') || sumColumn(approvedInvoiceRows, 'scheduled_amount');
+
+  setText('approvedQueueCountPill', `${approvedInvoiceRows.length} Ready`);
+  setText('approvedQueueCountValue', approvedInvoiceRows.length);
+  setText('approvedQueueAmountValue', formatCurrencyShort(queueTotal));
+
+  const tbody = document.getElementById('approvedInvoiceQueueBody');
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.innerHTML = '';
+
+  if (approvedInvoiceRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12">No approved-for-invoicing draws are currently waiting for Accounting.</td></tr>';
+    return;
+  }
+
+  approvedInvoiceRows.forEach(row => {
+    const amountForAccounting = Number(row.remaining_to_invoice || 0) > 0
+      ? row.remaining_to_invoice
+      : row.scheduled_amount;
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>
+        <a class="action-link" href="project-detail.html?project_id=${encodeURIComponent(row.project_id)}">
+          <div class="project-block">
+            <span class="project-number-large">${escapeHTML(row.project_number || '')}</span>
+            <span class="project-name">${escapeHTML(row.project_name || 'Unnamed Project')}</span>
+          </div>
+        </a>
+      </td>
+      <td>${escapeHTML(row.client_name)}</td>
+      <td>${statusPill(row.project_type_label || row.project_type)}</td>
+      <td>${statusPill(row.project_status)}</td>
+      <td>${escapeHTML(row.draw_number)}</td>
+      <td>${escapeHTML(row.draw_name)}</td>
+      <td>${escapeHTML(formatDate(row.expected_draw_date))}</td>
+      <td class="money-positive">${formatCurrency(amountForAccounting)}</td>
+      <td>${statusPill(row.draw_status)}</td>
+      <td>${escapeHTML(row.trigger_stage)}</td>
+      <td class="wide-text">${escapeHTML(row.notes || row.expected_draw_notes || '')}</td>
+      <td>
+        <button class="small-btn" onclick="openProjectDetail('${escapeJS(row.project_id)}')">Open Project</button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function showApprovedInFullReport() {
+  const drawStatusFilter = document.getElementById('drawStatusFilter');
+  const forecastFilter = document.getElementById('forecastFilter');
+
+  if (forecastFilter) {
+    forecastFilter.value = 'ALL';
+    handleForecastFilterChange();
+  }
+
+  if (drawStatusFilter) {
+    drawStatusFilter.value = 'APPROVED_FOR_INVOICING';
+  }
+
+  applyFilters();
+
+  const fullReportPanel = document.querySelector('.panel:not(.approved-queue-panel)');
+
+  if (fullReportPanel) {
+    fullReportPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function exportApprovedInvoiceCSV() {
+  if (!approvedInvoiceRows || approvedInvoiceRows.length === 0) {
+    setMessage('info', 'No approved-for-invoicing draws available to export.');
+    return;
+  }
+
+  const exportRows = approvedInvoiceRows.map(row => ({
+    project_number: row.project_number,
+    project_name: row.project_name,
+    client_name: row.client_name,
+    project_type: row.project_type,
+    project_type_label: row.project_type_label,
+    project_status: row.project_status,
+    draw_number: row.draw_number,
+    draw_name: row.draw_name,
+    draw_status: row.draw_status,
+    expected_draw_date: row.expected_draw_date,
+    scheduled_amount: row.scheduled_amount,
+    remaining_to_invoice: row.remaining_to_invoice,
+    trigger_stage: row.trigger_stage,
+    trigger_description: row.trigger_description,
+    expected_draw_notes: row.expected_draw_notes,
+    notes: row.notes,
+    project_id: row.project_id,
+    draw_id: row.draw_id
+  }));
+
+  const datePart = new Date().toISOString().slice(0, 10);
+  exportRowsToCSV(exportRows, `approved_for_invoicing_queue_${datePart}.csv`);
+}
+
+function openProjectDetail(projectId) {
+  if (!projectId) {
+    setMessage('error', 'Project ID is missing for this approved draw.');
+    return;
+  }
+
+  window.location.href = `project-detail.html?project_id=${encodeURIComponent(projectId)}`;
+}
+
+
 function exportAccountingCSV() {
   if (!filteredDrawRows || filteredDrawRows.length === 0) {
     setMessage('info', 'No accounting draw records available to export.');
@@ -1406,6 +1688,20 @@ function formatDate(value) {
   }
 
   return date.toLocaleDateString();
+}
+
+
+function escapeJS(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r');
 }
 
 function escapeHTML(value) {
