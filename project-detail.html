@@ -1736,7 +1736,7 @@
             <div class="panel-header">
               <div>
                 <h2>Project Notes</h2>
-                <div class="panel-subtitle">Internal project notes by type and creator.</div>
+                <div class="panel-subtitle">Internal project notes plus project record notes updated from setup and Kanban movement workflows.</div>
               </div>
             </div>
 
@@ -1761,7 +1761,7 @@
             <div class="panel-header">
               <div>
                 <h2>Audit Log</h2>
-                <div class="panel-subtitle">Project audit activity and record-change history.</div>
+                <div class="panel-subtitle">Project audit activity, Kanban phase movements, and record-change history.</div>
               </div>
             </div>
 
@@ -2037,6 +2037,7 @@ async function saveProjectManagerProjectFields() {
   await loadProjectHeader(currentProjectId);
   await Promise.all([
     loadStages(currentProjectId),
+    loadNotes(currentProjectId),
     loadAuditLog(currentProjectId)
   ]);
 
@@ -2087,6 +2088,7 @@ async function completeProjectSetupStage() {
   await loadProjectHeader(currentProjectId);
   await Promise.all([
     loadStages(currentProjectId),
+    loadNotes(currentProjectId),
     loadAuditLog(currentProjectId)
   ]);
 
@@ -2882,12 +2884,30 @@ async function loadNotes(projectId) {
     return;
   }
 
-  if (!data || data.length === 0) {
+  const rows = data || [];
+  const projectRecordNotes = currentProject && currentProject.notes
+    ? String(currentProject.notes).trim()
+    : '';
+
+  if (!projectRecordNotes && rows.length === 0) {
     tbody.innerHTML = '<tr><td colspan="4">No notes found for this project.</td></tr>';
     return;
   }
 
-  data.forEach(row => {
+  if (projectRecordNotes) {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${escapeHTML('Project Record Notes')}</td>
+      <td class="wide-text">${escapeHTML(projectRecordNotes)}</td>
+      <td>${escapeHTML('System / Project Record')}</td>
+      <td>${escapeHTML(formatDateTime(currentProject.updated_at))}</td>
+    `;
+
+    tbody.appendChild(tr);
+  }
+
+  rows.forEach(row => {
     const tr = document.createElement('tr');
 
     tr.innerHTML = `
@@ -2902,26 +2922,74 @@ async function loadNotes(projectId) {
 }
 
 async function loadAuditLog(projectId) {
-  const { data, error } = await client
-    .from('project_detail_audit_log_page_view')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('changed_at', { ascending: false });
+  const [auditResult, phaseHistoryResult] = await Promise.all([
+    client
+      .from('project_detail_audit_log_page_view')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('changed_at', { ascending: false }),
+    client
+      .from('project_phase_history')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('entered_at', { ascending: false })
+  ]);
 
   const tbody = document.getElementById('auditLogTableBody');
   tbody.innerHTML = '';
 
-  if (error) {
-    tbody.innerHTML = `<tr><td colspan="5">${escapeHTML(error.message)}</td></tr>`;
+  if (auditResult.error) {
+    tbody.innerHTML = `<tr><td colspan="5">${escapeHTML(auditResult.error.message)}</td></tr>`;
     return;
   }
 
-  if (!data || data.length === 0) {
+  if (phaseHistoryResult.error) {
+    tbody.innerHTML = `<tr><td colspan="5">${escapeHTML(phaseHistoryResult.error.message)}</td></tr>`;
+    return;
+  }
+
+  const auditRows = (auditResult.data || []).map(row => ({
+    changed_at: row.changed_at,
+    audit_action: row.audit_action,
+    audit_table: row.audit_table,
+    changed_by: row.changed_by,
+    notes: row.notes
+  }));
+
+  const phaseRows = [];
+
+  (phaseHistoryResult.data || []).forEach(row => {
+    if (row.entered_at) {
+      phaseRows.push({
+        changed_at: row.entered_at,
+        audit_action: `Kanban Phase Entered: ${row.production_phase || ''}`,
+        audit_table: 'project_phase_history',
+        changed_by: row.entered_by || '',
+        notes: row.entry_notes || ''
+      });
+    }
+
+    if (row.exited_at) {
+      phaseRows.push({
+        changed_at: row.exited_at,
+        audit_action: `Kanban Phase Exited: ${row.production_phase || ''}`,
+        audit_table: 'project_phase_history',
+        changed_by: row.exited_by || '',
+        notes: row.exit_notes || ''
+      });
+    }
+  });
+
+  const combinedRows = [...auditRows, ...phaseRows].sort((a, b) => {
+    return new Date(b.changed_at || 0).getTime() - new Date(a.changed_at || 0).getTime();
+  });
+
+  if (combinedRows.length === 0) {
     tbody.innerHTML = '<tr><td colspan="5">No audit log records found for this project.</td></tr>';
     return;
   }
 
-  data.forEach(row => {
+  combinedRows.forEach(row => {
     const tr = document.createElement('tr');
 
     tr.innerHTML = `
