@@ -565,7 +565,7 @@
     }
 
     .approved-table {
-      min-width: 1250px;
+      min-width: 1850px;
     }
 
     .small-btn {
@@ -588,6 +588,49 @@
       line-height: 1.4;
       max-width: 900px;
     }
+
+    .invoice-action-box {
+      display: grid;
+      grid-template-columns: 150px 135px 135px 140px 220px auto;
+      gap: 8px;
+      align-items: start;
+      min-width: 950px;
+    }
+
+    .invoice-action-box input {
+      padding: 8px 9px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .invoice-action-notes {
+      min-width: 220px;
+    }
+
+    .mark-invoiced-btn {
+      background: var(--green);
+      border-color: var(--green);
+      width: auto;
+      padding: 8px 10px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    .mark-invoiced-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .invoice-action-help {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.35;
+      margin-top: 6px;
+      max-width: 950px;
+      white-space: normal;
+    }
+
 
     .footer {
       text-align: center;
@@ -826,7 +869,7 @@
                   <th>Approved Status</th>
                   <th>Trigger Stage</th>
                   <th>Notes</th>
-                  <th>Action</th>
+                  <th>Invoice Action</th>
                 </tr>
               </thead>
 
@@ -840,7 +883,7 @@
 
           <div style="padding: 0 18px 16px;">
             <div class="invoice-ready-note">
-              This queue intentionally excludes NOT_BILLED, PENDING_DOC_REVIEW, ON_HOLD, REJECTED_NOT_READY, and VOIDED draws so Accounting only works from DOC-approved draw opportunities.
+              This queue intentionally excludes NOT_BILLED, PENDING_DOC_REVIEW, ON_HOLD, REJECTED_NOT_READY, and VOIDED draws so Accounting only works from DOC-approved draw opportunities. Use Mark Invoiced after the invoice has been created/sent.
             </div>
           </div>
         </section>
@@ -1377,7 +1420,15 @@ function renderApprovedForInvoicingQueue(rows) {
       <td>${escapeHTML(row.trigger_stage)}</td>
       <td class="wide-text">${escapeHTML(row.notes || row.expected_draw_notes || '')}</td>
       <td>
-        <button class="small-btn" onclick="openProjectDetail('${escapeJS(row.project_id)}')">Open Project</button>
+        <div class="invoice-action-box">
+          <input id="invoice-number-${escapeHTML(row.draw_id)}" placeholder="Invoice #">
+          <input id="invoice-date-${escapeHTML(row.draw_id)}" type="date" value="${toDateInputValue(new Date())}">
+          <input id="due-date-${escapeHTML(row.draw_id)}" type="date" value="${toDateInputValue(addDays(new Date(), 14))}">
+          <input id="invoiced-by-${escapeHTML(row.draw_id)}" placeholder="Invoiced By">
+          <input id="invoice-notes-${escapeHTML(row.draw_id)}" class="invoice-action-notes" placeholder="Notes optional">
+          <button id="mark-invoiced-${escapeHTML(row.draw_id)}" class="mark-invoiced-btn" onclick="markDrawInvoiced('${escapeJS(row.draw_id)}')">Mark Invoiced</button>
+        </div>
+        <div class="invoice-action-help">Open project detail separately if Accounting needs project context before invoicing.</div>
       </td>
     `;
 
@@ -1423,6 +1474,98 @@ function openProjectDetail(projectId) {
   }
 
   window.location.href = `project-detail.html?project_id=${encodeURIComponent(projectId)}`;
+}
+
+async function markDrawInvoiced(drawId) {
+  if (!drawId) {
+    setMessage('error', 'Draw ID is missing. Cannot mark invoiced.');
+    return;
+  }
+
+  const invoiceNumberEl = document.getElementById(`invoice-number-${drawId}`);
+  const invoiceDateEl = document.getElementById(`invoice-date-${drawId}`);
+  const dueDateEl = document.getElementById(`due-date-${drawId}`);
+  const invoicedByEl = document.getElementById(`invoiced-by-${drawId}`);
+  const notesEl = document.getElementById(`invoice-notes-${drawId}`);
+  const buttonEl = document.getElementById(`mark-invoiced-${drawId}`);
+
+  const invoiceNumber = invoiceNumberEl ? invoiceNumberEl.value.trim() : '';
+  const invoiceDate = invoiceDateEl ? invoiceDateEl.value : '';
+  const dueDate = dueDateEl ? dueDateEl.value : '';
+  const invoicedBy = invoicedByEl ? invoicedByEl.value.trim() : '';
+  const notes = notesEl ? notesEl.value.trim() : '';
+
+  if (!invoiceNumber) {
+    setMessage('error', 'Invoice Number is required before marking this draw invoiced.');
+    return;
+  }
+
+  if (!invoiceDate) {
+    setMessage('error', 'Invoice Date is required before marking this draw invoiced.');
+    return;
+  }
+
+  if (!dueDate) {
+    setMessage('error', 'Due Date is required before marking this draw invoiced.');
+    return;
+  }
+
+  if (!invoicedBy) {
+    setMessage('error', 'Invoiced By is required before marking this draw invoiced.');
+    return;
+  }
+
+  const confirmed = window.confirm('Mark this approved draw as INVOICED? This will remove it from the Approved for Invoicing Queue and update the full accounting report.');
+
+  if (!confirmed) {
+    return;
+  }
+
+  if (buttonEl) {
+    buttonEl.disabled = true;
+    buttonEl.textContent = 'Saving...';
+  }
+
+  setMessage('info', 'Marking draw as invoiced...');
+
+  const { data, error } = await client.rpc('update_project_draw_invoice_status', {
+    p_draw_id: drawId,
+    p_invoice_number: invoiceNumber,
+    p_invoice_date: invoiceDate,
+    p_due_date: dueDate,
+    p_invoiced_by: invoicedBy,
+    p_notes: notes || null
+  });
+
+  if (error) {
+    if (buttonEl) {
+      buttonEl.disabled = false;
+      buttonEl.textContent = 'Mark Invoiced';
+    }
+
+    setMessage('error', 'Mark invoiced error: ' + error.message);
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+
+  if (!result || result.success !== true) {
+    if (buttonEl) {
+      buttonEl.disabled = false;
+      buttonEl.textContent = 'Mark Invoiced';
+    }
+
+    setMessage('error', result && result.message ? result.message : 'Draw was not marked invoiced.');
+    return;
+  }
+
+  await Promise.all([
+    loadSummary(),
+    loadDraws()
+  ]);
+
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  setMessage('info', result.message || 'Draw marked INVOICED successfully.');
 }
 
 
@@ -1591,6 +1734,12 @@ function parseLocalDate(value) {
   }
 
   return startOfDay(date);
+}
+
+function addDays(date, days) {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + Number(days || 0));
+  return copy;
 }
 
 function toDateInputValue(date) {
