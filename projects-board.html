@@ -796,6 +796,45 @@
       color: #111827;
     }
 
+    .movement-warning {
+      display: none;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      border-radius: 12px;
+      padding: 11px 12px;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.4;
+    }
+
+    .movement-warning.active {
+      display: block;
+    }
+
+    .movement-pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      background: #eef2ff;
+      color: #3730a3;
+      border: 1px solid #c7d2fe;
+    }
+
+    .movement-pill.backward {
+      background: #fff7ed;
+      color: #9a3412;
+      border-color: #fed7aa;
+    }
+
+    .movement-pill.forward {
+      background: #ecfdf3;
+      color: #166534;
+      border-color: #bbf7d0;
+    }
+
     .modal-actions {
       display: flex;
       justify-content: flex-end;
@@ -940,7 +979,7 @@
         </div>
 
         <div class="topbar-actions">
-          <span class="topbar-pill">Production Phase Movement Board</span>
+          <span class="topbar-pill">Real-World Current Phase Board</span>
           <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
         </div>
       </header>
@@ -1043,15 +1082,20 @@
     <div class="modal-card">
       <div class="modal-header">
         <h2 id="moveModalTitle">Confirm Kanban Move</h2>
-        <p>This move will update the project production phase and set the project status to In Progress.</p>
+        <p id="moveModalSubtitle">This move will update the project production phase and set the project status to In Progress.</p>
       </div>
 
       <div class="modal-body">
+        <div id="movementWarning" class="movement-warning">
+          You are moving this project backward in the production workflow. This will preserve prior phase history. Notes are required so the reason for the move is captured.
+        </div>
+
         <div class="modal-project-box">
           <div><strong>Project:</strong> <span id="modalProjectName">N/A</span></div>
           <div><strong>Project Number:</strong> <span id="modalProjectNumber">N/A</span></div>
           <div><strong>From Phase:</strong> <span id="modalFromPhase">N/A</span></div>
           <div><strong>To Phase:</strong> <span id="modalToPhase">N/A</span></div>
+          <div><strong>Movement:</strong> <span id="modalMovementType" class="movement-pill">N/A</span></div>
         </div>
 
         <div>
@@ -1060,7 +1104,7 @@
         </div>
 
         <div>
-          <label for="modalNotesInput">Notes</label>
+          <label id="modalNotesLabel" for="modalNotesInput">Notes</label>
           <textarea id="modalNotesInput" rows="3" placeholder="Optional move note"></textarea>
         </div>
       </div>
@@ -1263,7 +1307,7 @@ function updateBoardModeNote() {
   if (boardMode === 'MASTER') {
     note.textContent = 'Master Status View is read-only. This lifecycle view shows prospects, setup, active production, blocked/waiting, closeout, and completed projects.';
   } else {
-    note.textContent = 'Production boards show production phases only. Forward phase movement is allowed. Backward movement is blocked and must be handled through an admin correction workflow.';
+    note.textContent = 'Production boards show the real-world current phase. Cards may be moved forward, skipped ahead, or moved backward. Backward moves require notes and preserve prior phase history.';
   }
 }
 
@@ -1639,34 +1683,56 @@ function openMoveModal(projectId, targetPhase) {
   }
 
   const currentTemplate = getPhaseTemplate(project.project_type, project.current_production_phase);
-
-  if (
-    currentTemplate &&
-    targetTemplate &&
-    Number(targetTemplate.sort_order || 0) < Number(currentTemplate.sort_order || 0)
-  ) {
-    setPageMessage(
-      'error',
-      `Backward phase movement is not allowed from the Kanban board. ${project.project_number || 'This project'} is currently in "${project.current_production_phase}" and cannot be moved back to "${targetPhase}". Use Admin / correction workflow if this project phase needs to be corrected.`
-    );
-    return;
-  }
+  const movementDirection = getMovementDirection(currentTemplate, targetTemplate);
+  const isBackwardMove = movementDirection === 'BACKWARD';
 
   pendingMove = {
     projectId,
     targetPhase,
     projectNumber: project.project_number || '',
     projectName: project.project_name || 'Unnamed Project',
-    currentPhase: project.current_production_phase || 'Unassigned Production Phase'
+    currentPhase: project.current_production_phase || 'Unassigned Production Phase',
+    movementDirection,
+    isBackwardMove
   };
 
   setText('modalProjectName', pendingMove.projectName);
   setText('modalProjectNumber', pendingMove.projectNumber || 'N/A');
   setText('modalFromPhase', pendingMove.currentPhase);
   setText('modalToPhase', targetPhase);
+  setText('modalMovementType', displayMovementDirection(movementDirection));
+
+  const movementPill = document.getElementById('modalMovementType');
+  if (movementPill) {
+    movementPill.className = 'movement-pill';
+
+    if (movementDirection === 'BACKWARD') {
+      movementPill.classList.add('backward');
+    } else if (movementDirection === 'FORWARD') {
+      movementPill.classList.add('forward');
+    }
+  }
+
+  const warning = document.getElementById('movementWarning');
+  if (warning) {
+    warning.classList.toggle('active', isBackwardMove);
+  }
+
+  const notesLabel = document.getElementById('modalNotesLabel');
+  const notesInput = document.getElementById('modalNotesInput');
+
+  if (notesLabel) {
+    notesLabel.textContent = isBackwardMove ? 'Notes / Reason *' : 'Notes';
+  }
+
+  if (notesInput) {
+    notesInput.value = '';
+    notesInput.placeholder = isBackwardMove
+      ? 'Required: explain why this project is being moved backward'
+      : 'Optional move note';
+  }
 
   document.getElementById('modalUpdatedByInput').value = '';
-  document.getElementById('modalNotesInput').value = '';
 
   const modal = document.getElementById('moveModal');
   modal.classList.add('active');
@@ -1674,6 +1740,41 @@ function openMoveModal(projectId, targetPhase) {
   setTimeout(() => {
     document.getElementById('modalUpdatedByInput').focus();
   }, 50);
+}
+
+function getMovementDirection(currentTemplate, targetTemplate) {
+  if (!currentTemplate || !targetTemplate) {
+    return 'UNKNOWN';
+  }
+
+  const currentSort = Number(currentTemplate.sort_order || 0);
+  const targetSort = Number(targetTemplate.sort_order || 0);
+
+  if (targetSort > currentSort) {
+    return 'FORWARD';
+  }
+
+  if (targetSort < currentSort) {
+    return 'BACKWARD';
+  }
+
+  return 'SAME_SORT_ORDER';
+}
+
+function displayMovementDirection(direction) {
+  if (direction === 'FORWARD') {
+    return 'Forward Move';
+  }
+
+  if (direction === 'BACKWARD') {
+    return 'Backward Move';
+  }
+
+  if (direction === 'SAME_SORT_ORDER') {
+    return 'Same Order Move';
+  }
+
+  return 'Unknown Move';
 }
 
 function getPhaseTemplate(projectType, phaseName) {
@@ -1714,6 +1815,12 @@ async function confirmMoveProject() {
     return;
   }
 
+  if (pendingMove.isBackwardMove && !notes) {
+    setPageMessage('error', 'Notes are required when moving a project backward.');
+    document.getElementById('modalNotesInput').focus();
+    return;
+  }
+
   setPageMessage('info', `Moving ${pendingMove.projectNumber || 'project'} to ${pendingMove.targetPhase}...`);
 
   const result = await client.rpc('update_project_kanban_phase', {
@@ -1730,10 +1837,11 @@ async function confirmMoveProject() {
 
   const movedProjectNumber = pendingMove.projectNumber || 'Project';
   const movedTargetPhase = pendingMove.targetPhase;
+  const movedDirection = pendingMove.movementDirection;
 
   closeMoveModal();
 
-  setPageMessage('success', `${movedProjectNumber} moved to ${movedTargetPhase}.`);
+  setPageMessage('success', `${movedProjectNumber} moved to ${movedTargetPhase}. Movement: ${displayMovementDirection(movedDirection)}.`);
   await loadBoard();
 }
 
