@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>Projects Kanban Board - Projects Command Center</title>
+  <title>Production Workflow - Projects Command Center</title>
 
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/png" href="favicon.png">
@@ -33,6 +33,8 @@
       --yellow: #eab308;
       --teal: #0d9488;
       --gray: #64748b;
+      --sidebar-width: 230px;
+      --sidebar-collapsed-width: 66px;
     }
 
     * {
@@ -50,10 +52,15 @@
 
     .app-shell {
       display: grid;
-      grid-template-columns: 230px 1fr;
+      grid-template-columns: var(--sidebar-width) 1fr;
       height: 100vh;
       min-height: 0;
       overflow: hidden;
+      transition: grid-template-columns 0.2s ease;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-collapsed-width) 1fr;
     }
 
     .sidebar {
@@ -63,6 +70,8 @@
       top: 0;
       height: 100vh;
       overflow-y: auto;
+      overflow-x: hidden;
+      transition: width 0.2s ease;
     }
 
     .brand {
@@ -71,6 +80,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      min-height: 70px;
     }
 
     .brand-mark {
@@ -83,10 +93,13 @@
       justify-content: center;
       font-weight: 800;
       letter-spacing: -1px;
+      flex: 0 0 auto;
     }
 
     .brand-text {
       line-height: 1.1;
+      white-space: nowrap;
+      transition: opacity 0.15s ease, width 0.15s ease;
     }
 
     .brand-text strong {
@@ -101,8 +114,36 @@
       letter-spacing: 2px;
     }
 
+    .sidebar-toggle-wrap {
+      padding: 12px 12px 4px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .sidebar-toggle {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      padding: 0;
+      transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(26,163,176,0.34);
+      border-color: rgba(255,255,255,0.42);
+    }
+
     .side-nav {
-      padding: 14px 10px;
+      padding: 8px 10px 14px;
     }
 
     .side-nav a {
@@ -115,6 +156,8 @@
       border-radius: 10px;
       font-size: 14px;
       margin-bottom: 4px;
+      white-space: nowrap;
+      min-height: 44px;
     }
 
     .side-nav a.active,
@@ -125,7 +168,53 @@
 
     .nav-icon {
       width: 20px;
+      min-width: 20px;
       text-align: center;
+      opacity: 0.95;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-label {
+      transition: opacity 0.15s ease, width 0.15s ease;
+      overflow: hidden;
+    }
+
+    .app-shell.sidebar-collapsed .brand {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .app-shell.sidebar-collapsed .brand-text {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav a {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+      gap: 0;
+    }
+
+    .app-shell.sidebar-collapsed .nav-label {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
     }
 
     .main {
@@ -876,7 +965,8 @@
         overflow: auto;
       }
 
-      .app-shell {
+      .app-shell,
+      .app-shell.sidebar-collapsed {
         grid-template-columns: 1fr;
         height: auto;
         overflow: visible;
@@ -887,9 +977,41 @@
         height: auto;
       }
 
-      .side-nav {
+      .brand {
+        min-height: auto;
+      }
+
+      .sidebar-toggle-wrap {
+        display: none;
+      }
+
+      .app-shell.sidebar-collapsed .brand {
+        justify-content: flex-start;
+        padding: 18px 18px 16px;
+      }
+
+      .app-shell.sidebar-collapsed .brand-text {
+        opacity: 1;
+        width: auto;
+      }
+
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
+        padding: 14px 10px;
+      }
+
+      .app-shell.sidebar-collapsed .side-nav a,
+      .side-nav a {
+        justify-content: flex-start;
+        padding: 12px 12px;
+        gap: 10px;
+      }
+
+      .app-shell.sidebar-collapsed .nav-label {
+        opacity: 1;
+        width: auto;
       }
 
       .topbar {
@@ -939,7 +1061,8 @@
         grid-template-columns: 1fr;
       }
 
-      .side-nav {
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
         grid-template-columns: 1fr;
       }
 
@@ -951,7 +1074,7 @@
 </head>
 
 <body>
-  <div class="app-shell">
+  <div class="app-shell" id="appShell">
 
     <aside class="sidebar">
       <div class="brand">
@@ -962,29 +1085,79 @@
         </div>
       </div>
 
-      <nav class="side-nav">
-        <a href="projects-command.html"><span class="nav-icon">◆</span>Projects Home</a>
-        <a href="dashboard.html"><span class="nav-icon">⌂</span>Dashboard</a>
-        <a class="active" href="projects-board.html"><span class="nav-icon">▦</span>Kanban Board</a>
-        <a href="add-new-client-project.html"><span class="nav-icon">＋</span>Add New Client Project</a>
-        <a href="project-setup.html"><span class="nav-icon">▤</span>Project Setup</a>
-        <a href="projects.html"><span class="nav-icon">▣</span>Active Projects</a>
-        <a href="project-accounting.html"><span class="nav-icon">$</span>Accounting Draws</a>
-        <a href="project-documents.html"><span class="nav-icon">□</span>Documents</a>
-        <a href="project-admin.html"><span class="nav-icon">⚙</span>Admin</a>
-        <a href="index.html"><span class="nav-icon">↩</span>Main Menu</a>
+      <div class="sidebar-toggle-wrap">
+        <button class="sidebar-toggle" id="sidebarToggle" type="button" title="Collapse" aria-label="Collapse sidebar">
+          ‹
+        </button>
+      </div>
+
+      <nav class="side-nav" aria-label="Projects navigation">
+        <a href="projects-command.html" title="Projects Home">
+          <span class="nav-icon">◆</span>
+          <span class="nav-label">Projects Home</span>
+        </a>
+
+        <a href="dashboard.html" title="Dashboard">
+          <span class="nav-icon">⌂</span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+
+        <a class="active" href="projects-board.html" title="Production Workflow">
+          <span class="nav-icon">▦</span>
+          <span class="nav-label">Production Workflow</span>
+        </a>
+
+        <a href="project-gantt.html" title="Production Schedule">
+          <span class="nav-icon">▥</span>
+          <span class="nav-label">Production Schedule</span>
+        </a>
+
+        <a href="add-new-client-project.html" title="Add New Client Project">
+          <span class="nav-icon">＋</span>
+          <span class="nav-label">Add New Client Project</span>
+        </a>
+
+        <a href="project-setup.html" title="Project Setup">
+          <span class="nav-icon">▤</span>
+          <span class="nav-label">Project Setup</span>
+        </a>
+
+        <a href="projects.html" title="Active Projects">
+          <span class="nav-icon">▣</span>
+          <span class="nav-label">Active Projects</span>
+        </a>
+
+        <a href="project-accounting.html" title="Accounting Draws">
+          <span class="nav-icon">$</span>
+          <span class="nav-label">Accounting Draws</span>
+        </a>
+
+        <a href="project-documents.html" title="Documents">
+          <span class="nav-icon">□</span>
+          <span class="nav-label">Documents</span>
+        </a>
+
+        <a href="project-admin.html" title="Admin">
+          <span class="nav-icon">⚙</span>
+          <span class="nav-label">Admin</span>
+        </a>
+
+        <a href="index.html" title="Main Menu">
+          <span class="nav-icon">↩</span>
+          <span class="nav-label">Main Menu</span>
+        </a>
       </nav>
     </aside>
 
     <main class="main">
       <header class="topbar">
         <div class="topbar-title">
-          <h1>Projects Kanban Board</h1>
+          <h1>Production Workflow</h1>
           <p>Production phase movement and project board visibility</p>
         </div>
 
         <div class="topbar-actions">
-          <span class="topbar-pill">Real-World Current Phase Board</span>
+          <span class="topbar-pill">Real-World Current Phase Workflow</span>
           <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
         </div>
       </header>
@@ -1120,6 +1293,51 @@
       </div>
     </div>
   </div>
+
+<script>
+(function () {
+  const STORAGE_KEY = "projectsSidebarCollapsed";
+  const appShell = document.getElementById("appShell");
+  const toggle = document.getElementById("sidebarToggle");
+
+  if (!appShell || !toggle) {
+    return;
+  }
+
+  function applySidebarState(collapsed) {
+    appShell.classList.toggle("sidebar-collapsed", collapsed);
+
+    toggle.textContent = collapsed ? "›" : "‹";
+    toggle.title = collapsed ? "Expand" : "Collapse";
+    toggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+  }
+
+  function getSavedState() {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === "true";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function saveState(collapsed) {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(collapsed));
+    } catch (error) {
+      // Ignore localStorage errors so navigation remains usable.
+    }
+  }
+
+  applySidebarState(getSavedState());
+
+  toggle.addEventListener("click", function () {
+    const collapsed = !appShell.classList.contains("sidebar-collapsed");
+    applySidebarState(collapsed);
+    saveState(collapsed);
+  });
+})();
+</script>
 
 <script>
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
