@@ -60,6 +60,80 @@
       overflow-y: auto;
     }
 
+    .sidebar-toggle-row {
+      display: flex;
+      justify-content: flex-end;
+      padding: 12px 10px 0;
+    }
+
+    .sidebar-toggle {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.10);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(26,163,176,0.34);
+      opacity: 1;
+    }
+
+    .sidebar-toggle-icon {
+      display: inline-block;
+      transform: translateX(1px);
+    }
+
+    body.sidebar-collapsed .app-shell {
+      grid-template-columns: 72px 1fr;
+    }
+
+    body.sidebar-collapsed .brand {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    body.sidebar-collapsed .brand-text,
+    body.sidebar-collapsed .nav-label {
+      display: none;
+    }
+
+    body.sidebar-collapsed .side-nav {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    body.sidebar-collapsed .side-nav a {
+      justify-content: center;
+      padding-left: 8px;
+      padding-right: 8px;
+      gap: 0;
+    }
+
+    body.sidebar-collapsed .nav-icon {
+      width: 24px;
+      font-size: 16px;
+    }
+
+    body.sidebar-collapsed .sidebar-toggle-row {
+      justify-content: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    body.sidebar-collapsed .sidebar-toggle-icon {
+      transform: rotate(180deg) translateX(-1px);
+    }
+
     .brand {
       padding: 18px 18px 16px;
       border-bottom: 1px solid rgba(255,255,255,0.12);
@@ -671,6 +745,31 @@
         height: auto;
       }
 
+      body.sidebar-collapsed .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      body.sidebar-collapsed .brand {
+        justify-content: flex-start;
+        padding: 18px 18px 16px;
+      }
+
+      body.sidebar-collapsed .brand-text,
+      body.sidebar-collapsed .nav-label {
+        display: inline;
+      }
+
+      body.sidebar-collapsed .side-nav a {
+        justify-content: flex-start;
+        gap: 10px;
+        padding: 12px 12px;
+      }
+
+      body.sidebar-collapsed .sidebar-toggle-row {
+        justify-content: flex-end;
+      }
+
+
       .side-nav {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -731,17 +830,24 @@
         </div>
       </div>
 
+      <div class="sidebar-toggle-row">
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Collapse sidebar" title="Collapse sidebar">
+          <span class="sidebar-toggle-icon">‹</span>
+        </button>
+      </div>
+
       <nav class="side-nav">
-        <a href="projects-command.html"><span class="nav-icon">◆</span>Projects Home</a>
-        <a href="dashboard.html"><span class="nav-icon">⌂</span>Dashboard</a>
-        <a href="projects-board.html"><span class="nav-icon">▦</span>Kanban Board</a>
-        <a href="add-new-client-project.html"><span class="nav-icon">＋</span>Add New Client Project</a>
-        <a href="project-setup.html"><span class="nav-icon">▤</span>Project Setup</a>
-        <a href="projects.html"><span class="nav-icon">▣</span>Active Projects</a>
-        <a class="active" href="project-accounting.html"><span class="nav-icon">$</span>Accounting Draws</a>
-        <a href="project-documents.html"><span class="nav-icon">□</span>Documents</a>
-        <a href="project-admin.html"><span class="nav-icon">⚙</span>Admin</a>
-        <a href="index.html"><span class="nav-icon">↩</span>Main Menu</a>
+        <a href="projects-command.html"><span class="nav-icon">◆</span><span class="nav-label">Projects Home</span></a>
+        <a href="dashboard.html"><span class="nav-icon">⌂</span><span class="nav-label">Dashboard</span></a>
+        <a href="projects-board.html"><span class="nav-icon">▦</span><span class="nav-label">Production Workflow</span></a>
+        <a href="project-gantt.html"><span class="nav-icon">▥</span><span class="nav-label">Production Schedule</span></a>
+        <a href="add-new-client-project.html"><span class="nav-icon">＋</span><span class="nav-label">Add New Client Project</span></a>
+        <a href="project-setup.html"><span class="nav-icon">▤</span><span class="nav-label">Project Setup</span></a>
+        <a href="projects.html"><span class="nav-icon">▣</span><span class="nav-label">Active Projects</span></a>
+        <a class="active" href="project-accounting.html"><span class="nav-icon">$</span><span class="nav-label">Accounting Draws</span></a>
+        <a href="project-documents.html"><span class="nav-icon">□</span><span class="nav-label">Documents</span></a>
+        <a href="project-admin.html"><span class="nav-icon">⚙</span><span class="nav-label">Admin</span></a>
+        <a href="index.html"><span class="nav-icon">↩</span><span class="nav-label">Main Menu</span></a>
       </nav>
     </aside>
 
@@ -1016,8 +1122,33 @@ let filteredDrawRows = [];
 let approvedInvoiceRows = [];
 
 window.addEventListener('load', async () => {
+  initSidebarToggle();
   await loadAccountingPage();
 });
+
+function initSidebarToggle() {
+  const toggle = document.getElementById('sidebarToggle');
+
+  if (!toggle) {
+    return;
+  }
+
+  const savedState = localStorage.getItem('projectsSidebarCollapsed');
+
+  if (savedState === 'true') {
+    document.body.classList.add('sidebar-collapsed');
+    toggle.setAttribute('aria-label', 'Expand sidebar');
+    toggle.setAttribute('title', 'Expand sidebar');
+  }
+
+  toggle.addEventListener('click', () => {
+    const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
+
+    localStorage.setItem('projectsSidebarCollapsed', String(isCollapsed));
+    toggle.setAttribute('aria-label', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    toggle.setAttribute('title', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+  });
+}
 
 async function loadAccountingPage() {
   setMessage('info', 'Loading project accounting data...');
