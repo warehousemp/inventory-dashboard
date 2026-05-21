@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Molinari Performance Hub | Molinari Operations System</title>
+
+  <style>
+    :root {
+      --navy: #17365d;
+      --navy-dark: #102947;
+      --blue: #2f75b5;
+      --light-blue: #eaf2fb;
+      --green: #2e7d32;
+      --red: #b71c1c;
+      --orange: #ef6c00;
+      --gray-bg: #f4f6f8;
+      --card: #ffffff;
+      --border: #d9dee5;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --sidebar: #111827;
+      --sidebar-hover: #1f2937;
+      --sidebar-active: #2563eb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--gray-bg);
+      color: var(--text);
+    }
+
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    .sidebar {
+      width: 245px;
+      background: var(--sidebar);
+      color: white;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 20;
+    }
+
+    .sidebar-header {
+      padding: 18px 18px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+
+    .brand-badge {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #1d4ed8, #38bdf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-toggle-wrap {
+      display: flex;
+      justify-content: flex-end;
+      padding: 10px 12px 4px;
+    }
+
+    .sidebar-toggle {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.08);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(255,255,255,0.15);
+    }
+
+    .nav {
+      padding: 6px 8px 18px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #e5e7eb;
+      text-decoration: none;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 3px;
+      white-space: nowrap;
+    }
+
+    .nav a:hover {
+      background: var(--sidebar-hover);
+    }
+
+    .nav a.active {
+      background: var(--sidebar-active);
+      color: white;
+      font-weight: 700;
+    }
+
+    .nav-icon {
+      width: 18px;
+      min-width: 18px;
+      text-align: center;
+      opacity: 0.9;
+      font-size: 13px;
+    }
+
+    .main {
+      margin-left: 245px;
+      width: calc(100% - 245px);
+      min-height: 100vh;
+    }
+
+    .topbar {
+      background: var(--navy);
+      color: white;
+      padding: 16px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.2px;
+    }
+
+    .topbar small {
+      display: block;
+      margin-top: 4px;
+      color: #dbeafe;
+      font-size: 12px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 13px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+    }
+
+    .btn-primary {
+      background: #ffffff;
+      color: var(--navy);
+    }
+
+    .btn-blue {
+      background: var(--blue);
+      color: white;
+    }
+
+    .btn-light {
+      background: var(--light-blue);
+      color: var(--navy);
+      border: 1px solid #c7dff7;
+    }
+
+    .btn:hover {
+      filter: brightness(0.97);
+    }
+
+    .content {
+      padding: 24px 28px 40px;
+    }
+
+    .page-intro {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 22px;
+      box-shadow: 0 2px 8px rgba(15,23,42,0.05);
+    }
+
+    .page-intro h2 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      color: var(--navy);
+    }
+
+    .page-intro p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      max-width: 980px;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    .metric-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 2px 8px rgba(15,23,42,0.05);
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+
+    .metric-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(15,23,42,0.05);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .card-header h3 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 17px;
+    }
+
+    .card-body {
+      padding: 18px;
+    }
+
+    .module-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .module-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: #fbfcfd;
+      min-height: 138px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .module-card h4 {
+      margin: 0 0 8px;
+      color: var(--navy);
+      font-size: 15px;
+    }
+
+    .module-card p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .module-status {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--blue);
+    }
+
+    .scorecard-table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      text-align: left;
+      padding: 11px 10px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      color: #334155;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 11px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .status-green {
+      background: #e8f5e9;
+      color: var(--green);
+    }
+
+    .status-red {
+      background: #ffebee;
+      color: var(--red);
+    }
+
+    .status-orange {
+      background: #fff3e0;
+      color: var(--orange);
+    }
+
+    .todo-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .todo-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      background: #fbfcfd;
+    }
+
+    .todo-item strong {
+      display: block;
+      color: var(--navy);
+      margin-bottom: 5px;
+      font-size: 13px;
+    }
+
+    .todo-item span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .meeting-agenda {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .agenda-step {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      background: #fbfcfd;
+      text-align: center;
+      min-height: 82px;
+    }
+
+    .agenda-step strong {
+      display: block;
+      color: var(--navy);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .agenda-step span {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .sidebar-collapsed .sidebar {
+      width: 72px;
+    }
+
+    .sidebar-collapsed .sidebar-header {
+      padding: 16px 10px 10px;
+    }
+
+    .sidebar-collapsed .brand span,
+    .sidebar-collapsed .nav-label {
+      display: none;
+    }
+
+    .sidebar-collapsed .brand {
+      justify-content: center;
+    }
+
+    .sidebar-collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .sidebar-collapsed .nav a {
+      justify-content: center;
+      padding: 11px 8px;
+    }
+
+    .sidebar-collapsed .main {
+      margin-left: 72px;
+      width: calc(100% - 72px);
+    }
+
+    @media (max-width: 1100px) {
+      .metrics-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .section-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .module-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .meeting-agenda {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .sidebar {
+        position: static;
+        width: 100%;
+        min-height: auto;
+      }
+
+      .app-shell {
+        flex-direction: column;
+      }
+
+      .main,
+      .sidebar-collapsed .main {
+        margin-left: 0;
+        width: 100%;
+      }
+
+      .sidebar-collapsed .sidebar {
+        width: 100%;
+      }
+
+      .sidebar-collapsed .brand span,
+      .sidebar-collapsed .nav-label {
+        display: inline;
+      }
+
+      .sidebar-collapsed .brand {
+        justify-content: flex-start;
+      }
+
+      .sidebar-collapsed .nav a {
+        justify-content: flex-start;
+      }
+
+      .metrics-grid,
+      .module-grid,
+      .meeting-agenda {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .content {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <div class="brand-badge">MP</div>
+          <span>Molinari Operations System</span>
+        </div>
+      </div>
+
+      <div class="sidebar-toggle-wrap">
+        <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">‹</button>
+      </div>
+
+      <nav class="nav">
+        <a href="projects-command.html">
+          <span class="nav-icon">⌂</span>
+          <span class="nav-label">Projects Home</span>
+        </a>
+
+        <a href="dashboard.html">
+          <span class="nav-icon">▦</span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+
+        <a href="projects-board.html">
+          <span class="nav-icon">▣</span>
+          <span class="nav-label">Production Workflow</span>
+        </a>
+
+        <a href="project-gantt.html">
+          <span class="nav-icon">▤</span>
+          <span class="nav-label">Production Schedule</span>
+        </a>
+
+        <a href="add-new-client-project.html">
+          <span class="nav-icon">＋</span>
+          <span class="nav-label">Add New Client Project</span>
+        </a>
+
+        <a href="project-setup.html">
+          <span class="nav-icon">⚙</span>
+          <span class="nav-label">Project Setup</span>
+        </a>
+
+        <a href="projects.html">
+          <span class="nav-icon">◎</span>
+          <span class="nav-label">Active Projects</span>
+        </a>
+
+        <a href="project-accounting.html">
+          <span class="nav-icon">$</span>
+          <span class="nav-label">Accounting Draws</span>
+        </a>
+
+        <a href="project-documents.html">
+          <span class="nav-icon">□</span>
+          <span class="nav-label">Documents</span>
+        </a>
+
+        <a href="project-admin.html">
+          <span class="nav-icon">⚒</span>
+          <span class="nav-label">Admin</span>
+        </a>
+
+        <a href="performance-hub.html" class="active">
+          <span class="nav-icon">◆</span>
+          <span class="nav-label">Performance Hub</span>
+        </a>
+
+        <a href="index.html">
+          <span class="nav-icon">↩</span>
+          <span class="nav-label">Main Menu</span>
+        </a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>Molinari Performance Hub</h1>
+          <small>Scorecards • Rocks • To-Dos • Issues • Meetings • Accountability</small>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn btn-primary" onclick="alert('Scorecard setup will be connected in the next build step.')">
+            + New Scorecard Item
+          </button>
+
+          <button class="btn btn-blue" onclick="alert('Meeting mode will be built after scorecards are connected.')">
+            Start Meeting
+          </button>
+        </div>
+      </header>
+
+      <section class="content">
+        <div class="page-intro">
+          <h2>Leadership Performance Dashboard</h2>
+          <p>
+            This page is the starting point for Molinari’s internal performance management system.
+            The first version is a clean dashboard shell. The next build step will connect this page
+            to Supabase tables for teams, scorecards, weekly measurable entries, Rocks, To-Dos, Issues,
+            and meetings.
+          </p>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-label">Scorecard Items</div>
+            <div class="metric-value">11</div>
+            <div class="metric-sub">Leadership Team placeholders</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-label">Open Rocks</div>
+            <div class="metric-value">0</div>
+            <div class="metric-sub">Ready for Phase 2</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-label">Open To-Dos</div>
+            <div class="metric-value">0</div>
+            <div class="metric-sub">Ready for Phase 2</div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-label">Open Issues</div>
+            <div class="metric-value">0</div>
+            <div class="metric-sub">Ready for Phase 2</div>
+          </div>
+        </div>
+
+        <div class="section-grid">
+          <div class="card">
+            <div class="card-header">
+              <h3>Weekly Leadership Scorecard Preview</h3>
+
+              <button class="btn btn-light" onclick="alert('Weekly entry/edit screen will be added in the next step.')">
+                Manage Scorecard
+              </button>
+            </div>
+
+            <div class="card-body">
+              <div class="scorecard-table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Measurable</th>
+                      <th>Owner</th>
+                      <th>Goal</th>
+                      <th>This Week</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    <tr>
+                      <td>Accounts Receivable</td>
+                      <td>Accounting</td>
+                      <td>&lt;= $175,000</td>
+                      <td>$196,223</td>
+                      <td><span class="status-pill status-red">Off Track</span></td>
+                    </tr>
+
+                    <tr>
+                      <td>Accounts Receivable &gt; 30 Days</td>
+                      <td>Accounting</td>
+                      <td>&lt;= $50,000</td>
+                      <td>$44,756</td>
+                      <td><span class="status-pill status-green">On Track</span></td>
+                    </tr>
+
+                    <tr>
+                      <td>Operating Cash On Hand</td>
+                      <td>Finance</td>
+                      <td>&gt;= $200,000</td>
+                      <td>$169,382</td>
+                      <td><span class="status-pill status-red">Off Track</span></td>
+                    </tr>
+
+                    <tr>
+                      <td>Weekly Recognized Projects Revenue</td>
+                      <td>Projects</td>
+                      <td>&gt;= $92,310</td>
+                      <td>$71,244</td>
+                      <td><span class="status-pill status-orange">Watch</span></td>
+                    </tr>
+
+                    <tr>
+                      <td>Total Route Visits</td>
+                      <td>Service</td>
+                      <td>&gt;= 517</td>
+                      <td>505</td>
+                      <td><span class="status-pill status-red">Off Track</span></td>
+                    </tr>
+
+                    <tr>
+                      <td>Inbound Leads</td>
+                      <td>Sales</td>
+                      <td>&gt;= 8</td>
+                      <td>10</td>
+                      <td><span class="status-pill status-green">On Track</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Current Priorities</h3>
+
+              <button class="btn btn-light" onclick="alert('To-Do creation will be connected in Phase 2.')">
+                + To-Do
+              </button>
+            </div>
+
+            <div class="card-body">
+              <div class="todo-list">
+                <div class="todo-item">
+                  <strong>Build Supabase tables for Performance Hub</strong>
+                  <span>Owner: Tim · Status: Next Step</span>
+                </div>
+
+                <div class="todo-item">
+                  <strong>Create Weekly Scorecard entry page</strong>
+                  <span>Owner: Tim · Status: Planned</span>
+                </div>
+
+                <div class="todo-item">
+                  <strong>Connect Projects data to scorecard</strong>
+                  <span>Owner: Projects · Status: Future Integration</span>
+                </div>
+
+                <div class="todo-item">
+                  <strong>Connect Inventory data to scorecard</strong>
+                  <span>Owner: Warehouse · Status: Future Integration</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 22px;">
+          <div class="card-header">
+            <h3>Performance Hub Modules</h3>
+          </div>
+
+          <div class="card-body">
+            <div class="module-grid">
+              <div class="module-card">
+                <div>
+                  <h4>Scorecards</h4>
+                  <p>Weekly measurable tracking by team, owner, goal, average, total, and red/green status.</p>
+                </div>
+                <div class="module-status">Phase 1</div>
+              </div>
+
+              <div class="module-card">
+                <div>
+                  <h4>Rocks</h4>
+                  <p>Quarterly priorities by company, department, and individual owner.</p>
+                </div>
+                <div class="module-status">Phase 2</div>
+              </div>
+
+              <div class="module-card">
+                <div>
+                  <h4>To-Dos</h4>
+                  <p>Simple accountable action items created from meetings, issues, projects, or leadership review.</p>
+                </div>
+                <div class="module-status">Phase 2</div>
+              </div>
+
+              <div class="module-card">
+                <div>
+                  <h4>Issues</h4>
+                  <p>Open operational issues that need discussion, decisions, assignment, or resolution.</p>
+                </div>
+                <div class="module-status">Phase 2</div>
+              </div>
+
+              <div class="module-card">
+                <div>
+                  <h4>Meetings</h4>
+                  <p>Weekly meeting flow with Scorecard, Rocks, Headlines, To-Dos, Issues, and Conclude.</p>
+                </div>
+                <div class="module-status">Phase 3</div>
+              </div>
+
+              <div class="module-card">
+                <div>
+                  <h4>Accountability Chart</h4>
+                  <p>Role-based structure showing seats, owners, responsibilities, and backups.</p>
+                </div>
+                <div class="module-status">Phase 3</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Weekly Meeting Agenda Preview</h3>
+          </div>
+
+          <div class="card-body">
+            <div class="meeting-agenda">
+              <div class="agenda-step">
+                <strong>Segue</strong>
+                <span>5 minutes</span>
+              </div>
+
+              <div class="agenda-step">
+                <strong>Scorecard</strong>
+                <span>Review measurables</span>
+              </div>
+
+              <div class="agenda-step">
+                <strong>Rocks</strong>
+                <span>On track / off track</span>
+              </div>
+
+              <div class="agenda-step">
+                <strong>Headlines</strong>
+                <span>Client / employee news</span>
+              </div>
+
+              <div class="agenda-step">
+                <strong>To-Dos</strong>
+                <span>Review completion</span>
+              </div>
+
+              <div class="agenda-step">
+                <strong>Issues</strong>
+                <span>Discuss and solve</span>
+              </div>
+
+              <div class="agenda-step">
+                <strong>Conclude</strong>
+                <span>Recap and rate</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const appShell = document.getElementById("appShell");
+    const sidebarToggle = document.getElementById("sidebarToggle");
+
+    function applySidebarState() {
+      const collapsed = localStorage.getItem("projectsSidebarCollapsed") === "true";
+
+      if (collapsed) {
+        appShell.classList.add("sidebar-collapsed");
+        sidebarToggle.textContent = "›";
+      } else {
+        appShell.classList.remove("sidebar-collapsed");
+        sidebarToggle.textContent = "‹";
+      }
+    }
+
+    sidebarToggle.addEventListener("click", function () {
+      const currentlyCollapsed = appShell.classList.contains("sidebar-collapsed");
+      localStorage.setItem("projectsSidebarCollapsed", currentlyCollapsed ? "false" : "true");
+      applySidebarState();
+    });
+
+    applySidebarState();
+  </script>
+</body>
+</html>
