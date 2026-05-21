@@ -330,7 +330,8 @@
       text-align: right;
     }
 
-    .transaction-placeholder {
+    .transaction-placeholder,
+    .ledger-placeholder {
       background: #f0f4f8;
       padding: 15px;
       border-radius: 8px;
@@ -339,6 +340,116 @@
       white-space: pre-wrap;
       border: 1px solid #e2e8f0;
       line-height: 1.45;
+    }
+
+    .ledger-controls-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+
+    .ledger-actions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .ledger-summary-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: white;
+      margin-top: 16px;
+    }
+
+    .ledger-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      table-layout: auto;
+    }
+
+    .ledger-table th,
+    .ledger-table td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 12px;
+      text-align: left;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    .ledger-table th {
+      background: #f0f4f8;
+      color: #0b3c5d;
+    }
+
+    .ledger-table .ledger-amount {
+      text-align: right;
+      white-space: nowrap;
+      font-weight: bold;
+    }
+
+    .ledger-table .ledger-ending-row td {
+      background: #f8f4ff;
+      color: #2f1b55;
+      font-weight: bold;
+      border-top: 2px solid #805ad5;
+    }
+
+    .ledger-detail-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: white;
+      margin-top: 16px;
+      max-height: 650px;
+      overflow-y: auto;
+    }
+
+    .ledger-detail-table {
+      width: 100%;
+      min-width: 1700px;
+      border-collapse: collapse;
+      background: white;
+      table-layout: auto;
+    }
+
+    .ledger-detail-table th,
+    .ledger-detail-table td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px;
+      text-align: left;
+      font-size: 13px;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    .ledger-detail-table th {
+      background: #f0f4f8;
+      color: #0b3c5d;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .ledger-detail-table tr:hover td {
+      background: #f8fafc;
+    }
+
+    .ledger-detail-table .description-cell {
+      white-space: normal;
+      min-width: 240px;
+      max-width: 360px;
+      line-height: 1.35;
+    }
+
+    .ledger-detail-table .money-cell,
+    .ledger-detail-table .qty-cell {
+      text-align: right;
     }
 
     @media (max-width: 950px) {
@@ -367,6 +478,11 @@
       .logout-btn {
         width: 100%;
         text-align: center;
+      }
+
+      .ledger-controls-grid,
+      .ledger-actions-grid {
+        grid-template-columns: 1fr;
       }
 
       .main-layout {
@@ -447,6 +563,36 @@
 
   <div class="card wide-card">
 
+    <h2>Inventory Valuation Ledger</h2>
+    <button class="accounting-btn section-refresh-btn" onclick="refreshAccountingPage()">REFRESH PAGE</button>
+
+    <div class="report-note">
+      Select a date range to view a true inventory valuation ledger. This report uses the same valuation basis throughout: historical quantity multiplied by the current part unit cost, so Beginning Inventory plus activity ties exactly to Ending Inventory.
+    </div>
+
+    <div class="ledger-controls-grid">
+      <div>
+        <label>Start Date:</label>
+        <input id="valuationLedgerStartDate" type="date">
+      </div>
+
+      <div>
+        <label>End Date:</label>
+        <input id="valuationLedgerEndDate" type="date">
+      </div>
+    </div>
+
+    <div class="ledger-actions-grid">
+      <button class="accounting-btn" onclick="loadInventoryValuationLedger()">RUN VALUATION LEDGER</button>
+      <button class="accounting-btn" onclick="exportInventoryValuationLedgerCSV()">EXPORT LEDGER DETAIL CSV</button>
+    </div>
+
+    <div id="valuationLedgerReport" class="ledger-placeholder">Select a date range and run valuation ledger...</div>
+
+  </div>
+
+  <div class="card wide-card">
+
     <h2>Transaction Report</h2>
     <button class="accounting-btn section-refresh-btn" onclick="refreshAccountingPage()">REFRESH PAGE</button>
 
@@ -491,6 +637,8 @@ const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let transactionLogData = [];
+let valuationLedgerSummaryData = null;
+let valuationLedgerDetailData = [];
 let currentTransactionReportType = 'ALL';
 let currentAccountingUserProfile = null;
 
@@ -624,6 +772,23 @@ function formatCurrency(value) {
   return Number(value || 0).toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD'
+  });
+}
+
+function formatSignedCurrency(value) {
+  const numericValue = Number(value || 0);
+
+  if (numericValue < 0) {
+    return `-${formatCurrency(Math.abs(numericValue))}`;
+  }
+
+  return formatCurrency(numericValue);
+}
+
+function formatQuantity(value) {
+  return Number(value || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   });
 }
 
@@ -795,6 +960,338 @@ async function exportInventoryValueDetailCSV() {
   });
 
   downloadCSV(csv, 'inventory_value_detail.csv');
+}
+
+async function loadInventoryValuationLedger() {
+  const startDate = document.getElementById('valuationLedgerStartDate').value;
+  const endDate = document.getElementById('valuationLedgerEndDate').value;
+  const reportElement = document.getElementById('valuationLedgerReport');
+
+  if (!startDate || !endDate) {
+    reportElement.className = 'ledger-placeholder';
+    reportElement.textContent = 'Please select both a start date and end date.';
+    valuationLedgerSummaryData = null;
+    valuationLedgerDetailData = [];
+    return;
+  }
+
+  if (startDate > endDate) {
+    reportElement.className = 'ledger-placeholder';
+    reportElement.textContent = 'Start date cannot be after end date.';
+    valuationLedgerSummaryData = null;
+    valuationLedgerDetailData = [];
+    return;
+  }
+
+  reportElement.className = 'ledger-placeholder';
+  reportElement.textContent = 'Loading inventory valuation ledger...';
+
+  const { data: summaryData, error: summaryError } = await client
+    .rpc('get_inventory_valuation_history_summary', {
+      p_start_date: startDate,
+      p_end_date: endDate
+    });
+
+  if (summaryError) {
+    reportElement.className = 'ledger-placeholder';
+    reportElement.textContent = summaryError.message;
+    valuationLedgerSummaryData = null;
+    valuationLedgerDetailData = [];
+    return;
+  }
+
+  const { data: detailData, error: detailError } = await client
+    .rpc('get_inventory_valuation_history', {
+      p_start_date: startDate,
+      p_end_date: endDate
+    });
+
+  if (detailError) {
+    reportElement.className = 'ledger-placeholder';
+    reportElement.textContent = detailError.message;
+    valuationLedgerSummaryData = null;
+    valuationLedgerDetailData = [];
+    return;
+  }
+
+  if (!summaryData || summaryData.length === 0) {
+    reportElement.className = 'ledger-placeholder';
+    reportElement.textContent = 'No valuation ledger data found for selected date range.';
+    valuationLedgerSummaryData = null;
+    valuationLedgerDetailData = [];
+    return;
+  }
+
+  valuationLedgerSummaryData = summaryData[0];
+  valuationLedgerDetailData = detailData || [];
+
+  displayInventoryValuationLedger(valuationLedgerSummaryData, valuationLedgerDetailData, startDate, endDate);
+}
+
+function displayInventoryValuationLedger(summary, details, startDate, endDate) {
+  const reportElement = document.getElementById('valuationLedgerReport');
+
+  const ledgerRows = [
+    {
+      label: 'Beginning Inventory Value',
+      amount: summary.beginning_inventory_value,
+      className: ''
+    },
+    {
+      label: 'Add: Received Inventory',
+      amount: summary.received_inventory_value,
+      className: ''
+    },
+    {
+      label: 'Add/Less: Manual Adjustments',
+      amount: summary.manual_adjustment_value,
+      className: ''
+    },
+    {
+      label: 'Add/Less: Cycle Count Adjustments',
+      amount: summary.cycle_count_adjustment_value,
+      className: ''
+    },
+    {
+      label: 'Add/Less: Transaction Reversals',
+      amount: summary.transaction_reversal_value,
+      className: ''
+    },
+    {
+      label: 'Add/Less: Other Activity',
+      amount: summary.other_activity_value,
+      className: ''
+    },
+    {
+      label: 'Less: Issued Inventory',
+      amount: -Math.abs(Number(summary.issued_inventory_value || 0)),
+      className: ''
+    },
+    {
+      label: 'Ending Inventory Value',
+      amount: summary.ending_inventory_value,
+      className: 'ledger-ending-row'
+    }
+  ];
+
+  let summaryText = `INVENTORY VALUATION LEDGER\n`;
+  summaryText += `Date Range: ${startDate} to ${endDate}\n`;
+  summaryText += `Basis: Historical quantity × current part unit cost\n`;
+  summaryText += `Calculated Ending Inventory: ${formatSignedCurrency(summary.calculated_ending_inventory_value)}\n`;
+  summaryText += `Variance: ${formatSignedCurrency(summary.variance)}`;
+
+  let ledgerHTML = `
+    <div class="transaction-report-summary">${escapeHTML(summaryText)}</div>
+    <div class="ledger-summary-wrapper">
+      <table class="ledger-table">
+        <thead>
+          <tr>
+            <th>Ledger Line</th>
+            <th class="ledger-amount">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ledgerRows.map(row => `
+            <tr class="${row.className}">
+              <td>${escapeHTML(row.label)}</td>
+              <td class="ledger-amount">${escapeHTML(formatSignedCurrency(row.amount))}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  if (Number(summary.variance || 0) !== 0) {
+    ledgerHTML += `
+      <div class="access-message danger" style="margin-top: 14px;">
+        Warning: Ledger variance is ${escapeHTML(formatSignedCurrency(summary.variance))}. Please review the selected date range and transaction data.
+      </div>
+    `;
+  }
+
+  if (details && details.length > 0) {
+    ledgerHTML += buildInventoryValuationLedgerDetailTable(details);
+  } else {
+    ledgerHTML += '<div class="ledger-placeholder" style="margin-top: 14px;">No detail rows found for this date range.</div>';
+  }
+
+  reportElement.className = '';
+  reportElement.innerHTML = ledgerHTML;
+}
+
+function buildInventoryValuationLedgerDetailTable(details) {
+  const displayColumns = [
+    'part_number',
+    'description',
+    'category',
+    'location_name',
+    'beginning_quantity',
+    'ending_quantity',
+    'quantity_change',
+    'unit_cost',
+    'beginning_value',
+    'ending_value',
+    'value_change',
+    'received_quantity',
+    'issued_quantity',
+    'adjustment_quantity',
+    'cycle_count_adjustment_quantity',
+    'reversal_quantity',
+    'other_quantity'
+  ];
+
+  let tableHTML = `
+    <div class="ledger-detail-wrapper">
+      <table class="ledger-detail-table">
+        <thead>
+          <tr>
+            ${displayColumns.map(col => `<th>${escapeHTML(formatColumnHeader(col))}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  details.forEach(row => {
+    tableHTML += '<tr>';
+
+    displayColumns.forEach(col => {
+      tableHTML += `<td class="${getValuationLedgerCellClass(col)}">${escapeHTML(formatValuationLedgerValue(col, row[col]))}</td>`;
+    });
+
+    tableHTML += '</tr>';
+  });
+
+  tableHTML += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  return tableHTML;
+}
+
+function getValuationLedgerCellClass(columnName) {
+  if (columnName === 'description') {
+    return 'description-cell';
+  }
+
+  if (
+    columnName === 'unit_cost' ||
+    columnName === 'beginning_value' ||
+    columnName === 'ending_value' ||
+    columnName === 'value_change'
+  ) {
+    return 'money-cell';
+  }
+
+  if (
+    columnName === 'beginning_quantity' ||
+    columnName === 'ending_quantity' ||
+    columnName === 'quantity_change' ||
+    columnName === 'received_quantity' ||
+    columnName === 'issued_quantity' ||
+    columnName === 'adjustment_quantity' ||
+    columnName === 'cycle_count_adjustment_quantity' ||
+    columnName === 'reversal_quantity' ||
+    columnName === 'other_quantity'
+  ) {
+    return 'qty-cell';
+  }
+
+  return '';
+}
+
+function formatValuationLedgerValue(columnName, value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (
+    columnName === 'unit_cost' ||
+    columnName === 'beginning_value' ||
+    columnName === 'ending_value' ||
+    columnName === 'value_change'
+  ) {
+    return formatSignedCurrency(value);
+  }
+
+  if (
+    columnName === 'beginning_quantity' ||
+    columnName === 'ending_quantity' ||
+    columnName === 'quantity_change' ||
+    columnName === 'received_quantity' ||
+    columnName === 'issued_quantity' ||
+    columnName === 'adjustment_quantity' ||
+    columnName === 'cycle_count_adjustment_quantity' ||
+    columnName === 'reversal_quantity' ||
+    columnName === 'other_quantity'
+  ) {
+    return formatQuantity(value);
+  }
+
+  return value;
+}
+
+function exportInventoryValuationLedgerCSV() {
+  if (!valuationLedgerDetailData || valuationLedgerDetailData.length === 0) {
+    document.getElementById('valuationLedgerReport').className = 'ledger-placeholder';
+    document.getElementById('valuationLedgerReport').textContent =
+      'Run the valuation ledger before exporting.';
+    return;
+  }
+
+  const startDate = document.getElementById('valuationLedgerStartDate').value;
+  const endDate = document.getElementById('valuationLedgerEndDate').value;
+  const summary = valuationLedgerSummaryData || {};
+
+  let csv = 'Inventory Valuation Ledger Summary\n';
+  csv += `"Date Range","${cleanCSV(startDate)} to ${cleanCSV(endDate)}"\n`;
+  csv += `"Basis","Historical quantity x current part unit cost"\n`;
+  csv += `"Beginning Inventory Value","${cleanCSV(summary.beginning_inventory_value)}"\n`;
+  csv += `"Add: Received Inventory","${cleanCSV(summary.received_inventory_value)}"\n`;
+  csv += `"Add/Less: Manual Adjustments","${cleanCSV(summary.manual_adjustment_value)}"\n`;
+  csv += `"Add/Less: Cycle Count Adjustments","${cleanCSV(summary.cycle_count_adjustment_value)}"\n`;
+  csv += `"Add/Less: Transaction Reversals","${cleanCSV(summary.transaction_reversal_value)}"\n`;
+  csv += `"Add/Less: Other Activity","${cleanCSV(summary.other_activity_value)}"\n`;
+  csv += `"Less: Issued Inventory","-${cleanCSV(Math.abs(Number(summary.issued_inventory_value || 0)))}"\n`;
+  csv += `"Ending Inventory Value","${cleanCSV(summary.ending_inventory_value)}"\n`;
+  csv += `"Calculated Ending Inventory Value","${cleanCSV(summary.calculated_ending_inventory_value)}"\n`;
+  csv += `"Variance","${cleanCSV(summary.variance)}"\n\n`;
+
+  const exportColumns = [
+    'part_number',
+    'description',
+    'category',
+    'location_name',
+    'beginning_quantity',
+    'ending_quantity',
+    'quantity_change',
+    'unit_cost',
+    'beginning_value',
+    'ending_value',
+    'value_change',
+    'received_quantity',
+    'received_value',
+    'issued_quantity',
+    'issued_value',
+    'adjustment_quantity',
+    'adjustment_value',
+    'cycle_count_adjustment_quantity',
+    'cycle_count_adjustment_value',
+    'reversal_quantity',
+    'reversal_value',
+    'other_quantity',
+    'other_value'
+  ];
+
+  csv += exportColumns.map(col => `"${cleanCSV(formatColumnHeader(col))}"`).join(',') + '\n';
+
+  valuationLedgerDetailData.forEach(row => {
+    csv += exportColumns.map(col => `"${cleanCSV(row[col])}"`).join(',') + '\n';
+  });
+
+  downloadCSV(csv, `inventory_valuation_ledger_${startDate}_to_${endDate}.csv`);
 }
 
 async function loadTransactionLog() {
