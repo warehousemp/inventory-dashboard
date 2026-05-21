@@ -31,8 +31,6 @@
       --purple: #7c3aed;
       --red: #dc2626;
       --gray: #64748b;
-      --sidebar-width: 230px;
-      --sidebar-collapsed-width: 66px;
     }
 
     * {
@@ -550,10 +548,16 @@
       }
     }
 
+    /* Standard Projects sidebar pattern */
+    :root {
+      --sidebar-width: 230px;
+      --sidebar-collapsed-width: 66px;
+    }
 
-    /* Standard Projects collapsible sidebar */
     .app-shell {
+      display: grid;
       grid-template-columns: var(--sidebar-width) 1fr;
+      min-height: 100vh;
       transition: grid-template-columns 0.2s ease;
     }
 
@@ -562,18 +566,40 @@
     }
 
     .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
       overflow-x: hidden;
+      transition: width 0.2s ease;
     }
 
     .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
       min-height: 70px;
     }
 
     .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
       flex: 0 0 auto;
     }
 
     .brand-text {
+      line-height: 1.1;
       white-space: nowrap;
       transition: opacity 0.15s ease, width 0.15s ease;
     }
@@ -599,6 +625,7 @@
       line-height: 1;
       padding: 0;
       transition: background 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+      width: 30px;
     }
 
     .sidebar-toggle:hover {
@@ -607,13 +634,28 @@
       opacity: 1;
     }
 
+    .side-nav {
+      padding: 8px 10px 14px;
+    }
+
     .side-nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 4px;
       white-space: nowrap;
       min-height: 44px;
     }
 
     .nav-icon {
+      width: 20px;
       min-width: 20px;
+      text-align: center;
       opacity: 0.95;
       display: inline-flex;
       align-items: center;
@@ -665,6 +707,11 @@
       .app-shell,
       .app-shell.sidebar-collapsed {
         grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
       }
 
       .brand {
@@ -764,12 +811,12 @@
           <span class="nav-label">Project Setup</span>
         </a>
 
-        <a class="active" href="projects.html" title="Active Projects">
+        <a href="projects.html" title="Active Projects">
           <span class="nav-icon">▣</span>
           <span class="nav-label">Active Projects</span>
         </a>
 
-        <a href="project-accounting.html" title="Accounting Draws">
+        <a class="active" href="project-accounting.html" title="Accounting Draws">
           <span class="nav-icon">$</span>
           <span class="nav-label">Accounting Draws</span>
         </a>
@@ -930,6 +977,50 @@
   </div>
 
 <script>
+
+(function () {
+  const STORAGE_KEY = "projectsSidebarCollapsed";
+  const appShell = document.getElementById("appShell");
+  const toggle = document.getElementById("sidebarToggle");
+
+  if (!appShell || !toggle) {
+    return;
+  }
+
+  function applySidebarState(collapsed) {
+    appShell.classList.toggle("sidebar-collapsed", collapsed);
+
+    toggle.textContent = collapsed ? "›" : "‹";
+    toggle.title = collapsed ? "Expand" : "Collapse";
+    toggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+  }
+
+  function getSavedState() {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === "true";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function saveState(collapsed) {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(collapsed));
+    } catch (error) {
+      // Ignore localStorage errors so navigation remains usable.
+    }
+  }
+
+  applySidebarState(getSavedState());
+
+  toggle.addEventListener("click", function () {
+    const collapsed = !appShell.classList.contains("sidebar-collapsed");
+    applySidebarState(collapsed);
+    saveState(collapsed);
+  });
+})();
+
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
@@ -1332,52 +1423,6 @@ function escapeHTML(value) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
-</script>
-
-
-<script>
-(function () {
-  const STORAGE_KEY = "projectsSidebarCollapsed";
-  const appShell = document.getElementById("appShell");
-  const toggle = document.getElementById("sidebarToggle");
-
-  if (!appShell || !toggle) {
-    return;
-  }
-
-  function applySidebarState(collapsed) {
-    appShell.classList.toggle("sidebar-collapsed", collapsed);
-
-    toggle.textContent = collapsed ? "›" : "‹";
-    toggle.title = collapsed ? "Expand" : "Collapse";
-    toggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
-    toggle.setAttribute("aria-expanded", String(!collapsed));
-  }
-
-  function getSavedState() {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === "true";
-    } catch (error) {
-      return false;
-    }
-  }
-
-  function saveState(collapsed) {
-    try {
-      localStorage.setItem(STORAGE_KEY, String(collapsed));
-    } catch (error) {
-      // Ignore localStorage errors so navigation remains usable.
-    }
-  }
-
-  applySidebarState(getSavedState());
-
-  toggle.addEventListener("click", function () {
-    const collapsed = !appShell.classList.contains("sidebar-collapsed");
-    applySidebarState(collapsed);
-    saveState(collapsed);
-  });
-})();
 </script>
 
 </body>
