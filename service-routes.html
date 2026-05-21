@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Molinari Operations | Service Route Dashboard</title>
+
+  <style>
+    :root {
+      --mp-blue: #0f75bc;
+      --mp-blue-dark: #075a94;
+      --mp-light-blue: #eaf6ff;
+      --mp-green: #18a058;
+      --mp-yellow: #f5a623;
+      --mp-red: #d64545;
+      --mp-purple: #7b2cbf;
+      --mp-gray-50: #f7f9fb;
+      --mp-gray-100: #edf1f5;
+      --mp-gray-200: #d8e0e8;
+      --mp-gray-500: #6b7785;
+      --mp-gray-700: #334155;
+      --mp-gray-900: #0f172a;
+      --sidebar-width: 250px;
+      --sidebar-collapsed-width: 74px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--mp-gray-50);
+      color: var(--mp-gray-900);
+    }
+
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: var(--sidebar-width);
+      background: #203447;
+      color: white;
+      transition: width 0.2s ease;
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+
+    .sidebar.collapsed {
+      width: var(--sidebar-collapsed-width);
+    }
+
+    .sidebar-header {
+      padding: 18px 18px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .sidebar-logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--mp-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .sidebar-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .sidebar.collapsed .sidebar-title,
+    .sidebar.collapsed .nav-label {
+      display: none;
+    }
+
+    .sidebar-toggle-wrap {
+      display: flex;
+      justify-content: flex-end;
+      padding: 12px 14px 4px;
+    }
+
+    .sidebar.collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+    }
+
+    .sidebar-toggle {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.08);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(255,255,255,0.16);
+    }
+
+    .nav {
+      padding: 8px;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: rgba(255,255,255,0.82);
+      text-decoration: none;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .nav a:hover {
+      background: rgba(255,255,255,0.1);
+      color: white;
+    }
+
+    .nav a.active {
+      background: var(--mp-blue);
+      color: white;
+      font-weight: 700;
+    }
+
+    .nav-icon {
+      width: 22px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .topbar {
+      background: white;
+      border-bottom: 1px solid var(--mp-gray-200);
+      padding: 16px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .topbar-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--mp-gray-900);
+    }
+
+    .page-subtitle {
+      margin: 4px 0 0;
+      color: var(--mp-gray-500);
+      font-size: 14px;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .btn-primary {
+      background: var(--mp-blue);
+      color: white;
+    }
+
+    .btn-secondary {
+      background: var(--mp-gray-100);
+      color: var(--mp-gray-700);
+      border: 1px solid var(--mp-gray-200);
+    }
+
+    .btn-primary:hover {
+      background: var(--mp-blue-dark);
+    }
+
+    .content {
+      padding: 24px;
+    }
+
+    .filters {
+      background: white;
+      border: 1px solid var(--mp-gray-200);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 18px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr 1fr 1fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--mp-gray-700);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      padding: 10px 11px;
+      border: 1px solid var(--mp-gray-200);
+      border-radius: 9px;
+      font-size: 14px;
+      background: white;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(140px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .summary-card {
+      background: white;
+      border: 1px solid var(--mp-gray-200);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+    }
+
+    .summary-label {
+      color: var(--mp-gray-500);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .summary-value {
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .summary-note {
+      margin-top: 5px;
+      color: var(--mp-gray-500);
+      font-size: 12px;
+    }
+
+    .dashboard-layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid var(--mp-gray-200);
+      border-radius: 16px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--mp-gray-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .panel-subtitle {
+      margin: 4px 0 0;
+      color: var(--mp-gray-500);
+      font-size: 12px;
+    }
+
+    .route-list {
+      max-height: calc(100vh - 310px);
+      overflow-y: auto;
+    }
+
+    .route-card {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--mp-gray-100);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .route-card:hover {
+      background: var(--mp-gray-50);
+    }
+
+    .route-card.active {
+      background: var(--mp-light-blue);
+      border-left: 5px solid var(--mp-blue);
+      padding-left: 11px;
+    }
+
+    .route-card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .route-name {
+      font-weight: 900;
+      color: var(--mp-blue);
+      margin-bottom: 4px;
+    }
+
+    .tech-name {
+      color: var(--mp-gray-700);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .route-meta {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      font-size: 12px;
+      color: var(--mp-gray-500);
+    }
+
+    .route-meta strong {
+      display: block;
+      color: var(--mp-gray-900);
+      font-size: 15px;
+      margin-bottom: 2px;
+    }
+
+    .progress {
+      height: 8px;
+      background: var(--mp-gray-100);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--mp-blue);
+      border-radius: 999px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .badge-green {
+      background: #e8f7ef;
+      color: #137a43;
+    }
+
+    .badge-yellow {
+      background: #fff5db;
+      color: #9a6400;
+    }
+
+    .badge-red {
+      background: #ffecec;
+      color: #b42323;
+    }
+
+    .badge-purple {
+      background: #f2e8ff;
+      color: #6620a3;
+    }
+
+    .badge-blue {
+      background: #e7f3ff;
+      color: #075a94;
+    }
+
+    .route-detail-body {
+      padding: 16px;
+    }
+
+    .detail-header-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .detail-stat {
+      background: var(--mp-gray-50);
+      border: 1px solid var(--mp-gray-200);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .detail-stat-label {
+      color: var(--mp-gray-500);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+    }
+
+    .detail-stat-value {
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .route-section-title {
+      font-size: 14px;
+      font-weight: 900;
+      margin: 18px 0 10px;
+      color: var(--mp-gray-900);
+    }
+
+    .stops-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--mp-gray-200);
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 880px;
+      background: white;
+    }
+
+    th {
+      background: var(--mp-gray-100);
+      color: var(--mp-gray-700);
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 10px;
+      border-bottom: 1px solid var(--mp-gray-200);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 11px 10px;
+      border-bottom: 1px solid var(--mp-gray-100);
+      font-size: 13px;
+      vertical-align: top;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .client-name {
+      font-weight: 900;
+      color: var(--mp-blue);
+    }
+
+    .address {
+      color: var(--mp-gray-500);
+      margin-top: 3px;
+      font-size: 12px;
+    }
+
+    .stop-notes {
+      color: var(--mp-gray-700);
+      line-height: 1.35;
+    }
+
+    .priority-row {
+      background: #fffaf0;
+    }
+
+    .map-placeholder {
+      min-height: 280px;
+      border: 1px dashed var(--mp-gray-200);
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, rgba(15,117,188,0.08), rgba(24,160,88,0.08)),
+        var(--mp-gray-50);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--mp-gray-500);
+      padding: 22px;
+      margin-top: 12px;
+    }
+
+    .map-placeholder strong {
+      display: block;
+      color: var(--mp-gray-900);
+      margin-bottom: 6px;
+      font-size: 16px;
+    }
+
+    .empty-state {
+      padding: 34px 20px;
+      text-align: center;
+      color: var(--mp-gray-500);
+    }
+
+    @media (max-width: 1100px) {
+      .filter-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .dashboard-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .route-list {
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app-shell {
+        display: block;
+      }
+
+      .sidebar {
+        position: relative;
+        width: 100%;
+        height: auto;
+      }
+
+      .sidebar.collapsed {
+        width: 100%;
+      }
+
+      .sidebar.collapsed .sidebar-title,
+      .sidebar.collapsed .nav-label {
+        display: inline;
+      }
+
+      .sidebar-toggle-wrap {
+        display: none;
+      }
+
+      .nav {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .topbar {
+        position: relative;
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      .filter-grid,
+      .summary-grid,
+      .detail-header-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">MP</div>
+        <div class="sidebar-title">Molinari<br>Operations</div>
+      </div>
+
+      <div class="sidebar-toggle-wrap">
+        <button class="sidebar-toggle" id="sidebarToggle" title="Collapse">‹</button>
+      </div>
+
+      <nav class="nav">
+        <a href="index.html">
+          <span class="nav-icon">🏠</span>
+          <span class="nav-label">Main Menu</span>
+        </a>
+        <a href="warehouse.html">
+          <span class="nav-icon">📦</span>
+          <span class="nav-label">Inventory</span>
+        </a>
+        <a href="projects-command.html">
+          <span class="nav-icon">🏗️</span>
+          <span class="nav-label">Projects</span>
+        </a>
+        <a href="service-routes.html" class="active">
+          <span class="nav-icon">🧭</span>
+          <span class="nav-label">Service Routes</span>
+        </a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-row">
+          <div>
+            <h1 class="page-title">Service Route Dashboard</h1>
+            <p class="page-subtitle">Daily service route visibility for pools, technicians, priorities, and follow-ups.</p>
+          </div>
+
+          <div class="top-actions">
+            <button class="btn btn-secondary" onclick="resetFilters()">Reset Filters</button>
+            <button class="btn btn-secondary" onclick="exportCsv()">Export CSV</button>
+            <button class="btn btn-primary" onclick="refreshDashboard()">Refresh Dashboard</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="content">
+        <div class="filters">
+          <div class="filter-grid">
+            <div class="field">
+              <label for="routeDate">Service Date</label>
+              <input type="date" id="routeDate" />
+            </div>
+
+            <div class="field">
+              <label for="technicianFilter">Technician</label>
+              <select id="technicianFilter" onchange="renderDashboard()">
+                <option value="">All Technicians</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="statusFilter">Route Status</label>
+              <select id="statusFilter" onchange="renderDashboard()">
+                <option value="">All Statuses</option>
+                <option value="NOT_STARTED">Not Started</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="NEEDS_REVIEW">Needs Review</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="searchInput">Search</label>
+              <input type="text" id="searchInput" placeholder="Route, client, address..." oninput="renderDashboard()" />
+            </div>
+
+            <button class="btn btn-primary" onclick="renderDashboard()">Apply</button>
+          </div>
+        </div>
+
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="summary-label">Routes</div>
+            <div class="summary-value" id="summaryRoutes">0</div>
+            <div class="summary-note">scheduled today</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Pools</div>
+            <div class="summary-value" id="summaryPools">0</div>
+            <div class="summary-note">total service stops</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Completed</div>
+            <div class="summary-value" id="summaryCompleted">0</div>
+            <div class="summary-note">service stops done</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Priority</div>
+            <div class="summary-value" id="summaryPriority">0</div>
+            <div class="summary-note">priority or follow-up stops</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Needs Review</div>
+            <div class="summary-value" id="summaryReview">0</div>
+            <div class="summary-note">office follow-up needed</div>
+          </div>
+        </div>
+
+        <div class="dashboard-layout">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">Routes</h2>
+                <p class="panel-subtitle">Select a route to view stops.</p>
+              </div>
+            </div>
+
+            <div class="route-list" id="routeList"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title" id="detailTitle">Route Detail</h2>
+                <p class="panel-subtitle" id="detailSubtitle">Select a route from the left.</p>
+              </div>
+            </div>
+
+            <div class="route-detail-body" id="routeDetail">
+              <div class="empty-state">Select a route to view daily service stops.</div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const routes = [
+      {
+        id: "RP1",
+        routeName: "RP1 - Tommy Wiggins",
+        technician: "Tommy Wiggins",
+        serviceDate: "2026-05-21",
+        status: "IN_PROGRESS",
+        estimatedMiles: 43.7,
+        estimatedHours: 9.25,
+        stops: [
+          {
+            sequence: 1,
+            client: "Dan O'Shea",
+            address: "5180 St. Andrews Island Drive",
+            city: "Vero Beach",
+            serviceType: "Standard Service Call",
+            status: "COMPLETED",
+            eta: "2:58 PM",
+            priority: false,
+            needsReview: false,
+            notes: "Routine pool service completed."
+          },
+          {
+            sequence: 2,
+            client: "Gino Guggeri",
+            address: "1504 Eagles Circle",
+            city: "Vero Beach",
+            serviceType: "Service Note - Follow Up",
+            status: "IN_PROGRESS",
+            eta: "9:12 AM",
+            priority: true,
+            needsReview: true,
+            notes: "Follow-up visit tied to inspection findings. Office review recommended."
+          },
+          {
+            sequence: 3,
+            client: "Phil & Trish Desantis",
+            address: "3420 Baia Lane",
+            city: "Vero Beach",
+            serviceType: "Route Service Call",
+            status: "NOT_STARTED",
+            eta: "11:47 AM",
+            priority: false,
+            needsReview: false,
+            notes: "Standard weekly service."
+          },
+          {
+            sequence: 4,
+            client: "Erin Chin",
+            address: "225 Ocean Way",
+            city: "Vero Beach",
+            serviceType: "Standard Service Call",
+            status: "NOT_STARTED",
+            eta: "11:59 AM",
+            priority: false,
+            needsReview: false,
+            notes: "Check water level and equipment area."
+          },
+          {
+            sequence: 5,
+            client: "Amy Thomas",
+            address: "3751 Forsythe Way",
+            city: "Vero Beach",
+            serviceType: "Standard Service Call",
+            status: "NOT_STARTED",
+            eta: "6:17 PM",
+            priority: false,
+            needsReview: false,
+            notes: "Routine pool service."
+          },
+          {
+            sequence: 6,
+            client: "Julia Herrmann",
+            address: "10600 Barons Court",
+            city: "Vero Beach",
+            serviceType: "Priority Service Call",
+            status: "NOT_STARTED",
+            eta: "12:35 AM",
+            priority: true,
+            needsReview: true,
+            notes: "Priority issue. Confirm findings and create repair follow-up if needed."
+          },
+          {
+            sequence: 7,
+            client: "Barbara Detwiler",
+            address: "190 Coquille Way",
+            city: "Vero Beach",
+            serviceType: "Standard Service Call",
+            status: "NOT_STARTED",
+            eta: "1:48 AM",
+            priority: false,
+            needsReview: false,
+            notes: "Routine pool service."
+          }
+        ]
+      },
+      {
+        id: "RT11",
+        routeName: "RT11 - Joseph Freeman",
+        technician: "Joseph Freeman",
+        serviceDate: "2026-05-21",
+        status: "NEEDS_REVIEW",
+        estimatedMiles: 20.6,
+        estimatedHours: 8.1,
+        stops: [
+          {
+            sequence: 1,
+            client: "North Beach Residence",
+            address: "4100 Ocean Drive",
+            city: "Vero Beach",
+            serviceType: "Standard Service Call",
+            status: "COMPLETED",
+            eta: "8:10 AM",
+            priority: false,
+            needsReview: false,
+            notes: "Routine service completed."
+          },
+          {
+            sequence: 2,
+            client: "Palm Island HOA",
+            address: "1225 Palm Island Lane",
+            city: "Vero Beach",
+            serviceType: "Priority Service Call",
+            status: "IN_PROGRESS",
+            eta: "10:30 AM",
+            priority: true,
+            needsReview: true,
+            notes: "Reported cloudy water. Office review after visit."
+          },
+          {
+            sequence: 3,
+            client: "Shoreside Club",
+            address: "800 Shoreside Drive",
+            city: "Vero Beach",
+            serviceType: "Standard Service Call",
+            status: "NOT_STARTED",
+            eta: "1:15 PM",
+            priority: false,
+            needsReview: false,
+            notes: "Routine service."
+          }
+        ]
+      },
+      {
+        id: "RT12",
+        routeName: "RT12 - Jose Montez",
+        technician: "Jose Montez",
+        serviceDate: "2026-05-21",
+        status: "NOT_STARTED",
+        estimatedMiles: 31.9,
+        estimatedHours: 6.25,
+        stops: [
+          {
+            sequence: 1,
+            client: "Beachwalk Customer",
+            address: "2050 Beachwalk Avenue",
+            city: "Fort Pierce",
+            serviceType: "Standard Service Call",
+            status: "NOT_STARTED",
+            eta: "9:00 AM",
+            priority: false,
+            needsReview: false,
+            notes: "Routine service."
+          },
+          {
+            sequence: 2,
+            client: "South Hutchinson Residence",
+            address: "704 Island Road",
+            city: "Fort Pierce",
+            serviceType: "Service Note - Follow Up",
+            status: "NOT_STARTED",
+            eta: "11:20 AM",
+            priority: true,
+            needsReview: true,
+            notes: "Follow up on equipment noise. Possible repair handoff."
+          },
+          {
+            sequence: 3,
+            client: "Harbor View Customer",
+            address: "91 Harbor View Court",
+            city: "Fort Pierce",
+            serviceType: "Standard Service Call",
+            status: "NOT_STARTED",
+            eta: "2:40 PM",
+            priority: false,
+            needsReview: false,
+            notes: "Routine service."
+          }
+        ]
+      },
+      {
+        id: "RT13",
+        routeName: "RT13 - Danny Zamora",
+        technician: "Danny Zamora",
+        serviceDate: "2026-05-21",
+        status: "COMPLETED",
+        estimatedMiles: 18.4,
+        estimatedHours: 5.5,
+        stops: [
+          {
+            sequence: 1,
+            client: "Central Vero Customer",
+            address: "2330 12th Street",
+            city: "Vero Beach",
+            serviceType: "Standard Service Call",
+            status: "COMPLETED",
+            eta: "8:30 AM",
+            priority: false,
+            needsReview: false,
+            notes: "Completed."
+          },
+          {
+            sequence: 2,
+            client: "Royal Palm Customer",
+            address: "144 Royal Palm Point",
+            city: "Vero Beach",
+            serviceType: "Standard Service Call",
+            status: "COMPLETED",
+            eta: "10:10 AM",
+            priority: false,
+            needsReview: false,
+            notes: "Completed."
+          },
+          {
+            sequence: 3,
+            client: "Oak Harbor Customer",
+            address: "55 Oak Harbor Drive",
+            city: "Vero Beach",
+            serviceType: "Standard Service Call",
+            status: "COMPLETED",
+            eta: "12:20 PM",
+            priority: false,
+            needsReview: false,
+            notes: "Completed."
+          }
+        ]
+      }
+    ];
+
+    let selectedRouteId = "RP1";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initializeSidebar();
+      initializeDate();
+      populateTechnicians();
+      renderDashboard();
+
+      document.getElementById("routeDate").addEventListener("change", renderDashboard);
+    });
+
+    function initializeSidebar() {
+      const sidebar = document.getElementById("sidebar");
+      const toggle = document.getElementById("sidebarToggle");
+      const saved = localStorage.getItem("operationsSidebarCollapsed");
+
+      if (saved === "true") {
+        sidebar.classList.add("collapsed");
+        toggle.textContent = "›";
+        toggle.title = "Expand";
+      }
+
+      toggle.addEventListener("click", () => {
+        sidebar.classList.toggle("collapsed");
+        const collapsed = sidebar.classList.contains("collapsed");
+        localStorage.setItem("operationsSidebarCollapsed", collapsed ? "true" : "false");
+        toggle.textContent = collapsed ? "›" : "‹";
+        toggle.title = collapsed ? "Expand" : "Collapse";
+      });
+    }
+
+    function initializeDate() {
+      const routeDate = document.getElementById("routeDate");
+      routeDate.value = "2026-05-21";
+    }
+
+    function populateTechnicians() {
+      const technicianFilter = document.getElementById("technicianFilter");
+      const technicians = [...new Set(routes.map(route => route.technician))].sort();
+
+      technicians.forEach(tech => {
+        const option = document.createElement("option");
+        option.value = tech;
+        option.textContent = tech;
+        technicianFilter.appendChild(option);
+      });
+    }
+
+    function getFilteredRoutes() {
+      const selectedDate = document.getElementById("routeDate").value;
+      const technician = document.getElementById("technicianFilter").value;
+      const status = document.getElementById("statusFilter").value;
+      const search = document.getElementById("searchInput").value.trim().toLowerCase();
+
+      return routes.filter(route => {
+        const matchesDate = !selectedDate || route.serviceDate === selectedDate;
+        const matchesTechnician = !technician || route.technician === technician;
+        const matchesStatus = !status || route.status === status;
+
+        const searchableText = [
+          route.routeName,
+          route.technician,
+          ...route.stops.flatMap(stop => [
+            stop.client,
+            stop.address,
+            stop.city,
+            stop.serviceType,
+            stop.status,
+            stop.notes
+          ])
+        ].join(" ").toLowerCase();
+
+        const matchesSearch = !search || searchableText.includes(search);
+
+        return matchesDate && matchesTechnician && matchesStatus && matchesSearch;
+      });
+    }
+
+    function renderDashboard() {
+      const filteredRoutes = getFilteredRoutes();
+
+      if (!filteredRoutes.some(route => route.id === selectedRouteId)) {
+        selectedRouteId = filteredRoutes.length ? filteredRoutes[0].id : null;
+      }
+
+      renderSummary(filteredRoutes);
+      renderRouteList(filteredRoutes);
+      renderRouteDetail(filteredRoutes);
+    }
+
+    function renderSummary(filteredRoutes) {
+      const totalRoutes = filteredRoutes.length;
+      const totalPools = filteredRoutes.reduce((sum, route) => sum + route.stops.length, 0);
+      const totalCompleted = filteredRoutes.reduce((sum, route) => {
+        return sum + route.stops.filter(stop => stop.status === "COMPLETED").length;
+      }, 0);
+      const totalPriority = filteredRoutes.reduce((sum, route) => {
+        return sum + route.stops.filter(stop => stop.priority).length;
+      }, 0);
+      const totalReview = filteredRoutes.reduce((sum, route) => {
+        return sum + route.stops.filter(stop => stop.needsReview).length;
+      }, 0);
+
+      document.getElementById("summaryRoutes").textContent = totalRoutes;
+      document.getElementById("summaryPools").textContent = totalPools;
+      document.getElementById("summaryCompleted").textContent = totalCompleted;
+      document.getElementById("summaryPriority").textContent = totalPriority;
+      document.getElementById("summaryReview").textContent = totalReview;
+    }
+
+    function renderRouteList(filteredRoutes) {
+      const routeList = document.getElementById("routeList");
+
+      if (!filteredRoutes.length) {
+        routeList.innerHTML = `<div class="empty-state">No routes match the current filters.</div>`;
+        return;
+      }
+
+      routeList.innerHTML = filteredRoutes.map(route => {
+        const completed = route.stops.filter(stop => stop.status === "COMPLETED").length;
+        const total = route.stops.length;
+        const priority = route.stops.filter(stop => stop.priority).length;
+        const review = route.stops.filter(stop => stop.needsReview).length;
+        const percent = total ? Math.round((completed / total) * 100) : 0;
+
+        return `
+          <div class="route-card ${route.id === selectedRouteId ? "active" : ""}" onclick="selectRoute('${route.id}')">
+            <div class="route-card-top">
+              <div>
+                <div class="route-name">${escapeHtml(route.routeName)}</div>
+                <div class="tech-name">${escapeHtml(route.technician)}</div>
+              </div>
+              ${getStatusBadge(route.status)}
+            </div>
+
+            <div class="route-meta">
+              <div>
+                <strong>${completed}/${total}</strong>
+                pools
+              </div>
+              <div>
+                <strong>${route.estimatedMiles}</strong>
+                miles
+              </div>
+              <div>
+                <strong>${route.estimatedHours}</strong>
+                hours
+              </div>
+            </div>
+
+            <div class="progress">
+              <div class="progress-fill" style="width: ${percent}%"></div>
+            </div>
+
+            <div style="margin-top: 9px; display: flex; gap: 6px; flex-wrap: wrap;">
+              ${priority ? `<span class="badge badge-yellow">${priority} Priority</span>` : ""}
+              ${review ? `<span class="badge badge-red">${review} Review</span>` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderRouteDetail(filteredRoutes) {
+      const detail = document.getElementById("routeDetail");
+      const title = document.getElementById("detailTitle");
+      const subtitle = document.getElementById("detailSubtitle");
+
+      const route = filteredRoutes.find(item => item.id === selectedRouteId);
+
+      if (!route) {
+        title.textContent = "Route Detail";
+        subtitle.textContent = "Select a route from the left.";
+        detail.innerHTML = `<div class="empty-state">No route selected.</div>`;
+        return;
+      }
+
+      const completed = route.stops.filter(stop => stop.status === "COMPLETED").length;
+      const total = route.stops.length;
+      const priority = route.stops.filter(stop => stop.priority).length;
+      const review = route.stops.filter(stop => stop.needsReview).length;
+
+      title.textContent = route.routeName;
+      subtitle.textContent = `${route.technician} • ${formatDate(route.serviceDate)}`;
+
+      detail.innerHTML = `
+        <div class="detail-header-grid">
+          <div class="detail-stat">
+            <div class="detail-stat-label">Pools Completed</div>
+            <div class="detail-stat-value">${completed}/${total}</div>
+          </div>
+
+          <div class="detail-stat">
+            <div class="detail-stat-label">Estimated Miles</div>
+            <div class="detail-stat-value">${route.estimatedMiles}</div>
+          </div>
+
+          <div class="detail-stat">
+            <div class="detail-stat-label">Estimated Hours</div>
+            <div class="detail-stat-value">${route.estimatedHours}</div>
+          </div>
+
+          <div class="detail-stat">
+            <div class="detail-stat-label">Route Status</div>
+            <div class="detail-stat-value">${statusText(route.status)}</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          ${getStatusBadge(route.status)}
+          ${priority ? `<span class="badge badge-yellow">${priority} Priority Stops</span>` : `<span class="badge badge-green">No Priority Stops</span>`}
+          ${review ? `<span class="badge badge-red">${review} Needs Office Review</span>` : `<span class="badge badge-green">No Review Items</span>`}
+        </div>
+
+        <div class="route-section-title">Route Stops</div>
+
+        <div class="stops-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Stop</th>
+                <th>Customer / Address</th>
+                <th>Service Type</th>
+                <th>Status</th>
+                <th>ETA</th>
+                <th>Office Review</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${route.stops.map(stop => `
+                <tr class="${stop.priority ? "priority-row" : ""}">
+                  <td><strong>${stop.sequence}</strong></td>
+                  <td>
+                    <div class="client-name">${escapeHtml(stop.client)}</div>
+                    <div class="address">${escapeHtml(stop.address)}<br>${escapeHtml(stop.city)}</div>
+                  </td>
+                  <td>${getServiceTypeBadge(stop.serviceType)}</td>
+                  <td>${getStopStatusBadge(stop.status)}</td>
+                  <td>${escapeHtml(stop.eta)}</td>
+                  <td>${stop.needsReview ? `<span class="badge badge-red">Review Needed</span>` : `<span class="badge badge-green">No</span>`}</td>
+                  <td class="stop-notes">${escapeHtml(stop.notes)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="route-section-title">Map Placeholder</div>
+        <div class="map-placeholder">
+          <div>
+            <strong>Future Map View</strong>
+            This area can later connect to Google Maps or route optimization once the route data is stored in Supabase.
+          </div>
+        </div>
+      `;
+    }
+
+    function selectRoute(routeId) {
+      selectedRouteId = routeId;
+      renderDashboard();
+    }
+
+    function refreshDashboard() {
+      renderDashboard();
+      alert("Dashboard refreshed.");
+    }
+
+    function resetFilters() {
+      document.getElementById("routeDate").value = "2026-05-21";
+      document.getElementById("technicianFilter").value = "";
+      document.getElementById("statusFilter").value = "";
+      document.getElementById("searchInput").value = "";
+      selectedRouteId = "RP1";
+      renderDashboard();
+    }
+
+    function exportCsv() {
+      const filteredRoutes = getFilteredRoutes();
+      const rows = [];
+
+      rows.push([
+        "Service Date",
+        "Route",
+        "Technician",
+        "Stop Number",
+        "Client",
+        "Address",
+        "City",
+        "Service Type",
+        "Stop Status",
+        "ETA",
+        "Priority",
+        "Needs Review",
+        "Notes"
+      ]);
+
+      filteredRoutes.forEach(route => {
+        route.stops.forEach(stop => {
+          rows.push([
+            route.serviceDate,
+            route.routeName,
+            route.technician,
+            stop.sequence,
+            stop.client,
+            stop.address,
+            stop.city,
+            stop.serviceType,
+            stop.status,
+            stop.eta,
+            stop.priority ? "YES" : "NO",
+            stop.needsReview ? "YES" : "NO",
+            stop.notes
+          ]);
+        });
+      });
+
+      const csv = rows.map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "service_route_dashboard_export.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    }
+
+    function getStatusBadge(status) {
+      const map = {
+        NOT_STARTED: `<span class="badge badge-blue">Not Started</span>`,
+        IN_PROGRESS: `<span class="badge badge-yellow">In Progress</span>`,
+        COMPLETED: `<span class="badge badge-green">Completed</span>`,
+        NEEDS_REVIEW: `<span class="badge badge-red">Needs Review</span>`
+      };
+
+      return map[status] || `<span class="badge badge-blue">${escapeHtml(status)}</span>`;
+    }
+
+    function getStopStatusBadge(status) {
+      const map = {
+        NOT_STARTED: `<span class="badge badge-blue">Not Started</span>`,
+        IN_PROGRESS: `<span class="badge badge-yellow">In Progress</span>`,
+        COMPLETED: `<span class="badge badge-green">Completed</span>`,
+        NEEDS_REVIEW: `<span class="badge badge-red">Needs Review</span>`
+      };
+
+      return map[status] || `<span class="badge badge-blue">${escapeHtml(status)}</span>`;
+    }
+
+    function getServiceTypeBadge(serviceType) {
+      const lower = serviceType.toLowerCase();
+
+      if (lower.includes("priority")) {
+        return `<span class="badge badge-red">${escapeHtml(serviceType)}</span>`;
+      }
+
+      if (lower.includes("follow")) {
+        return `<span class="badge badge-yellow">${escapeHtml(serviceType)}</span>`;
+      }
+
+      if (lower.includes("route")) {
+        return `<span class="badge badge-purple">${escapeHtml(serviceType)}</span>`;
+      }
+
+      return `<span class="badge badge-blue">${escapeHtml(serviceType)}</span>`;
+    }
+
+    function statusText(status) {
+      return String(status || "")
+        .replace(/_/g, " ")
+        .toLowerCase()
+        .replace(/\b\w/g, letter => letter.toUpperCase());
+    }
+
+    function formatDate(dateString) {
+      if (!dateString) return "";
+      const date = new Date(`${dateString}T00:00:00`);
+      return date.toLocaleDateString(undefined, {
+        weekday: "short",
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>
