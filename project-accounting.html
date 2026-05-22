@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>Project Accounting - Projects Command Center</title>
+  <title>Project Documents - Projects Command Center</title>
 
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/png" href="favicon.png">
@@ -31,7 +31,8 @@
       --purple: #7c3aed;
       --red: #dc2626;
       --gray: #64748b;
-      --teal: #0d9488;
+      --sidebar-width: 230px;
+      --sidebar-collapsed-width: 66px;
     }
 
     * {
@@ -47,8 +48,13 @@
 
     .app-shell {
       display: grid;
-      grid-template-columns: 230px 1fr;
+      grid-template-columns: var(--sidebar-width) 1fr;
       min-height: 100vh;
+      transition: grid-template-columns 0.2s ease;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-collapsed-width) 1fr;
     }
 
     .sidebar {
@@ -58,80 +64,7 @@
       top: 0;
       height: 100vh;
       overflow-y: auto;
-    }
-
-    .sidebar-toggle-row {
-      display: flex;
-      justify-content: flex-end;
-      padding: 12px 10px 0;
-    }
-
-    .sidebar-toggle {
-      width: 34px;
-      height: 34px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.18);
-      background: rgba(255,255,255,0.10);
-      color: white;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      font-size: 18px;
-      font-weight: 900;
-      line-height: 1;
-    }
-
-    .sidebar-toggle:hover {
-      background: rgba(26,163,176,0.34);
-      opacity: 1;
-    }
-
-    .sidebar-toggle-icon {
-      display: inline-block;
-      transform: translateX(1px);
-    }
-
-    body.sidebar-collapsed .app-shell {
-      grid-template-columns: 72px 1fr;
-    }
-
-    body.sidebar-collapsed .brand {
-      justify-content: center;
-      padding-left: 10px;
-      padding-right: 10px;
-    }
-
-    body.sidebar-collapsed .brand-text,
-    body.sidebar-collapsed .nav-label {
-      display: none;
-    }
-
-    body.sidebar-collapsed .side-nav {
-      padding-left: 8px;
-      padding-right: 8px;
-    }
-
-    body.sidebar-collapsed .side-nav a {
-      justify-content: center;
-      padding-left: 8px;
-      padding-right: 8px;
-      gap: 0;
-    }
-
-    body.sidebar-collapsed .nav-icon {
-      width: 24px;
-      font-size: 16px;
-    }
-
-    body.sidebar-collapsed .sidebar-toggle-row {
-      justify-content: center;
-      padding-left: 8px;
-      padding-right: 8px;
-    }
-
-    body.sidebar-collapsed .sidebar-toggle-icon {
-      transform: rotate(180deg) translateX(-1px);
+      overflow-x: hidden;
     }
 
     .brand {
@@ -140,6 +73,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
+      min-height: 70px;
     }
 
     .brand-mark {
@@ -152,10 +86,13 @@
       justify-content: center;
       font-weight: 800;
       letter-spacing: -1px;
+      flex: 0 0 auto;
     }
 
     .brand-text {
       line-height: 1.1;
+      white-space: nowrap;
+      transition: opacity 0.15s ease, width 0.15s ease;
     }
 
     .brand-text strong {
@@ -170,8 +107,46 @@
       letter-spacing: 2px;
     }
 
+    .sidebar-toggle-wrap {
+      padding: 12px 12px 4px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 0;
+      flex: 0 0 auto;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(26,163,176,0.34);
+      border-color: rgba(255,255,255,0.42);
+      opacity: 1;
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      width: 17px;
+      height: 2px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.92);
+    }
+
     .side-nav {
-      padding: 14px 10px;
+      padding: 8px 10px 14px;
     }
 
     .side-nav a {
@@ -184,6 +159,8 @@
       border-radius: 10px;
       font-size: 14px;
       margin-bottom: 4px;
+      white-space: nowrap;
+      min-height: 44px;
     }
 
     .side-nav a.active,
@@ -194,7 +171,53 @@
 
     .nav-icon {
       width: 20px;
+      min-width: 20px;
       text-align: center;
+      opacity: 0.95;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-label {
+      transition: opacity 0.15s ease, width 0.15s ease;
+      overflow: hidden;
+    }
+
+    .app-shell.sidebar-collapsed .brand {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .app-shell.sidebar-collapsed .brand-text {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav a {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+      gap: 0;
+    }
+
+    .app-shell.sidebar-collapsed .nav-label {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
     }
 
     .main {
@@ -239,7 +262,7 @@
 
     .content {
       padding: 22px;
-      max-width: 1600px;
+      max-width: 1500px;
       margin: 0 auto;
     }
 
@@ -276,34 +299,9 @@
     .summary-card {
       background: white;
       border: 1px solid var(--border);
-      border-top: 5px solid var(--header);
       border-radius: 14px;
       padding: 16px;
       box-shadow: 0 4px 12px rgba(15,23,42,0.06);
-    }
-
-    .summary-card.blue {
-      border-top-color: var(--blue);
-    }
-
-    .summary-card.green {
-      border-top-color: var(--green);
-    }
-
-    .summary-card.orange {
-      border-top-color: var(--orange);
-    }
-
-    .summary-card.purple {
-      border-top-color: var(--purple);
-    }
-
-    .summary-card.red {
-      border-top-color: var(--red);
-    }
-
-    .summary-card.teal {
-      border-top-color: var(--teal);
     }
 
     .summary-label {
@@ -316,15 +314,14 @@
     }
 
     .summary-value {
-      font-size: 28px;
+      font-size: 26px;
       font-weight: 900;
       color: #111827;
       word-break: break-word;
-      line-height: 1.05;
     }
 
     .summary-sub {
-      margin-top: 6px;
+      margin-top: 4px;
       color: var(--muted);
       font-size: 12px;
       font-weight: 700;
@@ -355,35 +352,14 @@
       font-weight: 900;
     }
 
-    .panel-subtitle {
-      margin: 4px 0 0;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
     .filters {
       display: grid;
-      grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr auto auto;
+      grid-template-columns: 1.5fr 1fr 1fr 1fr auto auto;
       gap: 10px;
       width: 100%;
       padding: 16px 18px;
       border-bottom: 1px solid #e5e7eb;
       background: #f8fafc;
-    }
-
-    .custom-date-row {
-      display: none;
-      grid-template-columns: repeat(2, 220px) 1fr;
-      gap: 10px;
-      width: 100%;
-      padding: 0 18px 16px;
-      border-bottom: 1px solid #e5e7eb;
-      background: #f8fafc;
-    }
-
-    .custom-date-row.visible {
-      display: grid;
     }
 
     input,
@@ -415,53 +391,58 @@
       opacity: 0.92;
     }
 
+    .sidebar-toggle-wrap {
+      padding: 12px 12px 4px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 0;
+      flex: 0 0 auto;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(26,163,176,0.34);
+      border-color: rgba(255,255,255,0.42);
+      opacity: 1;
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      width: 17px;
+      height: 2px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.92);
+    }
+
     .secondary-btn {
       background: var(--accent);
       border-color: var(--accent);
     }
 
-    .mini-summary {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 10px;
-      padding: 14px 18px;
-      border-bottom: 1px solid #e5e7eb;
-      background: #ffffff;
-    }
-
-    .mini-card {
-      background: #f8fafc;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 12px;
-    }
-
-    .mini-label {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.25px;
-    }
-
-    .mini-value {
-      margin-top: 5px;
-      font-size: 18px;
-      font-weight: 900;
-      color: #111827;
-    }
-
     .table-wrap {
-      overflow: auto;
+      overflow-x: auto;
       padding: 0 14px 14px;
-      max-height: 560px;
-      border-top: 1px solid #eef2f7;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1650px;
+      min-width: 1350px;
     }
 
     th {
@@ -474,9 +455,6 @@
       border-bottom: 1px solid #e5e7eb;
       white-space: nowrap;
       background: white;
-      position: sticky;
-      top: 0;
-      z-index: 5;
     }
 
     td {
@@ -485,52 +463,36 @@
       font-size: 12px;
       vertical-align: middle;
       white-space: nowrap;
-      background: white;
     }
 
     tr:hover td {
       background: #f8fafc;
     }
 
-    .project-block {
-      min-width: 260px;
-    }
-
-    .project-number-large {
-      display: inline-block;
-      font-size: 16px;
-      line-height: 1;
+    .project-name {
       font-weight: 900;
       color: #0b3c5d;
-      background: #eaf2f8;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      padding: 7px 9px;
-      margin-bottom: 7px;
+      display: block;
     }
 
-    .project-name {
+    .project-number {
+      color: var(--muted);
+      font-size: 11px;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .document-name {
       font-weight: 900;
       color: #111827;
       display: block;
-      font-size: 13px;
-      line-height: 1.35;
-      white-space: normal;
     }
 
-    .money {
-      font-weight: 900;
-      color: #111827;
-    }
-
-    .money-positive {
-      font-weight: 900;
-      color: #166534;
-    }
-
-    .money-warning {
-      font-weight: 900;
-      color: #b42318;
+    .file-name {
+      color: var(--muted);
+      font-size: 11px;
+      display: block;
+      margin-top: 2px;
     }
 
     .wide-text {
@@ -585,126 +547,24 @@
     }
 
     .action-link {
-      color: inherit;
+      color: var(--blue);
       text-decoration: none;
       font-weight: 900;
     }
 
-    .action-link:hover .project-number-large {
-      background: #dbeafe;
-      border-color: #93c5fd;
+    .action-link:hover {
+      text-decoration: underline;
     }
 
-
-    .approved-queue-panel {
-      margin-bottom: 18px;
-      border-top: 5px solid var(--green);
-    }
-
-    .queue-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .queue-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 44px;
-      padding: 8px 10px;
-      border-radius: 999px;
-      background: #ecfdf3;
-      border: 1px solid #bbf7d0;
-      color: #166534;
-      font-size: 12px;
+    .file-link {
+      color: var(--blue);
+      text-decoration: none;
       font-weight: 900;
     }
 
-    .queue-summary {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(160px, 1fr));
-      gap: 10px;
-      padding: 14px 18px;
-      border-bottom: 1px solid #e5e7eb;
-      background: #ffffff;
+    .file-link:hover {
+      text-decoration: underline;
     }
-
-    .approved-table-wrap {
-      overflow: auto;
-      padding: 0 14px 14px;
-      max-height: 420px;
-      border-top: 1px solid #eef2f7;
-    }
-
-    .approved-table {
-      min-width: 1850px;
-    }
-
-    .small-btn {
-      width: auto;
-      padding: 8px 10px;
-      font-size: 12px;
-      border-radius: 8px;
-    }
-
-    .outline-btn {
-      background: white;
-      color: var(--header);
-      border-color: var(--header);
-    }
-
-    .invoice-ready-note {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1.4;
-      max-width: 900px;
-    }
-
-    .invoice-action-box {
-      display: grid;
-      grid-template-columns: 150px 135px 135px 140px 220px auto;
-      gap: 8px;
-      align-items: start;
-      min-width: 950px;
-    }
-
-    .invoice-action-box input {
-      padding: 8px 9px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .invoice-action-notes {
-      min-width: 220px;
-    }
-
-    .mark-invoiced-btn {
-      background: var(--green);
-      border-color: var(--green);
-      width: auto;
-      padding: 8px 10px;
-      font-size: 12px;
-      border-radius: 8px;
-    }
-
-    .mark-invoiced-btn:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-
-    .invoice-action-help {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 1.35;
-      margin-top: 6px;
-      max-width: 950px;
-      white-space: normal;
-    }
-
 
     .footer {
       text-align: center;
@@ -721,22 +581,11 @@
       .filters {
         grid-template-columns: repeat(2, 1fr);
       }
-
-      .mini-summary {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .queue-summary {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .custom-date-row {
-        grid-template-columns: repeat(2, 1fr);
-      }
     }
 
     @media (max-width: 820px) {
-      .app-shell {
+      .app-shell,
+      .app-shell.sidebar-collapsed {
         grid-template-columns: 1fr;
       }
 
@@ -745,34 +594,41 @@
         height: auto;
       }
 
-      body.sidebar-collapsed .app-shell {
-        grid-template-columns: 1fr;
+      .brand {
+        min-height: auto;
       }
 
-      body.sidebar-collapsed .brand {
+      .sidebar-toggle-wrap {
+        display: none;
+      }
+
+      .app-shell.sidebar-collapsed .brand {
         justify-content: flex-start;
         padding: 18px 18px 16px;
       }
 
-      body.sidebar-collapsed .brand-text,
-      body.sidebar-collapsed .nav-label {
-        display: inline;
+      .app-shell.sidebar-collapsed .brand-text {
+        opacity: 1;
+        width: auto;
       }
 
-      body.sidebar-collapsed .side-nav a {
-        justify-content: flex-start;
-        gap: 10px;
-        padding: 12px 12px;
-      }
-
-      body.sidebar-collapsed .sidebar-toggle-row {
-        justify-content: flex-end;
-      }
-
-
-      .side-nav {
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
+        padding: 14px 10px;
+      }
+
+      .app-shell.sidebar-collapsed .side-nav a,
+      .side-nav a {
+        justify-content: flex-start;
+        padding: 12px 12px;
+        gap: 10px;
+      }
+
+      .app-shell.sidebar-collapsed .nav-label {
+        opacity: 1;
+        width: auto;
       }
 
       .topbar {
@@ -811,7 +667,8 @@
         grid-template-columns: 1fr;
       }
 
-      .side-nav {
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
         grid-template-columns: 1fr;
       }
     }
@@ -819,7 +676,7 @@
 </head>
 
 <body>
-  <div class="app-shell">
+  <div class="app-shell" id="appShell">
 
     <aside class="sidebar">
       <div class="brand">
@@ -830,32 +687,77 @@
         </div>
       </div>
 
-      <div class="sidebar-toggle-row">
-        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Collapse sidebar" title="Collapse sidebar">
-          <span class="sidebar-toggle-icon">‹</span>
+      <div class="sidebar-toggle-wrap">
+        <button class="sidebar-toggle" id="sidebarToggle" type="button" title="Collapse" aria-label="Collapse sidebar" aria-expanded="true">
+          <span></span>
+          <span></span>
+          <span></span>
         </button>
       </div>
 
-      <nav class="side-nav">
-        <a href="projects-command.html"><span class="nav-icon">◆</span><span class="nav-label">Projects Home</span></a>
-        <a href="dashboard.html"><span class="nav-icon">⌂</span><span class="nav-label">Dashboard</span></a>
-        <a href="projects-board.html"><span class="nav-icon">▦</span><span class="nav-label">Production Workflow</span></a>
-        <a href="project-gantt.html"><span class="nav-icon">▥</span><span class="nav-label">Production Schedule</span></a>
-        <a href="add-new-client-project.html"><span class="nav-icon">＋</span><span class="nav-label">Add New Client Project</span></a>
-        <a href="project-setup.html"><span class="nav-icon">▤</span><span class="nav-label">Project Setup</span></a>
-        <a href="projects.html"><span class="nav-icon">▣</span><span class="nav-label">Active Projects</span></a>
-        <a class="active" href="project-accounting.html"><span class="nav-icon">$</span><span class="nav-label">Accounting Draws</span></a>
-        <a href="project-documents.html"><span class="nav-icon">□</span><span class="nav-label">Documents</span></a>
-        <a href="project-admin.html"><span class="nav-icon">⚙</span><span class="nav-label">Admin</span></a>
-        <a href="index.html"><span class="nav-icon">↩</span><span class="nav-label">Main Menu</span></a>
+      <nav class="side-nav" aria-label="Projects navigation">
+        <a href="projects-command.html" title="Projects Home">
+          <span class="nav-icon">◆</span>
+          <span class="nav-label">Projects Home</span>
+        </a>
+
+        <a href="dashboard.html" title="Dashboard">
+          <span class="nav-icon">⌂</span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+
+        <a href="projects-board.html" title="Production Workflow">
+          <span class="nav-icon">▦</span>
+          <span class="nav-label">Production Workflow</span>
+        </a>
+
+        <a href="project-gantt.html" title="Production Schedule">
+          <span class="nav-icon">▥</span>
+          <span class="nav-label">Production Schedule</span>
+        </a>
+
+        <a href="add-new-client-project.html" title="Add New Client Project">
+          <span class="nav-icon">＋</span>
+          <span class="nav-label">Add New Client Project</span>
+        </a>
+
+        <a href="project-setup.html" title="Project Setup">
+          <span class="nav-icon">▤</span>
+          <span class="nav-label">Project Setup</span>
+        </a>
+
+        <a href="projects.html" title="Active Projects">
+          <span class="nav-icon">▣</span>
+          <span class="nav-label">Active Projects</span>
+        </a>
+
+        <a href="project-accounting.html" title="Accounting Draws">
+          <span class="nav-icon">$</span>
+          <span class="nav-label">Accounting Draws</span>
+        </a>
+
+        <a class="active" href="project-documents.html" title="Documents">
+          <span class="nav-icon">□</span>
+          <span class="nav-label">Documents</span>
+        </a>
+
+        <a href="project-admin.html" title="Admin">
+          <span class="nav-icon">⚙</span>
+          <span class="nav-label">Admin</span>
+        </a>
+
+        <a href="index.html" title="Main Menu">
+          <span class="nav-icon">↩</span>
+          <span class="nav-label">Main Menu</span>
+        </a>
       </nav>
     </aside>
 
     <main class="main">
       <header class="topbar">
         <div class="topbar-title">
-          <h1>Project Accounting</h1>
-          <p>Draw schedules, forecasted draw dates, invoicing, paid amounts, and outstanding balances.</p>
+          <h1>Project Documents</h1>
+          <p>Document tracking by project, type, status, file, uploaded date, and notes.</p>
         </div>
 
         <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
@@ -863,155 +765,86 @@
 
       <section class="content">
 
-        <div id="pageMessage" class="message info">Loading project accounting data...</div>
+        <div id="pageMessage" class="message info">Loading project documents...</div>
 
         <section class="summary-grid">
-          <div class="summary-card teal">
-            <div class="summary-label">Total Project Value</div>
-            <div class="summary-value" id="totalProjectValueValue">$0</div>
-            <div class="summary-sub">Contracts + approved change orders</div>
+          <div class="summary-card">
+            <div class="summary-label">Active Documents</div>
+            <div class="summary-value" id="activeDocumentCountValue">0</div>
+            <div class="summary-sub">Active document records</div>
           </div>
 
-          <div class="summary-card purple">
-            <div class="summary-label">Scheduled Draw Value</div>
-            <div class="summary-value" id="scheduledDrawAmountValue">$0</div>
-            <div class="summary-sub">Total scheduled draw amount</div>
+          <div class="summary-card">
+            <div class="summary-label">Projects With Docs</div>
+            <div class="summary-value" id="projectCountWithDocumentsValue">0</div>
+            <div class="summary-sub">Projects represented</div>
           </div>
 
-          <div class="summary-card orange">
-            <div class="summary-label">Remaining to Invoice</div>
-            <div class="summary-value" id="remainingToInvoiceValue">$0</div>
-            <div class="summary-sub">Scheduled amount not invoiced</div>
+          <div class="summary-card">
+            <div class="summary-label">Contract Docs</div>
+            <div class="summary-value" id="contractDocumentCountValue">0</div>
+            <div class="summary-sub">Contract document count</div>
           </div>
 
-          <div class="summary-card blue">
-            <div class="summary-label">Invoiced Amount</div>
-            <div class="summary-value" id="totalInvoicedAmountValue">$0</div>
-            <div class="summary-sub">Total invoiced to date</div>
+          <div class="summary-card">
+            <div class="summary-label">Permit Docs</div>
+            <div class="summary-value" id="permitDocumentCountValue">0</div>
+            <div class="summary-sub">Permit document count</div>
           </div>
 
-          <div class="summary-card green">
-            <div class="summary-label">Total Paid</div>
-            <div class="summary-value" id="totalPaidAmountValue">$0</div>
-            <div class="summary-sub">Collected draw payments</div>
+          <div class="summary-card">
+            <div class="summary-label">Engineering Docs</div>
+            <div class="summary-value" id="engineeringDocumentCountValue">0</div>
+            <div class="summary-sub">Engineering document count</div>
           </div>
         </section>
 
         <section class="summary-grid">
           <div class="summary-card">
-            <div class="summary-label">Active Projects</div>
-            <div class="summary-value" id="activeProjectCountValue">0</div>
-            <div class="summary-sub">Accounting summary</div>
+            <div class="summary-label">Active Status Count</div>
+            <div class="summary-value" id="activeStatusCountValue">0</div>
+            <div class="summary-sub">Documents marked active status</div>
           </div>
 
           <div class="summary-card">
-            <div class="summary-label">Total Draws</div>
-            <div class="summary-value" id="totalDrawCountValue">0</div>
-            <div class="summary-sub">All draw records</div>
+            <div class="summary-label">Non-Active Status Count</div>
+            <div class="summary-value" id="nonActiveStatusCountValue">0</div>
+            <div class="summary-sub">Needs review / inactive status</div>
           </div>
 
-          <div class="summary-card orange">
-            <div class="summary-label">Not Billed</div>
-            <div class="summary-value" id="notBilledDrawCountValue">0</div>
-            <div class="summary-sub">Not invoiced yet</div>
+          <div class="summary-card">
+            <div class="summary-label">Change Order Docs</div>
+            <div class="summary-value" id="changeOrderDocumentCountValue">0</div>
+            <div class="summary-sub">Change order documents</div>
           </div>
 
-          <div class="summary-card green">
-            <div class="summary-label">Ready to Invoice</div>
-            <div class="summary-value" id="readyToInvoiceValue">0</div>
-            <div class="summary-sub">Draw count</div>
+          <div class="summary-card">
+            <div class="summary-label">Other Docs</div>
+            <div class="summary-value" id="otherDocumentCountValue">0</div>
+            <div class="summary-sub">Other document types</div>
           </div>
 
-          <div class="summary-card red">
-            <div class="summary-label">Outstanding Amount</div>
-            <div class="summary-value" id="outstandingAmountValue">$0</div>
-            <div class="summary-sub">Invoiced but unpaid</div>
-          </div>
-        </section>
-
-
-        <section class="panel approved-queue-panel">
-          <div class="panel-header">
-            <div>
-              <h2>Approved for Invoicing Queue</h2>
-              <p class="panel-subtitle">Accounting-ready draws approved by DOC. Only APPROVED_FOR_INVOICING draws appear here.</p>
-            </div>
-
-            <div class="queue-toolbar">
-              <span class="queue-pill" id="approvedQueueCountPill">0 Ready</span>
-              <button class="small-btn secondary-btn" onclick="exportApprovedInvoiceCSV()">Export Queue CSV</button>
-            </div>
-          </div>
-
-          <div class="queue-summary">
-            <div class="mini-card">
-              <div class="mini-label">Ready Draws</div>
-              <div class="mini-value" id="approvedQueueCountValue">0</div>
-            </div>
-
-            <div class="mini-card">
-              <div class="mini-label">Ready Invoice Dollars</div>
-              <div class="mini-value" id="approvedQueueAmountValue">$0</div>
-            </div>
-
-            <div class="mini-card">
-              <div class="mini-label">Accounting Control</div>
-              <div class="mini-value">DOC Approved</div>
-            </div>
-          </div>
-
-          <div class="approved-table-wrap">
-            <table class="approved-table">
-              <thead>
-                <tr>
-                  <th>Project</th>
-                  <th>Client</th>
-                  <th>Type</th>
-                  <th>Current Status</th>
-                  <th>Draw #</th>
-                  <th>Draw Name</th>
-                  <th>Expected Draw Date</th>
-                  <th>Scheduled Amount</th>
-                  <th>Approved Status</th>
-                  <th>Trigger Stage</th>
-                  <th>Notes</th>
-                  <th>Invoice Action</th>
-                </tr>
-              </thead>
-
-              <tbody id="approvedInvoiceQueueBody">
-                <tr>
-                  <td colspan="12">Loading approved draws...</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div style="padding: 0 18px 16px;">
-            <div class="invoice-ready-note">
-              This queue intentionally excludes NOT_BILLED, PENDING_DOC_REVIEW, ON_HOLD, REJECTED_NOT_READY, and VOIDED draws so Accounting only works from DOC-approved draw opportunities. Use Mark Invoiced after the invoice has been created/sent.
-            </div>
+          <div class="summary-card">
+            <div class="summary-label">Total File Size</div>
+            <div class="summary-value" id="totalFileSizeValue">0 KB</div>
+            <div class="summary-sub">Stored file size summary</div>
           </div>
         </section>
 
         <section class="panel">
           <div class="panel-header">
-            <div>
-              <h2>Project Draw Forecast & Schedule Report</h2>
-              <p class="panel-subtitle">Accounting can filter by week, month, or custom date range to forecast expected draw dollars.</p>
-            </div>
+            <h2>Document Report</h2>
           </div>
 
           <div class="filters">
-            <input id="searchInput" placeholder="Search project number, client, invoice, draw name..." oninput="applyFilters()">
+            <input id="searchInput" placeholder="Search project, client, document, file, uploaded by..." oninput="applyFilters()">
 
-            <select id="forecastFilter" onchange="handleForecastFilterChange()">
-              <option value="ALL">All Forecast Dates</option>
-              <option value="THIS_WEEK">This Week</option>
-              <option value="NEXT_WEEK">Next Week</option>
-              <option value="THIS_MONTH">This Month</option>
-              <option value="NEXT_MONTH">Next Month</option>
-              <option value="CUSTOM">Custom Date Range</option>
+            <select id="documentTypeFilter" onchange="applyFilters()">
+              <option value="ALL">All Document Types</option>
+            </select>
+
+            <select id="documentStatusFilter" onchange="applyFilters()">
+              <option value="ALL">All Document Statuses</option>
             </select>
 
             <select id="projectTypeFilter" onchange="applyFilters()">
@@ -1020,50 +853,8 @@
               <option value="RENOVATION">Renovation</option>
             </select>
 
-            <select id="drawStatusFilter" onchange="applyFilters()">
-              <option value="ALL">All Draw Statuses</option>
-            </select>
-
-            <select id="projectStatusFilter" onchange="applyFilters()">
-              <option value="ALL">All Project Statuses</option>
-            </select>
-
-            <button class="outline-btn" onclick="resetFullReportFilters()">Clear Filters</button>
-            <button onclick="loadAccountingPage()">Refresh</button>
-            <button class="secondary-btn" onclick="exportAccountingCSV()">Export CSV</button>
-          </div>
-
-          <div id="customDateRow" class="custom-date-row">
-            <input id="customStartDate" type="date" onchange="applyFilters()">
-            <input id="customEndDate" type="date" onchange="applyFilters()">
-            <div></div>
-          </div>
-
-          <div class="mini-summary">
-            <div class="mini-card">
-              <div class="mini-label">Forecast Period</div>
-              <div class="mini-value" id="forecastPeriodValue">All Dates</div>
-            </div>
-
-            <div class="mini-card">
-              <div class="mini-label">Forecast Draws</div>
-              <div class="mini-value" id="forecastDrawCountValue">0</div>
-            </div>
-
-            <div class="mini-card">
-              <div class="mini-label">Expected Draw Dollars</div>
-              <div class="mini-value" id="forecastScheduledValue">$0</div>
-            </div>
-
-            <div class="mini-card">
-              <div class="mini-label">Filtered Remaining</div>
-              <div class="mini-value" id="filteredRemainingValue">$0</div>
-            </div>
-
-            <div class="mini-card">
-              <div class="mini-label">Filtered Outstanding</div>
-              <div class="mini-value" id="filteredOutstandingValue">$0</div>
-            </div>
+            <button onclick="loadDocumentsPage()">Refresh</button>
+            <button class="secondary-btn" onclick="exportDocumentsCSV()">Export CSV</button>
           </div>
 
           <div class="table-wrap">
@@ -1072,31 +863,22 @@
                 <tr>
                   <th>Project</th>
                   <th>Client</th>
-                  <th>Type</th>
+                  <th>Project Type</th>
                   <th>Project Status</th>
-                  <th>Total Project Value</th>
-                  <th>Draw #</th>
-                  <th>Draw Name</th>
-                  <th>Draw Status</th>
-                  <th>Expected Draw Date</th>
-                  <th>Scheduled</th>
-                  <th>Invoiced</th>
-                  <th>Paid</th>
-                  <th>Remaining to Invoice</th>
-                  <th>Outstanding</th>
-                  <th>Trigger Stage</th>
-                  <th>Invoice #</th>
-                  <th>Invoice Date</th>
-                  <th>Due Date</th>
-                  <th>Paid Date</th>
-                  <th>Expected Draw Notes</th>
+                  <th>Document</th>
+                  <th>Document Type</th>
+                  <th>Status</th>
+                  <th>File</th>
+                  <th>File Size</th>
+                  <th>Uploaded By</th>
+                  <th>Uploaded At</th>
                   <th>Notes</th>
                 </tr>
               </thead>
 
-              <tbody id="drawsTableBody">
+              <tbody id="documentsTableBody">
                 <tr>
-                  <td colspan="21">Loading accounting draws...</td>
+                  <td colspan="12">Loading project documents...</td>
                 </tr>
               </tbody>
             </table>
@@ -1112,50 +894,67 @@
   </div>
 
 <script>
+
+(function () {
+  const STORAGE_KEY = "projectsSidebarCollapsed";
+  const appShell = document.getElementById("appShell");
+  const toggle = document.getElementById("sidebarToggle");
+
+  if (!appShell || !toggle) {
+    return;
+  }
+
+  function applySidebarState(collapsed) {
+    appShell.classList.toggle("sidebar-collapsed", collapsed);
+
+    toggle.title = collapsed ? "Expand" : "Collapse";
+    toggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+  }
+
+  function getSavedState() {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === "true";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function saveState(collapsed) {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(collapsed));
+    } catch (error) {
+      // Ignore localStorage errors so navigation remains usable.
+    }
+  }
+
+  applySidebarState(getSavedState());
+
+  toggle.addEventListener("click", function () {
+    const collapsed = !appShell.classList.contains("sidebar-collapsed");
+    applySidebarState(collapsed);
+    saveState(collapsed);
+  });
+})();
+
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let allDrawRows = [];
-let filteredDrawRows = [];
-let approvedInvoiceRows = [];
+let allDocumentRows = [];
+let filteredDocumentRows = [];
 
 window.addEventListener('load', async () => {
-  initSidebarToggle();
-  await loadAccountingPage();
+  await loadDocumentsPage();
 });
 
-function initSidebarToggle() {
-  const toggle = document.getElementById('sidebarToggle');
-
-  if (!toggle) {
-    return;
-  }
-
-  const savedState = localStorage.getItem('projectsSidebarCollapsed');
-
-  if (savedState === 'true') {
-    document.body.classList.add('sidebar-collapsed');
-    toggle.setAttribute('aria-label', 'Expand sidebar');
-    toggle.setAttribute('title', 'Expand sidebar');
-  }
-
-  toggle.addEventListener('click', () => {
-    const isCollapsed = document.body.classList.toggle('sidebar-collapsed');
-
-    localStorage.setItem('projectsSidebarCollapsed', String(isCollapsed));
-    toggle.setAttribute('aria-label', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
-    toggle.setAttribute('title', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
-  });
-}
-
-async function loadAccountingPage() {
-  setMessage('info', 'Loading project accounting data...');
+async function loadDocumentsPage() {
+  setMessage('info', 'Loading project documents...');
 
   await Promise.all([
     loadSummary(),
-    loadDraws()
+    loadDocuments()
   ]);
 
   document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
@@ -1164,56 +963,54 @@ async function loadAccountingPage() {
 
 async function loadSummary() {
   const { data, error } = await client
-    .from('project_accounting_summary_page_view')
+    .from('project_documents_summary_page_view')
     .select('*')
     .limit(1);
 
   if (error) {
-    setMessage('error', 'Accounting summary error: ' + error.message);
+    setMessage('error', 'Documents summary error: ' + error.message);
     return;
   }
 
   const row = data && data.length > 0 ? data[0] : {};
 
-  setText('activeProjectCountValue', row.active_project_count || 0);
-  setText('totalProjectValueValue', formatCurrencyShort(row.total_project_value || 0));
-  setText('scheduledDrawAmountValue', formatCurrencyShort(row.total_scheduled_draw_amount || 0));
-  setText('remainingToInvoiceValue', formatCurrencyShort(row.total_remaining_to_invoice || 0));
-  setText('totalInvoicedAmountValue', formatCurrencyShort(row.total_invoiced_amount || 0));
-  setText('totalPaidAmountValue', formatCurrencyShort(row.total_paid_amount || 0));
-  setText('outstandingAmountValue', formatCurrencyShort(row.total_outstanding_amount || 0));
+  setText('activeDocumentCountValue', row.active_document_count || 0);
+  setText('projectCountWithDocumentsValue', row.project_count_with_documents || 0);
+  setText('contractDocumentCountValue', row.contract_document_count || 0);
+  setText('permitDocumentCountValue', row.permit_document_count || 0);
+  setText('engineeringDocumentCountValue', row.engineering_document_count || 0);
 
-  setText('totalDrawCountValue', row.total_draw_count || 0);
-  setText('notBilledDrawCountValue', row.not_billed_draw_count || 0);
-  setText('readyToInvoiceValue', row.ready_to_invoice_draw_count || 0);
+  setText('activeStatusCountValue', row.active_status_count || 0);
+  setText('nonActiveStatusCountValue', row.non_active_status_count || 0);
+  setText('changeOrderDocumentCountValue', row.change_order_document_count || 0);
+  setText('otherDocumentCountValue', row.other_document_count || 0);
+  setText('totalFileSizeValue', formatFileSize(row.total_file_size_bytes || 0));
 }
 
-async function loadDraws() {
+async function loadDocuments() {
   const { data, error } = await client
-    .from('project_accounting_draws_page_view')
+    .from('project_documents_page_view')
     .select('*')
-    .order('expected_draw_date', { ascending: true })
-    .order('project_number', { ascending: true })
-    .order('draw_number', { ascending: true })
+    .order('uploaded_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(2000);
 
   if (error) {
-    allDrawRows = [];
-    filteredDrawRows = [];
-    renderDrawsTable([]);
-    setMessage('error', 'Accounting draw report error: ' + error.message);
+    allDocumentRows = [];
+    filteredDocumentRows = [];
+    renderDocumentsTable([]);
+    setMessage('error', 'Documents report error: ' + error.message);
     return;
   }
 
-  allDrawRows = data || [];
-  renderApprovedForInvoicingQueue(allDrawRows);
-  populateFilters(allDrawRows);
+  allDocumentRows = data || [];
+  populateFilters(allDocumentRows);
   applyFilters();
 }
 
 function populateFilters(rows) {
-  populateSelectFromRows('drawStatusFilter', rows, 'draw_status', 'All Draw Statuses');
-  populateSelectFromRows('projectStatusFilter', rows, 'project_status', 'All Project Statuses');
+  populateSelectFromRows('documentTypeFilter', rows, 'document_type', 'All Document Types');
+  populateSelectFromRows('documentStatusFilter', rows, 'document_status', 'All Document Statuses');
 }
 
 function populateSelectFromRows(elementId, rows, columnName, defaultLabel) {
@@ -1231,7 +1028,7 @@ function populateSelectFromRows(elementId, rows, columnName, defaultLabel) {
   values.forEach(value => {
     const option = document.createElement('option');
     option.value = value;
-    option.textContent = displayLabel(value);
+    option.textContent = value;
     select.appendChild(option);
   });
 
@@ -1240,54 +1037,13 @@ function populateSelectFromRows(elementId, rows, columnName, defaultLabel) {
   }
 }
 
-function handleForecastFilterChange() {
-  const forecastFilter = document.getElementById('forecastFilter').value;
-  const customDateRow = document.getElementById('customDateRow');
-
-  if (forecastFilter === 'CUSTOM') {
-    customDateRow.classList.add('visible');
-
-    if (!document.getElementById('customStartDate').value) {
-      const today = new Date();
-      document.getElementById('customStartDate').value = toDateInputValue(today);
-    }
-
-    if (!document.getElementById('customEndDate').value) {
-      const today = new Date();
-      const end = new Date(today);
-      end.setDate(today.getDate() + 30);
-      document.getElementById('customEndDate').value = toDateInputValue(end);
-    }
-  } else {
-    customDateRow.classList.remove('visible');
-  }
-
-  applyFilters();
-}
-
-function resetFullReportFilters() {
-  document.getElementById('searchInput').value = '';
-  document.getElementById('forecastFilter').value = 'ALL';
-  document.getElementById('projectTypeFilter').value = 'ALL';
-  document.getElementById('drawStatusFilter').value = 'ALL';
-  document.getElementById('projectStatusFilter').value = 'ALL';
-
-  const customDateRow = document.getElementById('customDateRow');
-  customDateRow.classList.remove('visible');
-
-  applyFilters();
-}
-
 function applyFilters() {
   const searchValue = document.getElementById('searchInput').value.trim().toLowerCase();
-  const forecastFilter = document.getElementById('forecastFilter').value;
+  const documentType = document.getElementById('documentTypeFilter').value;
+  const documentStatus = document.getElementById('documentStatusFilter').value;
   const projectType = document.getElementById('projectTypeFilter').value;
-  const drawStatus = document.getElementById('drawStatusFilter').value;
-  const projectStatus = document.getElementById('projectStatusFilter').value;
 
-  const forecastRange = getForecastRange(forecastFilter);
-
-  filteredDrawRows = allDrawRows.filter(row => {
+  filteredDocumentRows = allDocumentRows.filter(row => {
     const searchableText = [
       row.project_number,
       row.project_name,
@@ -1295,188 +1051,61 @@ function applyFilters() {
       row.project_type,
       row.project_type_label,
       row.project_status,
-      row.draw_number,
-      row.draw_name,
-      row.draw_status,
-      row.expected_draw_date,
-      row.expected_draw_notes,
-      row.trigger_stage,
-      row.trigger_description,
-      row.invoice_number,
+      row.document_name,
+      row.document_type,
+      row.document_status,
+      row.file_name,
+      row.uploaded_by,
       row.notes
     ].map(value => String(value || '').toLowerCase()).join(' ');
 
     const matchesSearch = !searchValue || searchableText.includes(searchValue);
+    const matchesDocumentType = documentType === 'ALL' || row.document_type === documentType;
+    const matchesDocumentStatus = documentStatus === 'ALL' || row.document_status === documentStatus;
     const matchesProjectType = projectType === 'ALL' || row.project_type === projectType;
-    const matchesDrawStatus = drawStatus === 'ALL' || row.draw_status === drawStatus;
-    const matchesProjectStatus = projectStatus === 'ALL' || row.project_status === projectStatus;
-    const matchesForecast = matchesForecastRange(row.expected_draw_date, forecastRange);
 
-    return matchesSearch && matchesProjectType && matchesDrawStatus && matchesProjectStatus && matchesForecast;
+    return matchesSearch && matchesDocumentType && matchesDocumentStatus && matchesProjectType;
   });
 
-  renderDrawsTable(filteredDrawRows);
-  updateForecastSummary(filteredDrawRows, forecastRange);
+  renderDocumentsTable(filteredDocumentRows);
 }
 
-function getForecastRange(forecastFilter) {
-  const today = startOfDay(new Date());
-
-  if (forecastFilter === 'ALL') {
-    return {
-      label: 'All Dates',
-      start: null,
-      end: null
-    };
-  }
-
-  if (forecastFilter === 'THIS_WEEK') {
-    const start = startOfWeek(today);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-
-    return {
-      label: `${formatDate(start)} - ${formatDate(end)}`,
-      start,
-      end
-    };
-  }
-
-  if (forecastFilter === 'NEXT_WEEK') {
-    const start = startOfWeek(today);
-    start.setDate(start.getDate() + 7);
-
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-
-    return {
-      label: `${formatDate(start)} - ${formatDate(end)}`,
-      start,
-      end
-    };
-  }
-
-  if (forecastFilter === 'THIS_MONTH') {
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-    return {
-      label: `${start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`,
-      start,
-      end
-    };
-  }
-
-  if (forecastFilter === 'NEXT_MONTH') {
-    const start = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-    const end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
-
-    return {
-      label: `${start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`,
-      start,
-      end
-    };
-  }
-
-  if (forecastFilter === 'CUSTOM') {
-    const startValue = document.getElementById('customStartDate').value;
-    const endValue = document.getElementById('customEndDate').value;
-
-    const start = startValue ? parseLocalDate(startValue) : null;
-    const end = endValue ? parseLocalDate(endValue) : null;
-
-    return {
-      label: `${startValue || 'Start'} - ${endValue || 'End'}`,
-      start,
-      end
-    };
-  }
-
-  return {
-    label: 'All Dates',
-    start: null,
-    end: null
-  };
-}
-
-function matchesForecastRange(value, range) {
-  if (!range || (!range.start && !range.end)) {
-    return true;
-  }
-
-  if (!value) {
-    return false;
-  }
-
-  const date = parseLocalDate(value);
-
-  if (!date) {
-    return false;
-  }
-
-  if (range.start && date < range.start) {
-    return false;
-  }
-
-  if (range.end && date > range.end) {
-    return false;
-  }
-
-  return true;
-}
-
-function updateForecastSummary(rows, forecastRange) {
-  const filteredScheduled = sumColumn(rows, 'scheduled_amount');
-  const filteredRemaining = sumColumn(rows, 'remaining_to_invoice');
-  const filteredOutstanding = sumColumn(rows, 'outstanding_amount');
-
-  setText('forecastPeriodValue', forecastRange.label || 'All Dates');
-  setText('forecastDrawCountValue', rows.length);
-  setText('forecastScheduledValue', formatCurrencyShort(filteredScheduled));
-  setText('filteredRemainingValue', formatCurrencyShort(filteredRemaining));
-  setText('filteredOutstandingValue', formatCurrencyShort(filteredOutstanding));
-}
-
-function renderDrawsTable(rows) {
-  const tbody = document.getElementById('drawsTableBody');
+function renderDocumentsTable(rows) {
+  const tbody = document.getElementById('documentsTableBody');
   tbody.innerHTML = '';
 
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="21">No accounting draw records found for the selected filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12">No project documents found for the selected filters.</td></tr>';
     return;
   }
 
   rows.forEach(row => {
     const tr = document.createElement('tr');
 
+    const fileDisplay = row.file_url
+      ? `<a class="file-link" href="${escapeAttribute(row.file_url)}" target="_blank" rel="noopener noreferrer">${escapeHTML(row.file_name || 'Open File')}</a>`
+      : `${escapeHTML(row.file_name || '')}`;
+
     tr.innerHTML = `
       <td>
         <a class="action-link" href="project-detail.html?project_id=${encodeURIComponent(row.project_id)}">
-          <div class="project-block">
-            <span class="project-number-large">${escapeHTML(row.project_number || '')}</span>
-            <span class="project-name">${escapeHTML(row.project_name || 'Unnamed Project')}</span>
-          </div>
+          <span class="project-name">${escapeHTML(row.project_name || 'Unnamed Project')}</span>
+          <span class="project-number">${escapeHTML(row.project_number || '')}</span>
         </a>
       </td>
       <td>${escapeHTML(row.client_name)}</td>
       <td>${statusPill(row.project_type_label || row.project_type)}</td>
       <td>${statusPill(row.project_status)}</td>
-      <td class="money">${formatCurrency(row.total_project_value)}</td>
-      <td>${escapeHTML(row.draw_number)}</td>
-      <td>${escapeHTML(row.draw_name)}</td>
-      <td>${statusPill(row.draw_status)}</td>
-      <td>${escapeHTML(formatDate(row.expected_draw_date))}</td>
-      <td class="money">${formatCurrency(row.scheduled_amount)}</td>
-      <td class="money">${formatCurrency(row.invoiced_amount)}</td>
-      <td class="money-positive">${formatCurrency(row.paid_amount)}</td>
-      <td class="${Number(row.remaining_to_invoice || 0) > 0 ? 'money-warning' : 'money'}">${formatCurrency(row.remaining_to_invoice)}</td>
-      <td class="${Number(row.outstanding_amount || 0) > 0 ? 'money-warning' : 'money'}">${formatCurrency(row.outstanding_amount)}</td>
-      <td>${escapeHTML(row.trigger_stage)}</td>
-      <td>${escapeHTML(row.invoice_number)}</td>
-      <td>${escapeHTML(formatDate(row.invoice_date))}</td>
-      <td>${escapeHTML(formatDate(row.due_date))}</td>
-      <td>${escapeHTML(formatDate(row.paid_date))}</td>
-      <td class="wide-text">${escapeHTML(row.expected_draw_notes)}</td>
+      <td>
+        <span class="document-name">${escapeHTML(row.document_name)}</span>
+        <span class="file-name">${escapeHTML(row.document_id)}</span>
+      </td>
+      <td>${statusPill(row.document_type)}</td>
+      <td>${statusPill(row.document_status)}</td>
+      <td>${fileDisplay}</td>
+      <td>${escapeHTML(formatFileSize(row.file_size_bytes))}</td>
+      <td>${escapeHTML(row.uploaded_by)}</td>
+      <td>${escapeHTML(formatDateTime(row.uploaded_at))}</td>
       <td class="wide-text">${escapeHTML(row.notes)}</td>
     `;
 
@@ -1484,261 +1113,33 @@ function renderDrawsTable(rows) {
   });
 }
 
-
-function renderApprovedForInvoicingQueue(rows) {
-  approvedInvoiceRows = (rows || [])
-    .filter(row => normalize(row.draw_status) === 'APPROVED_FOR_INVOICING')
-    .sort((a, b) => {
-      const dateA = a.expected_draw_date || '9999-12-31';
-      const dateB = b.expected_draw_date || '9999-12-31';
-
-      if (dateA !== dateB) {
-        return dateA.localeCompare(dateB);
-      }
-
-      const projectCompare = String(a.project_number || '').localeCompare(String(b.project_number || ''));
-
-      if (projectCompare !== 0) {
-        return projectCompare;
-      }
-
-      return Number(a.draw_number || 0) - Number(b.draw_number || 0);
-    });
-
-  const queueTotal = sumColumn(approvedInvoiceRows, 'remaining_to_invoice') || sumColumn(approvedInvoiceRows, 'scheduled_amount');
-
-  setText('approvedQueueCountPill', `${approvedInvoiceRows.length} Ready`);
-  setText('approvedQueueCountValue', approvedInvoiceRows.length);
-  setText('approvedQueueAmountValue', formatCurrencyShort(queueTotal));
-
-  const tbody = document.getElementById('approvedInvoiceQueueBody');
-
-  if (!tbody) {
+function exportDocumentsCSV() {
+  if (!filteredDocumentRows || filteredDocumentRows.length === 0) {
+    setMessage('info', 'No document records available to export.');
     return;
   }
 
-  tbody.innerHTML = '';
-
-  if (approvedInvoiceRows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12">No approved-for-invoicing draws are currently waiting for Accounting.</td></tr>';
-    return;
-  }
-
-  approvedInvoiceRows.forEach(row => {
-    const amountForAccounting = Number(row.remaining_to_invoice || 0) > 0
-      ? row.remaining_to_invoice
-      : row.scheduled_amount;
-
-    const tr = document.createElement('tr');
-
-    tr.innerHTML = `
-      <td>
-        <a class="action-link" href="project-detail.html?project_id=${encodeURIComponent(row.project_id)}">
-          <div class="project-block">
-            <span class="project-number-large">${escapeHTML(row.project_number || '')}</span>
-            <span class="project-name">${escapeHTML(row.project_name || 'Unnamed Project')}</span>
-          </div>
-        </a>
-      </td>
-      <td>${escapeHTML(row.client_name)}</td>
-      <td>${statusPill(row.project_type_label || row.project_type)}</td>
-      <td>${statusPill(row.project_status)}</td>
-      <td>${escapeHTML(row.draw_number)}</td>
-      <td>${escapeHTML(row.draw_name)}</td>
-      <td>${escapeHTML(formatDate(row.expected_draw_date))}</td>
-      <td class="money-positive">${formatCurrency(amountForAccounting)}</td>
-      <td>${statusPill(row.draw_status)}</td>
-      <td>${escapeHTML(row.trigger_stage)}</td>
-      <td class="wide-text">${escapeHTML(row.notes || row.expected_draw_notes || '')}</td>
-      <td>
-        <div class="invoice-action-box">
-          <input id="invoice-number-${escapeHTML(row.draw_id)}" placeholder="Invoice #">
-          <input id="invoice-date-${escapeHTML(row.draw_id)}" type="date" value="${toDateInputValue(new Date())}">
-          <input id="due-date-${escapeHTML(row.draw_id)}" type="date" value="${toDateInputValue(addDays(new Date(), 14))}">
-          <input id="invoiced-by-${escapeHTML(row.draw_id)}" placeholder="Invoiced By">
-          <input id="invoice-notes-${escapeHTML(row.draw_id)}" class="invoice-action-notes" placeholder="Notes optional">
-          <button id="mark-invoiced-${escapeHTML(row.draw_id)}" class="mark-invoiced-btn" onclick="markDrawInvoiced('${escapeJS(row.draw_id)}')">Mark Invoiced</button>
-        </div>
-        <div class="invoice-action-help">Open project detail separately if Accounting needs project context before invoicing.</div>
-      </td>
-    `;
-
-    tbody.appendChild(tr);
-  });
-}
-
-function exportApprovedInvoiceCSV() {
-  if (!approvedInvoiceRows || approvedInvoiceRows.length === 0) {
-    setMessage('info', 'No approved-for-invoicing draws available to export.');
-    return;
-  }
-
-  const exportRows = approvedInvoiceRows.map(row => ({
+  const exportRows = filteredDocumentRows.map(row => ({
     project_number: row.project_number,
     project_name: row.project_name,
     client_name: row.client_name,
     project_type: row.project_type,
     project_type_label: row.project_type_label,
     project_status: row.project_status,
-    draw_number: row.draw_number,
-    draw_name: row.draw_name,
-    draw_status: row.draw_status,
-    expected_draw_date: row.expected_draw_date,
-    scheduled_amount: row.scheduled_amount,
-    remaining_to_invoice: row.remaining_to_invoice,
-    trigger_stage: row.trigger_stage,
-    trigger_description: row.trigger_description,
-    expected_draw_notes: row.expected_draw_notes,
+    document_name: row.document_name,
+    document_type: row.document_type,
+    document_status: row.document_status,
+    file_url: row.file_url,
+    file_name: row.file_name,
+    file_size_bytes: row.file_size_bytes,
+    uploaded_by: row.uploaded_by,
+    uploaded_at: row.uploaded_at,
     notes: row.notes,
     project_id: row.project_id,
-    draw_id: row.draw_id
+    document_id: row.document_id
   }));
 
-  const datePart = new Date().toISOString().slice(0, 10);
-  exportRowsToCSV(exportRows, `approved_for_invoicing_queue_${datePart}.csv`);
-}
-
-function openProjectDetail(projectId) {
-  if (!projectId) {
-    setMessage('error', 'Project ID is missing for this approved draw.');
-    return;
-  }
-
-  window.location.href = `project-detail.html?project_id=${encodeURIComponent(projectId)}`;
-}
-
-async function markDrawInvoiced(drawId) {
-  if (!drawId) {
-    setMessage('error', 'Draw ID is missing. Cannot mark invoiced.');
-    return;
-  }
-
-  const invoiceNumberEl = document.getElementById(`invoice-number-${drawId}`);
-  const invoiceDateEl = document.getElementById(`invoice-date-${drawId}`);
-  const dueDateEl = document.getElementById(`due-date-${drawId}`);
-  const invoicedByEl = document.getElementById(`invoiced-by-${drawId}`);
-  const notesEl = document.getElementById(`invoice-notes-${drawId}`);
-  const buttonEl = document.getElementById(`mark-invoiced-${drawId}`);
-
-  const invoiceNumber = invoiceNumberEl ? invoiceNumberEl.value.trim() : '';
-  const invoiceDate = invoiceDateEl ? invoiceDateEl.value : '';
-  const dueDate = dueDateEl ? dueDateEl.value : '';
-  const invoicedBy = invoicedByEl ? invoicedByEl.value.trim() : '';
-  const notes = notesEl ? notesEl.value.trim() : '';
-
-  if (!invoiceNumber) {
-    setMessage('error', 'Invoice Number is required before marking this draw invoiced.');
-    return;
-  }
-
-  if (!invoiceDate) {
-    setMessage('error', 'Invoice Date is required before marking this draw invoiced.');
-    return;
-  }
-
-  if (!dueDate) {
-    setMessage('error', 'Due Date is required before marking this draw invoiced.');
-    return;
-  }
-
-  if (!invoicedBy) {
-    setMessage('error', 'Invoiced By is required before marking this draw invoiced.');
-    return;
-  }
-
-  const confirmed = window.confirm('Mark this approved draw as INVOICED? This will remove it from the Approved for Invoicing Queue and update the full accounting report.');
-
-  if (!confirmed) {
-    return;
-  }
-
-  if (buttonEl) {
-    buttonEl.disabled = true;
-    buttonEl.textContent = 'Saving...';
-  }
-
-  setMessage('info', 'Marking draw as invoiced...');
-
-  const { data, error } = await client.rpc('update_project_draw_invoice_status', {
-    p_draw_id: drawId,
-    p_invoice_number: invoiceNumber,
-    p_invoice_date: invoiceDate,
-    p_due_date: dueDate,
-    p_invoiced_by: invoicedBy,
-    p_notes: notes || null
-  });
-
-  if (error) {
-    if (buttonEl) {
-      buttonEl.disabled = false;
-      buttonEl.textContent = 'Mark Invoiced';
-    }
-
-    setMessage('error', 'Mark invoiced error: ' + error.message);
-    return;
-  }
-
-  const result = data && data.length > 0 ? data[0] : null;
-
-  if (!result || result.success !== true) {
-    if (buttonEl) {
-      buttonEl.disabled = false;
-      buttonEl.textContent = 'Mark Invoiced';
-    }
-
-    setMessage('error', result && result.message ? result.message : 'Draw was not marked invoiced.');
-    return;
-  }
-
-  await Promise.all([
-    loadSummary(),
-    loadDraws()
-  ]);
-
-  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
-  setMessage('info', result.message || 'Draw marked INVOICED successfully.');
-}
-
-
-function exportAccountingCSV() {
-  if (!filteredDrawRows || filteredDrawRows.length === 0) {
-    setMessage('info', 'No accounting draw records available to export.');
-    return;
-  }
-
-  const exportRows = filteredDrawRows.map(row => ({
-    project_number: row.project_number,
-    project_name: row.project_name,
-    client_name: row.client_name,
-    project_type: row.project_type,
-    project_type_label: row.project_type_label,
-    project_status: row.project_status,
-    contract_amount: row.contract_amount,
-    approved_change_order_total: row.approved_change_order_total,
-    total_project_value: row.total_project_value,
-    draw_number: row.draw_number,
-    draw_name: row.draw_name,
-    draw_status: row.draw_status,
-    expected_draw_date: row.expected_draw_date,
-    scheduled_amount: row.scheduled_amount,
-    invoiced_amount: row.invoiced_amount,
-    paid_amount: row.paid_amount,
-    remaining_to_invoice: row.remaining_to_invoice,
-    outstanding_amount: row.outstanding_amount,
-    trigger_stage: row.trigger_stage,
-    trigger_description: row.trigger_description,
-    invoice_number: row.invoice_number,
-    invoice_date: row.invoice_date,
-    due_date: row.due_date,
-    paid_date: row.paid_date,
-    expected_draw_notes: row.expected_draw_notes,
-    notes: row.notes,
-    project_id: row.project_id,
-    draw_id: row.draw_id
-  }));
-
-  const datePart = new Date().toISOString().slice(0, 10);
-  exportRowsToCSV(exportRows, `project_accounting_draw_forecast_${datePart}.csv`);
+  exportRowsToCSV(exportRows, 'project_documents.csv');
 }
 
 function exportRowsToCSV(rows, filename) {
@@ -1781,8 +1182,8 @@ function downloadCSV(csv, filename) {
 }
 
 function statusPill(value) {
-  const text = displayLabel(value || 'N/A');
-  const normalized = normalize(value || text);
+  const text = value || 'N/A';
+  const normalized = normalize(text);
 
   let cls = 'gray';
 
@@ -1792,7 +1193,8 @@ function statusPill(value) {
     normalized.includes('COMPLETE') ||
     normalized.includes('VALID') ||
     normalized.includes('ACTIVE') ||
-    normalized.includes('READY')
+    normalized.includes('RECEIVED') ||
+    normalized.includes('UPLOADED')
   ) {
     cls = 'green';
   } else if (
@@ -1801,7 +1203,7 @@ function statusPill(value) {
     normalized.includes('PROGRESS') ||
     normalized.includes('SETUP') ||
     normalized.includes('COMMENCEMENT') ||
-    normalized.includes('INVOICED')
+    normalized.includes('CONTRACT')
   ) {
     cls = 'blue';
   } else if (
@@ -1809,8 +1211,7 @@ function statusPill(value) {
     normalized.includes('PENDING') ||
     normalized.includes('REVIEW') ||
     normalized.includes('DUE') ||
-    normalized.includes('NOT_BILLED') ||
-    normalized.includes('SALES_HANDOFF')
+    normalized.includes('MISSING')
   ) {
     cls = 'orange';
   } else if (
@@ -1818,7 +1219,8 @@ function statusPill(value) {
     normalized.includes('DELAY') ||
     normalized.includes('HOLD') ||
     normalized.includes('NOT_SUBMITTED') ||
-    normalized.includes('REQUIRED')
+    normalized.includes('REQUIRED') ||
+    normalized.includes('EXPIRED')
   ) {
     cls = 'red';
   } else if (
@@ -1826,59 +1228,13 @@ function statusPill(value) {
     normalized.includes('ENGINEERING') ||
     normalized.includes('PERMIT') ||
     normalized.includes('PLASTER') ||
-    normalized.includes('TILE')
+    normalized.includes('TILE') ||
+    normalized.includes('CHANGE_ORDER')
   ) {
     cls = 'purple';
   }
 
   return `<span class="pill ${cls}">${escapeHTML(text)}</span>`;
-}
-
-function startOfDay(date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function startOfWeek(date) {
-  const day = date.getDay();
-  const diff = date.getDate() - day;
-  return new Date(date.getFullYear(), date.getMonth(), diff);
-}
-
-function parseLocalDate(value) {
-  if (!value) {
-    return null;
-  }
-
-  const parts = String(value).split('-');
-
-  if (parts.length === 3) {
-    const year = Number(parts[0]);
-    const month = Number(parts[1]) - 1;
-    const day = Number(parts[2]);
-    return new Date(year, month, day);
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return startOfDay(date);
-}
-
-function addDays(date, days) {
-  const copy = new Date(date);
-  copy.setDate(copy.getDate() + Number(days || 0));
-  return copy;
-}
-
-function toDateInputValue(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
 }
 
 function setMessage(type, message) {
@@ -1910,69 +1266,32 @@ function normalize(value) {
     .replace(/\s+/g, '_');
 }
 
-function displayLabel(value) {
-  return String(value || 'N/A')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase());
-}
-
-function sumColumn(rows, columnName) {
-  return rows.reduce((sum, row) => {
-    return sum + Number(row[columnName] || 0);
-  }, 0);
-}
-
-function formatCurrency(value) {
-  const number = Number(value || 0);
-
-  return number.toLocaleString(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-}
-
-function formatCurrencyShort(value) {
-  const number = Number(value || 0);
-
-  if (Math.abs(number) >= 1000000) {
-    return '$' + (number / 1000000).toFixed(2) + 'M';
-  }
-
-  if (Math.abs(number) >= 1000) {
-    return '$' + (number / 1000).toFixed(0) + 'K';
-  }
-
-  return formatCurrency(number);
-}
-
-function formatDate(value) {
+function formatDateTime(value) {
   if (!value) {
     return '';
   }
 
-  const date = parseLocalDate(value);
+  const date = new Date(value);
 
-  if (!date) {
+  if (Number.isNaN(date.getTime())) {
     return value;
   }
 
-  return date.toLocaleDateString();
+  return date.toLocaleString();
 }
 
+function formatFileSize(bytes) {
+  const number = Number(bytes || 0);
 
-function escapeJS(value) {
-  if (value === null || value === undefined) {
-    return '';
+  if (number >= 1024 * 1024) {
+    return (number / (1024 * 1024)).toFixed(2) + ' MB';
   }
 
-  return String(value)
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r');
+  if (number >= 1024) {
+    return (number / 1024).toFixed(1) + ' KB';
+  }
+
+  return number.toLocaleString() + ' B';
 }
 
 function escapeHTML(value) {
@@ -1986,6 +1305,18 @@ function escapeHTML(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function escapeAttribute(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 </script>
 
