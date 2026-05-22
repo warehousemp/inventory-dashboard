@@ -1479,20 +1479,20 @@
 
         <section class="field-tab-shell" aria-label="Project detail field navigation">
           <div class="field-tab-bar">
-            <button class="field-tab-button active" type="button" data-tab-button="overview" onclick="switchProjectTab('overview')">Setup / Notes</button>
-            <button class="field-tab-button" type="button" data-tab-button="field-overview" onclick="switchProjectTab('field-overview')">Overview</button>
+            <button class="field-tab-button active" type="button" data-tab-button="overview" onclick="switchProjectTab('overview')">Overview</button>
+            <button class="field-tab-button" type="button" data-tab-button="setup" onclick="switchProjectTab('setup')">Setup</button>
+            <button class="field-tab-button" type="button" data-tab-button="notes" onclick="switchProjectTab('notes')">Notes</button>
             <button class="field-tab-button" type="button" data-tab-button="schedule" onclick="switchProjectTab('schedule')">Schedule / Tasks</button>
             <button class="field-tab-button" type="button" data-tab-button="budget" onclick="switchProjectTab('budget')">Budget / Draws</button>
             <button class="field-tab-button" type="button" data-tab-button="documents" onclick="switchProjectTab('documents')">Documents</button>
             <button class="field-tab-button" type="button" data-tab-button="photos" onclick="switchProjectTab('photos')">CompanyCam</button>
             <button class="field-tab-button" type="button" data-tab-button="messages" onclick="switchProjectTab('messages')">Messages</button>
             <button class="field-tab-button" type="button" data-tab-button="change-orders" onclick="switchProjectTab('change-orders')">Change Orders</button>
-            <button class="field-tab-button" type="button" data-tab-button="notes" onclick="switchProjectTab('notes')">Notes</button>
             <button class="field-tab-button" type="button" data-tab-button="audit" onclick="switchProjectTab('audit')">Audit Log</button>
           </div>
         </section>
 
-        <section class="tab-section" data-tab-section="field-overview">
+        <section class="tab-section active" data-tab-section="overview">
           <section class="panel" style="margin-bottom:16px;">
             <div class="panel-header">
               <div>
@@ -1557,7 +1557,7 @@
           </section>
         </section>
 
-        <section class="tab-section active" data-tab-section="overview">
+        <section class="tab-section" data-tab-section="setup">
 
         <section class="panel" style="margin-bottom:16px;">
           <div class="panel-header">
@@ -1699,13 +1699,13 @@
 
             <div class="form-grid two-col">
               <div class="form-field">
-                <label for="pmProjectNotes">Project Notes</label>
-                <textarea id="pmProjectNotes" placeholder="Project notes"></textarea>
+                <label for="pmChangeNotes">Setup Change Notes / Reason</label>
+                <textarea id="pmChangeNotes" placeholder="Example: Setup fields updated after handoff review."></textarea>
               </div>
 
-              <div class="form-field">
-                <label for="pmChangeNotes">Change Notes / Reason</label>
-                <textarea id="pmChangeNotes" placeholder="Example: Setup fields updated after handoff review."></textarea>
+              <div class="field-note-card">
+                <strong>Project Notes moved to the Notes tab.</strong><br>
+                Use the Notes tab when the Project Manager needs to add or update field notes. This Setup tab is for project address, contacts, PM/team fields, dates, engineering, and permitting only.
               </div>
             </div>
 
@@ -2016,7 +2016,43 @@
             <div class="panel-header">
               <div>
                 <h2>Project Notes</h2>
-                <div class="panel-subtitle">Internal project notes plus project record notes updated from setup and Kanban movement workflows.</div>
+                <div class="panel-subtitle">Project Manager notes are edited here. Notes save through the same audit-safe project update RPC and remain visible in the project notes history below.</div>
+              </div>
+            </div>
+
+            <div class="form-body">
+              <div class="form-grid two-col">
+                <div class="form-field">
+                  <label for="pmProjectNotes">Project Manager Notes</label>
+                  <textarea id="pmProjectNotes" placeholder="Enter field notes, client notes, jobsite notes, or PM follow-up notes." style="min-height:160px;"></textarea>
+                </div>
+
+                <div>
+                  <div class="form-field" style="margin-bottom:14px;">
+                    <label for="pmNotesChangedBy">Changed By Required</label>
+                    <input id="pmNotesChangedBy" type="text" placeholder="Example: Tim">
+                  </div>
+
+                  <div class="form-field">
+                    <label for="pmNotesChangeNotes">Change Notes / Reason</label>
+                    <textarea id="pmNotesChangeNotes" placeholder="Example: PM field notes updated after site visit."></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <span class="inline-status" id="pmNotesSaveStatus"></span>
+                <button class="btn btn-secondary" type="button" onclick="resetProjectNotesForm()">Reset Notes</button>
+                <button class="btn btn-primary" type="button" id="saveProjectNotesButton" onclick="saveProjectNotesOnly()">Save Notes</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Notes History</h2>
+                <div class="panel-subtitle">Current project record notes and any additional project note records.</div>
               </div>
             </div>
 
@@ -2341,6 +2377,10 @@ function populateProjectManagerForm(row) {
   document.getElementById('pmProjectNotes').value = row.notes || '';
   document.getElementById('pmChangeNotes').value = '';
   document.getElementById('pmProjectSaveStatus').textContent = '';
+
+  setTextInputValue('pmNotesChangedBy', '');
+  setTextInputValue('pmNotesChangeNotes', '');
+  setText('pmNotesSaveStatus', '');
 }
 
 function resetProjectManagerForm() {
@@ -2350,6 +2390,83 @@ function resetProjectManagerForm() {
 
   populateProjectManagerForm(currentProject);
   setMessage('info', 'Project setup update form reset to current saved values.');
+}
+
+function resetProjectNotesForm() {
+  if (!currentProject) {
+    return;
+  }
+
+  setTextInputValue('pmProjectNotes', currentProject.notes || '');
+  setTextInputValue('pmNotesChangeNotes', '');
+  setText('pmNotesSaveStatus', '');
+  setMessage('info', 'Project notes reset to current saved values.');
+}
+
+async function saveProjectNotesOnly() {
+  if (!currentProjectId) {
+    setMessage('error', 'No project selected.');
+    return;
+  }
+
+  const changedBy = getInputValue('pmNotesChangedBy');
+
+  if (!changedBy) {
+    setMessage('error', 'Changed By is required before saving project notes.');
+    return;
+  }
+
+  const button = document.getElementById('saveProjectNotesButton');
+  const status = document.getElementById('pmNotesSaveStatus');
+
+  button.disabled = true;
+  status.textContent = 'Saving notes...';
+
+  const payload = {
+    p_project_id: currentProjectId,
+    p_project_status: currentProject?.project_status || null,
+    p_project_manager: currentProject?.project_manager || null,
+    p_superintendent: currentProject?.project_coordinator || currentProject?.superintendent || null,
+    p_projected_start_date: toDateInputValue(currentProject?.projected_start_date) || null,
+    p_projected_completion_date: toDateInputValue(currentProject?.projected_completion_date) || null,
+    p_engineering_status: currentProject?.engineering_status || null,
+    p_permit_status: currentProject?.permit_status || null,
+    p_notes: getInputValue('pmProjectNotes') || null,
+    p_changed_by: changedBy,
+    p_change_notes: getInputValue('pmNotesChangeNotes') || 'Project notes updated from Notes tab.',
+
+    p_project_address: currentProject?.project_address || null,
+    p_project_city: currentProject?.project_city || null,
+    p_project_state: currentProject?.project_state || null,
+    p_project_zip: currentProject?.project_zip || null,
+    p_primary_contact_name: currentProject?.primary_contact_name || null,
+    p_primary_contact_phone: currentProject?.primary_contact_phone || null,
+    p_primary_contact_email: currentProject?.primary_contact_email || null,
+    p_secondary_contact_name: currentProject?.secondary_contact_name || null,
+    p_secondary_contact_phone: currentProject?.secondary_contact_phone || null,
+    p_secondary_contact_email: currentProject?.secondary_contact_email || null
+  };
+
+  const { error } = await client.rpc('update_project_manager_project_fields', payload);
+
+  button.disabled = false;
+
+  if (error) {
+    status.textContent = '';
+    setMessage('error', 'Project notes save failed: ' + error.message);
+    return;
+  }
+
+  status.textContent = 'Notes saved.';
+  setMessage('success', 'Project notes saved successfully.');
+
+  await loadProjectHeader(currentProjectId);
+  await Promise.all([
+    loadNotes(currentProjectId),
+    loadAuditLog(currentProjectId)
+  ]);
+
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
 async function saveProjectManagerProjectFields() {
@@ -2384,7 +2501,7 @@ async function saveProjectManagerProjectFields() {
     p_projected_completion_date: getInputValue('pmProjectedCompletionDate') || null,
     p_engineering_status: getInputValue('pmEngineeringStatus') || null,
     p_permit_status: getInputValue('pmPermitStatus') || null,
-    p_notes: getInputValue('pmProjectNotes') || null,
+    p_notes: currentProject && currentProject.notes ? currentProject.notes : null,
     p_changed_by: changedBy,
     p_change_notes: getInputValue('pmChangeNotes') || null,
 
