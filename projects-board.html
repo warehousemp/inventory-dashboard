@@ -1645,7 +1645,7 @@ function renderBoard() {
 
   board.style.setProperty(
     '--board-columns',
-    productionColumnDefinitions.map(column => column.rows.length === 0 ? '48px' : '315px').join(' ')
+    productionColumnDefinitions.map(() => '315px').join(' ')
   );
 
   productionColumnDefinitions.forEach(column => {
@@ -1711,8 +1711,7 @@ function getProductionBoardColumns(projectType) {
 
 function renderColumn(title, sub, rows, cardClass, columnKey, allowDrop) {
   const column = document.createElement('div');
-  const isCollapsed = boardMode !== 'MASTER' && (!rows || rows.length === 0);
-  column.className = isCollapsed ? 'kanban-column collapsed' : 'kanban-column';
+  column.className = 'kanban-column';
 
   column.innerHTML = `
     <div class="column-header">
@@ -2016,9 +2015,35 @@ function closeMoveModal() {
   pendingMove = null;
 
   const modal = document.getElementById('moveModal');
+  const warning = document.getElementById('movementWarning');
+  const updatedByInput = document.getElementById('modalUpdatedByInput');
+  const notesInput = document.getElementById('modalNotesInput');
+  const notesLabel = document.getElementById('modalNotesLabel');
+  const movementPill = document.getElementById('modalMovementType');
 
   if (modal) {
     modal.classList.remove('active');
+  }
+
+  if (warning) {
+    warning.classList.remove('active');
+  }
+
+  if (updatedByInput) {
+    updatedByInput.value = '';
+  }
+
+  if (notesInput) {
+    notesInput.value = '';
+    notesInput.placeholder = 'Optional move note';
+  }
+
+  if (notesLabel) {
+    notesLabel.textContent = 'Notes';
+  }
+
+  if (movementPill) {
+    movementPill.className = 'movement-pill';
   }
 }
 
@@ -2054,7 +2079,12 @@ async function confirmMoveProject() {
   });
 
   if (result.error) {
-    setPageMessage('error', 'Kanban move failed: ' + result.error.message);
+    const errorMessage = 'Kanban move failed: ' + result.error.message;
+
+    closeMoveModal();
+    await loadBoard();
+    setPageMessage('error', errorMessage);
+
     return;
   }
 
