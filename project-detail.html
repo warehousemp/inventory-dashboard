@@ -6,6 +6,8 @@
 
   <title>Project Detail - Projects Command Center</title>
 
+  <!-- Project Detail Not Required task controls / 2026-05-22 -->
+
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="manifest.json">
@@ -937,6 +939,68 @@
     }
 
 
+    .task-requirement-panel {
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px solid #dbeafe;
+      background: #f8fbff;
+      border-radius: 12px;
+    }
+
+    .task-requirement-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .task-requirement-title {
+      color: #102a43;
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.25px;
+    }
+
+    .task-requirement-subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.35;
+      margin-top: 3px;
+    }
+
+    .task-requirement-grid {
+      display: grid;
+      grid-template-columns: minmax(160px, 0.75fr) minmax(180px, 1fr) minmax(260px, 2fr);
+      gap: 12px;
+      align-items: end;
+    }
+
+    .task-requirement-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .task-not-required-summary {
+      margin-top: 10px;
+      border: 1px solid #fed7aa;
+      background: #fff7ed;
+      color: #9a3412;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.4;
+    }
+
+
     .draw-summary-grid {
       display: grid;
       grid-template-columns: repeat(5, minmax(150px, 1fr));
@@ -1264,6 +1328,10 @@
         grid-template-columns: repeat(2, 1fr);
       }
 
+      .task-requirement-grid {
+        grid-template-columns: 1fr;
+      }
+
       .task-edit-grid .task-notes-wide {
         grid-column: span 2;
       }
@@ -1307,7 +1375,8 @@
       .setup-summary-grid,
       .stage-edit-grid,
       .task-detail-grid,
-      .task-edit-grid {
+      .task-edit-grid,
+      .task-requirement-grid {
         grid-template-columns: 1fr;
       }
 
@@ -2683,8 +2752,17 @@ function renderScheduleTasks(rows) {
     const status = normalize(row.derived_task_status || row.task_status || 'NOT_STARTED');
     const isCurrent = status === 'IN_PROGRESS';
     const isComplete = ['COMPLETE', 'COMPLETED'].includes(status);
-    const expandedClass = isCurrent ? 'expanded' : '';
-    const stateClass = isCurrent ? 'current-task' : (isComplete ? 'complete-task' : 'upcoming-task');
+    const isNotRequired = row.is_required === false || status === 'NOT_REQUIRED';
+    const expandedClass = isCurrent || isNotRequired ? 'expanded' : '';
+    const stateClass = isNotRequired ? 'upcoming-task' : (isCurrent ? 'current-task' : (isComplete ? 'complete-task' : 'upcoming-task'));
+    const requiredSelectValue = isNotRequired ? 'false' : 'true';
+    const requirementImpactText = isNotRequired ? 'Excluded from Gantt / Production Schedule' : 'Included in Gantt / Production Schedule';
+    const notRequiredSummary = isNotRequired ? `
+      <div class="task-not-required-summary">
+        Not Required by ${escapeHTML(row.not_required_by)} ${row.not_required_at ? 'on ' + escapeHTML(formatDateTime(row.not_required_at)) : ''}<br>
+        Reason: ${escapeHTML(row.not_required_reason)}
+      </div>
+    ` : '';
 
     card.className = `task-card ${stateClass} ${expandedClass}`;
     card.setAttribute('data-task-id', row.task_id);
@@ -2733,6 +2811,53 @@ function renderScheduleTasks(rows) {
           <div class="task-detail-box">
             <div class="task-detail-label">Completed By</div>
             <div class="task-detail-value">${escapeHTML(row.completed_by)}</div>
+          </div>
+
+          <div class="task-detail-box">
+            <div class="task-detail-label">Required For Project</div>
+            <div class="task-detail-value">${isNotRequired ? 'No' : 'Yes'}</div>
+          </div>
+
+          <div class="task-detail-box">
+            <div class="task-detail-label">Schedule Impact</div>
+            <div class="task-detail-value">${escapeHTML(requirementImpactText)}</div>
+          </div>
+        </div>
+
+        <div class="task-requirement-panel">
+          <div class="task-requirement-header">
+            <div>
+              <div class="task-requirement-title">Task Requirement</div>
+              <div class="task-requirement-subtitle">Mark this task Not Required only when it does not apply to this specific project. Changed By and Reason are required when setting a task to Not Required.</div>
+            </div>
+            ${statusPill(isNotRequired ? 'NOT_REQUIRED' : 'REQUIRED')}
+          </div>
+
+          <div class="task-requirement-grid">
+            <div class="form-field">
+              <label>Required For This Project?</label>
+              <select class="task-required-input">
+                <option value="true" ${requiredSelectValue === 'true' ? 'selected' : ''}>Yes - Required</option>
+                <option value="false" ${requiredSelectValue === 'false' ? 'selected' : ''}>No - Not Required</option>
+              </select>
+            </div>
+
+            <div class="form-field">
+              <label>Changed By Required</label>
+              <input class="task-requirement-changed-by-input" type="text" placeholder="Example: Tim">
+            </div>
+
+            <div class="form-field">
+              <label>Reason Required When Not Required</label>
+              <textarea class="task-requirement-reason-input" placeholder="Example: HOA approval is not required for this property.">${escapeHTML(row.not_required_reason)}</textarea>
+            </div>
+          </div>
+
+          ${notRequiredSummary}
+
+          <div class="task-requirement-actions">
+            <span class="inline-status task-requirement-save-status"></span>
+            <button class="btn btn-secondary btn-small" type="button" onclick="saveTaskRequirementStatus('${escapeHTML(row.task_id)}')">Save Requirement</button>
           </div>
         </div>
 
@@ -2786,6 +2911,100 @@ function toggleTaskCard(taskId) {
   }
 
   card.classList.toggle('expanded');
+}
+
+
+async function saveTaskRequirementStatus(taskId) {
+  if (!taskId) {
+    setMessage('error', 'Task ID is missing.');
+    return;
+  }
+
+  const card = document.querySelector(`.task-card[data-task-id="${cssEscape(taskId)}"]`);
+
+  if (!card) {
+    setMessage('error', 'Checklist task card was not found.');
+    return;
+  }
+
+  const requiredValue = getScopedInputValue(card, '.task-required-input');
+  const isRequired = requiredValue !== 'false';
+  const changedBy = getScopedInputValue(card, '.task-requirement-changed-by-input');
+  const reason = getScopedInputValue(card, '.task-requirement-reason-input');
+  const saveButton = card.querySelector('.task-requirement-actions button');
+  const status = card.querySelector('.task-requirement-save-status');
+
+  if (!changedBy) {
+    showTaskCardMessage(card, 'error', 'Changed By is required before saving the task requirement.');
+    if (status) {
+      status.className = 'inline-status error task-requirement-save-status';
+      status.textContent = 'Changed By is required.';
+    }
+    return;
+  }
+
+  if (!isRequired && !reason) {
+    showTaskCardMessage(card, 'error', 'Reason is required when marking a task Not Required.');
+    if (status) {
+      status.className = 'inline-status error task-requirement-save-status';
+      status.textContent = 'Reason is required.';
+    }
+    return;
+  }
+
+  if (saveButton) {
+    saveButton.disabled = true;
+  }
+  if (status) {
+    status.className = 'inline-status info task-requirement-save-status';
+    status.textContent = 'Saving requirement...';
+  }
+  showTaskCardMessage(card, 'info', 'Saving task requirement...');
+
+  const { data, error } = await client.rpc('set_project_schedule_task_required_status', {
+    p_task_id: taskId,
+    p_is_required: isRequired,
+    p_changed_by: changedBy,
+    p_reason: reason || null
+  });
+
+  if (saveButton) {
+    saveButton.disabled = false;
+  }
+
+  if (error) {
+    if (status) {
+      status.className = 'inline-status error task-requirement-save-status';
+      status.textContent = 'Requirement save failed.';
+    }
+    showTaskCardMessage(card, 'error', 'Task requirement update failed: ' + error.message);
+    return;
+  }
+
+  const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+
+  if (result && result.success === false) {
+    if (status) {
+      status.className = 'inline-status error task-requirement-save-status';
+      status.textContent = 'Requirement save failed.';
+    }
+    showTaskCardMessage(card, 'error', result.message || 'Task requirement update failed.');
+    return;
+  }
+
+  if (status) {
+    status.className = 'inline-status success task-requirement-save-status';
+    status.textContent = isRequired ? 'Task restored to Required.' : 'Task marked Not Required.';
+  }
+
+  await Promise.all([
+    loadScheduleTasks(currentProjectId),
+    loadNotes(currentProjectId),
+    loadAuditLog(currentProjectId)
+  ]);
+
+  showTaskCardMessageByTaskId(taskId, 'success', isRequired ? 'Task restored to Required successfully.' : 'Task marked Not Required successfully.');
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
 async function saveScheduleTaskUpdate(taskId) {
@@ -3669,7 +3888,11 @@ function statusPill(value) {
 
   let cls = 'gray';
 
-  if (
+  if (normalized === 'NOT_REQUIRED') {
+    cls = 'orange';
+  } else if (normalized === 'REQUIRED') {
+    cls = 'blue';
+  } else if (
     normalized.includes('APPROVED') ||
     normalized.includes('PAID') ||
     normalized.includes('COMPLETE') ||
