@@ -401,6 +401,36 @@
       border-color: var(--header);
     }
 
+    .stage-toggle {
+      margin-left: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 9px 12px;
+      color: var(--header);
+      font-size: 13px;
+      font-weight: 900;
+      cursor: pointer;
+      user-select: none;
+      min-height: 39px;
+    }
+
+    .stage-toggle input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      padding: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .stage-toggle span {
+      white-space: nowrap;
+    }
+
     .board-mode-note {
       background: #eff6ff;
       border: 1px solid #bfdbfe;
@@ -1206,6 +1236,11 @@
           <button id="masterTab" class="tab-button" onclick="setBoardMode('MASTER')">Master Status View</button>
           <button id="newBuildTab" class="tab-button active" onclick="setBoardMode('NEW_BUILD')">New Build Board</button>
           <button id="renovationTab" class="tab-button" onclick="setBoardMode('RENOVATION')">Renovation Board</button>
+
+          <label class="stage-toggle" for="hideEmptyStagesToggle" title="Hide empty production board columns">
+            <input id="hideEmptyStagesToggle" type="checkbox" onchange="setHideEmptyStages(this.checked)" />
+            <span>Hide Empty Stages</span>
+          </label>
         </div>
 
         <div id="boardModeNote" class="board-mode-note">
@@ -1348,6 +1383,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let allProjects = [];
 let phaseTemplates = [];
 let boardMode = 'NEW_BUILD';
+let hideEmptyStages = false;
 let pendingMove = null;
 
 const MASTER_COLUMNS = [
@@ -1520,6 +1556,12 @@ function setBoardMode(mode) {
   renderBoard();
 }
 
+function setHideEmptyStages(isChecked) {
+  hideEmptyStages = Boolean(isChecked);
+  updateBoardModeNote();
+  renderBoard();
+}
+
 function updateBoardModeNote() {
   const note = document.getElementById('boardModeNote');
 
@@ -1529,8 +1571,10 @@ function updateBoardModeNote() {
 
   if (boardMode === 'MASTER') {
     note.textContent = 'Master Status View is read-only. This lifecycle view shows prospects, setup, active production, blocked/waiting, closeout, and completed projects.';
+  } else if (hideEmptyStages) {
+    note.textContent = 'Production boards show the real-world current phase. Hide Empty Stages is ON, so empty columns are hidden. Cards may be moved forward, skipped ahead, or moved backward. Backward moves require notes.';
   } else {
-    note.textContent = 'Production boards show the real-world current phase. Cards may be moved forward, skipped ahead, or moved backward. Backward moves require notes and preserve prior phase history.';
+    note.textContent = 'Production boards show the real-world current phase. All stages are visible. Cards may be moved forward, skipped ahead, or moved backward. Backward moves require notes and preserve prior phase history.';
   }
 }
 
@@ -1580,7 +1624,12 @@ function getFilteredProjects() {
 
 function renderBoard() {
   const board = document.getElementById('boardContainer');
+  const hideToggle = document.getElementById('hideEmptyStagesToggle');
   const filtered = getFilteredProjects();
+
+  if (hideToggle) {
+    hideToggle.checked = hideEmptyStages;
+  }
 
   renderSummary(filtered);
 
@@ -1615,7 +1664,7 @@ function renderBoard() {
   board.className = 'board production';
   board.style.setProperty('--column-count', columns.length);
 
-  const productionColumnDefinitions = columns.map(column => {
+  let productionColumnDefinitions = columns.map(column => {
     const rows = filtered.filter(project => {
       if (project.project_type !== productionProjectType) {
         return false;
@@ -1643,6 +1692,17 @@ function renderBoard() {
     };
   });
 
+  if (hideEmptyStages) {
+    productionColumnDefinitions = productionColumnDefinitions.filter(column => column.rows.length > 0);
+  }
+
+  if (productionColumnDefinitions.length === 0) {
+    board.style.setProperty('--board-columns', '315px');
+    board.appendChild(renderColumn('No Visible Stages', 'No projects match the current filters.', [], 'production', '', false));
+    return;
+  }
+
+  board.style.setProperty('--column-count', productionColumnDefinitions.length);
   board.style.setProperty(
     '--board-columns',
     productionColumnDefinitions.map(() => '315px').join(' ')
