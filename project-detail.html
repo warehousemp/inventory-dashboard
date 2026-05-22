@@ -2729,14 +2729,17 @@ function renderScheduleTasks(rows) {
   const container = document.getElementById('taskCardList');
   container.innerHTML = '';
 
-  renderChecklistSummary(rows);
+  const displayRows = dedupeScheduleTaskRows(rows || []);
+  scheduleTasks = displayRows;
+
+  renderChecklistSummary(displayRows);
 
   const generateButton = document.getElementById('generateChecklistButton');
   if (generateButton) {
-    generateButton.style.display = rows && rows.length > 0 ? 'none' : 'inline-block';
+    generateButton.style.display = displayRows && displayRows.length > 0 ? 'none' : 'inline-block';
   }
 
-  if (!rows || rows.length === 0) {
+  if (!displayRows || displayRows.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
         <strong>No checklist tasks have been generated for this project yet.</strong>
@@ -2746,7 +2749,7 @@ function renderScheduleTasks(rows) {
     return;
   }
 
-  rows.forEach(row => {
+  displayRows.forEach(row => {
     const card = document.createElement('div');
     const status = normalize(row.derived_task_status || row.task_status || 'NOT_STARTED');
     const isCurrent = status === 'IN_PROGRESS';
@@ -2902,6 +2905,43 @@ function renderScheduleTasks(rows) {
   });
 }
 
+
+function dedupeScheduleTaskRows(rows) {
+  const byTaskId = new Map();
+
+  const statusRank = statusValue => {
+    const status = normalize(statusValue || '');
+    if (status === 'IN_PROGRESS') return 100;
+    if (status === 'NOT_REQUIRED') return 90;
+    if (status === 'BLOCKED' || status === 'ON_HOLD') return 80;
+    if (status === 'NOT_STARTED') return 70;
+    if (status === 'COMPLETE' || status === 'COMPLETED') return 60;
+    return 10;
+  };
+
+  rows.forEach(row => {
+    if (!row || !row.task_id) {
+      return;
+    }
+
+    const existing = byTaskId.get(row.task_id);
+
+    if (!existing) {
+      byTaskId.set(row.task_id, row);
+      return;
+    }
+
+    const existingRank = statusRank(existing.derived_task_status || existing.task_status);
+    const rowRank = statusRank(row.derived_task_status || row.task_status);
+
+    if (rowRank > existingRank) {
+      byTaskId.set(row.task_id, row);
+    }
+  });
+
+  return Array.from(byTaskId.values()).sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
+}
+
 function toggleTaskCard(taskId) {
   const card = document.querySelector(`.task-card[data-task-id="${cssEscape(taskId)}"]`);
 
@@ -3020,8 +3060,6 @@ async function saveScheduleTaskUpdate(taskId) {
   }
 
   const changedBy = getScopedInputValue(card, '.task-changed-by-input');
-  const taskNotes = getScopedInputValue(card, '.task-notes-input');
-  const changeNotes = getScopedInputValue(card, '.task-change-notes-input');
 
   if (!changedBy) {
     showTaskCardMessage(card, 'error', 'Changed By is required before saving this checklist task.');
@@ -3031,15 +3069,8 @@ async function saveScheduleTaskUpdate(taskId) {
   const saveButton = card.querySelector('.task-card-actions button');
   const status = card.querySelector('.checklist-save-status');
 
-  if (saveButton) {
-    saveButton.disabled = true;
-  }
-
-  if (status) {
-    status.className = 'inline-status checklist-save-status info';
-    status.textContent = 'Saving...';
-  }
-
+  saveButton.disabled = true;
+  status.textContent = 'Saving...';
   showTaskCardMessage(card, 'info', 'Saving task update...');
 
   const payload = {
@@ -3054,22 +3085,17 @@ async function saveScheduleTaskUpdate(taskId) {
     p_assigned_subcontractor: getScopedInputValue(card, '.task-subcontractor-input') || null,
     p_inspection_status: getScopedInputValue(card, '.task-inspection-status-input') || null,
     p_delay_reason: null,
-    p_notes: taskNotes || null,
+    p_notes: getScopedInputValue(card, '.task-notes-input') || null,
     p_changed_by: changedBy,
-    p_change_notes: changeNotes || 'Checklist task updated from Project Detail.'
+    p_change_notes: getScopedInputValue(card, '.task-change-notes-input') || null
   };
 
   const { data, error } = await client.rpc('update_project_schedule_task', payload);
 
-  if (saveButton) {
-    saveButton.disabled = false;
-  }
+  saveButton.disabled = false;
 
   if (error) {
-    if (status) {
-      status.className = 'inline-status checklist-save-status error';
-      status.textContent = 'Save failed.';
-    }
+    status.textContent = '';
     showTaskCardMessage(card, 'error', 'Checklist task update failed: ' + error.message);
     return;
   }
@@ -3077,38 +3103,12 @@ async function saveScheduleTaskUpdate(taskId) {
   const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
 
   if (result && result.success === false) {
-    if (status) {
-      status.className = 'inline-status checklist-save-status error';
-      status.textContent = 'Save failed.';
-    }
+    status.textContent = '';
     showTaskCardMessage(card, 'error', result.message || 'Checklist task update failed.');
     return;
   }
 
-  let savedTaskRow = null;
-  const verifyResult = await client
-    .from('project_schedule_task_cards_view')
-    .select('task_id, notes')
-    .eq('task_id', taskId)
-    .maybeSingle();
-
-  if (!verifyResult.error) {
-    savedTaskRow = verifyResult.data || null;
-  }
-
-  if (taskNotes && savedTaskRow && String(savedTaskRow.notes || '').trim() !== taskNotes) {
-    if (status) {
-      status.className = 'inline-status checklist-save-status error';
-      status.textContent = 'Save did not persist.';
-    }
-    showTaskCardMessage(card, 'error', 'Task update returned successfully, but the note did not persist in the task record. This points to the update_project_schedule_task RPC or the task view not writing/returning the notes field.');
-    return;
-  }
-
-  if (status) {
-    status.className = 'inline-status checklist-save-status success';
-    status.textContent = 'Saved.';
-  }
+  status.textContent = 'Saved.';
 
   await Promise.all([
     loadScheduleTasks(currentProjectId),
@@ -3116,7 +3116,7 @@ async function saveScheduleTaskUpdate(taskId) {
     loadAuditLog(currentProjectId)
   ]);
 
-  showTaskCardMessageByTaskId(taskId, 'success', 'Checklist task saved successfully. Notes History has been refreshed.');
+  showTaskCardMessageByTaskId(taskId, 'success', 'Checklist task saved successfully.');
   document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
 }
 
@@ -3128,7 +3128,6 @@ function showTaskCardMessageByTaskId(taskId, type, message) {
     return;
   }
 
-  card.classList.add('expanded');
   showTaskCardMessage(card, type, message);
 }
 
