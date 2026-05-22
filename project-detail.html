@@ -6,6 +6,9 @@
 
   <title>Project Detail - Projects Command Center</title>
 
+  <!-- Project Detail Notes History fix: consolidated notes view / 2026-05-22 -->
+
+
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="manifest.json">
@@ -2052,7 +2055,7 @@
             <div class="panel-header">
               <div>
                 <h2>Notes History</h2>
-                <div class="panel-subtitle">Current project record notes and any additional project note records.</div>
+                <div class="panel-subtitle">Consolidated timeline from project record notes, PM notes, Kanban movement notes, and task-card notes.</div>
               </div>
             </div>
 
@@ -2842,6 +2845,7 @@ async function saveScheduleTaskUpdate(taskId) {
 
   await Promise.all([
     loadScheduleTasks(currentProjectId),
+    loadNotes(currentProjectId),
     loadAuditLog(currentProjectId)
   ]);
 
@@ -3370,14 +3374,19 @@ async function loadChangeOrders(projectId) {
 }
 
 async function loadNotes(projectId) {
+  const tbody = document.getElementById('notesTableBody');
+  tbody.innerHTML = '';
+
+  if (!projectId) {
+    tbody.innerHTML = '<tr><td colspan="4">No project selected.</td></tr>';
+    return;
+  }
+
   const { data, error } = await client
-    .from('project_detail_notes_page_view')
+    .from('project_detail_consolidated_notes_history_view')
     .select('*')
     .eq('project_id', projectId)
     .order('created_at', { ascending: false });
-
-  const tbody = document.getElementById('notesTableBody');
-  tbody.innerHTML = '';
 
   if (error) {
     tbody.innerHTML = `<tr><td colspan="4">${escapeHTML(error.message)}</td></tr>`;
@@ -3385,26 +3394,10 @@ async function loadNotes(projectId) {
   }
 
   const rows = data || [];
-  const projectRecordNotes = currentProject && currentProject.notes
-    ? String(currentProject.notes).trim()
-    : '';
 
-  if (!projectRecordNotes && rows.length === 0) {
+  if (rows.length === 0) {
     tbody.innerHTML = '<tr><td colspan="4">No notes found for this project.</td></tr>';
     return;
-  }
-
-  if (projectRecordNotes) {
-    const tr = document.createElement('tr');
-
-    tr.innerHTML = `
-      <td>${escapeHTML('Project Record Notes')}</td>
-      <td class="wide-text">${escapeHTML(projectRecordNotes)}</td>
-      <td>${escapeHTML('System / Project Record')}</td>
-      <td>${escapeHTML(formatDateTime(currentProject.updated_at))}</td>
-    `;
-
-    tbody.appendChild(tr);
   }
 
   rows.forEach(row => {
