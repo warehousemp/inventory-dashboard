@@ -1567,7 +1567,9 @@
             <button class="field-tab-button" type="button" data-tab-button="setup" onclick="switchProjectTab('setup')">Setup</button>
             <button class="field-tab-button" type="button" data-tab-button="notes" onclick="switchProjectTab('notes')">Notes</button>
             <button class="field-tab-button" type="button" data-tab-button="schedule" onclick="switchProjectTab('schedule')">Schedule / Tasks</button>
-            <button class="field-tab-button" type="button" data-tab-button="budget" onclick="switchProjectTab('budget')">Budget / Draws</button>
+            <button class="field-tab-button" type="button" data-tab-button="budget" onclick="switchProjectTab('budget')">Budget</button>
+            <button class="field-tab-button" type="button" data-tab-button="draws" onclick="switchProjectTab('draws')">Draws</button>
+            <button class="field-tab-button" type="button" data-tab-button="selections" onclick="switchProjectTab('selections')">Selections</button>
             <button class="field-tab-button" type="button" data-tab-button="documents" onclick="switchProjectTab('documents')">Documents</button>
             <button class="field-tab-button" type="button" data-tab-button="photos" onclick="switchProjectTab('photos')">CompanyCam</button>
             <button class="field-tab-button" type="button" data-tab-button="messages" onclick="switchProjectTab('messages')">Messages</button>
@@ -1855,6 +1857,24 @@
           <div class="panel">
             <div class="panel-header">
               <div>
+                <h2>Project Budget</h2>
+                <div class="panel-subtitle">Future budget workspace for project budget, allowances, estimated costs, actual costs, and budget notes.</div>
+              </div>
+            </div>
+
+            <div class="form-body">
+              <div class="field-note-card">
+                <strong>Budget tab created.</strong><br>
+                This tab is intentionally separate from Draws. Future buildout can include budget categories, allowance tracking, estimated vs. actual cost, subcontractor/vendor cost notes, and budget variance reporting. No accounting draw logic was changed in this update.
+              </div>
+            </div>
+          </div>
+          </section>
+
+          <section class="tab-section" data-tab-section="draws">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
                 <h2>Draw Schedule</h2>
                 <div class="panel-subtitle">Expected draw dates, scheduled amounts, invoicing, payments, and outstanding balances.</div>
               </div>
@@ -1918,12 +1938,42 @@
 
           </section>
 
+          <section class="tab-section" data-tab-section="selections">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <h2>Selections</h2>
+                <div class="panel-subtitle">Project-specific selection options and selection status. Future buildout will store one list of options per project.</div>
+              </div>
+            </div>
+
+            <div class="form-body">
+              <div class="field-note-card">
+                <strong>Selections tab created.</strong><br>
+                This tab is ready for the next database/UI step: project selections such as tile, coping, plaster, decking, equipment, upgrades, and approval status. No Supabase selection table was added in this frontend-only update.
+              </div>
+            </div>
+          </div>
+          </section>
+
           <section class="tab-section" data-tab-section="documents">
           <div class="panel">
             <div class="panel-header">
               <div>
                 <h2>Documents</h2>
                 <div class="panel-subtitle">Project document tracking and document status.</div>
+              </div>
+            </div>
+
+            <div class="form-body" style="border-bottom:1px solid #eef2f7;">
+              <div class="form-grid two-col" style="margin-bottom:0;">
+                <div class="form-field">
+                  <label for="documentSearchInput">Search Documents</label>
+                  <input id="documentSearchInput" type="search" placeholder="Search by Plans, Permit, Engineering, Contract, File Name, Notes..." oninput="filterDocuments()">
+                </div>
+                <div class="field-note-card">
+                  Use this search to quickly find project documents such as plans, permits, engineering, contracts, selections, HOA files, and uploaded notes.
+                </div>
               </div>
             </div>
 
@@ -2205,6 +2255,7 @@ let currentProjectId = null;
 let currentProject = null;
 let currentProjectSetupStage = null;
 let scheduleTasks = [];
+let projectDocuments = [];
 
 let projectStatusOptions = [];
 let stageStatusOptions = [];
@@ -3359,20 +3410,64 @@ async function loadDocuments(projectId) {
     .eq('project_id', projectId)
     .order('created_at', { ascending: false });
 
+  if (error) {
+    projectDocuments = [];
+    renderDocuments([], error.message);
+    return;
+  }
+
+  projectDocuments = data || [];
+  renderDocuments(projectDocuments);
+}
+
+function filterDocuments() {
+  const searchValue = getInputValue('documentSearchInput').toLowerCase();
+
+  if (!searchValue) {
+    renderDocuments(projectDocuments);
+    return;
+  }
+
+  const filteredRows = projectDocuments.filter(row => {
+    const searchableText = [
+      row.document_type,
+      row.document_name,
+      row.document_status,
+      row.file_name,
+      row.uploaded_by,
+      row.notes
+    ].join(' ').toLowerCase();
+
+    return searchableText.includes(searchValue);
+  });
+
+  renderDocuments(filteredRows);
+}
+
+function renderDocuments(rows, errorMessage = '') {
   const tbody = document.getElementById('documentsTableBody');
+
+  if (!tbody) {
+    return;
+  }
+
   tbody.innerHTML = '';
 
-  if (error) {
-    tbody.innerHTML = `<tr><td colspan="7">${escapeHTML(error.message)}</td></tr>`;
+  if (errorMessage) {
+    tbody.innerHTML = `<tr><td colspan="7">${escapeHTML(errorMessage)}</td></tr>`;
     return;
   }
 
-  if (!data || data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7">No documents found for this project.</td></tr>';
+  if (!rows || rows.length === 0) {
+    const searchValue = getInputValue('documentSearchInput');
+    const message = searchValue
+      ? `No documents matched "${searchValue}" for this project.`
+      : 'No documents found for this project.';
+    tbody.innerHTML = `<tr><td colspan="7">${escapeHTML(message)}</td></tr>`;
     return;
   }
 
-  data.forEach(row => {
+  rows.forEach(row => {
     const tr = document.createElement('tr');
 
     tr.innerHTML = `
