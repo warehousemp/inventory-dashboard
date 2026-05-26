@@ -2822,6 +2822,7 @@ let currentProject = null;
 let currentProjectSetupStage = null;
 let scheduleTasks = [];
 let projectScheduleRows = [];
+let projectScheduleHasLoaded = false;
 let projectDocuments = [];
 
 const PROJECT_GANTT_PIXELS_PER_DAY = 10;
@@ -3327,25 +3328,72 @@ function renderProjectSetupPanelState() {
 
 
 async function loadProjectScheduleGantt(projectId) {
+  projectScheduleHasLoaded = true;
+
   if (!projectId) {
     projectScheduleRows = [];
     renderProjectScheduleGantt([]);
     return;
   }
 
-  const { data, error } = await client
-    .from('project_production_schedule_planned_view')
-    .select('*')
-    .eq('project_id', projectId);
+  try {
+    renderProjectScheduleLoadingState();
 
-  if (error) {
+    let data = [];
+    let error = null;
+
+    const primaryResult = await client
+      .from('project_production_schedule_planned_view')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('sort_order', { ascending: true });
+
+    data = primaryResult.data || [];
+    error = primaryResult.error || null;
+
+    const shouldTryProjectNumberFallback =
+      (!error && data.length === 0 && currentProject && currentProject.project_number) ||
+      (error && currentProject && currentProject.project_number);
+
+    if (shouldTryProjectNumberFallback) {
+      const fallbackResult = await client
+        .from('project_production_schedule_planned_view')
+        .select('*')
+        .eq('project_number', currentProject.project_number)
+        .order('sort_order', { ascending: true });
+
+      if (!fallbackResult.error && fallbackResult.data && fallbackResult.data.length > 0) {
+        data = fallbackResult.data;
+        error = null;
+      }
+    }
+
+    if (error) {
+      projectScheduleRows = [];
+      renderProjectScheduleGantt([], error.message);
+      return;
+    }
+
+    projectScheduleRows = sortProjectScheduleRows(data || []);
+    renderProjectScheduleGantt(projectScheduleRows);
+  } catch (err) {
     projectScheduleRows = [];
-    renderProjectScheduleGantt([], error.message);
-    return;
+    const message = err && err.message ? err.message : String(err || 'Unknown schedule error');
+    renderProjectScheduleGantt([], message);
+  }
+}
+
+function renderProjectScheduleLoadingState() {
+  const tbody = document.getElementById('projectScheduleTableBody');
+  const ganttContainer = document.getElementById('projectGanttContainer');
+
+  if (tbody) {
+    tbody.innerHTML = '<tr><td colspan="9">Loading project schedule...</td></tr>';
   }
 
-  projectScheduleRows = sortProjectScheduleRows(data || []);
-  renderProjectScheduleGantt(projectScheduleRows);
+  if (ganttContainer) {
+    ganttContainer.innerHTML = '<div class="empty-state">Loading project Gantt...</div>';
+  }
 }
 
 function sortProjectScheduleRows(rows) {
@@ -4976,6 +5024,10 @@ function switchProjectTab(tabName) {
   document.querySelectorAll('[data-tab-section]').forEach(section => {
     section.classList.toggle('active', section.getAttribute('data-tab-section') === safeTab);
   });
+
+  if (safeTab === 'schedule' && currentProjectId && !projectScheduleHasLoaded) {
+    loadProjectScheduleGantt(currentProjectId);
+  }
 
   const tabShell = document.querySelector('.field-tab-shell');
   if (tabShell) {
