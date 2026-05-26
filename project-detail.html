@@ -2141,7 +2141,7 @@
             <div class="panel-header">
               <div>
                 <h2>Project Schedule / Gantt</h2>
-                <div class="panel-subtitle">Project-specific planned production schedule from the master schedule view. This is filtered to the selected project only.</div>
+                <div class="panel-subtitle">Project-specific production schedule that flows from actual Kanban start/complete dates. Future phases shift based on the latest actual completion date while preserving Not Required exclusions.</div>
               </div>
               <div class="panel-actions">
                 <button class="btn btn-secondary btn-small" type="button" onclick="loadProjectScheduleGantt(currentProjectId)">Refresh Schedule</button>
@@ -2151,7 +2151,7 @@
 
             <div class="project-schedule-summary-grid">
               <div class="project-schedule-card">
-                <div class="project-schedule-label">Planned Start</div>
+                <div class="project-schedule-label">Flow Start</div>
                 <div class="project-schedule-value" id="projectScheduleStartValue">—</div>
               </div>
 
@@ -2184,8 +2184,8 @@
                       <th>#</th>
                       <th>Phase / Task</th>
                       <th>Status</th>
-                      <th>Planned Start</th>
-                      <th>Planned End</th>
+                      <th>Flow Start</th>
+                      <th>Flow End</th>
                       <th>Business Days</th>
                       <th>Actual Start</th>
                       <th>Actual Complete</th>
@@ -3254,7 +3254,9 @@ async function loadProjectScheduleGantt(projectId) {
     return;
   }
 
-  projectScheduleRows = sortProjectScheduleRows(data || []);
+  const sortedRows = sortProjectScheduleRows(data || []);
+  projectScheduleRows = buildActualFlowScheduleRows(sortedRows);
+
   renderProjectScheduleGantt(projectScheduleRows);
 }
 
@@ -3271,6 +3273,68 @@ function sortProjectScheduleRows(rows) {
     const startB = parseScheduleDate(firstDefined(b, ['planned_start_date', 'planned_phase_start_date', 'scheduled_start_date', 'start_date']));
 
     return (startA ? startA.getTime() : 0) - (startB ? startB.getTime() : 0);
+  });
+}
+
+function buildActualFlowScheduleRows(rows) {
+  let nextFlowStartDate = null;
+
+  return (rows || []).map(row => {
+    const plannedStart = parseScheduleDate(firstDefined(row, ['planned_start_date', 'planned_phase_start_date', 'scheduled_start_date', 'start_date']));
+    const plannedEnd = parseScheduleDate(firstDefined(row, ['planned_end_date', 'planned_phase_end_date', 'scheduled_end_date', 'end_date']));
+    const actualStart = parseScheduleDate(firstDefined(row, ['actual_start_date']));
+    const actualComplete = parseScheduleDate(firstDefined(row, ['actual_completion_date', 'actual_complete_date']));
+    const businessDays = getScheduleBusinessDays(row);
+    const status = firstDefined(row, ['gantt_status', 'derived_task_status', 'task_status', 'phase_status', 'status']) || 'Planned';
+
+    let flowStart = null;
+    let flowEnd = null;
+    let flowBasis = 'Planned schedule';
+
+    if (actualStart) {
+      flowStart = actualStart;
+      flowBasis = 'Actual start from Kanban';
+    } else if (nextFlowStartDate) {
+      flowStart = nextFlowStartDate;
+      flowBasis = 'Shifted from previous phase';
+    } else {
+      flowStart = plannedStart;
+      flowBasis = 'Planned schedule';
+    }
+
+    if (actualComplete) {
+      flowEnd = actualComplete;
+      flowBasis = actualStart ? 'Actual Kanban start and complete' : 'Actual Kanban complete';
+    } else if (flowStart) {
+      flowEnd = addBusinessDaysInclusive(flowStart, businessDays);
+    } else {
+      flowEnd = plannedEnd;
+    }
+
+    if (flowEnd) {
+      nextFlowStartDate = nextBusinessDay(flowEnd);
+    }
+
+    const plannedStartText = plannedStart ? plannedStart.toLocaleDateString() : '';
+    const plannedEndText = plannedEnd ? plannedEnd.toLocaleDateString() : '';
+    const flowStartText = flowStart ? flowStart.toLocaleDateString() : '';
+    const flowEndText = flowEnd ? flowEnd.toLocaleDateString() : '';
+
+    const scheduleNotes = [
+      firstDefined(row, ['notes', 'schedule_notes', 'delay_reason']),
+      `Flow basis: ${flowBasis}.`,
+      plannedStartText || plannedEndText ? `Original planned window: ${plannedStartText || '—'} to ${plannedEndText || '—'}.` : '',
+      flowStartText || flowEndText ? `Current flow window: ${flowStartText || '—'} to ${flowEndText || '—'}.` : ''
+    ].filter(Boolean).join(' ');
+
+    return {
+      ...row,
+      flow_start_date: flowStart ? toISODateString(flowStart) : '',
+      flow_end_date: flowEnd ? toISODateString(flowEnd) : '',
+      flow_basis: flowBasis,
+      schedule_flow_notes: scheduleNotes,
+      schedule_flow_status: status
+    };
   });
 }
 
@@ -3293,7 +3357,7 @@ function renderProjectScheduleGantt(rows, errorMessage = '') {
   }
 
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9">No planned production schedule found for this project. Confirm the project has a projected start date and generated schedule tasks.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9">No production schedule found for this project. Confirm the project has a projected start date and generated schedule tasks.</td></tr>';
     ganttContainer.innerHTML = '<div class="empty-state"><strong>No project schedule found.</strong>Confirm the project has a projected start date and generated schedule tasks.</div>';
     renderProjectScheduleSummary([]);
     return;
@@ -3303,13 +3367,13 @@ function renderProjectScheduleGantt(rows, errorMessage = '') {
 
   rows.forEach((row, index) => {
     const phaseName = getSchedulePhaseName(row);
-    const plannedStart = firstDefined(row, ['planned_start_date', 'planned_phase_start_date', 'scheduled_start_date', 'start_date']);
-    const plannedEnd = firstDefined(row, ['planned_end_date', 'planned_phase_end_date', 'scheduled_end_date', 'end_date']);
-    const status = firstDefined(row, ['gantt_status', 'derived_task_status', 'task_status', 'phase_status', 'status']);
-    const businessDays = firstDefined(row, ['default_business_days', 'scheduled_business_days', 'business_days', 'planned_business_days']);
+    const flowStart = firstDefined(row, ['flow_start_date']);
+    const flowEnd = firstDefined(row, ['flow_end_date']);
+    const status = firstDefined(row, ['schedule_flow_status', 'gantt_status', 'derived_task_status', 'task_status', 'phase_status', 'status']);
+    const businessDays = getScheduleBusinessDays(row);
     const actualStart = firstDefined(row, ['actual_start_date']);
     const actualComplete = firstDefined(row, ['actual_completion_date', 'actual_complete_date']);
-    const notes = firstDefined(row, ['notes', 'schedule_notes', 'delay_reason']);
+    const notes = firstDefined(row, ['schedule_flow_notes', 'notes', 'schedule_notes', 'delay_reason']);
 
     const tr = document.createElement('tr');
 
@@ -3317,8 +3381,8 @@ function renderProjectScheduleGantt(rows, errorMessage = '') {
       <td>${escapeHTML(firstDefined(row, ['sort_order', 'phase_sort_order', 'task_sort_order']) || index + 1)}</td>
       <td>${escapeHTML(phaseName)}</td>
       <td>${statusPill(status || 'Planned')}</td>
-      <td>${escapeHTML(formatDate(plannedStart))}</td>
-      <td>${escapeHTML(formatDate(plannedEnd))}</td>
+      <td>${escapeHTML(formatDate(flowStart))}</td>
+      <td>${escapeHTML(formatDate(flowEnd))}</td>
       <td>${escapeHTML(businessDays)}</td>
       <td>${escapeHTML(formatDate(actualStart))}</td>
       <td>${escapeHTML(formatDate(actualComplete))}</td>
@@ -3332,24 +3396,24 @@ function renderProjectScheduleGantt(rows, errorMessage = '') {
 }
 
 function renderProjectScheduleSummary(rows) {
-  const plannedStarts = rows
-    .map(row => parseScheduleDate(firstDefined(row, ['planned_start_date', 'planned_phase_start_date', 'scheduled_start_date', 'start_date'])))
+  const flowStarts = rows
+    .map(row => parseScheduleDate(firstDefined(row, ['flow_start_date'])))
     .filter(Boolean);
 
-  const plannedEnds = rows
-    .map(row => parseScheduleDate(firstDefined(row, ['planned_end_date', 'planned_phase_end_date', 'scheduled_end_date', 'end_date'])))
+  const flowEnds = rows
+    .map(row => parseScheduleDate(firstDefined(row, ['flow_end_date'])))
     .filter(Boolean);
 
-  const firstStart = plannedStarts.length
-    ? new Date(Math.min(...plannedStarts.map(date => date.getTime())))
+  const firstStart = flowStarts.length
+    ? new Date(Math.min(...flowStarts.map(date => date.getTime())))
     : null;
 
-  const lastEnd = plannedEnds.length
-    ? new Date(Math.max(...plannedEnds.map(date => date.getTime())))
+  const lastEnd = flowEnds.length
+    ? new Date(Math.max(...flowEnds.map(date => date.getTime())))
     : null;
 
   const totalBusinessDays = rows.reduce((sum, row) => {
-    return sum + Number(firstDefined(row, ['default_business_days', 'scheduled_business_days', 'business_days', 'planned_business_days']) || 0);
+    return sum + getScheduleBusinessDays(row);
   }, 0);
 
   setText('projectScheduleStartValue', firstStart ? firstStart.toLocaleDateString() : '—');
@@ -3367,10 +3431,8 @@ function renderProjectGanttBars(rows) {
   }
 
   const scheduleRows = rows.map((row, index) => {
-    const startValue = firstDefined(row, ['planned_start_date', 'planned_phase_start_date', 'scheduled_start_date', 'start_date']);
-    const endValue = firstDefined(row, ['planned_end_date', 'planned_phase_end_date', 'scheduled_end_date', 'end_date']);
-    const startDate = parseScheduleDate(startValue);
-    const endDate = parseScheduleDate(endValue);
+    const startDate = parseScheduleDate(firstDefined(row, ['flow_start_date']));
+    const endDate = parseScheduleDate(firstDefined(row, ['flow_end_date']));
 
     return {
       row,
@@ -3378,12 +3440,13 @@ function renderProjectGanttBars(rows) {
       startDate,
       endDate,
       phaseName: getSchedulePhaseName(row),
-      status: firstDefined(row, ['gantt_status', 'derived_task_status', 'task_status', 'phase_status', 'status']) || 'Planned'
+      status: firstDefined(row, ['schedule_flow_status', 'gantt_status', 'derived_task_status', 'task_status', 'phase_status', 'status']) || 'Planned',
+      flowBasis: firstDefined(row, ['flow_basis'])
     };
   }).filter(item => item.startDate && item.endDate);
 
   if (scheduleRows.length === 0) {
-    ganttContainer.innerHTML = '<div class="empty-state"><strong>No dated schedule rows found.</strong>The planned schedule view returned rows, but no planned start/end dates were available.</div>';
+    ganttContainer.innerHTML = '<div class="empty-state"><strong>No dated schedule rows found.</strong>The schedule returned rows, but no flow start/end dates were available.</div>';
     return;
   }
 
@@ -3400,10 +3463,10 @@ function renderProjectGanttBars(rows) {
   const rowsHTML = scheduleRows.map(item => {
     const left = Math.max(0, (daysBetween(minDate, item.startDate) / totalDays) * 100);
     const width = Math.max(1.25, ((daysBetween(item.startDate, item.endDate) + 1) / totalDays) * 100);
-    const labelLeft = Math.min(98, left + width);
+    const labelLeft = Math.min(98, left + width + 0.75);
     const statusClass = normalize(item.status).toLowerCase().replace(/_/g, '-');
-    const startLabel = formatDate(item.startDate.toISOString().slice(0, 10));
-    const endLabel = formatDate(item.endDate.toISOString().slice(0, 10));
+    const startLabel = formatDate(toISODateString(item.startDate));
+    const endLabel = formatDate(toISODateString(item.endDate));
 
     return `
       <div class="project-gantt-row">
@@ -3412,7 +3475,7 @@ function renderProjectGanttBars(rows) {
           <div
             class="project-gantt-bar ${escapeHTML(statusClass)}"
             style="left:${left}%;width:${width}%;"
-            title="${escapeHTML(item.phaseName)}: ${escapeHTML(startLabel)} to ${escapeHTML(endLabel)}"
+            title="${escapeHTML(item.phaseName)}: ${escapeHTML(startLabel)} to ${escapeHTML(endLabel)} • ${escapeHTML(item.flowBasis)}"
           ></div>
           <div class="project-gantt-bar-label" style="left:${labelLeft}%">
             ${escapeHTML(item.phaseName)}
@@ -3427,7 +3490,7 @@ function renderProjectGanttBars(rows) {
     ${rowsHTML}
   `;
 }
-
+  
 function buildGanttScaleDates(startDate, endDate) {
   const totalDays = Math.max(1, daysBetween(startDate, endDate));
   const markerCount = Math.min(6, Math.max(2, Math.ceil(totalDays / 14) + 1));
@@ -3442,6 +3505,80 @@ function buildGanttScaleDates(startDate, endDate) {
 
   return dates;
 }
+
+ function getScheduleBusinessDays(row) {
+  const rawValue = firstDefined(row, [
+    'default_business_days',
+    'scheduled_business_days',
+    'business_days',
+    'planned_business_days'
+  ]);
+
+  const parsed = Number(rawValue || 0);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 1;
+  }
+
+  return Math.max(1, Math.round(parsed));
+}
+
+function isBusinessDay(date) {
+  if (!date) {
+    return false;
+  }
+
+  const day = date.getDay();
+
+  return day !== 0 && day !== 6;
+}
+
+function nextBusinessDay(date) {
+  if (!date) {
+    return null;
+  }
+
+  const next = new Date(date);
+  next.setDate(next.getDate() + 1);
+
+  while (!isBusinessDay(next)) {
+    next.setDate(next.getDate() + 1);
+  }
+
+  return next;
+}
+
+function addBusinessDaysInclusive(startDate, businessDays) {
+  if (!startDate) {
+    return null;
+  }
+
+  const daysToAdd = Math.max(1, Number(businessDays || 1));
+  const result = new Date(startDate);
+  let countedDays = isBusinessDay(result) ? 1 : 0;
+
+  while (countedDays < daysToAdd) {
+    result.setDate(result.getDate() + 1);
+
+    if (isBusinessDay(result)) {
+      countedDays += 1;
+    }
+  }
+
+  return result;
+}
+
+function toISODateString(date) {
+  if (!date) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+} 
 
 function getSchedulePhaseName(row) {
   return firstDefined(row, [
@@ -3496,24 +3633,26 @@ function exportProjectScheduleCSV() {
     'Sort Order',
     'Phase / Task',
     'Status',
-    'Planned Start',
-    'Planned End',
+    'Flow Start',
+    'Flow End',
     'Business Days',
     'Actual Start',
     'Actual Complete',
+    'Flow Basis',
     'Schedule Notes'
   ];
 
   const rows = projectScheduleRows.map((row, index) => [
     firstDefined(row, ['sort_order', 'phase_sort_order', 'task_sort_order']) || index + 1,
     getSchedulePhaseName(row),
-    firstDefined(row, ['gantt_status', 'derived_task_status', 'task_status', 'phase_status', 'status']) || 'Planned',
-    formatDate(firstDefined(row, ['planned_start_date', 'planned_phase_start_date', 'scheduled_start_date', 'start_date'])),
-    formatDate(firstDefined(row, ['planned_end_date', 'planned_phase_end_date', 'scheduled_end_date', 'end_date'])),
-    firstDefined(row, ['default_business_days', 'scheduled_business_days', 'business_days', 'planned_business_days']),
+    firstDefined(row, ['schedule_flow_status', 'gantt_status', 'derived_task_status', 'task_status', 'phase_status', 'status']) || 'Planned',
+    formatDate(firstDefined(row, ['flow_start_date'])),
+    formatDate(firstDefined(row, ['flow_end_date'])),
+    getScheduleBusinessDays(row),
     formatDate(firstDefined(row, ['actual_start_date'])),
     formatDate(firstDefined(row, ['actual_completion_date', 'actual_complete_date'])),
-    firstDefined(row, ['notes', 'schedule_notes', 'delay_reason'])
+    firstDefined(row, ['flow_basis']),
+    firstDefined(row, ['schedule_flow_notes', 'notes', 'schedule_notes', 'delay_reason'])
   ]);
 
   const csv = [headers, ...rows]
@@ -3521,7 +3660,7 @@ function exportProjectScheduleCSV() {
     .join('\n');
 
   const projectNumber = currentProject?.project_number || 'project';
-  const filename = `${projectNumber}-project-schedule.csv`;
+  const filename = `${projectNumber}-project-schedule-flow.csv`;
 
   downloadCSV(csv, filename);
 }
