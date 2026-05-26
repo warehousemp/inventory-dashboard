@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Molinari Projects | Planning View</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --sidebar-navy: #062f4f;
+      --sidebar-dark: #04233c;
+      --header-navy: #0b3c5d;
+      --accent-teal: #1aa3b0;
+      --page-bg: #f4f8fb;
+      --card-bg: #ffffff;
+      --main-text: #1f2933;
+      --muted-text: #667085;
+      --border: #d9e2ec;
+      --danger: #d92d20;
+      --warning: #f79009;
+      --success: #039855;
+      --shadow: 0 10px 24px rgba(11, 60, 93, 0.08);
+      --sidebar-width: 230px;
+      --sidebar-collapsed-width: 66px;
+      --project-col-width: 300px;
+      --day-width: 26px;
+      --row-height: 68px;
+      --timeline-header-height: 92px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--page-bg);
+      color: var(--main-text);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input,
+    select {
+      font-family: inherit;
+    }
+
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: var(--sidebar-width);
+      flex: 0 0 var(--sidebar-width);
+      background: linear-gradient(180deg, var(--sidebar-navy), var(--sidebar-dark));
+      color: #fff;
+      min-height: 100vh;
+      position: sticky;
+      top: 0;
+      overflow: hidden;
+      transition: width 180ms ease, flex-basis 180ms ease;
+      z-index: 50;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar {
+      width: var(--sidebar-collapsed-width);
+      flex-basis: var(--sidebar-collapsed-width);
+    }
+
+    .sidebar-brand {
+      padding: 20px 18px 10px;
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: rgba(255,255,255,0.68);
+      margin-top: 3px;
+      white-space: nowrap;
+    }
+
+    .app-shell.sidebar-collapsed .brand-title,
+    .app-shell.sidebar-collapsed .brand-subtitle,
+    .app-shell.sidebar-collapsed .nav-text {
+      opacity: 0;
+      pointer-events: none;
+      width: 0;
+      display: none;
+    }
+
+    .sidebar-toggle-wrap {
+      padding: 6px 14px 14px;
+      display: flex;
+      justify-content: flex-start;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,0.22);
+      background: rgba(255,255,255,0.06);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      width: 17px;
+      height: 2px;
+      border-radius: 999px;
+      background: #fff;
+      margin: 3px 0;
+    }
+
+    .sidebar-toggle-lines {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sidebar-nav {
+      padding: 0 10px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .nav-link {
+      min-height: 40px;
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      color: rgba(255,255,255,0.86);
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+      transition: background 160ms ease, color 160ms ease;
+    }
+
+    .app-shell.sidebar-collapsed .nav-link {
+      justify-content: center;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .nav-link:hover,
+    .nav-link.active {
+      background: var(--accent-teal);
+      color: #fff;
+    }
+
+    .nav-icon {
+      flex: 0 0 22px;
+      width: 22px;
+      text-align: center;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .main {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .topbar {
+      background: var(--header-navy);
+      color: white;
+      padding: 18px 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .eyebrow {
+      color: rgba(255,255,255,0.72);
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      line-height: 1.15;
+      letter-spacing: -0.4px;
+    }
+
+    .topbar p {
+      margin: 6px 0 0;
+      color: rgba(255,255,255,0.78);
+      font-size: 14px;
+      max-width: 820px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .page {
+      padding: 20px 24px 34px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 15px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 39px;
+    }
+
+    .btn-primary {
+      background: var(--header-navy);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #092f49;
+    }
+
+    .btn-secondary {
+      background: #fff;
+      border: 1px solid var(--border);
+      color: var(--header-navy);
+    }
+
+    .btn-secondary:hover {
+      background: #f8fbfd;
+    }
+
+    .btn-teal {
+      background: var(--accent-teal);
+      color: white;
+    }
+
+    .btn-danger-outline {
+      background: #fff;
+      color: var(--danger);
+      border: 1px solid #fecdca;
+    }
+
+    .grid-cards {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .summary-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 15px;
+      box-shadow: var(--shadow);
+      min-height: 93px;
+    }
+
+    .summary-label {
+      font-size: 12px;
+      color: var(--muted-text);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .summary-value {
+      font-size: 28px;
+      font-weight: 900;
+      margin-top: 8px;
+      color: var(--header-navy);
+    }
+
+    .summary-note {
+      margin-top: 3px;
+      color: var(--muted-text);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .filters-card,
+    .legend-card,
+    .bottleneck-card,
+    .timeline-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+    }
+
+    .filters-card {
+      padding: 15px;
+    }
+
+    .filters-grid {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr 1fr 1fr 1fr auto auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .field label {
+      display: block;
+      color: var(--muted-text);
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      height: 39px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #fff;
+      padding: 0 10px;
+      color: var(--main-text);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .bottleneck-card {
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: 1.4fr repeat(4, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      border-color: #fecdca;
+      background: #fffafa;
+    }
+
+    .bottleneck-title {
+      color: var(--danger);
+      font-weight: 900;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bottleneck-title span:first-child {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: var(--danger);
+      color: #fff;
+      font-size: 15px;
+    }
+
+    .bottleneck-subtitle {
+      color: var(--muted-text);
+      font-size: 12px;
+      margin-top: 4px;
+      font-weight: 700;
+    }
+
+    .bottleneck-stat {
+      border-left: 1px solid #fecdca;
+      padding-left: 13px;
+    }
+
+    .bottleneck-stat-label {
+      color: var(--muted-text);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.25px;
+    }
+
+    .bottleneck-stat-value {
+      margin-top: 4px;
+      font-weight: 900;
+      font-size: 21px;
+      color: var(--header-navy);
+    }
+
+    .bottleneck-stat-value.over {
+      color: var(--danger);
+    }
+
+    .legend-card {
+      padding: 13px 15px;
+    }
+
+    .legend-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .legend-title {
+      color: var(--header-navy);
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .status-legend,
+    .phase-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: center;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted-text);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,0,0,0.12);
+    }
+
+    .timeline-card {
+      overflow: hidden;
+    }
+
+    .timeline-card-header {
+      padding: 15px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .timeline-title {
+      color: var(--header-navy);
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .timeline-subtitle {
+      color: var(--muted-text);
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 3px;
+    }
+
+    .timeline-wrapper {
+      height: calc(100vh - 440px);
+      min-height: 430px;
+      max-height: 760px;
+      overflow: auto;
+      position: relative;
+      background: #fff;
+    }
+
+    .timeline-grid {
+      min-width: 1900px;
+    }
+
+    .timeline-header {
+      display: grid;
+      grid-template-columns: var(--project-col-width) 1fr;
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      height: var(--timeline-header-height);
+    }
+
+    .project-header-cell {
+      position: sticky;
+      left: 0;
+      z-index: 35;
+      background: #f8fbfd;
+      border-right: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--header-navy);
+      text-transform: uppercase;
+      letter-spacing: 0.25px;
+    }
+
+    .date-header {
+      position: relative;
+      height: var(--timeline-header-height);
+      background: #fff;
+    }
+
+    .month-row,
+    .week-row,
+    .day-row {
+      position: absolute;
+      left: 0;
+      right: 0;
+      display: flex;
+    }
+
+    .month-row {
+      top: 0;
+      height: 30px;
+    }
+
+    .week-row {
+      top: 30px;
+      height: 30px;
+    }
+
+    .day-row {
+      top: 60px;
+      height: 32px;
+    }
+
+    .month-cell,
+    .week-cell,
+    .day-cell {
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--header-navy);
+      background: #fff;
+    }
+
+    .week-cell {
+      color: var(--muted-text);
+      background: #f8fbfd;
+    }
+
+    .day-cell {
+      width: var(--day-width);
+      flex: 0 0 var(--day-width);
+      flex-direction: column;
+      gap: 2px;
+      font-size: 10px;
+      color: var(--muted-text);
+      background: #fff;
+    }
+
+    .day-cell.weekend {
+      background: #f2f4f7;
+      color: #98a2b3;
+    }
+
+    .day-letter {
+      font-size: 9px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .day-number {
+      font-size: 10px;
+      line-height: 1;
+    }
+
+    .timeline-body {
+      position: relative;
+    }
+
+    .project-row {
+      display: grid;
+      grid-template-columns: var(--project-col-width) 1fr;
+      min-height: var(--row-height);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .project-cell {
+      position: sticky;
+      left: 0;
+      z-index: 20;
+      background: #fff;
+      border-right: 1px solid var(--border);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .project-row:nth-child(even) .project-cell {
+      background: #fbfdff;
+    }
+
+    .project-id {
+      color: var(--accent-teal);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .project-name {
+      font-size: 13px;
+      font-weight: 900;
+      color: var(--header-navy);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 216px;
+    }
+
+    .project-meta {
+      margin-top: 3px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      color: var(--muted-text);
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .timeline-cell {
+      position: relative;
+      min-height: var(--row-height);
+      background: #fff;
+    }
+
+    .project-row:nth-child(even) .timeline-cell {
+      background: #fbfdff;
+    }
+
+    .timeline-day-grid {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      pointer-events: none;
+    }
+
+    .timeline-day-grid .grid-day {
+      width: var(--day-width);
+      flex: 0 0 var(--day-width);
+      border-right: 1px solid #eef2f6;
+    }
+
+    .timeline-day-grid .grid-day.weekend {
+      background: rgba(242,244,247,0.92);
+    }
+
+    .phase-bar {
+      position: absolute;
+      height: 30px;
+      top: 18px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #12263a;
+      font-size: 10px;
+      font-weight: 900;
+      border: 1px solid rgba(0,0,0,0.12);
+      overflow: hidden;
+      white-space: nowrap;
+      padding: 0 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+      cursor: pointer;
+      z-index: 5;
+      opacity: 0.93;
+    }
+
+    .phase-bar.completed {
+      opacity: 0.45;
+    }
+
+    .phase-bar.current {
+      border: 2px solid var(--header-navy);
+      box-shadow: 0 0 0 2px rgba(11,60,93,0.18);
+      z-index: 8;
+      opacity: 1;
+    }
+
+    .phase-bar.conflict {
+      outline: 2px solid var(--danger);
+      outline-offset: 1px;
+    }
+
+    .today-line,
+    .capacity-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      z-index: 12;
+      pointer-events: none;
+    }
+
+    .today-line {
+      background: var(--accent-teal);
+    }
+
+    .capacity-line {
+      background: var(--danger);
+      opacity: 0.62;
+    }
+
+    .today-label,
+    .capacity-label {
+      position: absolute;
+      top: 3px;
+      transform: translateX(-50%);
+      z-index: 32;
+      border-radius: 999px;
+      color: #fff;
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 900;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .today-label {
+      background: var(--accent-teal);
+    }
+
+    .capacity-label {
+      background: var(--danger);
+    }
+
+    .timeline-footer {
+      padding: 11px 16px;
+      color: var(--muted-text);
+      font-size: 12px;
+      font-weight: 700;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .loading,
+    .error,
+    .empty {
+      padding: 28px;
+      text-align: center;
+      color: var(--muted-text);
+      font-weight: 800;
+    }
+
+    .error {
+      color: var(--danger);
+    }
+
+    .phase-bp { background: #d8ecff; }
+    .phase-eng { background: #c7ddff; }
+    .phase-permit { background: #c4f1f3; }
+    .phase-sel { background: #d9f7d7; }
+    .phase-sl { background: #cfeec1; }
+    .phase-ex { background: #ffd3a8; }
+    .phase-fs { background: #d7c2a5; }
+    .phase-g { background: #c9ced6; }
+    .phase-bf { background: #ffe5a3; }
+    .phase-bg { background: #ffd08a; }
+    .phase-eg { background: #e3c9ff; }
+    .phase-plm { background: #e7b8f4; }
+    .phase-eq { background: #ccd7e1; }
+    .phase-cop { background: #ffc2d6; }
+    .phase-tile { background: #ff9fc7; }
+    .phase-deck { background: #ffb49d; }
+    .phase-pp { background: #d6c5ff; }
+    .phase-pi { background: #c6b1ff; }
+    .phase-su { background: #a7e7e6; }
+    .phase-sa { background: #b7e6b3; }
+    .phase-cl { background: #d7dee7; }
+    .phase-punch { background: #b8efe0; }
+    .phase-fin { background: #9ce2d2; }
+    .phase-co { background: #b6dff5; }
+    .phase-other { background: #e7ebef; }
+
+    @media (max-width: 1280px) {
+      .grid-cards {
+        grid-template-columns: repeat(3, minmax(160px, 1fr));
+      }
+
+      .filters-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .bottleneck-card {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 850px) {
+      .sidebar {
+        position: fixed;
+        transform: translateX(-100%);
+      }
+
+      .app-shell.sidebar-open .sidebar {
+        transform: translateX(0);
+      }
+
+      .grid-cards,
+      .filters-grid,
+      .bottleneck-card {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar-inner {
+        flex-direction: column;
+      }
+
+      .timeline-wrapper {
+        height: 620px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-title">Molinari Projects</div>
+        <div class="brand-subtitle">Command Center</div>
+      </div>
+
+      <div class="sidebar-toggle-wrap">
+        <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
+          <span class="sidebar-toggle-lines" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </span>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a class="nav-link" href="projects-command.html"><span class="nav-icon">⌂</span><span class="nav-text">Projects Home</span></a>
+        <a class="nav-link" href="dashboard.html"><span class="nav-icon">▦</span><span class="nav-text">Dashboard</span></a>
+        <a class="nav-link" href="projects-board.html"><span class="nav-icon">▤</span><span class="nav-text">Production Workflow</span></a>
+        <a class="nav-link" href="project-gantt.html"><span class="nav-icon">▥</span><span class="nav-text">Production Schedule</span></a>
+        <a class="nav-link active" href="planning-view.html"><span class="nav-icon">▧</span><span class="nav-text">Planning View</span></a>
+        <a class="nav-link" href="add-new-client-project.html"><span class="nav-icon">＋</span><span class="nav-text">Add New Client Project</span></a>
+        <a class="nav-link" href="project-setup.html"><span class="nav-icon">◫</span><span class="nav-text">Project Setup</span></a>
+        <a class="nav-link" href="projects.html"><span class="nav-icon">▣</span><span class="nav-text">Active Projects</span></a>
+        <a class="nav-link" href="project-accounting.html"><span class="nav-icon">$</span><span class="nav-text">Accounting Draws</span></a>
+        <a class="nav-link" href="project-documents.html"><span class="nav-icon">□</span><span class="nav-text">Documents</span></a>
+        <a class="nav-link" href="project-admin.html"><span class="nav-icon">⚙</span><span class="nav-text">Admin</span></a>
+        <a class="nav-link" href="index.html"><span class="nav-icon">↩</span><span class="nav-text">Main Menu</span></a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div>
+            <div class="eyebrow">Command Center</div>
+            <h1>Planning View</h1>
+            <p>Stacked project schedule showing overlapping phase work by actual calendar date. Use this to find bottlenecks like too many Tile jobs in the same week.</p>
+          </div>
+          <div class="topbar-actions">
+            <button class="btn btn-secondary" type="button" id="todayBtn">Today</button>
+            <button class="btn btn-secondary" type="button" id="refreshBtn">Refresh</button>
+            <button class="btn btn-secondary" type="button" id="exportCsvBtn">Export CSV</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="page">
+        <section class="grid-cards">
+          <div class="summary-card">
+            <div class="summary-label">Active Projects</div>
+            <div class="summary-value" id="activeProjectsCount">—</div>
+            <div class="summary-note">Shown in schedule</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Rows Loaded</div>
+            <div class="summary-value" id="scheduleRowsCount">—</div>
+            <div class="summary-note">Scheduled phase rows</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Tile Capacity</div>
+            <div class="summary-value" id="tileCapacityCount">3</div>
+            <div class="summary-note">Default subcontractor crews</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Peak Tile Demand</div>
+            <div class="summary-value" id="peakTileDemand">—</div>
+            <div class="summary-note">Max overlapping tile jobs</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Bottleneck Weeks</div>
+            <div class="summary-value" id="bottleneckWeeksCount">—</div>
+            <div class="summary-note">Weeks over capacity</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Date Window</div>
+            <div class="summary-value" id="dateWindowLabel" style="font-size:18px; margin-top:13px;">—</div>
+            <div class="summary-note">Visible schedule range</div>
+          </div>
+        </section>
+
+        <section class="filters-card">
+          <div class="filters-grid">
+            <div class="field">
+              <label for="searchInput">Search Project / Client</label>
+              <input id="searchInput" type="text" placeholder="Search project number, name, or client" />
+            </div>
+            <div class="field">
+              <label for="pmFilter">Project Manager</label>
+              <select id="pmFilter">
+                <option value="">All Project Managers</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="typeFilter">Project Type</label>
+              <select id="typeFilter">
+                <option value="">All Project Types</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="phaseFilter">Focus Phase</label>
+              <select id="phaseFilter">
+                <option value="">All Phases</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="capacityInput">Tile Crew Capacity</label>
+              <input id="capacityInput" type="number" min="1" step="1" value="3" />
+            </div>
+            <button class="btn btn-primary" type="button" id="applyFiltersBtn">Apply</button>
+            <button class="btn btn-secondary" type="button" id="clearFiltersBtn">Clear</button>
+          </div>
+        </section>
+
+        <section class="bottleneck-card hidden" id="bottleneckCard">
+          <div>
+            <div class="bottleneck-title"><span>!</span><span id="bottleneckTitle">Tile Bottleneck</span></div>
+            <div class="bottleneck-subtitle" id="bottleneckSubtitle">—</div>
+          </div>
+          <div class="bottleneck-stat">
+            <div class="bottleneck-stat-label">Tile Capacity</div>
+            <div class="bottleneck-stat-value" id="bottleneckCapacity">—</div>
+          </div>
+          <div class="bottleneck-stat">
+            <div class="bottleneck-stat-label">Scheduled Demand</div>
+            <div class="bottleneck-stat-value over" id="bottleneckDemand">—</div>
+          </div>
+          <div class="bottleneck-stat">
+            <div class="bottleneck-stat-label">Over Capacity By</div>
+            <div class="bottleneck-stat-value over" id="bottleneckOverBy">—</div>
+          </div>
+          <div class="bottleneck-stat">
+            <div class="bottleneck-stat-label">Affected Jobs</div>
+            <div class="bottleneck-stat-value" id="bottleneckJobs">—</div>
+          </div>
+          <button class="btn btn-danger-outline" type="button" id="focusBottleneckBtn">Focus Bottleneck</button>
+        </section>
+
+        <section class="legend-card">
+          <div class="legend-top">
+            <div>
+              <div class="legend-title">Legend</div>
+              <div class="timeline-subtitle">Each phase keeps its same color across every project row.</div>
+            </div>
+            <div class="status-legend">
+              <span class="legend-item"><span class="legend-swatch" style="background:#98a2b3; opacity:.45;"></span>Completed</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#fff; border:2px solid #0b3c5d;"></span>Current Phase</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#fff; border:2px solid #d92d20;"></span>Capacity Conflict</span>
+            </div>
+          </div>
+          <div class="phase-legend" id="phaseLegend"></div>
+        </section>
+
+        <section class="timeline-card">
+          <div class="timeline-card-header">
+            <div>
+              <div class="timeline-title">Stacked Calendar Schedule</div>
+              <div class="timeline-subtitle">Project/client rows are stacked vertically. The timeline scrolls left/right by real calendar dates.</div>
+            </div>
+            <div class="topbar-actions">
+              <button class="btn btn-secondary" type="button" id="zoomOutBtn">−</button>
+              <button class="btn btn-secondary" type="button" id="zoomLabelBtn">100%</button>
+              <button class="btn btn-secondary" type="button" id="zoomInBtn">+</button>
+            </div>
+          </div>
+
+          <div class="timeline-wrapper" id="timelineWrapper">
+            <div class="loading" id="loadingMessage">Loading planning schedule...</div>
+            <div class="error hidden" id="errorMessage"></div>
+            <div class="empty hidden" id="emptyMessage">No scheduled project rows found for the current filters.</div>
+            <div class="timeline-grid hidden" id="timelineGrid">
+              <div class="timeline-header">
+                <div class="project-header-cell">Project / Client</div>
+                <div class="date-header" id="dateHeader"></div>
+              </div>
+              <div class="timeline-body" id="timelineBody"></div>
+            </div>
+          </div>
+
+          <div class="timeline-footer">
+            <span id="footerStatus">Ready.</span>
+            <span>Tip: focus the Phase filter on Tile to quickly see subcontractor bottlenecks.</span>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    /*****************************************************************
+     * CONFIG
+     * Replace these two values with the same Supabase values used by
+     * the rest of the Molinari Projects Command Center pages.
+     *****************************************************************/
+    const SUPABASE_URL = "YOUR_SUPABASE_URL_HERE";
+    const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY_HERE";
+
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const SCHEDULE_VIEW = "project_production_schedule_actual_flow_view";
+    const FALLBACK_SCHEDULE_VIEW = "project_production_schedule_planned_view";
+
+    const PHASE_META = [
+      { match: ["Blueprints / Budget", "Blueprints", "Budget"], code: "BP", css: "phase-bp" },
+      { match: ["Engineering"], code: "ENG", css: "phase-eng" },
+      { match: ["Permitting / HOA", "Permitting", "Permit", "HOA"], code: "PERMIT", css: "phase-permit" },
+      { match: ["Selections"], code: "SEL", css: "phase-sel" },
+      { match: ["Site Locates"], code: "SL", css: "phase-sl" },
+      { match: ["Excavation"], code: "EX", css: "phase-ex" },
+      { match: ["Form / Steel", "Form", "Steel"], code: "FS", css: "phase-fs" },
+      { match: ["Gunite"], code: "G", css: "phase-g" },
+      { match: ["Backfill / Compaction", "Backfill", "Compaction"], code: "BF", css: "phase-bf" },
+      { match: ["Pool Bonding / Grounding", "Bonding", "Grounding"], code: "BG", css: "phase-bg" },
+      { match: ["Electric / Gas", "Electric", "Gas"], code: "EG", css: "phase-eg" },
+      { match: ["Plumbing"], code: "PLM", css: "phase-plm" },
+      { match: ["Equipment"], code: "EQ", css: "phase-eq" },
+      { match: ["Coping"], code: "COP", css: "phase-cop" },
+      { match: ["Tile"], code: "TILE", css: "phase-tile" },
+      { match: ["Deck Prep / Install", "Deck", "Deck Prep"], code: "DECK", css: "phase-deck" },
+      { match: ["Plaster Preparation"], code: "PP", css: "phase-pp" },
+      { match: ["Plaster Installation", "Plaster"], code: "PI", css: "phase-pi" },
+      { match: ["Start-Up", "Startup", "Start Up"], code: "SU", css: "phase-su" },
+      { match: ["Safety"], code: "SA", css: "phase-sa" },
+      { match: ["Clean-up", "Cleanup", "Clean Up"], code: "CL", css: "phase-cl" },
+      { match: ["Punchlist / Pool School", "Punchlist", "Punch List", "Pool School"], code: "PUNCH", css: "phase-punch" },
+      { match: ["Final Inspection"], code: "FIN", css: "phase-fin" },
+      { match: ["Project Closeout", "Closeout", "Project Close Out"], code: "CO", css: "phase-co" }
+    ];
+
+    let allRows = [];
+    let filteredRows = [];
+    let usingFallbackView = false;
+    let visibleStartDate = null;
+    let visibleEndDate = null;
+    let dayWidth = 26;
+    let bottleneckDates = new Set();
+    let currentBottleneck = null;
+
+    const appShell = document.getElementById("appShell");
+    const sidebarToggle = document.getElementById("sidebarToggle");
+    const loadingMessage = document.getElementById("loadingMessage");
+    const errorMessage = document.getElementById("errorMessage");
+    const emptyMessage = document.getElementById("emptyMessage");
+    const timelineGrid = document.getElementById("timelineGrid");
+    const timelineWrapper = document.getElementById("timelineWrapper");
+    const dateHeader = document.getElementById("dateHeader");
+    const timelineBody = document.getElementById("timelineBody");
+
+    document.addEventListener("DOMContentLoaded", initPage);
+
+    function initPage() {
+      initSidebar();
+      bindEvents();
+      renderLegend();
+      loadSchedule();
+    }
+
+    function initSidebar() {
+      const collapsed = localStorage.getItem("projectsSidebarCollapsed") === "true";
+      if (collapsed) appShell.classList.add("sidebar-collapsed");
+
+      sidebarToggle.addEventListener("click", () => {
+        appShell.classList.toggle("sidebar-collapsed");
+        localStorage.setItem("projectsSidebarCollapsed", appShell.classList.contains("sidebar-collapsed") ? "true" : "false");
+      });
+    }
+
+    function bindEvents() {
+      document.getElementById("refreshBtn").addEventListener("click", loadSchedule);
+      document.getElementById("applyFiltersBtn").addEventListener("click", applyFiltersAndRender);
+      document.getElementById("clearFiltersBtn").addEventListener("click", clearFilters);
+      document.getElementById("exportCsvBtn").addEventListener("click", exportCsv);
+      document.getElementById("todayBtn").addEventListener("click", scrollToToday);
+      document.getElementById("focusBottleneckBtn").addEventListener("click", focusBottleneck);
+      document.getElementById("zoomOutBtn").addEventListener("click", () => setZoom(dayWidth - 4));
+      document.getElementById("zoomInBtn").addEventListener("click", () => setZoom(dayWidth + 4));
+
+      ["searchInput", "pmFilter", "typeFilter", "phaseFilter", "capacityInput"].forEach((id) => {
+        document.getElementById(id).addEventListener("change", applyFiltersAndRender);
+      });
+
+      document.getElementById("searchInput").addEventListener("keyup", debounce(applyFiltersAndRender, 250));
+    }
+
+    async function loadSchedule() {
+      setLoading(true);
+      clearError();
+
+      try {
+        usingFallbackView = false;
+        let rows = await fetchScheduleRows(SCHEDULE_VIEW);
+
+        if (!rows || rows.length === 0) {
+          rows = [];
+        }
+
+        allRows = normalizeRows(rows);
+      } catch (firstError) {
+        console.warn("Actual flow view failed. Falling back to planned view.", firstError);
+        try {
+          usingFallbackView = true;
+          const rows = await fetchScheduleRows(FALLBACK_SCHEDULE_VIEW);
+          allRows = normalizeRows(rows);
+        } catch (fallbackError) {
+          console.error(fallbackError);
+          showError("Unable to load the planning schedule. Confirm the Supabase URL/key and schedule view are available.");
+          setLoading(false);
+          return;
+        }
+      }
+
+      populateFilters(allRows);
+      applyFiltersAndRender();
+      setLoading(false);
+    }
+
+    async function fetchScheduleRows(viewName) {
+      let from = 0;
+      const pageSize = 1000;
+      let rows = [];
+      let keepGoing = true;
+
+      while (keepGoing) {
+        const { data, error } = await supabaseClient
+          .from(viewName)
+          .select("*")
+          .in("project_status", ["IN_PROGRESS", "ACTIVE_PRODUCTION", "PROJECT_SETUP", "CLOSEOUT"])
+          .order("project_number", { ascending: true })
+          .order("sort_order", { ascending: true })
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+        rows = rows.concat(data || []);
+        keepGoing = data && data.length === pageSize;
+        from += pageSize;
+      }
+
+      return rows;
+    }
+
+    function normalizeRows(rows) {
+      return (rows || [])
+        .filter((row) => row && row.project_id && row.task_name)
+        .filter((row) => row.required !== false)
+        .map((row) => {
+          const flowStart = parseDate(row.flow_start_date || row.planned_start_date || row.actual_start_date || row.entered_at);
+          const flowEnd = parseDate(row.flow_end_date || row.planned_end_date || row.actual_completion_date || row.exited_at || row.flow_start_date || row.planned_start_date);
+          const phaseName = row.phase_name || row.task_name;
+          const meta = getPhaseMeta(phaseName);
+
+          return {
+            ...row,
+            _flowStart: flowStart,
+            _flowEnd: flowEnd || flowStart,
+            _phaseName: phaseName,
+            _phaseCode: meta.code,
+            _phaseCss: meta.css,
+            _isTile: isTilePhase(phaseName),
+            _status: getPhaseStatus(row),
+            _searchText: [
+              row.project_number,
+              row.project_name,
+              row.client_name,
+              row.project_manager,
+              row.project_type,
+              phaseName,
+              row.current_production_phase
+            ].filter(Boolean).join(" ").toLowerCase()
+          };
+        })
+        .filter((row) => row._flowStart && row._flowEnd)
+        .sort((a, b) => {
+          const projectCompare = String(a.project_number || "").localeCompare(String(b.project_number || ""));
+          if (projectCompare !== 0) return projectCompare;
+          return Number(a.sort_order || 0) - Number(b.sort_order || 0);
+        });
+    }
+
+    function getPhaseStatus(row) {
+      if (row.actual_completion_date || row.exited_at || String(row.task_status || "").toUpperCase() === "COMPLETE") return "completed";
+      if (row.is_current_production_task || String(row.task_status || "").toUpperCase() === "IN_PROGRESS") return "current";
+      return "upcoming";
+    }
+
+    function getPhaseMeta(phaseName) {
+      const phase = String(phaseName || "").toLowerCase();
+      const found = PHASE_META.find((item) => item.match.some((label) => phase === label.toLowerCase() || phase.includes(label.toLowerCase())));
+      return found || { code: abbreviatePhase(phaseName), css: "phase-other" };
+    }
+
+    function abbreviatePhase(phaseName) {
+      return String(phaseName || "?")
+        .split(/[\s\/\-]+/)
+        .filter(Boolean)
+        .slice(0, 3)
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase();
+    }
+
+    function isTilePhase(phaseName) {
+      return String(phaseName || "").trim().toLowerCase() === "tile";
+    }
+
+    function populateFilters(rows) {
+      populateSelect("pmFilter", uniqueValues(rows.map((r) => r.project_manager)), "All Project Managers");
+      populateSelect("typeFilter", uniqueValues(rows.map((r) => r.project_type)), "All Project Types");
+      populateSelect("phaseFilter", uniqueValues(rows.map((r) => r._phaseName)), "All Phases");
+    }
+
+    function populateSelect(id, values, firstLabel) {
+      const select = document.getElementById(id);
+      const current = select.value;
+      select.innerHTML = `<option value="">${escapeHtml(firstLabel)}</option>`;
+      values.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+      if (values.includes(current)) select.value = current;
+    }
+
+    function uniqueValues(values) {
+      return [...new Set(values.filter(Boolean).map((value) => String(value).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    }
+
+    function applyFiltersAndRender() {
+      const search = document.getElementById("searchInput").value.trim().toLowerCase();
+      const pm = document.getElementById("pmFilter").value;
+      const type = document.getElementById("typeFilter").value;
+      const phase = document.getElementById("phaseFilter").value;
+
+      filteredRows = allRows.filter((row) => {
+        if (search && !row._searchText.includes(search)) return false;
+        if (pm && row.project_manager !== pm) return false;
+        if (type && row.project_type !== type) return false;
+        if (phase && row._phaseName !== phase) return false;
+        return true;
+      });
+
+      renderTimeline(filteredRows);
+    }
+
+    function clearFilters() {
+      document.getElementById("searchInput").value = "";
+      document.getElementById("pmFilter").value = "";
+      document.getElementById("typeFilter").value = "";
+      document.getElementById("phaseFilter").value = "";
+      document.getElementById("capacityInput").value = "3";
+      applyFiltersAndRender();
+    }
+
+    function renderTimeline(rows) {
+      clearError();
+      timelineBody.innerHTML = "";
+      dateHeader.innerHTML = "";
+      bottleneckDates = new Set();
+      currentBottleneck = null;
+
+      if (!rows.length) {
+        timelineGrid.classList.add("hidden");
+        emptyMessage.classList.remove("hidden");
+        updateSummary([]);
+        return;
+      }
+
+      emptyMessage.classList.add("hidden");
+      timelineGrid.classList.remove("hidden");
+
+      const dateRange = getVisibleDateRange(rows);
+      visibleStartDate = dateRange.start;
+      visibleEndDate = dateRange.end;
+
+      const dateList = buildDateList(visibleStartDate, visibleEndDate);
+      const timelineWidth = dateList.length * dayWidth;
+
+      document.documentElement.style.setProperty("--day-width", `${dayWidth}px`);
+
+      renderDateHeader(dateList, timelineWidth);
+      renderProjectRows(rows, dateList, timelineWidth);
+      analyzeTileBottlenecks(rows, dateList);
+      updateSummary(rows);
+      updateFooter(rows);
+
+      setTimeout(scrollToToday, 100);
+    }
+
+    function getVisibleDateRange(rows) {
+      const starts = rows.map((r) => r._flowStart).filter(Boolean);
+      const ends = rows.map((r) => r._flowEnd).filter(Boolean);
+      let start = minDate(starts);
+      let end = maxDate(ends);
+
+      start = addDays(start, -7);
+      end = addDays(end, 14);
+      return { start, end };
+    }
+
+    function renderDateHeader(dateList, timelineWidth) {
+      dateHeader.style.width = `${timelineWidth}px`;
+      dateHeader.innerHTML = "";
+
+      const monthRow = document.createElement("div");
+      monthRow.className = "month-row";
+      const weekRow = document.createElement("div");
+      weekRow.className = "week-row";
+      const dayRow = document.createElement("div");
+      dayRow.className = "day-row";
+
+      groupByMonth(dateList).forEach((group) => {
+        const cell = document.createElement("div");
+        cell.className = "month-cell";
+        cell.style.width = `${group.days.length * dayWidth}px`;
+        cell.textContent = formatMonth(group.date);
+        monthRow.appendChild(cell);
+      });
+
+      groupByWeek(dateList).forEach((group) => {
+        const cell = document.createElement("div");
+        cell.className = "week-cell";
+        cell.style.width = `${group.days.length * dayWidth}px`;
+        cell.textContent = `Wk ${getWeekNumber(group.date)}`;
+        weekRow.appendChild(cell);
+      });
+
+      dateList.forEach((date) => {
+        const cell = document.createElement("div");
+        cell.className = `day-cell ${isWeekend(date) ? "weekend" : ""}`;
+        cell.innerHTML = `<span class="day-letter">${formatDayLetter(date)}</span><span class="day-number">${date.getDate()}</span>`;
+        dayRow.appendChild(cell);
+      });
+
+      dateHeader.appendChild(monthRow);
+      dateHeader.appendChild(weekRow);
+      dateHeader.appendChild(dayRow);
+
+      const todayOffset = getDateOffset(new Date());
+      if (todayOffset >= 0 && todayOffset <= timelineWidth) {
+        const label = document.createElement("div");
+        label.className = "today-label";
+        label.style.left = `${todayOffset}px`;
+        label.textContent = "TODAY";
+        dateHeader.appendChild(label);
+      }
+    }
+
+    function renderProjectRows(rows, dateList, timelineWidth) {
+      const projects = groupRowsByProject(rows);
+      timelineBody.innerHTML = "";
+
+      const todayOffset = getDateOffset(new Date());
+
+      projects.forEach((project) => {
+        const row = document.createElement("div");
+        row.className = "project-row";
+
+        const projectCell = document.createElement("div");
+        projectCell.className = "project-cell";
+        projectCell.innerHTML = `
+          <div style="min-width:0; flex:1;">
+            <div class="project-id">${escapeHtml(project.project_number || "")}</div>
+            <div class="project-name" title="${escapeHtml(project.project_name || project.client_name || "")}">${escapeHtml(project.project_name || project.client_name || "Unnamed Project")}</div>
+            <div class="project-meta">
+              <span>PM: ${escapeHtml(project.project_manager || "Unassigned")}</span>
+              <span>•</span>
+              <span>${escapeHtml(project.project_type || "Type Not Set")}</span>
+            </div>
+          </div>
+          <a href="project-detail.html?project_id=${encodeURIComponent(project.project_id)}" title="Open Project Detail" style="color:#667085; font-size:16px;">›</a>
+        `;
+
+        const timelineCell = document.createElement("div");
+        timelineCell.className = "timeline-cell";
+        timelineCell.style.width = `${timelineWidth}px`;
+
+        const grid = document.createElement("div");
+        grid.className = "timeline-day-grid";
+        dateList.forEach((date) => {
+          const gridDay = document.createElement("div");
+          gridDay.className = `grid-day ${isWeekend(date) ? "weekend" : ""}`;
+          grid.appendChild(gridDay);
+        });
+        timelineCell.appendChild(grid);
+
+        if (todayOffset >= 0 && todayOffset <= timelineWidth) {
+          const line = document.createElement("div");
+          line.className = "today-line";
+          line.style.left = `${todayOffset}px`;
+          timelineCell.appendChild(line);
+        }
+
+        project.rows.forEach((phase) => {
+          const bar = createPhaseBar(phase);
+          timelineCell.appendChild(bar);
+        });
+
+        row.appendChild(projectCell);
+        row.appendChild(timelineCell);
+        timelineBody.appendChild(row);
+      });
+    }
+
+    function createPhaseBar(row) {
+      const startOffset = getDateOffset(row._flowStart);
+      const endOffset = getDateOffset(addDays(row._flowEnd, 1));
+      const width = Math.max(18, endOffset - startOffset - 2);
+
+      const bar = document.createElement("div");
+      bar.className = `phase-bar ${row._phaseCss} ${row._status === "completed" ? "completed" : ""} ${row._status === "current" ? "current" : ""}`;
+      bar.style.left = `${startOffset + 1}px`;
+      bar.style.width = `${width}px`;
+      bar.textContent = row._phaseCode;
+      bar.title = [
+        `${row.project_number || ""} ${row.project_name || ""}`.trim(),
+        `${row._phaseName}`,
+        `Flow: ${formatDate(row._flowStart)} - ${formatDate(row._flowEnd)}`,
+        row.flow_basis ? `Basis: ${row.flow_basis}` : "",
+        row.schedule_notes || ""
+      ].filter(Boolean).join("\n");
+
+      bar.dataset.phase = row._phaseName;
+      bar.dataset.projectId = row.project_id;
+
+      bar.addEventListener("click", () => {
+        window.location.href = `project-detail.html?project_id=${encodeURIComponent(row.project_id)}`;
+      });
+
+      return bar;
+    }
+
+    function groupRowsByProject(rows) {
+      const map = new Map();
+
+      rows.forEach((row) => {
+        if (!map.has(row.project_id)) {
+          map.set(row.project_id, {
+            project_id: row.project_id,
+            project_number: row.project_number,
+            project_name: row.project_name,
+            client_name: row.client_name,
+            project_manager: row.project_manager,
+            project_type: row.project_type,
+            rows: []
+          });
+        }
+        map.get(row.project_id).rows.push(row);
+      });
+
+      return [...map.values()].sort((a, b) => String(a.project_number || "").localeCompare(String(b.project_number || "")));
+    }
+
+    function analyzeTileBottlenecks(rows, dateList) {
+      const capacity = Math.max(1, Number(document.getElementById("capacityInput").value || 3));
+      const daily = new Map();
+
+      dateList.forEach((date) => daily.set(toIsoDate(date), new Set()));
+
+      rows.filter((row) => row._isTile).forEach((row) => {
+        dateList.forEach((date) => {
+          if (date >= stripTime(row._flowStart) && date <= stripTime(row._flowEnd) && !isWeekend(date)) {
+            daily.get(toIsoDate(date))?.add(row.project_id);
+          }
+        });
+      });
+
+      let peak = 0;
+      let peakDate = null;
+      let affectedProjects = new Set();
+      bottleneckDates = new Set();
+
+      daily.forEach((projectSet, isoDate) => {
+        const demand = projectSet.size;
+        if (demand > peak) {
+          peak = demand;
+          peakDate = isoDate;
+        }
+        if (demand > capacity) {
+          bottleneckDates.add(isoDate);
+          projectSet.forEach((id) => affectedProjects.add(id));
+        }
+      });
+
+      currentBottleneck = {
+        capacity,
+        peak,
+        peakDate,
+        affectedProjectCount: affectedProjects.size,
+        bottleneckDayCount: bottleneckDates.size
+      };
+
+      markTileConflicts(rows);
+      renderBottleneckCard(currentBottleneck);
+    }
+
+    function markTileConflicts(rows) {
+      const conflictProjectIds = new Set();
+      rows.filter((row) => row._isTile).forEach((row) => {
+        for (let d = stripTime(row._flowStart); d <= stripTime(row._flowEnd); d = addDays(d, 1)) {
+          if (bottleneckDates.has(toIsoDate(d))) {
+            conflictProjectIds.add(`${row.project_id}|${row._phaseName}|${toIsoDate(row._flowStart)}`);
+            break;
+          }
+        }
+      });
+
+      document.querySelectorAll(".phase-bar").forEach((bar) => {
+        const phase = bar.dataset.phase || "";
+        if (!isTilePhase(phase)) return;
+        const row = rows.find((item) => item.project_id === bar.dataset.projectId && item._phaseName === phase);
+        if (!row) return;
+        const key = `${row.project_id}|${row._phaseName}|${toIsoDate(row._flowStart)}`;
+        if (conflictProjectIds.has(key)) bar.classList.add("conflict");
+      });
+    }
+
+    function renderBottleneckCard(bottleneck) {
+      const card = document.getElementById("bottleneckCard");
+      const hasConflict = bottleneck && bottleneck.peak > bottleneck.capacity;
+
+      if (!hasConflict) {
+        card.classList.add("hidden");
+        return;
+      }
+
+      card.classList.remove("hidden");
+      document.getElementById("bottleneckTitle").textContent = "Tile Subcontractor Bottleneck";
+      document.getElementById("bottleneckSubtitle").textContent = `Peak Tile overlap occurs around ${formatDate(parseDate(bottleneck.peakDate))}. Review sequencing or add capacity.`;
+      document.getElementById("bottleneckCapacity").textContent = `${bottleneck.capacity} crews`;
+      document.getElementById("bottleneckDemand").textContent = `${bottleneck.peak} jobs`;
+      document.getElementById("bottleneckOverBy").textContent = `${bottleneck.peak - bottleneck.capacity}`;
+      document.getElementById("bottleneckJobs").textContent = `${bottleneck.affectedProjectCount}`;
+    }
+
+    function focusBottleneck() {
+      if (!currentBottleneck || !currentBottleneck.peakDate) return;
+      const offset = getDateOffset(parseDate(currentBottleneck.peakDate));
+      timelineWrapper.scrollLeft = Math.max(0, offset - 420);
+      document.getElementById("phaseFilter").value = "Tile";
+      applyFiltersAndRender();
+    }
+
+    function updateSummary(rows) {
+      const projects = new Set(rows.map((r) => r.project_id));
+      const range = rows.length ? getVisibleDateRange(rows) : null;
+
+      document.getElementById("activeProjectsCount").textContent = projects.size || "0";
+      document.getElementById("scheduleRowsCount").textContent = rows.length || "0";
+      document.getElementById("tileCapacityCount").textContent = document.getElementById("capacityInput").value || "3";
+      document.getElementById("peakTileDemand").textContent = currentBottleneck ? currentBottleneck.peak : "0";
+      document.getElementById("bottleneckWeeksCount").textContent = currentBottleneck ? estimateBottleneckWeeks(currentBottleneck.bottleneckDayCount) : "0";
+      document.getElementById("dateWindowLabel").textContent = range ? `${formatShortDate(range.start)} - ${formatShortDate(range.end)}` : "—";
+    }
+
+    function estimateBottleneckWeeks(dayCount) {
+      if (!dayCount) return 0;
+      return Math.ceil(dayCount / 5);
+    }
+
+    function updateFooter(rows) {
+      const viewLabel = usingFallbackView ? FALLBACK_SCHEDULE_VIEW : SCHEDULE_VIEW;
+      document.getElementById("footerStatus").textContent = `Showing ${rows.length} phase rows from ${viewLabel}.`;
+    }
+
+    function renderLegend() {
+      const container = document.getElementById("phaseLegend");
+      container.innerHTML = "";
+      PHASE_META.forEach((item) => {
+        const el = document.createElement("span");
+        el.className = "legend-item";
+        el.innerHTML = `<span class="legend-swatch ${item.css}"></span>${escapeHtml(item.code)}`;
+        container.appendChild(el);
+      });
+    }
+
+    function exportCsv() {
+      if (!filteredRows.length) {
+        alert("No rows to export.");
+        return;
+      }
+
+      const columns = [
+        ["project_number", "Project Number"],
+        ["project_name", "Project Name"],
+        ["client_name", "Client Name"],
+        ["project_manager", "Project Manager"],
+        ["project_type", "Project Type"],
+        ["_phaseName", "Phase"],
+        ["_phaseCode", "Phase Code"],
+        ["_flowStart", "Flow Start"],
+        ["_flowEnd", "Flow End"],
+        ["flow_basis", "Flow Basis"],
+        ["schedule_notes", "Schedule Notes"],
+        ["_status", "Status"],
+        ["schedule_health_status", "Schedule Health"],
+        ["current_production_phase", "Current Production Phase"]
+      ];
+
+      const lines = [];
+      lines.push(columns.map((col) => csvEscape(col[1])).join(","));
+      filteredRows.forEach((row) => {
+        lines.push(columns.map(([key]) => {
+          const value = row[key] instanceof Date ? toIsoDate(row[key]) : row[key];
+          return csvEscape(value == null ? "" : value);
+        }).join(","));
+      });
+
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `planning-view-${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function setZoom(nextWidth) {
+      dayWidth = Math.max(16, Math.min(44, nextWidth));
+      document.getElementById("zoomLabelBtn").textContent = `${Math.round((dayWidth / 26) * 100)}%`;
+      renderTimeline(filteredRows);
+    }
+
+    function scrollToToday() {
+      if (!visibleStartDate) return;
+      const todayOffset = getDateOffset(new Date());
+      if (todayOffset >= 0) {
+        timelineWrapper.scrollLeft = Math.max(0, todayOffset - 420);
+      }
+    }
+
+    function setLoading(isLoading) {
+      loadingMessage.classList.toggle("hidden", !isLoading);
+      if (isLoading) {
+        errorMessage.classList.add("hidden");
+        emptyMessage.classList.add("hidden");
+        timelineGrid.classList.add("hidden");
+      }
+    }
+
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.classList.remove("hidden");
+      loadingMessage.classList.add("hidden");
+      emptyMessage.classList.add("hidden");
+      timelineGrid.classList.add("hidden");
+    }
+
+    function clearError() {
+      errorMessage.textContent = "";
+      errorMessage.classList.add("hidden");
+    }
+
+    function getDateOffset(date) {
+      if (!visibleStartDate || !date) return -1;
+      return diffDays(stripTime(visibleStartDate), stripTime(date)) * dayWidth;
+    }
+
+    function buildDateList(start, end) {
+      const dates = [];
+      for (let d = stripTime(start); d <= stripTime(end); d = addDays(d, 1)) {
+        dates.push(new Date(d));
+      }
+      return dates;
+    }
+
+    function groupByMonth(dateList) {
+      return groupDates(dateList, (date) => `${date.getFullYear()}-${date.getMonth()}`);
+    }
+
+    function groupByWeek(dateList) {
+      return groupDates(dateList, (date) => `${date.getFullYear()}-${getWeekNumber(date)}`);
+    }
+
+    function groupDates(dateList, keyFn) {
+      const groups = [];
+      dateList.forEach((date) => {
+        const key = keyFn(date);
+        const last = groups[groups.length - 1];
+        if (!last || last.key !== key) {
+          groups.push({ key, date, days: [date] });
+        } else {
+          last.days.push(date);
+        }
+      });
+      return groups;
+    }
+
+    function parseDate(value) {
+      if (!value) return null;
+      if (value instanceof Date) return stripTime(value);
+      const text = String(value);
+      const dateOnly = text.includes("T") ? text.split("T")[0] : text.split(" ")[0];
+      const parts = dateOnly.split("-").map(Number);
+      if (parts.length >= 3 && parts.every((part) => !Number.isNaN(part))) {
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+      }
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : stripTime(date);
+    }
+
+    function stripTime(date) {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function addDays(date, days) {
+      const d = stripTime(date);
+      d.setDate(d.getDate() + days);
+      return d;
+    }
+
+    function diffDays(start, end) {
+      const ms = stripTime(end).getTime() - stripTime(start).getTime();
+      return Math.round(ms / 86400000);
+    }
+
+    function minDate(dates) {
+      return new Date(Math.min(...dates.map((d) => d.getTime())));
+    }
+
+    function maxDate(dates) {
+      return new Date(Math.max(...dates.map((d) => d.getTime())));
+    }
+
+    function isWeekend(date) {
+      const day = date.getDay();
+      return day === 0 || day === 6;
+    }
+
+    function formatMonth(date) {
+      return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    }
+
+    function formatDayLetter(date) {
+      return ["S", "M", "T", "W", "T", "F", "S"][date.getDay()];
+    }
+
+    function formatDate(date) {
+      if (!date) return "";
+      return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    }
+
+    function formatShortDate(date) {
+      if (!date) return "";
+      return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    }
+
+    function toIsoDate(date) {
+      if (!date) return "";
+      const d = stripTime(date);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    function getWeekNumber(date) {
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function csvEscape(value) {
+      const text = String(value == null ? "" : value);
+      if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+      return text;
+    }
+
+    function debounce(fn, delay) {
+      let timer;
+      return function(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), delay);
+      };
+    }
+  </script>
+</body>
+</html>
