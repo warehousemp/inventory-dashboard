@@ -2898,8 +2898,8 @@ function renderProjectHeader(row) {
   document.getElementById('handoffValue').textContent = formatDate(row.sales_handoff_date);
 
   document.getElementById('projectedDatesValue').innerHTML =
-  `Projected Start: ${escapeHTML(formatDate(row.projected_start_date))}<br>` +
-  `Projected Completion: ${escapeHTML(formatDate(row.projected_completion_date))}`;
+    `Projected Start: ${escapeHTML(formatDate(row.projected_start_date))}<br>` +
+    `Projected Completion: ${escapeHTML(formatDate(row.projected_completion_date))}`;
 
   const coordinator = row.project_coordinator || row.superintendent || '';
 
@@ -2958,9 +2958,9 @@ function renderFieldOverview(row) {
   );
 
   setHTMLIfExists(
-  'overviewProjectedDatesValue',
-  `Projected Start: ${escapeHTML(formatDate(row.projected_start_date))}<br>` +
-  `Projected Completion: ${escapeHTML(formatDate(row.projected_completion_date))}`
+    'overviewProjectedDatesValue',
+    `Projected Start: ${escapeHTML(formatDate(row.projected_start_date))}<br>` +
+    `Projected Completion: ${escapeHTML(formatDate(row.projected_completion_date))}`
   );
 
   setHTMLIfExists(
@@ -3367,6 +3367,7 @@ function renderProjectScheduleGantt(rows, errorMessage = '') {
     tbody.innerHTML = `<tr><td colspan="9">${escapeHTML(errorMessage)}</td></tr>`;
     ganttContainer.innerHTML = `<div class="empty-state"><strong>Schedule could not be loaded.</strong>${escapeHTML(errorMessage)}</div>`;
     renderProjectScheduleSummary([]);
+    renderProjectScheduleWarning([]);
     return;
   }
 
@@ -3374,10 +3375,12 @@ function renderProjectScheduleGantt(rows, errorMessage = '') {
     tbody.innerHTML = '<tr><td colspan="9">No production schedule found for this project. Confirm the project has a projected start date and generated schedule tasks.</td></tr>';
     ganttContainer.innerHTML = '<div class="empty-state"><strong>No project schedule found.</strong>Confirm the project has a projected start date and generated schedule tasks.</div>';
     renderProjectScheduleSummary([]);
+    renderProjectScheduleWarning([]);
     return;
   }
 
   renderProjectScheduleSummary(rows);
+  renderProjectScheduleWarning(rows);
 
   rows.forEach((row, index) => {
     const phaseName = getSchedulePhaseName(row);
@@ -3435,6 +3438,37 @@ function renderProjectScheduleSummary(rows) {
   setText('projectSchedulePhaseCountValue', rows.length);
   setText('projectScheduleBusinessDaysValue', totalBusinessDays);
   setText('projectScheduleCurrentPhaseValue', displayLabel(currentProject?.current_production_phase || 'Not Set'));
+}
+
+function renderProjectScheduleWarning(rows) {
+  const warningEl = document.getElementById('projectScheduleWarning');
+
+  if (!warningEl) {
+    return;
+  }
+
+  if (!rows || rows.length === 0) {
+    warningEl.style.display = 'none';
+    warningEl.textContent = '';
+    return;
+  }
+
+  const hasActualKanbanDates = (rows || []).some(row => {
+    return Boolean(
+      firstDefined(row, ['actual_start_date']) ||
+      firstDefined(row, ['actual_completion_date', 'actual_complete_date'])
+    );
+  });
+
+  if (hasActualKanbanDates) {
+    warningEl.style.display = 'none';
+    warningEl.textContent = '';
+    return;
+  }
+
+  warningEl.style.display = 'block';
+  warningEl.textContent =
+    'This project does not have Kanban phase history dates yet. The schedule below is using planned/template phase durations until future Kanban movements create actual start and completion dates.';
 }
 
 function renderProjectGanttBars(rows) {
