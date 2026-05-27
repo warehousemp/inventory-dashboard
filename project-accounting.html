@@ -688,6 +688,11 @@
       border-top: 5px solid var(--green);
     }
 
+    .awaiting-payment-panel {
+      margin-bottom: 18px;
+      border-top: 5px solid var(--blue);
+    }
+
     .queue-toolbar {
       display: flex;
       align-items: center;
@@ -727,6 +732,17 @@
 
     .approved-table {
       min-width: 1850px;
+    }
+
+    .payment-table-wrap {
+      overflow: auto;
+      padding: 0 14px 14px;
+      max-height: 420px;
+      border-top: 1px solid #eef2f7;
+    }
+
+    .payment-table {
+      min-width: 1900px;
     }
 
     .small-btn {
@@ -795,6 +811,55 @@
     }
 
     .mark-invoiced-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .payment-action-box {
+      display: grid;
+      grid-template-columns: 145px 135px 140px 220px auto;
+      gap: 8px;
+      align-items: end;
+      min-width: 820px;
+    }
+
+    .payment-action-field {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .payment-action-label {
+      color: #344054;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.25px;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .payment-action-box input {
+      padding: 8px 9px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .payment-action-notes {
+      min-width: 220px;
+    }
+
+    .mark-paid-btn {
+      background: var(--blue);
+      border-color: var(--blue);
+      width: auto;
+      padding: 8px 10px;
+      font-size: 12px;
+      border-radius: 8px;
+      align-self: end;
+    }
+
+    .mark-paid-btn:disabled {
       opacity: 0.55;
       cursor: not-allowed;
     }
@@ -1109,6 +1174,73 @@
           </div>
         </section>
 
+        <section class="panel awaiting-payment-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Invoiced / Awaiting Payment Queue</h2>
+              <p class="panel-subtitle">Draws that have been invoiced but have not been fully paid. Only INVOICED draws with an outstanding balance appear here.</p>
+            </div>
+
+            <div class="queue-toolbar">
+              <span class="queue-pill" id="awaitingPaymentCountPill">0 Awaiting</span>
+              <button class="small-btn secondary-btn" onclick="exportAwaitingPaymentCSV()">Export Queue CSV</button>
+            </div>
+          </div>
+
+          <div class="queue-summary">
+            <div class="mini-card">
+              <div class="mini-label">Awaiting Payment Draws</div>
+              <div class="mini-value" id="awaitingPaymentCountValue">0</div>
+            </div>
+
+            <div class="mini-card">
+              <div class="mini-label">Outstanding Payment Dollars</div>
+              <div class="mini-value" id="awaitingPaymentAmountValue">$0</div>
+            </div>
+
+            <div class="mini-card">
+              <div class="mini-label">Accounting Control</div>
+              <div class="mini-value">Invoice Sent</div>
+            </div>
+          </div>
+
+          <div class="payment-table-wrap">
+            <table class="payment-table">
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th>Client</th>
+                  <th>Type</th>
+                  <th>Current Status</th>
+                  <th>Draw #</th>
+                  <th>Draw Name</th>
+                  <th>Invoice #</th>
+                  <th>Invoice Date</th>
+                  <th>Due Date</th>
+                  <th>Invoiced Amount</th>
+                  <th>Paid Amount</th>
+                  <th>Outstanding</th>
+                  <th>Draw Status</th>
+                  <th>Notes</th>
+                  <th>Payment Action</th>
+                </tr>
+              </thead>
+
+              <tbody id="awaitingPaymentQueueBody">
+                <tr>
+                  <td colspan="15">Loading invoiced draws...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="padding: 0 18px 16px;">
+            <div class="invoice-ready-note">
+              This queue is for payments already invoiced in Accounting. Use Mark Paid when payment is received. Partial payments are allowed; fully paid draws move to PAID and leave this queue.
+            </div>
+          </div>
+        </section>
+
         <section class="panel">
           <div class="panel-header">
             <div>
@@ -1297,6 +1429,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let allDrawRows = [];
 let filteredDrawRows = [];
 let approvedInvoiceRows = [];
+let awaitingPaymentRows = [];
 
 window.addEventListener('load', async () => {
   setupForecastScrollSync();
@@ -1355,6 +1488,8 @@ async function loadDraws() {
   if (error) {
     allDrawRows = [];
     filteredDrawRows = [];
+    renderApprovedForInvoicingQueue([]);
+    renderAwaitingPaymentQueue([]);
     renderDrawsTable([]);
     setMessage('error', 'Accounting draw report error: ' + error.message);
     return;
@@ -1362,6 +1497,7 @@ async function loadDraws() {
 
   allDrawRows = data || [];
   renderApprovedForInvoicingQueue(allDrawRows);
+  renderAwaitingPaymentQueue(allDrawRows);
   populateFilters(allDrawRows);
   applyFilters();
 }
@@ -1855,6 +1991,236 @@ function exportApprovedInvoiceCSV() {
   exportRowsToCSV(exportRows, `approved_for_invoicing_queue_${datePart}.csv`);
 }
 
+
+function renderAwaitingPaymentQueue(rows) {
+  awaitingPaymentRows = (rows || [])
+    .filter(row => {
+      const invoicedAmount = Number(row.invoiced_amount || 0);
+      const paidAmount = Number(row.paid_amount || 0);
+      return normalize(row.draw_status) === 'INVOICED' && invoicedAmount > paidAmount;
+    })
+    .sort((a, b) => {
+      const dueA = a.due_date || '9999-12-31';
+      const dueB = b.due_date || '9999-12-31';
+
+      if (dueA !== dueB) {
+        return dueA.localeCompare(dueB);
+      }
+
+      const projectCompare = String(a.project_number || '').localeCompare(String(b.project_number || ''));
+
+      if (projectCompare !== 0) {
+        return projectCompare;
+      }
+
+      return Number(a.draw_number || 0) - Number(b.draw_number || 0);
+    });
+
+  const paymentTotal = awaitingPaymentRows.reduce((sum, row) => {
+    const invoicedAmount = Number(row.invoiced_amount || 0);
+    const paidAmount = Number(row.paid_amount || 0);
+    const outstanding = Number(row.outstanding_amount || (invoicedAmount - paidAmount) || 0);
+    return sum + Math.max(outstanding, 0);
+  }, 0);
+
+  setText('awaitingPaymentCountPill', `${awaitingPaymentRows.length} Awaiting`);
+  setText('awaitingPaymentCountValue', awaitingPaymentRows.length);
+  setText('awaitingPaymentAmountValue', formatCurrencyShort(paymentTotal));
+
+  const tbody = document.getElementById('awaitingPaymentQueueBody');
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.innerHTML = '';
+
+  if (awaitingPaymentRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="15">No invoiced draws are currently awaiting payment.</td></tr>';
+    return;
+  }
+
+  awaitingPaymentRows.forEach(row => {
+    const invoicedAmount = Number(row.invoiced_amount || 0);
+    const paidAmount = Number(row.paid_amount || 0);
+    const outstandingAmount = Math.max(Number(row.outstanding_amount || (invoicedAmount - paidAmount) || 0), 0);
+    const defaultPaymentAmount = formatNumberForInput(outstandingAmount);
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>
+        <a class="action-link" href="project-detail.html?project_id=${encodeURIComponent(row.project_id)}">
+          <div class="project-block">
+            <span class="project-number-large">${escapeHTML(row.project_number || '')}</span>
+            <span class="project-name">${escapeHTML(row.project_name || 'Unnamed Project')}</span>
+          </div>
+        </a>
+      </td>
+      <td>${escapeHTML(row.client_name)}</td>
+      <td>${statusPill(row.project_type_label || row.project_type)}</td>
+      <td>${statusPill(row.project_status)}</td>
+      <td>${escapeHTML(row.draw_number)}</td>
+      <td>${escapeHTML(row.draw_name)}</td>
+      <td>${escapeHTML(row.invoice_number)}</td>
+      <td>${escapeHTML(formatDate(row.invoice_date))}</td>
+      <td>${escapeHTML(formatDate(row.due_date))}</td>
+      <td class="money">${formatCurrency(row.invoiced_amount)}</td>
+      <td class="money-positive">${formatCurrency(row.paid_amount)}</td>
+      <td class="money-warning">${formatCurrency(outstandingAmount)}</td>
+      <td>${statusPill(row.draw_status)}</td>
+      <td class="wide-text">${escapeHTML(row.notes || row.expected_draw_notes || '')}</td>
+      <td>
+        <div class="payment-action-box">
+          <div class="payment-action-field">
+            <label class="payment-action-label" for="payment-amount-${escapeHTML(row.draw_id)}">Payment Amount</label>
+            <input id="payment-amount-${escapeHTML(row.draw_id)}" type="number" min="0.01" step="0.01" value="${escapeHTML(defaultPaymentAmount)}" placeholder="Amount">
+          </div>
+
+          <div class="payment-action-field">
+            <label class="payment-action-label" for="paid-date-${escapeHTML(row.draw_id)}">Paid Date</label>
+            <input id="paid-date-${escapeHTML(row.draw_id)}" type="date" value="${toDateInputValue(new Date())}">
+          </div>
+
+          <div class="payment-action-field">
+            <label class="payment-action-label" for="paid-by-${escapeHTML(row.draw_id)}">Paid By</label>
+            <input id="paid-by-${escapeHTML(row.draw_id)}" placeholder="Paid By">
+          </div>
+
+          <div class="payment-action-field">
+            <label class="payment-action-label" for="payment-notes-${escapeHTML(row.draw_id)}">Notes</label>
+            <input id="payment-notes-${escapeHTML(row.draw_id)}" class="payment-action-notes" placeholder="Notes optional">
+          </div>
+
+          <button id="mark-paid-${escapeHTML(row.draw_id)}" class="mark-paid-btn" onclick="markDrawPaid('${escapeJS(row.draw_id)}')">Mark Paid</button>
+        </div>
+        <div class="invoice-action-help">Use full outstanding amount to mark the draw PAID. Enter a smaller amount to record a partial payment.</div>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function exportAwaitingPaymentCSV() {
+  if (!awaitingPaymentRows || awaitingPaymentRows.length === 0) {
+    setMessage('info', 'No invoiced draws awaiting payment are available to export.');
+    return;
+  }
+
+  const exportRows = awaitingPaymentRows.map(row => ({
+    project_number: row.project_number,
+    project_name: row.project_name,
+    client_name: row.client_name,
+    project_type: row.project_type,
+    project_type_label: row.project_type_label,
+    project_status: row.project_status,
+    draw_number: row.draw_number,
+    draw_name: row.draw_name,
+    draw_status: row.draw_status,
+    invoice_number: row.invoice_number,
+    invoice_date: row.invoice_date,
+    due_date: row.due_date,
+    invoiced_amount: row.invoiced_amount,
+    paid_amount: row.paid_amount,
+    outstanding_amount: row.outstanding_amount,
+    expected_draw_date: row.expected_draw_date,
+    trigger_stage: row.trigger_stage,
+    trigger_description: row.trigger_description,
+    expected_draw_notes: row.expected_draw_notes,
+    notes: row.notes,
+    project_id: row.project_id,
+    draw_id: row.draw_id
+  }));
+
+  const datePart = new Date().toISOString().slice(0, 10);
+  exportRowsToCSV(exportRows, `awaiting_payment_queue_${datePart}.csv`);
+}
+
+async function markDrawPaid(drawId) {
+  if (!drawId) {
+    setMessage('error', 'Draw ID is missing. Cannot mark paid.');
+    return;
+  }
+
+  const paymentAmountEl = document.getElementById(`payment-amount-${drawId}`);
+  const paidDateEl = document.getElementById(`paid-date-${drawId}`);
+  const paidByEl = document.getElementById(`paid-by-${drawId}`);
+  const notesEl = document.getElementById(`payment-notes-${drawId}`);
+  const buttonEl = document.getElementById(`mark-paid-${drawId}`);
+
+  const paymentAmount = paymentAmountEl ? Number(paymentAmountEl.value) : 0;
+  const paidDate = paidDateEl ? paidDateEl.value : '';
+  const paidBy = paidByEl ? paidByEl.value.trim() : '';
+  const notes = notesEl ? notesEl.value.trim() : '';
+
+  if (!paymentAmount || paymentAmount <= 0) {
+    setMessage('error', 'Payment Amount must be greater than zero before marking this draw paid.');
+    return;
+  }
+
+  if (!paidDate) {
+    setMessage('error', 'Paid Date is required before marking this draw paid.');
+    return;
+  }
+
+  if (!paidBy) {
+    setMessage('error', 'Paid By is required before marking this draw paid.');
+    return;
+  }
+
+  const confirmed = window.confirm('Record this payment? Full payment will move the draw to PAID. Partial payment will keep the draw INVOICED with a remaining balance.');
+
+  if (!confirmed) {
+    return;
+  }
+
+  if (buttonEl) {
+    buttonEl.disabled = true;
+    buttonEl.textContent = 'Saving...';
+  }
+
+  setMessage('info', 'Recording payment...');
+
+  const { data, error } = await client.rpc('update_project_draw_payment_status', {
+    p_draw_id: drawId,
+    p_payment_amount: paymentAmount,
+    p_paid_date: paidDate,
+    p_paid_by: paidBy,
+    p_notes: notes || null
+  });
+
+  if (error) {
+    if (buttonEl) {
+      buttonEl.disabled = false;
+      buttonEl.textContent = 'Mark Paid';
+    }
+
+    setMessage('error', 'Mark paid error: ' + error.message);
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+
+  if (!result || result.success !== true) {
+    if (buttonEl) {
+      buttonEl.disabled = false;
+      buttonEl.textContent = 'Mark Paid';
+    }
+
+    setMessage('error', result && result.message ? result.message : 'Payment was not recorded.');
+    return;
+  }
+
+  await Promise.all([
+    loadSummary(),
+    loadDraws()
+  ]);
+
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  setMessage('info', result.message || 'Payment recorded successfully.');
+}
+
 function openProjectDetail(projectId) {
   if (!projectId) {
     setMessage('error', 'Project ID is missing for this approved draw.');
@@ -2177,6 +2543,11 @@ function sumColumn(rows, columnName) {
   return rows.reduce((sum, row) => {
     return sum + Number(row[columnName] || 0);
   }, 0);
+}
+
+function formatNumberForInput(value) {
+  const number = Number(value || 0);
+  return number.toFixed(2);
 }
 
 function formatCurrency(value) {
