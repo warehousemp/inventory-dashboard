@@ -518,6 +518,12 @@
       flex: 1 1 auto;
       min-height: 0;
       border-radius: 14px;
+      scroll-behavior: auto;
+    }
+
+    .board-wrap.drag-auto-scroll-active {
+      outline: 2px solid rgba(26,163,176,0.18);
+      outline-offset: -2px;
     }
 
     .board-wrap::-webkit-scrollbar {
@@ -1395,6 +1401,10 @@ let phaseTemplates = [];
 let boardMode = 'NEW_BUILD';
 let hideEmptyStages = false;
 let pendingMove = null;
+let isKanbanDragging = false;
+let dragAutoScrollFrame = null;
+let lastDragClientX = 0;
+let lastDragClientY = 0;
 
 const MASTER_COLUMNS = [
   {
@@ -1865,10 +1875,113 @@ function renderProjectCard(project, defaultCardClass) {
   return card;
 }
 
+function startBoardAutoScroll() {
+  isKanbanDragging = true;
+  lastDragClientX = 0;
+  lastDragClientY = 0;
+
+  const boardWrap = document.querySelector('.board-wrap');
+
+  if (boardWrap) {
+    boardWrap.classList.add('drag-auto-scroll-active');
+  }
+
+  document.addEventListener('dragover', handleBoardAutoScroll);
+}
+
+function stopBoardAutoScroll() {
+  isKanbanDragging = false;
+  lastDragClientX = 0;
+  lastDragClientY = 0;
+
+  document.removeEventListener('dragover', handleBoardAutoScroll);
+
+  if (dragAutoScrollFrame) {
+    cancelAnimationFrame(dragAutoScrollFrame);
+    dragAutoScrollFrame = null;
+  }
+
+  const boardWrap = document.querySelector('.board-wrap');
+
+  if (boardWrap) {
+    boardWrap.classList.remove('drag-auto-scroll-active');
+  }
+}
+
+function handleBoardAutoScroll(event) {
+  if (!isKanbanDragging) {
+    return;
+  }
+
+  lastDragClientX = event.clientX;
+  lastDragClientY = event.clientY;
+
+  if (!dragAutoScrollFrame) {
+    dragAutoScrollFrame = requestAnimationFrame(runBoardAutoScroll);
+  }
+}
+
+function runBoardAutoScroll() {
+  dragAutoScrollFrame = null;
+
+  if (!isKanbanDragging) {
+    return;
+  }
+
+  const boardWrap = document.querySelector('.board-wrap');
+
+  if (!boardWrap || !lastDragClientX || !lastDragClientY) {
+    dragAutoScrollFrame = requestAnimationFrame(runBoardAutoScroll);
+    return;
+  }
+
+  const rect = boardWrap.getBoundingClientRect();
+  const edgeThreshold = 115;
+  const maxHorizontalSpeed = 34;
+  const maxVerticalSpeed = 18;
+  const verticalBuffer = 90;
+
+  const isNearBoardVertically =
+    lastDragClientY >= rect.top - verticalBuffer &&
+    lastDragClientY <= rect.bottom + verticalBuffer;
+
+  if (!isNearBoardVertically) {
+    dragAutoScrollFrame = requestAnimationFrame(runBoardAutoScroll);
+    return;
+  }
+
+  let horizontalScroll = 0;
+  let verticalScroll = 0;
+
+  if (lastDragClientX > rect.right - edgeThreshold) {
+    const distanceIntoEdge = Math.min(edgeThreshold, lastDragClientX - (rect.right - edgeThreshold));
+    horizontalScroll = Math.ceil((distanceIntoEdge / edgeThreshold) * maxHorizontalSpeed);
+  } else if (lastDragClientX < rect.left + edgeThreshold) {
+    const distanceIntoEdge = Math.min(edgeThreshold, (rect.left + edgeThreshold) - lastDragClientX);
+    horizontalScroll = -Math.ceil((distanceIntoEdge / edgeThreshold) * maxHorizontalSpeed);
+  }
+
+  if (lastDragClientY > rect.bottom - edgeThreshold) {
+    const distanceIntoEdge = Math.min(edgeThreshold, lastDragClientY - (rect.bottom - edgeThreshold));
+    verticalScroll = Math.ceil((distanceIntoEdge / edgeThreshold) * maxVerticalSpeed);
+  } else if (lastDragClientY < rect.top + edgeThreshold) {
+    const distanceIntoEdge = Math.min(edgeThreshold, (rect.top + edgeThreshold) - lastDragClientY);
+    verticalScroll = -Math.ceil((distanceIntoEdge / edgeThreshold) * maxVerticalSpeed);
+  }
+
+  if (horizontalScroll !== 0 || verticalScroll !== 0) {
+    boardWrap.scrollLeft += horizontalScroll;
+    boardWrap.scrollTop += verticalScroll;
+  }
+
+  dragAutoScrollFrame = requestAnimationFrame(runBoardAutoScroll);
+}
+
 function handleCardDragStart(event) {
   const card = event.currentTarget;
 
   card.classList.add('dragging');
+  startBoardAutoScroll();
 
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/plain', JSON.stringify({
@@ -1880,6 +1993,7 @@ function handleCardDragStart(event) {
 
 function handleCardDragEnd(event) {
   event.currentTarget.classList.remove('dragging');
+  stopBoardAutoScroll();
 
   document.querySelectorAll('.column-body.drag-over').forEach(element => {
     element.classList.remove('drag-over');
@@ -1918,6 +2032,7 @@ function handleColumnDragLeave(event) {
 
 function handleColumnDrop(event) {
   event.preventDefault();
+  stopBoardAutoScroll();
 
   const body = event.currentTarget;
   body.classList.remove('drag-over');
