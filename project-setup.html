@@ -424,27 +424,37 @@
 
     tr:hover td { background: #f8fafc; }
 
-    .project-block { min-width: 260px; }
-
-    .project-number-large {
-      display: inline-block;
-      font-size: 18px;
-      line-height: 1;
-      font-weight: 900;
-      color: #0b3c5d;
-      background: #eaf2f8;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      padding: 8px 10px;
-      margin-bottom: 7px;
+    .project-block {
+      min-width: 280px;
+      display: grid;
+      gap: 4px;
+      align-items: start;
     }
 
-    .project-name {
+    .project-client-name {
       font-weight: 900;
-      color: #111827;
+      color: #0b3c5d;
       display: block;
-      font-size: 13px;
-      line-height: 1.35;
+      font-size: 17px;
+      line-height: 1.2;
+      white-space: normal;
+    }
+
+    .project-number-subtitle {
+      display: block;
+      color: #475467;
+      font-size: 12px;
+      line-height: 1.2;
+      font-weight: 900;
+      letter-spacing: 0.25px;
+    }
+
+    .project-name-muted {
+      display: block;
+      color: #667085;
+      font-size: 12px;
+      line-height: 1.25;
+      font-weight: 700;
       white-space: normal;
     }
 
@@ -487,7 +497,7 @@
     .action-stack {
       display: grid;
       gap: 6px;
-      min-width: 138px;
+      min-width: 190px;
     }
 
     .action-link,
@@ -495,16 +505,23 @@
       color: white;
       background: var(--header);
       border-radius: 9px;
-      padding: 8px 10px;
+      padding: 9px 12px;
       text-decoration: none;
       font-weight: 900;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       text-align: center;
-      min-width: 116px;
+      min-width: 170px;
+      min-height: 36px;
       font-size: 12px;
+      line-height: 1.15;
       border: 1px solid var(--header);
       cursor: pointer;
       width: 100%;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
     }
 
     .action-link.secondary,
@@ -878,7 +895,7 @@
               <thead>
                 <tr>
                   <th>Action</th>
-                  <th>Project</th>
+                  <th>Client / Project #</th>
                   <th>Client</th>
                   <th>Type</th>
                   <th>Status</th>
@@ -1140,8 +1157,9 @@ function renderSetupQueueTable(rows) {
 
       <td>
         <div class="project-block">
-          <span class="project-number-large">${escapeHTML(row.project_number || '')}</span>
-          <span class="project-name">${escapeHTML(row.project_name || 'Unnamed Project')}</span>
+          <span class="project-client-name">${escapeHTML(getProjectReferenceName(row))}</span>
+          <span class="project-number-subtitle">${escapeHTML(row.project_number || '')}</span>
+          ${getProjectNameDetail(row)}
         </div>
       </td>
 
@@ -1172,6 +1190,43 @@ function renderSetupQueueTable(rows) {
     tbody.appendChild(tr);
   });
 }
+
+
+function getProjectReferenceName(row) {
+  if (!row) {
+    return 'Unnamed Project';
+  }
+
+  if (hasValue(row.client_name)) {
+    return row.client_name;
+  }
+
+  if (hasValue(row.project_name)) {
+    return row.project_name;
+  }
+
+  return 'Unnamed Project';
+}
+
+function getProjectNameDetail(row) {
+  if (!row || !hasValue(row.project_name)) {
+    return '';
+  }
+
+  const referenceName = normalizeDisplayText(getProjectReferenceName(row));
+  const projectName = normalizeDisplayText(row.project_name);
+
+  if (referenceName === projectName) {
+    return '';
+  }
+
+  return `<span class="project-name-muted">${escapeHTML(row.project_name)}</span>`;
+}
+
+function normalizeDisplayText(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
 
 function updateSummary(rows) {
   const setupQueueCount = rows.length;
