@@ -484,27 +484,35 @@
     .forecast-split-wrap {
       display: grid;
       grid-template-columns: 285px minmax(0, 1fr);
-      max-height: 560px;
-      overflow-y: auto;
-      overflow-x: hidden;
+      height: 560px;
+      max-height: calc(100vh - 240px);
+      min-height: 340px;
+      overflow: hidden;
       background: #ffffff;
       border-top: 1px solid #eef2f7;
     }
 
     .forecast-project-fixed {
-      position: sticky;
-      left: 0;
+      position: relative;
       z-index: 14;
       background: #ffffff;
       border-right: 1px solid #d9e2ec;
       box-shadow: 10px 0 14px rgba(15, 23, 42, 0.10);
-      overflow: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .forecast-project-fixed::-webkit-scrollbar {
+      display: none;
     }
 
     .forecast-detail-scroll {
       min-width: 0;
-      overflow-x: auto;
-      overflow-y: visible;
+      height: 100%;
+      max-height: 100%;
+      overflow: auto;
       background: #ffffff;
     }
 
@@ -1291,6 +1299,7 @@ let filteredDrawRows = [];
 let approvedInvoiceRows = [];
 
 window.addEventListener('load', async () => {
+  setupForecastScrollSync();
   await loadAccountingPage();
 });
 
@@ -1674,6 +1683,44 @@ function syncForecastRowHeights() {
     });
   });
 }
+
+function setupForecastScrollSync() {
+  const projectPane = document.querySelector('.forecast-project-fixed');
+  const detailPane = document.querySelector('.forecast-detail-scroll');
+
+  if (!projectPane || !detailPane) {
+    return;
+  }
+
+  let isSyncing = false;
+
+  detailPane.addEventListener('scroll', () => {
+    if (isSyncing) {
+      return;
+    }
+
+    isSyncing = true;
+    projectPane.scrollTop = detailPane.scrollTop;
+
+    window.requestAnimationFrame(() => {
+      isSyncing = false;
+    });
+  });
+
+  projectPane.addEventListener('scroll', () => {
+    if (isSyncing) {
+      return;
+    }
+
+    isSyncing = true;
+    detailPane.scrollTop = projectPane.scrollTop;
+
+    window.requestAnimationFrame(() => {
+      isSyncing = false;
+    });
+  });
+}
+
 
 function renderApprovedForInvoicingQueue(rows) {
   approvedInvoiceRows = (rows || [])
