@@ -310,6 +310,113 @@
       box-shadow: 0 0 0 3px rgba(26,163,176,0.15);
     }
 
+    select {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 15px;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(26,163,176,0.15);
+    }
+
+    .secondary-card {
+      margin-top: 22px;
+    }
+
+    .browse-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .browse-btn {
+      background: var(--accent);
+      color: white;
+      width: 100%;
+      margin-top: 0;
+    }
+
+    .browse-clear-btn {
+      background: #e2e8f0;
+      color: var(--text);
+      width: 100%;
+      margin-top: 0;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 12px;
+      background: white;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 680px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #edf2f7;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f0f4f8;
+      color: var(--header);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .select-part-btn {
+      background: var(--header);
+      color: white;
+      padding: 8px 10px;
+      margin: 0;
+      width: auto;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .status-message {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 10px;
+      line-height: 1.45;
+    }
+
+    .status-message.error {
+      color: #b42318;
+      font-weight: bold;
+    }
+
+    .status-message.success {
+      color: #027a48;
+      font-weight: bold;
+    }
+
     button {
       padding: 12px 18px;
       border: none;
@@ -448,6 +555,26 @@
         padding: 13px;
       }
 
+      select {
+        font-size: 16px;
+        padding: 13px;
+      }
+
+      .browse-actions {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        font-size: 12px;
+        min-width: 620px;
+      }
+
+      .select-part-btn {
+        width: auto;
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+
       button {
         width: 100%;
         padding: 14px;
@@ -573,6 +700,53 @@
 
     </div>
 
+    <div class="card secondary-card">
+
+      <h2>Browse Parts by Category</h2>
+
+      <label>Category:</label>
+      <select id="categorySelect">
+        <option value="">Loading categories...</option>
+      </select>
+
+      <div class="help-text">
+        Select a category to list matching parts, then select a part to run the same stock lookup above.
+      </div>
+
+      <div class="browse-actions">
+        <button class="browse-btn" onclick="loadPartsForSelectedCategory()">LOAD PARTS IN CATEGORY</button>
+        <button class="browse-clear-btn" onclick="clearCategoryBrowse()">CLEAR CATEGORY BROWSE</button>
+      </div>
+
+      <label>Filter Listed Parts:</label>
+      <input id="categoryPartFilter" placeholder="Filter by part number or description..." autocomplete="off" oninput="renderCategoryPartsTable()">
+
+      <div id="categoryBrowseStatus" class="status-message">
+        Select a category to browse parts.
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Part Number</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Total Qty</th>
+              <th>Serialized</th>
+            </tr>
+          </thead>
+          <tbody id="categoryPartsBody">
+            <tr>
+              <td colspan="6">No category selected.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
   </div>
     </main>
   </div>
@@ -586,6 +760,8 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const INVENTORY_SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
 
 let partsData = [];
+let categoryBrowseRows = [];
+let categoryBrowseField = 'category';
 
 document.addEventListener('DOMContentLoaded', () => {
   initializeInventorySidebar();
@@ -741,6 +917,252 @@ async function lookupInventoryPart() {
   document.getElementById('lookupResult').textContent = output;
 }
 
+async function detectCategoryField() {
+  const candidateFields = ['category', 'category_name', 'part_category'];
+
+  for (const field of candidateFields) {
+    const { data, error } = await client
+      .from('inventory_part_lookup_view')
+      .select(`part_number, description, ${field}, quantity_on_hand, is_serialized`)
+      .limit(1);
+
+    if (!error) {
+      categoryBrowseField = field;
+      return field;
+    }
+  }
+
+  throw new Error('No category field was found on inventory_part_lookup_view.');
+}
+
+async function fetchInventoryLookupRows(fieldName, categoryValue) {
+  let allRows = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    let query = client
+      .from('inventory_part_lookup_view')
+      .select(`part_number, description, ${fieldName}, quantity_on_hand, is_serialized`)
+      .order(fieldName, { ascending: true })
+      .order('part_number', { ascending: true })
+      .range(from, from + batchSize - 1);
+
+    if (categoryValue) {
+      query = query.eq(fieldName, categoryValue);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allRows = allRows.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  return allRows;
+}
+
+async function loadServiceCategories() {
+  const categorySelect = document.getElementById('categorySelect');
+  const status = document.getElementById('categoryBrowseStatus');
+
+  try {
+    categorySelect.innerHTML = '<option value="">Loading categories...</option>';
+    status.textContent = 'Loading categories...';
+    status.className = 'status-message';
+
+    const fieldName = await detectCategoryField();
+    const rows = await fetchInventoryLookupRows(fieldName, null);
+
+    const categories = [...new Set(
+      rows
+        .map(row => String(row[fieldName] || '').trim())
+        .filter(value => value.length > 0)
+    )].sort((a, b) => a.localeCompare(b));
+
+    categorySelect.innerHTML = '<option value="">Select category...</option>';
+
+    categories.forEach(category => {
+      const option = document.createElement('option');
+      option.value = category;
+      option.textContent = category;
+      categorySelect.appendChild(option);
+    });
+
+    if (categories.length === 0) {
+      status.textContent = 'No categories were found.';
+    } else {
+      status.textContent = `Loaded ${categories.length} categories. Select one to browse matching parts.`;
+      status.className = 'status-message success';
+    }
+  } catch (error) {
+    console.error('Category load error:', error);
+    categorySelect.innerHTML = '<option value="">Category load error</option>';
+    status.textContent = 'Category load error: ' + error.message;
+    status.className = 'status-message error';
+  }
+}
+
+async function loadPartsForSelectedCategory() {
+  const categorySelect = document.getElementById('categorySelect');
+  const selectedCategory = categorySelect.value;
+  const status = document.getElementById('categoryBrowseStatus');
+  const tbody = document.getElementById('categoryPartsBody');
+
+  if (!selectedCategory) {
+    status.textContent = 'Please select a category first.';
+    status.className = 'status-message error';
+    tbody.innerHTML = '<tr><td colspan="6">No category selected.</td></tr>';
+    return;
+  }
+
+  status.textContent = 'Loading parts for selected category...';
+  status.className = 'status-message';
+  tbody.innerHTML = '<tr><td colspan="6">Loading parts...</td></tr>';
+
+  try {
+    const fieldName = categoryBrowseField || await detectCategoryField();
+    const rows = await fetchInventoryLookupRows(fieldName, selectedCategory);
+
+    const partMap = new Map();
+
+    rows.forEach(row => {
+      const partNumber = String(row.part_number || '').trim();
+
+      if (!partNumber) {
+        return;
+      }
+
+      if (!partMap.has(partNumber)) {
+        partMap.set(partNumber, {
+          part_number: partNumber,
+          description: row.description || '',
+          category: row[fieldName] || '',
+          quantity_on_hand: 0,
+          is_serialized: Boolean(row.is_serialized)
+        });
+      }
+
+      const existing = partMap.get(partNumber);
+      existing.quantity_on_hand += Number(row.quantity_on_hand || 0);
+      existing.is_serialized = existing.is_serialized || Boolean(row.is_serialized);
+    });
+
+    categoryBrowseRows = Array.from(partMap.values())
+      .sort((a, b) => a.part_number.localeCompare(b.part_number));
+
+    renderCategoryPartsTable();
+
+    status.textContent = `Loaded ${categoryBrowseRows.length} parts in ${selectedCategory}.`;
+    status.className = 'status-message success';
+  } catch (error) {
+    console.error('Category part load error:', error);
+    categoryBrowseRows = [];
+    status.textContent = 'Part load error: ' + error.message;
+    status.className = 'status-message error';
+    tbody.innerHTML = '<tr><td colspan="6">Unable to load category parts.</td></tr>';
+  }
+}
+
+function renderCategoryPartsTable() {
+  const tbody = document.getElementById('categoryPartsBody');
+  const filterText = String(document.getElementById('categoryPartFilter').value || '').trim().toLowerCase();
+
+  let rows = categoryBrowseRows;
+
+  if (filterText) {
+    rows = rows.filter(row => {
+      const partNumber = String(row.part_number || '').toLowerCase();
+      const description = String(row.description || '').toLowerCase();
+      return partNumber.includes(filterText) || description.includes(filterText);
+    });
+  }
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6">No matching parts found.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+
+    const actionTd = document.createElement('td');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'select-part-btn';
+    button.textContent = 'SELECT PART';
+    button.onclick = () => selectCategoryPart(row.part_number);
+    actionTd.appendChild(button);
+
+    const partTd = document.createElement('td');
+    partTd.textContent = row.part_number || '';
+
+    const descriptionTd = document.createElement('td');
+    descriptionTd.textContent = row.description || '';
+
+    const categoryTd = document.createElement('td');
+    categoryTd.textContent = row.category || '';
+
+    const quantityTd = document.createElement('td');
+    quantityTd.textContent = Number(row.quantity_on_hand || 0);
+
+    const serializedTd = document.createElement('td');
+    serializedTd.textContent = row.is_serialized ? 'YES' : 'NO';
+
+    tr.appendChild(actionTd);
+    tr.appendChild(partTd);
+    tr.appendChild(descriptionTd);
+    tr.appendChild(categoryTd);
+    tr.appendChild(quantityTd);
+    tr.appendChild(serializedTd);
+
+    tbody.appendChild(tr);
+  });
+}
+
+async function selectCategoryPart(partNumber) {
+  document.getElementById('lookupPart').value = partNumber;
+  await lookupInventoryPart();
+
+  const lookupResult = document.getElementById('lookupResult');
+
+  if (lookupResult) {
+    lookupResult.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest'
+    });
+  }
+}
+
+function clearCategoryBrowse() {
+  const categorySelect = document.getElementById('categorySelect');
+  const filterInput = document.getElementById('categoryPartFilter');
+  const status = document.getElementById('categoryBrowseStatus');
+  const tbody = document.getElementById('categoryPartsBody');
+
+  categorySelect.value = '';
+  filterInput.value = '';
+  categoryBrowseRows = [];
+
+  status.textContent = 'Select a category to browse parts.';
+  status.className = 'status-message';
+  tbody.innerHTML = '<tr><td colspan="6">No category selected.</td></tr>';
+}
+
 function formatCurrency(value) {
   return Number(value || 0).toLocaleString('en-US', {
     style: 'currency',
@@ -749,6 +1171,7 @@ function formatCurrency(value) {
 }
 
 loadParts();
+loadServiceCategories();
 </script>
 
 </body>
