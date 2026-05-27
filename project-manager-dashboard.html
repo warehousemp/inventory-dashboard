@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>PM Dashboard - Projects Command Center</title>
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --green: #16a34a;
+      --blue: #2563eb;
+      --orange: #f97316;
+      --purple: #7c3aed;
+      --red: #dc2626;
+      --yellow: #eab308;
+      --teal: #0d9488;
+      --gray: #64748b;
+      --sidebar-width: 230px;
+      --sidebar-collapsed-width: 66px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) 1fr;
+      min-height: 100vh;
+      transition: grid-template-columns 0.2s ease;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-collapsed-width) 1fr;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      transition: width 0.2s ease;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 70px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+      flex: 0 0 auto;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+      white-space: nowrap;
+      transition: opacity 0.15s ease, width 0.15s ease;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .sidebar-toggle-wrap {
+      padding: 12px 12px 4px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(26,163,176,0.34);
+      border-color: rgba(255,255,255,0.42);
+    }
+
+    .sidebar-toggle span {
+      width: 17px;
+      height: 2px;
+      border-radius: 999px;
+      background: white;
+      display: block;
+    }
+
+    .side-nav { padding: 8px 10px 14px; }
+
+    .side-nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      min-height: 44px;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+    }
+
+    .nav-icon {
+      width: 20px;
+      min-width: 20px;
+      text-align: center;
+      opacity: 0.95;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-label {
+      transition: opacity 0.15s ease, width 0.15s ease;
+      overflow: hidden;
+    }
+
+    .app-shell.sidebar-collapsed .brand {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .app-shell.sidebar-collapsed .brand-text {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav a {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+      gap: 0;
+    }
+
+    .app-shell.sidebar-collapsed .nav-label {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+    }
+
+    .main { min-width: 0; }
+
+    .topbar {
+      background: var(--header);
+      color: white;
+      padding: 12px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      box-shadow: 0 2px 12px rgba(15,23,42,0.18);
+    }
+
+    .topbar-title h1 {
+      font-size: 20px;
+      margin: 0;
+      font-weight: 800;
+    }
+
+    .topbar-title p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      opacity: 0.88;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .topbar-pill {
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .content {
+      padding: 22px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .filter-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      display: grid;
+      grid-template-columns: minmax(220px, 320px) 1fr auto auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      margin-bottom: 6px;
+    }
+
+    button {
+      border: 1px solid var(--header);
+      background: var(--header);
+      border-radius: 9px;
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 13px;
+      color: white;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    button:hover { opacity: 0.92; }
+
+    button.secondary {
+      background: white;
+      color: var(--header);
+      border-color: var(--border);
+    }
+
+    button.small {
+      padding: 7px 9px;
+      font-size: 11px;
+      border-radius: 8px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 8px 9px;
+      font-size: 12px;
+      background: white;
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    input:focus,
+    select:focus {
+      outline: 2px solid rgba(26,163,176,0.22);
+      border-color: var(--accent);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(125px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .summary-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      min-height: 116px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      border-top: 5px solid var(--header);
+    }
+
+    .summary-card.blue { border-top-color: var(--blue); }
+    .summary-card.green { border-top-color: var(--green); }
+    .summary-card.orange { border-top-color: var(--orange); }
+    .summary-card.red { border-top-color: var(--red); }
+    .summary-card.purple { border-top-color: var(--purple); }
+    .summary-card.teal { border-top-color: var(--teal); }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      min-height: 28px;
+    }
+
+    .summary-value {
+      font-size: 30px;
+      font-weight: 900;
+      color: #111827;
+      line-height: 1.05;
+      margin-top: 8px;
+    }
+
+    .summary-sub {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .table-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .card-header {
+      padding: 14px 16px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      border-bottom: 1px solid #eef2f7;
+    }
+
+    .card-header h2 {
+      margin: 0;
+      color: #102a43;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .project-small {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 3px;
+      line-height: 1.3;
+    }
+
+    .table-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      padding: 0 14px 14px;
+    }
+
+    .table-scroll {
+      max-height: 390px;
+      overflow: auto;
+      border-top: 1px solid #f4f6f8;
+    }
+
+    .activity-scroll {
+      max-height: 460px;
+      overflow: auto;
+      border-top: 1px solid #f4f6f8;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1120px;
+    }
+
+    .activity-table { min-width: 1280px; }
+    .alerts-table { min-width: 1180px; }
+
+    th {
+      text-align: left;
+      color: #475467;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.35px;
+      padding: 10px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      white-space: nowrap;
+      background: white;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #eef2f7;
+      font-size: 12px;
+      vertical-align: middle;
+      white-space: nowrap;
+      background: white;
+    }
+
+    tr:hover td { background: #f8fafc; }
+
+    .project-name {
+      font-weight: 800;
+      color: #0b3c5d;
+      display: block;
+    }
+
+    a.mini-link,
+    .mini-link {
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    a.mini-link:hover,
+    .mini-link:hover { text-decoration: underline; }
+
+    .wide-text {
+      white-space: normal;
+      min-width: 250px;
+      line-height: 1.35;
+    }
+
+    .notes-preview-cell {
+      min-width: 260px;
+      max-width: 360px;
+      white-space: normal;
+      line-height: 1.35;
+    }
+
+    .note-preview {
+      display: block;
+      color: #344054;
+      margin-bottom: 6px;
+    }
+
+    .pill,
+    .severity-pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      border: 1px solid transparent;
+    }
+
+    .severity-pill {
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.25px;
+    }
+
+    .pill.green,
+    .severity-pill.low {
+      color: #166534;
+      background: #ecfdf3;
+      border-color: #bbf7d0;
+    }
+
+    .pill.blue {
+      color: #1d4ed8;
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    .pill.orange,
+    .severity-pill.medium {
+      color: #9a3412;
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+
+    .pill.red,
+    .severity-pill.high {
+      color: #b42318;
+      background: #fef3f2;
+      border-color: #fecdca;
+    }
+
+    .pill.purple {
+      color: #6d28d9;
+      background: #f5f3ff;
+      border-color: #ddd6fe;
+    }
+
+    .pill.gray {
+      color: #475467;
+      background: #f2f4f7;
+      border-color: #e4e7ec;
+    }
+
+    .page-message {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      display: none;
+    }
+
+    .page-message.info {
+      display: block;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .page-message.error {
+      display: block;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: #b42318;
+    }
+
+    .page-message.success {
+      display: block;
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 18px;
+    }
+
+    .modal-backdrop.show { display: flex; }
+
+    .modal {
+      background: white;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 18px 50px rgba(15,23,42,0.28);
+      width: min(760px, 100%);
+      max-height: 82vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      padding: 16px;
+      border-bottom: 1px solid #eef2f7;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 17px;
+      color: #102a43;
+    }
+
+    .modal-body {
+      padding: 16px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.45;
+      font-size: 13px;
+      color: #344054;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 18px;
+    }
+
+    @media (max-width: 1320px) {
+      .summary-grid { grid-template-columns: repeat(4, 1fr); }
+      .section-grid { grid-template-columns: 1fr; }
+      .filter-card { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell,
+      .app-shell.sidebar-collapsed {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .brand {
+        min-height: auto;
+      }
+
+      .sidebar-toggle-wrap {
+        display: none;
+      }
+
+      .app-shell.sidebar-collapsed .brand {
+        justify-content: flex-start;
+        padding: 18px 18px 16px;
+      }
+
+      .app-shell.sidebar-collapsed .brand-text {
+        opacity: 1;
+        width: auto;
+      }
+
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        padding: 14px 10px;
+      }
+
+      .side-nav a,
+      .app-shell.sidebar-collapsed .side-nav a {
+        justify-content: flex-start;
+        padding: 12px 12px;
+        gap: 10px;
+      }
+
+      .app-shell.sidebar-collapsed .nav-label {
+        opacity: 1;
+        width: auto;
+      }
+
+      .topbar {
+        position: relative;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .topbar-actions { justify-content: flex-start; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .filter-card { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 520px) {
+      .content { padding: 14px; }
+      .summary-grid { grid-template-columns: 1fr; }
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">MP</div>
+        <div class="brand-text">
+          <strong>MOLINARI</strong>
+          <span>POOLS</span>
+        </div>
+      </div>
+
+      <div class="sidebar-toggle-wrap">
+        <button class="sidebar-toggle" id="sidebarToggle" type="button" title="Collapse" aria-label="Collapse sidebar" aria-expanded="true">
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <nav class="side-nav" aria-label="Projects navigation">
+        <a href="projects-command.html" title="Projects Home">
+          <span class="nav-icon">◆</span>
+          <span class="nav-label">Projects Home</span>
+        </a>
+
+        <a href="dashboard.html" title="Dashboard">
+          <span class="nav-icon">⌂</span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+
+        <a class="active" href="project-manager-dashboard.html" title="PM Dashboard">
+          <span class="nav-icon">◇</span>
+          <span class="nav-label">PM Dashboard</span>
+        </a>
+
+        <a href="projects-board.html" title="Production Workflow">
+          <span class="nav-icon">▦</span>
+          <span class="nav-label">Production Workflow</span>
+        </a>
+
+        <a href="project-gantt.html" title="Production Schedule">
+          <span class="nav-icon">▥</span>
+          <span class="nav-label">Production Schedule</span>
+        </a>
+
+        <a href="add-new-client-project.html" title="Add New Client Project">
+          <span class="nav-icon">＋</span>
+          <span class="nav-label">Add New Client Project</span>
+        </a>
+
+        <a href="project-setup.html" title="Project Setup">
+          <span class="nav-icon">▤</span>
+          <span class="nav-label">Project Setup</span>
+        </a>
+
+        <a href="projects.html" title="Active Projects">
+          <span class="nav-icon">▣</span>
+          <span class="nav-label">Active Projects</span>
+        </a>
+
+        <a href="project-accounting.html" title="Accounting Draws">
+          <span class="nav-icon">$</span>
+          <span class="nav-label">Accounting Draws</span>
+        </a>
+
+        <a href="project-documents.html" title="Documents">
+          <span class="nav-icon">□</span>
+          <span class="nav-label">Documents</span>
+        </a>
+
+        <a href="project-admin.html" title="Admin">
+          <span class="nav-icon">⚙</span>
+          <span class="nav-label">Admin</span>
+        </a>
+
+        <a href="index.html" title="Main Menu">
+          <span class="nav-icon">↩</span>
+          <span class="nav-label">Main Menu</span>
+        </a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-title">
+          <h1>Project Manager Dashboard</h1>
+          <p>Daily / weekly production control board</p>
+        </div>
+
+        <div class="topbar-actions">
+          <span class="topbar-pill" id="selectedPmLabel">All Project Managers</span>
+          <span class="topbar-pill" id="lastUpdatedLabel">Loading...</span>
+        </div>
+      </header>
+
+      <section class="content">
+        <section class="filter-card">
+          <div>
+            <label class="field-label" for="pmFilter">Project Manager</label>
+            <select id="pmFilter" onchange="applyFiltersAndRender()">
+              <option value="">All Project Managers</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="field-label" for="searchInput">Search</label>
+            <input id="searchInput" type="text" placeholder="Search project, client, phase, notes, alert..." oninput="applyFiltersAndRender()">
+          </div>
+
+          <button type="button" onclick="loadDashboard()">Refresh Dashboard</button>
+          <button class="secondary" type="button" onclick="clearFilters()">Clear Filters</button>
+        </section>
+
+        <div id="pageMessage" class="page-message info">Loading PM dashboard data...</div>
+
+        <section class="summary-grid">
+          <div class="summary-card teal">
+            <div class="summary-label">Active Projects</div>
+            <div class="summary-value" id="activeProjectsValue">0</div>
+            <div class="summary-sub">Assigned active production projects</div>
+          </div>
+
+          <div class="summary-card blue">
+            <div class="summary-label">Current Work</div>
+            <div class="summary-value" id="currentWorkValue">0</div>
+            <div class="summary-sub">Current production phase items</div>
+          </div>
+
+          <div class="summary-card green">
+            <div class="summary-label">Active Today</div>
+            <div class="summary-value" id="activeTodayValue">0</div>
+            <div class="summary-sub">Open tasks overlapping today</div>
+          </div>
+
+          <div class="summary-card purple">
+            <div class="summary-label">Starting This Week</div>
+            <div class="summary-value" id="startingWeekValue">0</div>
+            <div class="summary-sub">Open tasks starting in next 7 days</div>
+          </div>
+
+          <div class="summary-card orange">
+            <div class="summary-label">Ending This Week</div>
+            <div class="summary-value" id="endingWeekValue">0</div>
+            <div class="summary-sub">Open tasks due in next 7 days</div>
+          </div>
+
+          <div class="summary-card red">
+            <div class="summary-label">Past Due</div>
+            <div class="summary-value" id="pastDueValue">0</div>
+            <div class="summary-sub">Open tasks past dashboard end date</div>
+          </div>
+
+          <div class="summary-card orange">
+            <div class="summary-label">Missing Info</div>
+            <div class="summary-value" id="missingInfoValue">0</div>
+            <div class="summary-sub">Subcontractor or inspection info needed</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="summary-label">Adjusted Tasks</div>
+            <div class="summary-value" id="adjustedTasksValue">0</div>
+            <div class="summary-sub">Tasks affected by schedule movement</div>
+          </div>
+        </section>
+
+        <section class="section-grid">
+          <section class="table-card">
+            <div class="card-header">
+              <div>
+                <h2>Current Active Work</h2>
+                <span class="project-small">Current production task for each active project.</span>
+              </div>
+              <div class="table-actions">
+                <button class="secondary small" type="button" onclick="exportRows('current')">Export CSV</button>
+              </div>
+            </div>
+            <div class="table-wrap table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>PM</th>
+                    <th>Project</th>
+                    <th>Client</th>
+                    <th>Current Phase</th>
+                    <th>Dashboard Dates</th>
+                    <th>Status</th>
+                    <th>Schedule</th>
+                  </tr>
+                </thead>
+                <tbody id="currentWorkBody">
+                  <tr><td colspan="7">Loading current work...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="table-card">
+            <div class="card-header">
+              <div>
+                <h2>Starting This Week</h2>
+                <span class="project-small">Open tasks scheduled to start in the next 7 days.</span>
+              </div>
+              <div class="table-actions">
+                <button class="secondary small" type="button" onclick="exportRows('starting')">Export CSV</button>
+              </div>
+            </div>
+            <div class="table-wrap table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>PM</th>
+                    <th>Project</th>
+                    <th>Client</th>
+                    <th>Task</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="startingWeekBody">
+                  <tr><td colspan="7">Loading upcoming starts...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="section-grid">
+          <section class="table-card">
+            <div class="card-header">
+              <div>
+                <h2>Ending This Week</h2>
+                <span class="project-small">Open tasks scheduled to end in the next 7 days.</span>
+              </div>
+              <div class="table-actions">
+                <button class="secondary small" type="button" onclick="exportRows('ending')">Export CSV</button>
+              </div>
+            </div>
+            <div class="table-wrap table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>PM</th>
+                    <th>Project</th>
+                    <th>Client</th>
+                    <th>Task</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="endingWeekBody">
+                  <tr><td colspan="7">Loading tasks ending this week...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="table-card">
+            <div class="card-header">
+              <div>
+                <h2>Delayed / Missing Information</h2>
+                <span class="project-small">Past-due tasks, missing subcontractors, missing inspection info, and schedule adjustments.</span>
+              </div>
+              <div class="table-actions">
+                <button class="secondary small" type="button" onclick="exportRows('attention')">Export CSV</button>
+              </div>
+            </div>
+            <div class="table-wrap table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>PM</th>
+                    <th>Project</th>
+                    <th>Task</th>
+                    <th>Issue</th>
+                    <th>Dates</th>
+                    <th>Schedule</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="attentionBody">
+                  <tr><td colspan="7">Loading attention items...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section class="table-card">
+          <div class="card-header">
+            <div>
+              <h2>Project Alerts</h2>
+              <span class="project-small">Operational alerts filtered by Project Manager.</span>
+            </div>
+            <div class="table-actions">
+              <button class="secondary small" type="button" onclick="exportRows('alerts')">Export CSV</button>
+            </div>
+          </div>
+          <div class="table-wrap table-scroll">
+            <table class="alerts-table">
+              <thead>
+                <tr>
+                  <th>Severity</th>
+                  <th>PM</th>
+                  <th>Alert</th>
+                  <th>Project</th>
+                  <th>Current Phase</th>
+                  <th>Related Item</th>
+                  <th>Message</th>
+                </tr>
+              </thead>
+              <tbody id="alertsBody">
+                <tr><td colspan="7">Loading alerts...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="table-card">
+          <div class="card-header">
+            <div>
+              <h2>Recent Notes / Activity</h2>
+              <span class="project-small">Compact notes preview with full note available through View Notes. Full notes are preserved in CSV exports.</span>
+            </div>
+            <div class="table-actions">
+              <button class="secondary small" type="button" onclick="exportRows('activity')">Export CSV</button>
+            </div>
+          </div>
+          <div class="table-wrap activity-scroll">
+            <table class="activity-table">
+              <thead>
+                <tr>
+                  <th>PM</th>
+                  <th>Project</th>
+                  <th>Client</th>
+                  <th>Current Phase</th>
+                  <th>Note Type</th>
+                  <th>Note Preview</th>
+                  <th>Created By</th>
+                  <th>Created At</th>
+                </tr>
+              </thead>
+              <tbody id="activityBody">
+                <tr><td colspan="8">Loading recent activity...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="footer">
+          © 2026 Molinari Pools. All rights reserved.
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="notesModalBackdrop" onclick="handleModalBackdropClick(event)">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="notesModalTitle">
+      <div class="modal-header">
+        <div>
+          <h3 id="notesModalTitle">Notes</h3>
+          <span class="project-small" id="notesModalSubtitle"></span>
+        </div>
+        <button class="secondary small" type="button" onclick="closeNotesModal()">Close</button>
+      </div>
+      <div class="modal-body" id="notesModalBody"></div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  const STORAGE_KEY = "projectsSidebarCollapsed";
+  const appShell = document.getElementById("appShell");
+  const toggle = document.getElementById("sidebarToggle");
+
+  if (!appShell || !toggle) {
+    return;
+  }
+
+  function applySidebarState(collapsed) {
+    appShell.classList.toggle("sidebar-collapsed", collapsed);
+
+    toggle.title = collapsed ? "Expand" : "Collapse";
+    toggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+  }
+
+  function getSavedState() {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === "true";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function saveState(collapsed) {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(collapsed));
+    } catch (error) {
+      // Ignore localStorage errors so navigation remains usable.
+    }
+  }
+
+  applySidebarState(getSavedState());
+
+  toggle.addEventListener("click", function () {
+    const collapsed = !appShell.classList.contains("sidebar-collapsed");
+    applySidebarState(collapsed);
+    saveState(collapsed);
+  });
+})();
+
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let summaryRows = [];
+let scheduleRows = [];
+let alertRows = [];
+let activityRows = [];
+
+let renderedRows = {
+  current: [],
+  starting: [],
+  ending: [],
+  attention: [],
+  alerts: [],
+  activity: []
+};
+
+window.addEventListener('load', async () => {
+  await loadDashboard();
+});
+
+async function loadDashboard() {
+  setPageMessage('info', 'Loading PM dashboard data...');
+
+  const summaryResult = await client
+    .from('project_pm_dashboard_summary_view')
+    .select('*')
+    .order('project_manager', { ascending: true })
+    .limit(500);
+
+  if (summaryResult.error) {
+    handleLoadError('PM summary error: ' + summaryResult.error.message);
+    return;
+  }
+
+  const scheduleResult = await client
+    .from('project_pm_dashboard_schedule_view')
+    .select('*')
+    .order('project_manager', { ascending: true })
+    .order('project_number', { ascending: true })
+    .order('sort_order', { ascending: true })
+    .limit(5000);
+
+  if (scheduleResult.error) {
+    handleLoadError('PM schedule error: ' + scheduleResult.error.message);
+    return;
+  }
+
+  const alertsResult = await client
+    .from('project_dashboard_operations_alerts_view')
+    .select('*')
+    .order('alert_severity', { ascending: true })
+    .order('project_number', { ascending: true })
+    .limit(1000);
+
+  if (alertsResult.error) {
+    handleLoadError('Project alerts error: ' + alertsResult.error.message);
+    return;
+  }
+
+  const activityResult = await client
+    .from('project_pm_dashboard_activity_view')
+    .select('*')
+    .order('sort_at', { ascending: false })
+    .limit(1000);
+
+  if (activityResult.error) {
+    handleLoadError('PM activity error: ' + activityResult.error.message);
+    return;
+  }
+
+  summaryRows = summaryResult.data || [];
+  scheduleRows = scheduleResult.data || [];
+  alertRows = sortAlerts(alertsResult.data || []);
+  activityRows = activityResult.data || [];
+
+  populatePmFilter(summaryRows);
+  applyFiltersAndRender();
+
+  setPageMessage('', '');
+  document.getElementById('lastUpdatedLabel').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+function handleLoadError(message) {
+  setPageMessage('error', message);
+  renderSummaryCards([]);
+  renderTableBody('currentWorkBody', 7, 'Unable to load current work.');
+  renderTableBody('startingWeekBody', 7, 'Unable to load starting this week.');
+  renderTableBody('endingWeekBody', 7, 'Unable to load ending this week.');
+  renderTableBody('attentionBody', 7, 'Unable to load delayed / missing information.');
+  renderTableBody('alertsBody', 7, 'Unable to load project alerts.');
+  renderTableBody('activityBody', 8, 'Unable to load recent activity.');
+}
+
+function populatePmFilter(rows) {
+  const select = document.getElementById('pmFilter');
+
+  if (!select) {
+    return;
+  }
+
+  const currentValue = select.value;
+  const pms = Array.from(new Set((rows || [])
+    .map(row => String(row.project_manager || '').trim())
+    .filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b));
+
+  select.innerHTML = '<option value="">All Project Managers</option>' +
+    pms.map(pm => `<option value="${escapeAttribute(pm)}">${escapeHTML(pm)}</option>`).join('');
+
+  if (currentValue && pms.includes(currentValue)) {
+    select.value = currentValue;
+  }
+}
+
+function clearFilters() {
+  const pmFilter = document.getElementById('pmFilter');
+  const searchInput = document.getElementById('searchInput');
+
+  if (pmFilter) pmFilter.value = '';
+  if (searchInput) searchInput.value = '';
+
+  applyFiltersAndRender();
+}
+
+function applyFiltersAndRender() {
+  const selectedPm = String(document.getElementById('pmFilter')?.value || '').trim();
+  const searchValue = String(document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+
+  document.getElementById('selectedPmLabel').textContent = selectedPm || 'All Project Managers';
+
+  const filteredSummaryRows = summaryRows.filter(row => {
+    return !selectedPm || String(row.project_manager || '') === selectedPm;
+  });
+
+  const filteredScheduleRows = scheduleRows.filter(row => {
+    return matchesFilters(row, selectedPm, searchValue);
+  });
+
+  const filteredAlertRows = alertRows.filter(row => {
+    return matchesFilters(row, selectedPm, searchValue);
+  });
+
+  const filteredActivityRows = activityRows.filter(row => {
+    return matchesFilters(row, selectedPm, searchValue);
+  });
+
+  renderSummaryCards(filteredSummaryRows, filteredScheduleRows);
+  renderCurrentWork(filteredScheduleRows);
+  renderStartingThisWeek(filteredScheduleRows);
+  renderEndingThisWeek(filteredScheduleRows);
+  renderAttentionItems(filteredScheduleRows);
+  renderAlerts(filteredAlertRows);
+  renderActivity(filteredActivityRows);
+}
+
+function matchesFilters(row, selectedPm, searchValue) {
+  if (selectedPm && String(row.project_manager || '') !== selectedPm) {
+    return false;
+  }
+
+  if (!searchValue) {
+    return true;
+  }
+
+  const haystack = [
+    row.project_number,
+    row.project_name,
+    row.client_name,
+    row.project_type,
+    row.project_status,
+    row.project_manager,
+    row.project_coordinator,
+    row.current_production_phase,
+    row.task_name,
+    row.task_status,
+    row.schedule_health_status,
+    row.assigned_subcontractor,
+    row.inspection_status,
+    row.notes,
+    row.alert_type,
+    row.alert_title,
+    row.alert_message,
+    row.related_item,
+    row.note_type,
+    row.note_text,
+    row.created_by
+  ].join(' ').toLowerCase();
+
+  return haystack.includes(searchValue);
+}
+
+function renderSummaryCards(rows, filteredScheduleRows = null) {
+  const summary = (rows || []).reduce((acc, row) => {
+    acc.active_project_count += Number(row.active_project_count || 0);
+    acc.current_work_count += Number(row.current_work_count || 0);
+    acc.active_today_count += Number(row.active_today_count || 0);
+    acc.starting_this_week_count += Number(row.starting_this_week_count || 0);
+    acc.ending_this_week_count += Number(row.ending_this_week_count || 0);
+    acc.past_due_count += Number(row.past_due_count || 0);
+    acc.missing_info_count += Number(row.missing_info_count || 0);
+    acc.adjusted_task_count += Number(row.adjusted_task_count || 0);
+    return acc;
+  }, {
+    active_project_count: 0,
+    current_work_count: 0,
+    active_today_count: 0,
+    starting_this_week_count: 0,
+    ending_this_week_count: 0,
+    past_due_count: 0,
+    missing_info_count: 0,
+    adjusted_task_count: 0
+  });
+
+  if (Array.isArray(filteredScheduleRows)) {
+    summary.active_project_count = new Set(filteredScheduleRows.map(row => row.project_id || row.project_number).filter(Boolean)).size;
+    summary.current_work_count = filteredScheduleRows.filter(row => row.is_current_work === true).length;
+    summary.active_today_count = filteredScheduleRows.filter(row => row.is_active_today === true).length;
+    summary.starting_this_week_count = filteredScheduleRows.filter(row => row.is_starting_this_week === true).length;
+    summary.ending_this_week_count = filteredScheduleRows.filter(row => row.is_ending_this_week === true).length;
+    summary.past_due_count = filteredScheduleRows.filter(row => row.is_past_due === true).length;
+    summary.missing_info_count = filteredScheduleRows.filter(row => row.is_missing_subcontractor === true || row.is_missing_inspection_info === true).length;
+    summary.adjusted_task_count = filteredScheduleRows.filter(row => row.has_schedule_adjustment === true).length;
+  }
+
+  setText('activeProjectsValue', summary.active_project_count);
+  setText('currentWorkValue', summary.current_work_count);
+  setText('activeTodayValue', summary.active_today_count);
+  setText('startingWeekValue', summary.starting_this_week_count);
+  setText('endingWeekValue', summary.ending_this_week_count);
+  setText('pastDueValue', summary.past_due_count);
+  setText('missingInfoValue', summary.missing_info_count);
+  setText('adjustedTasksValue', summary.adjusted_task_count);
+}
+
+function renderCurrentWork(rows) {
+  const currentRows = (rows || [])
+    .filter(row => row.is_current_work === true)
+    .sort(sortByPmProjectDate);
+
+  renderedRows.current = currentRows;
+
+  const tbody = document.getElementById('currentWorkBody');
+  tbody.innerHTML = '';
+
+  if (!currentRows.length) {
+    renderTableBody('currentWorkBody', 7, 'No current active work found for the selected filters.');
+    return;
+  }
+
+  currentRows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(row.project_manager || '')}</td>
+      <td>
+        <span class="project-name">${projectDetailLink(row.project_id, row.project_name || 'Unnamed Project')}</span>
+        <span class="project-small">${escapeHTML(row.project_number || '')}</span>
+      </td>
+      <td>${escapeHTML(row.client_name || '')}</td>
+      <td>
+        <span class="project-name">${escapeHTML(row.task_name || row.current_production_phase || '')}</span>
+        <span class="project-small">${escapeHTML(displayLabel(row.project_type || ''))}</span>
+      </td>
+      <td>${escapeHTML(formatDateRange(row.dashboard_start_date, row.dashboard_end_date))}</td>
+      <td>${statusPill(row.task_status)}</td>
+      <td>
+        ${statusPill(row.schedule_health_status)}
+        ${scheduleAdjustmentLabel(row)}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderStartingThisWeek(rows) {
+  const startingRows = (rows || [])
+    .filter(row => row.is_starting_this_week === true)
+    .sort(sortByPmDateProject);
+
+  renderedRows.starting = startingRows;
+
+  renderScheduleRows('startingWeekBody', startingRows, 'No open tasks are starting in the next 7 days.');
+}
+
+function renderEndingThisWeek(rows) {
+  const endingRows = (rows || [])
+    .filter(row => row.is_ending_this_week === true)
+    .sort(sortByPmDateProject);
+
+  renderedRows.ending = endingRows;
+
+  renderScheduleRows('endingWeekBody', endingRows, 'No open tasks are ending in the next 7 days.');
+}
+
+function renderScheduleRows(bodyId, rows, emptyMessage) {
+  const tbody = document.getElementById(bodyId);
+  tbody.innerHTML = '';
+
+  if (!rows.length) {
+    renderTableBody(bodyId, 7, emptyMessage);
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(row.project_manager || '')}</td>
+      <td>
+        <span class="project-name">${projectDetailLink(row.project_id, row.project_name || 'Unnamed Project')}</span>
+        <span class="project-small">${escapeHTML(row.project_number || '')}</span>
+      </td>
+      <td>${escapeHTML(row.client_name || '')}</td>
+      <td>${escapeHTML(row.task_name || '')}</td>
+      <td>${escapeHTML(formatDate(row.dashboard_start_date))}</td>
+      <td>${escapeHTML(formatDate(row.dashboard_end_date))}</td>
+      <td>${statusPill(row.task_status)} ${statusPill(row.schedule_health_status)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderAttentionItems(rows) {
+  const attentionRows = (rows || [])
+    .filter(row => {
+      return row.is_past_due === true ||
+        row.is_missing_subcontractor === true ||
+        row.is_missing_inspection_info === true ||
+        row.has_schedule_adjustment === true ||
+        String(row.schedule_health_status || '').toUpperCase().includes('DELAY') ||
+        String(row.schedule_health_status || '').toUpperCase().includes('BEHIND');
+    })
+    .sort(sortByPmDateProject);
+
+  renderedRows.attention = attentionRows;
+
+  const tbody = document.getElementById('attentionBody');
+  tbody.innerHTML = '';
+
+  if (!attentionRows.length) {
+    renderTableBody('attentionBody', 7, 'No delayed or missing-information items found.');
+    return;
+  }
+
+  attentionRows.forEach(row => {
+    const issues = buildIssueList(row);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(row.project_manager || '')}</td>
+      <td>
+        <span class="project-name">${projectDetailLink(row.project_id, row.project_name || 'Unnamed Project')}</span>
+        <span class="project-small">${escapeHTML(row.project_number || '')}</span>
+      </td>
+      <td>${escapeHTML(row.task_name || '')}</td>
+      <td class="wide-text">${issues.map(issue => statusPill(issue)).join(' ')}</td>
+      <td>${escapeHTML(formatDateRange(row.dashboard_start_date, row.dashboard_end_date))}</td>
+      <td>
+        ${statusPill(row.schedule_health_status)}
+        ${scheduleAdjustmentLabel(row)}
+      </td>
+      <td class="notes-preview-cell">${renderNotesPreview(row.notes, row.project_name, row.task_name)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function buildIssueList(row) {
+  const issues = [];
+
+  if (row.is_past_due === true) issues.push('Past Due');
+  if (row.is_missing_subcontractor === true) issues.push('Missing Subcontractor');
+  if (row.is_missing_inspection_info === true) issues.push('Missing Inspection');
+  if (row.has_schedule_adjustment === true) issues.push('Schedule Adjusted');
+
+  const health = String(row.schedule_health_status || '').toUpperCase();
+
+  if (health.includes('DELAY') || health.includes('BEHIND')) {
+    issues.push(row.schedule_health_status);
+  }
+
+  return issues.length ? issues : ['Needs Review'];
+}
+
+function renderAlerts(rows) {
+  const sortedRows = sortAlerts(rows || []);
+
+  renderedRows.alerts = sortedRows;
+
+  const tbody = document.getElementById('alertsBody');
+  tbody.innerHTML = '';
+
+  if (!sortedRows.length) {
+    renderTableBody('alertsBody', 7, 'No project alerts found for the selected filters.');
+    return;
+  }
+
+  sortedRows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${severityPill(row.alert_severity)}</td>
+      <td>${escapeHTML(row.project_manager || '')}</td>
+      <td>
+        <span class="project-name">${escapeHTML(row.alert_title || displayLabel(row.alert_type || ''))}</span>
+        <span class="project-small">${escapeHTML(displayLabel(row.alert_type || ''))}</span>
+      </td>
+      <td>
+        <span class="project-name">${projectDetailLink(row.project_id, row.project_name || 'Unnamed Project')}</span>
+        <span class="project-small">${escapeHTML(row.project_number || '')}</span>
+      </td>
+      <td>${escapeHTML(row.current_production_phase || '')}</td>
+      <td>${escapeHTML(row.related_item || '')}</td>
+      <td class="wide-text">${escapeHTML(row.alert_message || '')}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderActivity(rows) {
+  const sortedRows = [...(rows || [])].sort((a, b) => {
+    return new Date(b.sort_at || b.created_at || 0) - new Date(a.sort_at || a.created_at || 0);
+  });
+
+  renderedRows.activity = sortedRows;
+
+  const tbody = document.getElementById('activityBody');
+  tbody.innerHTML = '';
+
+  if (!sortedRows.length) {
+    renderTableBody('activityBody', 8, 'No recent notes or activity found for the selected filters.');
+    return;
+  }
+
+  sortedRows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(row.project_manager || '')}</td>
+      <td>
+        <span class="project-name">${projectDetailLink(row.project_id, row.project_name || 'Unnamed Project')}</span>
+        <span class="project-small">${escapeHTML(row.project_number || '')}</span>
+      </td>
+      <td>${escapeHTML(row.client_name || '')}</td>
+      <td>${escapeHTML(row.current_production_phase || '')}</td>
+      <td>${statusPill(row.note_type || 'Note')}</td>
+      <td class="notes-preview-cell">${renderNotesPreview(row.note_text, row.project_name, row.note_type)}</td>
+      <td>${escapeHTML(row.created_by || '')}</td>
+      <td>${escapeHTML(formatDateTime(row.created_at || row.sort_at))}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderNotesPreview(noteText, projectName, noteType) {
+  const text = String(noteText || '').trim();
+
+  if (!text) {
+    return '<span class="project-small">No notes.</span>';
+  }
+
+  const preview = text.length > 120 ? text.slice(0, 120).trim() + '...' : text;
+  const encodedNote = encodeURIComponent(text);
+  const encodedTitle = encodeURIComponent(projectName || 'Notes');
+  const encodedSubtitle = encodeURIComponent(noteType || '');
+
+  return `
+    <span class="note-preview">${escapeHTML(preview)}</span>
+    <button class="secondary small" type="button" onclick="openNotesModalFromEncoded('${encodedTitle}', '${encodedSubtitle}', '${encodedNote}')">View Notes</button>
+  `;
+}
+
+function openNotesModalFromEncoded(encodedTitle, encodedSubtitle, encodedNote) {
+  openNotesModal(
+    decodeURIComponent(encodedTitle || ''),
+    decodeURIComponent(encodedSubtitle || ''),
+    decodeURIComponent(encodedNote || '')
+  );
+}
+
+function openNotesModal(title, subtitle, noteText) {
+  document.getElementById('notesModalTitle').textContent = title || 'Notes';
+  document.getElementById('notesModalSubtitle').textContent = subtitle || '';
+  document.getElementById('notesModalBody').textContent = noteText || '';
+  document.getElementById('notesModalBackdrop').classList.add('show');
+}
+
+function closeNotesModal() {
+  document.getElementById('notesModalBackdrop').classList.remove('show');
+}
+
+function handleModalBackdropClick(event) {
+  if (event.target && event.target.id === 'notesModalBackdrop') {
+    closeNotesModal();
+  }
+}
+
+function sortAlerts(rows) {
+  const severityOrder = {
+    HIGH: 1,
+    MEDIUM: 2,
+    LOW: 3
+  };
+
+  return [...(rows || [])].sort((a, b) => {
+    const severityA = severityOrder[String(a.alert_severity || '').toUpperCase()] || 9;
+    const severityB = severityOrder[String(b.alert_severity || '').toUpperCase()] || 9;
+
+    if (severityA !== severityB) {
+      return severityA - severityB;
+    }
+
+    const projectCompare = String(a.project_number || '').localeCompare(String(b.project_number || ''));
+
+    if (projectCompare !== 0) {
+      return projectCompare;
+    }
+
+    return String(a.alert_type || '').localeCompare(String(b.alert_type || ''));
+  });
+}
+
+function sortByPmProjectDate(a, b) {
+  return String(a.project_manager || '').localeCompare(String(b.project_manager || '')) ||
+    String(a.project_number || '').localeCompare(String(b.project_number || '')) ||
+    Number(a.sort_order || 0) - Number(b.sort_order || 0);
+}
+
+function sortByPmDateProject(a, b) {
+  return String(a.project_manager || '').localeCompare(String(b.project_manager || '')) ||
+    new Date(a.dashboard_start_date || '9999-12-31') - new Date(b.dashboard_start_date || '9999-12-31') ||
+    String(a.project_number || '').localeCompare(String(b.project_number || '')) ||
+    Number(a.sort_order || 0) - Number(b.sort_order || 0);
+}
+
+function scheduleAdjustmentLabel(row) {
+  if (row.has_schedule_adjustment !== true) {
+    return '';
+  }
+
+  const delta = Number(row.cumulative_business_day_delta || 0);
+  const label = delta === 0 ? 'Adjusted' : `Adjusted ${delta > 0 ? '+' : ''}${delta} business day(s)`;
+
+  return `<span class="project-small">${escapeHTML(label)}</span>`;
+}
+
+function renderTableBody(bodyId, colspan, message) {
+  const tbody = document.getElementById(bodyId);
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.innerHTML = `<tr><td colspan="${colspan}">${escapeHTML(message)}</td></tr>`;
+}
+
+function exportRows(type) {
+  const rows = renderedRows[type] || [];
+
+  if (!rows.length) {
+    setPageMessage('info', 'No rows available to export for this section.');
+    return;
+  }
+
+  const exportConfig = {
+    current: {
+      filename: 'pm-dashboard-current-work.csv',
+      columns: [
+        ['project_manager', 'Project Manager'],
+        ['project_number', 'Project Number'],
+        ['project_name', 'Project Name'],
+        ['client_name', 'Client Name'],
+        ['project_type', 'Project Type'],
+        ['current_production_phase', 'Current Production Phase'],
+        ['task_name', 'Task Name'],
+        ['task_status', 'Task Status'],
+        ['dashboard_start_date', 'Dashboard Start Date'],
+        ['dashboard_end_date', 'Dashboard End Date'],
+        ['schedule_health_status', 'Schedule Health Status'],
+        ['has_schedule_adjustment', 'Has Schedule Adjustment'],
+        ['cumulative_business_day_delta', 'Cumulative Business Day Delta'],
+        ['notes', 'Notes']
+      ]
+    },
+    starting: {
+      filename: 'pm-dashboard-starting-this-week.csv',
+      columns: scheduleExportColumns()
+    },
+    ending: {
+      filename: 'pm-dashboard-ending-this-week.csv',
+      columns: scheduleExportColumns()
+    },
+    attention: {
+      filename: 'pm-dashboard-delayed-missing-info.csv',
+      columns: scheduleExportColumns()
+    },
+    alerts: {
+      filename: 'pm-dashboard-project-alerts.csv',
+      columns: [
+        ['alert_severity', 'Alert Severity'],
+        ['project_manager', 'Project Manager'],
+        ['project_number', 'Project Number'],
+        ['project_name', 'Project Name'],
+        ['project_type', 'Project Type'],
+        ['project_status', 'Project Status'],
+        ['current_production_phase', 'Current Production Phase'],
+        ['alert_type', 'Alert Type'],
+        ['alert_title', 'Alert Title'],
+        ['related_item', 'Related Item'],
+        ['draw_number', 'Draw Number'],
+        ['draw_name', 'Draw Name'],
+        ['draw_status', 'Draw Status'],
+        ['alert_message', 'Alert Message'],
+        ['generated_at', 'Generated At']
+      ]
+    },
+    activity: {
+      filename: 'pm-dashboard-recent-activity.csv',
+      columns: [
+        ['project_manager', 'Project Manager'],
+        ['project_number', 'Project Number'],
+        ['project_name', 'Project Name'],
+        ['client_name', 'Client Name'],
+        ['project_type', 'Project Type'],
+        ['project_status', 'Project Status'],
+        ['current_production_phase', 'Current Production Phase'],
+        ['note_type', 'Note Type'],
+        ['note_text', 'Full Note Text'],
+        ['created_by', 'Created By'],
+        ['created_at', 'Created At'],
+        ['sort_at', 'Sort At']
+      ]
+    }
+  };
+
+  const config = exportConfig[type];
+
+  if (!config) {
+    setPageMessage('error', 'Unknown export type.');
+    return;
+  }
+
+  downloadCSV(rows, config.columns, config.filename);
+}
+
+function scheduleExportColumns() {
+  return [
+    ['project_manager', 'Project Manager'],
+    ['project_number', 'Project Number'],
+    ['project_name', 'Project Name'],
+    ['client_name', 'Client Name'],
+    ['project_type', 'Project Type'],
+    ['project_status', 'Project Status'],
+    ['project_coordinator', 'Project Coordinator'],
+    ['current_production_phase', 'Current Production Phase'],
+    ['task_name', 'Task Name'],
+    ['task_status', 'Task Status'],
+    ['dashboard_start_date', 'Dashboard Start Date'],
+    ['dashboard_end_date', 'Dashboard End Date'],
+    ['actual_start_date', 'Actual Start Date'],
+    ['actual_completion_date', 'Actual Completion Date'],
+    ['schedule_health_status', 'Schedule Health Status'],
+    ['subcontractor_required', 'Subcontractor Required'],
+    ['assigned_subcontractor', 'Assigned Subcontractor'],
+    ['inspection_required', 'Inspection Required'],
+    ['inspection_status', 'Inspection Status'],
+    ['is_current_work', 'Is Current Work'],
+    ['is_active_today', 'Is Active Today'],
+    ['is_starting_this_week', 'Is Starting This Week'],
+    ['is_ending_this_week', 'Is Ending This Week'],
+    ['is_past_due', 'Is Past Due'],
+    ['is_missing_subcontractor', 'Is Missing Subcontractor'],
+    ['is_missing_inspection_info', 'Is Missing Inspection Info'],
+    ['has_schedule_adjustment', 'Has Schedule Adjustment'],
+    ['cumulative_business_day_delta', 'Cumulative Business Day Delta'],
+    ['cumulative_calendar_day_delta', 'Cumulative Calendar Day Delta'],
+    ['notes', 'Full Notes']
+  ];
+}
+
+function downloadCSV(rows, columns, filename) {
+  const header = columns.map(([, label]) => csvEscape(label)).join(',');
+
+  const lines = rows.map(row => {
+    return columns.map(([key]) => csvEscape(row[key])).join(',');
+  });
+
+  const csv = [header, ...lines].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+  link.style.display = 'none';
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(value) {
+  if (value === null || value === undefined) {
+    return '""';
+  }
+
+  return '"' + String(value).replace(/"/g, '""') + '"';
+}
+
+function severityPill(value) {
+  const severity = String(value || 'N/A').toUpperCase();
+  let cls = 'low';
+
+  if (severity === 'HIGH') {
+    cls = 'high';
+  } else if (severity === 'MEDIUM') {
+    cls = 'medium';
+  }
+
+  return `<span class="severity-pill ${cls}">${escapeHTML(severity)}</span>`;
+}
+
+function statusPill(value) {
+  const text = displayLabel(value || 'N/A');
+  const normalized = normalize(value || text);
+
+  let cls = 'gray';
+
+  if (
+    normalized.includes('APPROVED') ||
+    normalized.includes('PAID') ||
+    normalized.includes('COMPLETE') ||
+    normalized.includes('READY') ||
+    normalized.includes('AHEAD')
+  ) {
+    cls = 'green';
+  } else if (
+    normalized.includes('NEW_BUILD') ||
+    normalized.includes('SUBMITTED') ||
+    normalized.includes('PROGRESS') ||
+    normalized.includes('SETUP') ||
+    normalized.includes('COMMENCEMENT')
+  ) {
+    cls = 'blue';
+  } else if (
+    normalized.includes('WAIT') ||
+    normalized.includes('PENDING') ||
+    normalized.includes('REVIEW') ||
+    normalized.includes('DUE') ||
+    normalized.includes('SALES_HANDOFF') ||
+    normalized.includes('NOT_BILLED') ||
+    normalized.includes('UPCOMING')
+  ) {
+    cls = 'orange';
+  } else if (
+    normalized.includes('OVERDUE') ||
+    normalized.includes('DELAY') ||
+    normalized.includes('HOLD') ||
+    normalized.includes('REJECTED') ||
+    normalized.includes('NOT_SUBMITTED') ||
+    normalized.includes('PAST')
+  ) {
+    cls = 'red';
+  } else if (
+    normalized.includes('RENOVATION') ||
+    normalized.includes('ENGINEERING') ||
+    normalized.includes('PERMIT') ||
+    normalized.includes('PLASTER') ||
+    normalized.includes('TILE') ||
+    normalized.includes('NEEDS_ENGINEERING') ||
+    normalized.includes('NEEDS_TO_BE_PERMITTED') ||
+    normalized.includes('REQUIRED')
+  ) {
+    cls = 'purple';
+  }
+
+  return `<span class="pill ${cls}">${escapeHTML(text)}</span>`;
+}
+
+function projectDetailLink(projectId, projectName) {
+  if (!projectId) {
+    return escapeHTML(projectName || 'Unnamed Project');
+  }
+
+  return `<a class="mini-link" href="project-detail.html?project_id=${encodeURIComponent(projectId)}">${escapeHTML(projectName || 'Unnamed Project')}</a>`;
+}
+
+function normalize(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '_');
+}
+
+function displayLabel(value) {
+  return String(value || 'N/A')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function formatDateRange(start, end) {
+  const startText = formatDate(start);
+  const endText = formatDate(end);
+
+  if (startText && endText) {
+    return `${startText} - ${endText}`;
+  }
+
+  return startText || endText || '';
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value + 'T00:00:00');
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString();
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+function setPageMessage(type, message) {
+  const element = document.getElementById('pageMessage');
+
+  if (!element) {
+    return;
+  }
+
+  if (!type || !message) {
+    element.className = 'page-message';
+    element.textContent = '';
+    return;
+  }
+
+  element.className = `page-message ${type}`;
+  element.textContent = message;
+}
+
+function escapeAttribute(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+
+</body>
+</html>
