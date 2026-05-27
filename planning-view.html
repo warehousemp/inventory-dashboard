@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- PLANNING_VIEW_VERSION: PV-FROZEN-PANE-ZOOM-RESET-2026-05-27-A -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -143,7 +144,7 @@
       overflow: hidden;
       background: #fff;
       border-right: 1px solid var(--border);
-      box-shadow: 8px 0 14px rgba(11,60,93,0.12);
+      box-shadow: none;
       z-index: 160;
     }
 
@@ -329,7 +330,7 @@
 
         <section class="legend-card"><div class="legend-top"><div><div class="legend-title">Legend</div><div class="timeline-subtitle">Each phase keeps its same color across every project row.</div></div><div class="status-legend"><span class="legend-item"><span class="legend-swatch" style="background:#98a2b3; opacity:.45;"></span>Completed / Locked</span><span class="legend-item"><span class="legend-swatch" style="background:#fff; border:2px solid #0b3c5d;"></span>Current Phase</span><span class="legend-item"><span class="legend-swatch" style="background:#fff; border:2px solid #d92d20;"></span>Capacity Conflict</span><span class="legend-item"><span class="legend-swatch" style="background:#fff; border:2px solid #1aa3b0;"></span>Adjusted</span></div></div><div class="phase-legend" id="phaseLegend"></div></section>
 
-        <section class="timeline-card"><div class="timeline-card-header"><div><div class="timeline-title">Stacked Calendar Schedule</div><div class="timeline-subtitle">Project/client rows are stacked vertically. Drag unfinished phase bars to save schedule moves.</div></div><div class="topbar-actions"><button class="btn btn-secondary" type="button" id="zoomOutBtn">−</button><button class="btn btn-secondary" type="button" id="zoomLabelBtn">100%</button><button class="btn btn-secondary" type="button" id="zoomInBtn">+</button></div></div>
+        <section class="timeline-card"><div class="timeline-card-header"><div><div class="timeline-title">Stacked Calendar Schedule</div><div class="timeline-subtitle">Project/client rows are stacked vertically. Drag unfinished phase bars to save schedule moves.</div></div><div class="topbar-actions"><button class="btn btn-secondary" type="button" id="zoomOutBtn">−</button><button class="btn btn-secondary" type="button" id="zoomLabelBtn" title="Reset zoom to 100%">100%</button><button class="btn btn-secondary" type="button" id="zoomInBtn">+</button></div></div>
           <div class="timeline-wrapper" id="timelineWrapper">
             <div class="loading" id="loadingMessage">Loading planning schedule...</div>
             <div class="error hidden" id="errorMessage"></div>
@@ -399,7 +400,14 @@
     let usingFallbackView = false;
     let visibleStartDate = null;
     let visibleEndDate = null;
-    let dayWidth = 26;
+    const ZOOM_LEVELS = [
+      { label: "75%", dayWidth: 20 },
+      { label: "100%", dayWidth: 26 },
+      { label: "125%", dayWidth: 33 },
+      { label: "150%", dayWidth: 39 }
+    ];
+    let zoomIndex = 1;
+    let dayWidth = ZOOM_LEVELS[zoomIndex].dayWidth;
     let bottleneckDates = new Set();
     let currentBottleneck = null;
     let dragState = null;
@@ -421,10 +429,19 @@
     document.addEventListener("DOMContentLoaded", initPage);
 
     function initPage() {
+      console.log("PV-FROZEN-PANE-ZOOM-RESET-2026-05-27-A");
       initSidebar();
       bindEvents();
+      updateZoomControls();
       renderLegend();
       loadSchedule();
+    }
+
+
+    function updateZoomControls() {
+      document.getElementById("zoomLabelBtn").textContent = ZOOM_LEVELS[zoomIndex].label;
+      document.getElementById("zoomOutBtn").disabled = zoomIndex === 0;
+      document.getElementById("zoomInBtn").disabled = zoomIndex === ZOOM_LEVELS.length - 1;
     }
 
     function initSidebar() {
@@ -443,8 +460,9 @@
       document.getElementById("exportCsvBtn").addEventListener("click", exportCsv);
       document.getElementById("todayBtn").addEventListener("click", scrollToToday);
       document.getElementById("focusBottleneckBtn").addEventListener("click", focusBottleneck);
-      document.getElementById("zoomOutBtn").addEventListener("click", () => setZoom(dayWidth - 4));
-      document.getElementById("zoomInBtn").addEventListener("click", () => setZoom(dayWidth + 4));
+      document.getElementById("zoomOutBtn").addEventListener("click", () => setZoomIndex(zoomIndex - 1));
+      document.getElementById("zoomInBtn").addEventListener("click", () => setZoomIndex(zoomIndex + 1));
+      document.getElementById("zoomLabelBtn").addEventListener("click", resetZoom);
       document.getElementById("cancelMoveBtn").addEventListener("click", closeMoveModal);
       document.getElementById("confirmMoveBtn").addEventListener("click", confirmScheduleMove);
       ["searchInput", "pmFilter", "typeFilter", "phaseFilter", "capacityInput"].forEach((id) => {
@@ -741,7 +759,16 @@
       const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `planning-view-${new Date().toISOString().slice(0,10)}.csv`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
     }
 
-    function setZoom(nextWidth) { dayWidth = Math.max(16, Math.min(44, nextWidth)); document.getElementById("zoomLabelBtn").textContent = `${Math.round((dayWidth / 26) * 100)}%`; renderTimeline(filteredRows); }
+    function setZoomIndex(nextIndex) {
+      zoomIndex = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, nextIndex));
+      dayWidth = ZOOM_LEVELS[zoomIndex].dayWidth;
+      updateZoomControls();
+      renderTimeline(filteredRows);
+    }
+
+    function resetZoom() {
+      setZoomIndex(1);
+    }
     function scrollToToday() { if (!visibleStartDate) return; const todayOffset = getDateOffset(new Date()); if (todayOffset >= 0) { timelineScroll.scrollLeft = Math.max(0, todayOffset - 420); syncFrozenProjectColumn(); } }
     function setLoading(isLoading) { loadingMessage.classList.toggle("hidden", !isLoading); if (isLoading) { errorMessage.classList.add("hidden"); emptyMessage.classList.add("hidden"); timelineGrid.classList.add("hidden"); } }
     function showError(message) { errorMessage.textContent = message; errorMessage.classList.remove("hidden"); loadingMessage.classList.add("hidden"); emptyMessage.classList.add("hidden"); timelineGrid.classList.add("hidden"); }
