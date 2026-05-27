@@ -449,6 +449,54 @@
       border-top: 1px solid #f4f6f8;
     }
 
+
+    .todo-form {
+      padding: 14px;
+      border-bottom: 1px solid #eef2f7;
+      background: #f8fafc;
+      display: grid;
+      gap: 10px;
+    }
+
+    .todo-form-grid {
+      display: grid;
+      grid-template-columns: 160px 1.2fr 1.4fr 120px 145px 145px;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .todo-form-notes-grid {
+      display: grid;
+      grid-template-columns: 1fr 160px;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .field-label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.25px;
+      margin-bottom: 4px;
+    }
+
+    .todo-table { min-width: 1380px; }
+
+    .todo-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      min-width: 160px;
+    }
+
+    .todo-title-cell {
+      white-space: normal;
+      min-width: 260px;
+      line-height: 1.35;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -962,6 +1010,89 @@
           </section>
         </section>
 
+        <section class="table-card">
+          <div class="card-header">
+            <div>
+              <h2>My PM To-Dos</h2>
+              <span class="project-small">Personal PM action items. To-dos can be tied to a project or left as a general PM reminder.</span>
+            </div>
+            <div class="table-actions">
+              <button class="secondary small" type="button" onclick="exportRows('todos')">Export CSV</button>
+            </div>
+          </div>
+
+          <div class="todo-form">
+            <div class="todo-form-grid">
+              <label>
+                <span class="field-label">Project Manager</span>
+                <select id="todoPmInput"></select>
+              </label>
+
+              <label>
+                <span class="field-label">Project Optional</span>
+                <select id="todoProjectInput">
+                  <option value="">General PM To-Do</option>
+                </select>
+              </label>
+
+              <label>
+                <span class="field-label">To-Do Title</span>
+                <input id="todoTitleInput" type="text" placeholder="What needs to be done?">
+              </label>
+
+              <label>
+                <span class="field-label">Priority</span>
+                <select id="todoPriorityInput">
+                  <option value="LOW">Low</option>
+                  <option value="NORMAL" selected>Normal</option>
+                  <option value="HIGH">High</option>
+                  <option value="URGENT">Urgent</option>
+                </select>
+              </label>
+
+              <label>
+                <span class="field-label">Due Date</span>
+                <input id="todoDueDateInput" type="date">
+              </label>
+
+              <label>
+                <span class="field-label">Created By</span>
+                <input id="todoCreatedByInput" type="text" placeholder="Your name">
+              </label>
+            </div>
+
+            <div class="todo-form-notes-grid">
+              <label>
+                <span class="field-label">Notes</span>
+                <textarea id="todoNotesInput" placeholder="Optional details for this to-do"></textarea>
+              </label>
+
+              <button type="button" onclick="createTodo()">Add PM To-Do</button>
+            </div>
+          </div>
+
+          <div class="table-wrap table-scroll">
+            <table class="todo-table">
+              <thead>
+                <tr>
+                  <th>Actions</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>PM</th>
+                  <th>Project</th>
+                  <th>To-Do</th>
+                  <th>Due Date</th>
+                  <th>Created By</th>
+                  <th>Completed</th>
+                </tr>
+              </thead>
+              <tbody id="todosBody">
+                <tr><td colspan="9">Loading PM to-dos...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <section class="section-grid">
           <section class="table-card">
             <div class="card-header">
@@ -1157,6 +1288,7 @@ let summaryRows = [];
 let scheduleRows = [];
 let alertRows = [];
 let activityRows = [];
+let todoRows = [];
 
 let renderedRows = {
   current: [],
@@ -1164,7 +1296,8 @@ let renderedRows = {
   ending: [],
   attention: [],
   alerts: [],
-  activity: []
+  activity: [],
+  todos: []
 };
 
 window.addEventListener('load', async () => {
@@ -1221,12 +1354,27 @@ async function loadDashboard() {
     return;
   }
 
+  const todosResult = await client
+    .from('project_pm_todos_view')
+    .select('*')
+    .order('todo_status', { ascending: true })
+    .order('due_date', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(1000);
+
+  if (todosResult.error) {
+    handleLoadError('PM to-do error: ' + todosResult.error.message);
+    return;
+  }
+
   summaryRows = summaryResult.data || [];
   scheduleRows = scheduleResult.data || [];
   alertRows = sortAlerts(alertsResult.data || []);
   activityRows = activityResult.data || [];
+  todoRows = todosResult.data || [];
 
   populatePmFilter(summaryRows);
+  populateTodoFormOptions();
   applyFiltersAndRender();
 
   setPageMessage('', '');
@@ -1242,6 +1390,7 @@ function handleLoadError(message) {
   renderTableBody('attentionBody', 7, 'Unable to load delayed / missing information.');
   renderTableBody('alertsBody', 7, 'Unable to load project alerts.');
   renderTableBody('activityBody', 8, 'Unable to load recent activity.');
+  renderTableBody('todosBody', 9, 'Unable to load PM to-dos.');
 }
 
 function populatePmFilter(rows) {
@@ -1297,6 +1446,11 @@ function applyFiltersAndRender() {
     return matchesFilters(row, selectedPm, searchValue);
   });
 
+  const filteredTodoRows = todoRows.filter(row => {
+    return matchesFilters(row, selectedPm, searchValue);
+  });
+
+  syncTodoPmWithFilter(selectedPm);
   renderSummaryCards(filteredSummaryRows, filteredScheduleRows);
   renderCurrentWork(filteredScheduleRows);
   renderStartingThisWeek(filteredScheduleRows);
@@ -1304,6 +1458,7 @@ function applyFiltersAndRender() {
   renderAttentionItems(filteredScheduleRows);
   renderAlerts(filteredAlertRows);
   renderActivity(filteredActivityRows);
+  renderTodos(filteredTodoRows);
 }
 
 function matchesFilters(row, selectedPm, searchValue) {
@@ -1336,7 +1491,12 @@ function matchesFilters(row, selectedPm, searchValue) {
     row.related_item,
     row.note_type,
     row.note_text,
-    row.created_by
+    row.created_by,
+    row.todo_title,
+    row.todo_notes,
+    row.priority,
+    row.todo_status,
+    row.completed_by
   ].join(' ').toLowerCase();
 
   return haystack.includes(searchValue);
@@ -1601,6 +1761,249 @@ function renderActivity(rows) {
   });
 }
 
+function populateTodoFormOptions() {
+  const todoPmInput = document.getElementById('todoPmInput');
+  const todoProjectInput = document.getElementById('todoProjectInput');
+
+  if (todoPmInput) {
+    const currentPm = todoPmInput.value;
+    const pms = Array.from(new Set([
+      ...summaryRows.map(row => String(row.project_manager || '').trim()),
+      ...scheduleRows.map(row => String(row.project_manager || '').trim()),
+      ...todoRows.map(row => String(row.project_manager || '').trim())
+    ].filter(Boolean))).sort((a, b) => a.localeCompare(b));
+
+    todoPmInput.innerHTML = '<option value="">Select PM</option>' +
+      pms.map(pm => `<option value="${escapeAttribute(pm)}">${escapeHTML(pm)}</option>`).join('');
+
+    if (currentPm && pms.includes(currentPm)) {
+      todoPmInput.value = currentPm;
+    }
+  }
+
+  if (todoProjectInput) {
+    const currentProject = todoProjectInput.value;
+    const seen = new Set();
+    const projectOptions = [];
+
+    scheduleRows.forEach(row => {
+      if (!row.project_id || seen.has(row.project_id)) {
+        return;
+      }
+
+      seen.add(row.project_id);
+      projectOptions.push({
+        project_id: row.project_id,
+        project_manager: row.project_manager || '',
+        project_number: row.project_number || '',
+        project_name: row.project_name || '',
+        client_name: row.client_name || ''
+      });
+    });
+
+    projectOptions.sort((a, b) => {
+      return String(a.project_manager || '').localeCompare(String(b.project_manager || '')) ||
+        String(a.project_number || '').localeCompare(String(b.project_number || ''));
+    });
+
+    todoProjectInput.innerHTML = '<option value="">General PM To-Do</option>' +
+      projectOptions.map(project => {
+        const label = `${project.project_number} - ${project.project_name}${project.client_name ? ' / ' + project.client_name : ''}`;
+        return `<option value="${escapeAttribute(project.project_id)}" data-pm="${escapeAttribute(project.project_manager)}">${escapeHTML(label)}</option>`;
+      }).join('');
+
+    if (currentProject && projectOptions.some(project => project.project_id === currentProject)) {
+      todoProjectInput.value = currentProject;
+    }
+  }
+}
+
+function syncTodoPmWithFilter(selectedPm) {
+  const todoPmInput = document.getElementById('todoPmInput');
+
+  if (selectedPm && todoPmInput && !todoPmInput.value) {
+    todoPmInput.value = selectedPm;
+  }
+}
+
+function renderTodos(rows) {
+  const sortedRows = [...(rows || [])].sort(sortTodos);
+  renderedRows.todos = sortedRows;
+
+  const tbody = document.getElementById('todosBody');
+  tbody.innerHTML = '';
+
+  if (!sortedRows.length) {
+    renderTableBody('todosBody', 9, 'No PM to-dos found for the selected filters.');
+    return;
+  }
+
+  sortedRows.forEach(row => {
+    const tr = document.createElement('tr');
+    const isClosed = ['COMPLETE', 'CANCELLED'].includes(String(row.todo_status || '').toUpperCase());
+
+    tr.innerHTML = `
+      <td>
+        <div class="todo-actions">
+          <button class="success small" type="button" onclick="updateTodoStatus('${escapeAttribute(row.id)}', 'COMPLETE')" ${isClosed ? 'disabled' : ''}>Complete</button>
+          <button class="warning small" type="button" onclick="updateTodoStatus('${escapeAttribute(row.id)}', 'IN_PROGRESS')" ${isClosed ? 'disabled' : ''}>Start</button>
+          <button class="danger small" type="button" onclick="updateTodoStatus('${escapeAttribute(row.id)}', 'CANCELLED')" ${isClosed ? 'disabled' : ''}>Cancel</button>
+        </div>
+      </td>
+      <td>${statusPill(row.priority || 'NORMAL')}</td>
+      <td>${statusPill(row.todo_status || 'OPEN')}</td>
+      <td>${escapeHTML(row.project_manager || '')}</td>
+      <td>
+        <span class="project-name">${row.project_id ? projectDetailLink(row.project_id, row.project_name || 'Unnamed Project') : 'General PM To-Do'}</span>
+        <span class="project-small">${escapeHTML(row.project_number || '')}</span>
+      </td>
+      <td class="todo-title-cell">
+        <span class="project-name">${escapeHTML(row.todo_title || '')}</span>
+        ${renderNotesPreview(row.todo_notes, row.todo_title || 'PM To-Do', 'To-Do Notes')}
+      </td>
+      <td>
+        ${escapeHTML(formatDate(row.due_date))}
+        ${row.is_overdue ? '<span class="project-small" style="color:var(--red);font-weight:900;">Overdue</span>' : ''}
+        ${row.is_due_today ? '<span class="project-small" style="color:var(--orange);font-weight:900;">Due Today</span>' : ''}
+      </td>
+      <td>${escapeHTML(row.created_by || '')}</td>
+      <td>
+        <span class="project-name">${escapeHTML(row.completed_by || '')}</span>
+        <span class="project-small">${escapeHTML(formatDateTime(row.completed_at))}</span>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function sortTodos(a, b) {
+  const statusOrder = { URGENT: 1, HIGH: 2, NORMAL: 3, LOW: 4 };
+  const openA = ['OPEN', 'IN_PROGRESS'].includes(String(a.todo_status || '').toUpperCase()) ? 0 : 1;
+  const openB = ['OPEN', 'IN_PROGRESS'].includes(String(b.todo_status || '').toUpperCase()) ? 0 : 1;
+
+  return openA - openB ||
+    new Date(a.due_date || '9999-12-31') - new Date(b.due_date || '9999-12-31') ||
+    (statusOrder[String(a.priority || '').toUpperCase()] || 9) - (statusOrder[String(b.priority || '').toUpperCase()] || 9) ||
+    String(a.project_manager || '').localeCompare(String(b.project_manager || '')) ||
+    String(a.project_number || '').localeCompare(String(b.project_number || '')) ||
+    new Date(b.created_at || 0) - new Date(a.created_at || 0);
+}
+
+async function createTodo() {
+  const projectInput = document.getElementById('todoProjectInput');
+  const pmInput = document.getElementById('todoPmInput');
+  const titleInput = document.getElementById('todoTitleInput');
+  const notesInput = document.getElementById('todoNotesInput');
+  const priorityInput = document.getElementById('todoPriorityInput');
+  const dueDateInput = document.getElementById('todoDueDateInput');
+  const createdByInput = document.getElementById('todoCreatedByInput');
+
+  const projectId = String(projectInput?.value || '').trim() || null;
+  const selectedOption = projectInput?.selectedOptions?.[0];
+  const inferredPm = selectedOption ? String(selectedOption.getAttribute('data-pm') || '').trim() : '';
+  const projectManager = String(pmInput?.value || inferredPm || '').trim();
+  const title = String(titleInput?.value || '').trim();
+  const notes = String(notesInput?.value || '').trim();
+  const priority = String(priorityInput?.value || 'NORMAL').trim();
+  const dueDate = String(dueDateInput?.value || '').trim() || null;
+  const createdBy = String(createdByInput?.value || '').trim();
+
+  if (!projectManager) {
+    setPageMessage('error', 'Project Manager is required before creating a PM To-Do.');
+    pmInput?.focus();
+    return;
+  }
+
+  if (!title) {
+    setPageMessage('error', 'To-Do Title is required.');
+    titleInput?.focus();
+    return;
+  }
+
+  setPageMessage('info', 'Creating PM To-Do...');
+
+  const { data, error } = await client.rpc('create_project_pm_todo', {
+    p_project_id: projectId,
+    p_project_manager: projectManager,
+    p_todo_title: title,
+    p_todo_notes: notes || null,
+    p_priority: priority,
+    p_due_date: dueDate,
+    p_created_by: createdBy || null
+  });
+
+  if (error) {
+    setPageMessage('error', 'PM To-Do creation failed: ' + error.message);
+    return;
+  }
+
+  const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+
+  if (result && result.success === false) {
+    setPageMessage('error', result.message || 'PM To-Do creation failed.');
+    return;
+  }
+
+  if (titleInput) titleInput.value = '';
+  if (notesInput) notesInput.value = '';
+  if (priorityInput) priorityInput.value = 'NORMAL';
+  if (dueDateInput) dueDateInput.value = '';
+  if (projectInput) projectInput.value = '';
+
+  setPageMessage('success', 'PM To-Do created successfully.');
+  await loadDashboard();
+}
+
+async function updateTodoStatus(todoId, newStatus) {
+  const row = todoRows.find(item => String(item.id || '') === String(todoId || ''));
+
+  if (!row) {
+    setPageMessage('error', 'PM To-Do row was not found. Refresh the dashboard and try again.');
+    return;
+  }
+
+  const updatedBy = window.prompt(`Who is updating this to-do to ${displayLabel(newStatus)}?`, row.completed_by || row.created_by || '');
+
+  if (updatedBy === null) {
+    return;
+  }
+
+  if (!String(updatedBy || '').trim()) {
+    setPageMessage('error', 'Updated By is required.');
+    return;
+  }
+
+  setPageMessage('info', `Updating PM To-Do to ${displayLabel(newStatus)}...`);
+
+  const { data, error } = await client.rpc('update_project_pm_todo', {
+    p_todo_id: todoId,
+    p_project_id: row.project_id || null,
+    p_project_manager: row.project_manager || '',
+    p_todo_title: row.todo_title || '',
+    p_todo_notes: row.todo_notes || null,
+    p_priority: row.priority || 'NORMAL',
+    p_due_date: row.due_date || null,
+    p_todo_status: newStatus,
+    p_updated_by: String(updatedBy || '').trim()
+  });
+
+  if (error) {
+    setPageMessage('error', 'PM To-Do update failed: ' + error.message);
+    return;
+  }
+
+  const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+
+  if (result && result.success === false) {
+    setPageMessage('error', result.message || 'PM To-Do update failed.');
+    return;
+  }
+
+  setPageMessage('success', `PM To-Do updated to ${displayLabel(newStatus)}.`);
+  await loadDashboard();
+}
+
 function renderNotesPreview(noteText, projectName, noteType) {
   const text = String(noteText || '').trim();
 
@@ -1778,6 +2181,31 @@ function exportRows(type) {
         ['created_by', 'Created By'],
         ['created_at', 'Created At'],
         ['sort_at', 'Sort At']
+      ]
+    },
+    todos: {
+      filename: 'pm-dashboard-todos.csv',
+      columns: [
+        ['project_manager', 'Project Manager'],
+        ['project_number', 'Project Number'],
+        ['project_name', 'Project Name'],
+        ['client_name', 'Client Name'],
+        ['project_type', 'Project Type'],
+        ['project_status', 'Project Status'],
+        ['current_production_phase', 'Current Production Phase'],
+        ['todo_title', 'To-Do Title'],
+        ['todo_notes', 'Full To-Do Notes'],
+        ['priority', 'Priority'],
+        ['due_date', 'Due Date'],
+        ['todo_status', 'To-Do Status'],
+        ['is_overdue', 'Is Overdue'],
+        ['is_due_today', 'Is Due Today'],
+        ['is_due_this_week', 'Is Due This Week'],
+        ['created_by', 'Created By'],
+        ['created_at', 'Created At'],
+        ['completed_by', 'Completed By'],
+        ['completed_at', 'Completed At'],
+        ['updated_at', 'Updated At']
       ]
     }
   };
