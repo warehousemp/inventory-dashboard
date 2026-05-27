@@ -745,6 +745,22 @@
       min-width: 1900px;
     }
 
+    .paid-history-panel {
+      margin-bottom: 18px;
+      border-top: 5px solid var(--teal);
+    }
+
+    .paid-history-table-wrap {
+      overflow: auto;
+      padding: 0 14px 14px;
+      max-height: 420px;
+      border-top: 1px solid #eef2f7;
+    }
+
+    .paid-history-table {
+      min-width: 1750px;
+    }
+
     .small-btn {
       width: auto;
       padding: 8px 10px;
@@ -849,7 +865,7 @@
       min-width: 220px;
     }
 
-    .mark--btn {
+    .mark-paid-btn {
       background: var(--blue);
       border-color: var(--blue);
       width: auto;
@@ -1241,6 +1257,74 @@
           </div>
         </section>
 
+        <section class="panel paid-history-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Paid Draws / Payment History Report</h2>
+              <p class="panel-subtitle">Collected draw payments for Accounting review. Includes PAID draws and any draw with a recorded paid amount.</p>
+            </div>
+
+            <div class="queue-toolbar">
+              <span class="queue-pill" id="paidHistoryCountPill">0 Paid</span>
+              <button class="small-btn secondary-btn" onclick="exportPaidHistoryCSV()">Export Payment History CSV</button>
+            </div>
+          </div>
+
+          <div class="queue-summary">
+            <div class="mini-card">
+              <div class="mini-label">Paid Draws</div>
+              <div class="mini-value" id="paidHistoryCountValue">0</div>
+            </div>
+
+            <div class="mini-card">
+              <div class="mini-label">Collected Dollars</div>
+              <div class="mini-value" id="paidHistoryAmountValue">$0</div>
+            </div>
+
+            <div class="mini-card">
+              <div class="mini-label">Latest Paid Date</div>
+              <div class="mini-value" id="paidHistoryLatestDateValue">N/A</div>
+            </div>
+          </div>
+
+          <div class="paid-history-table-wrap">
+            <table class="paid-history-table">
+              <thead>
+                <tr>
+                  <th>Project</th>
+                  <th>Client</th>
+                  <th>Type</th>
+                  <th>Current Status</th>
+                  <th>Draw #</th>
+                  <th>Draw Name</th>
+                  <th>Invoice #</th>
+                  <th>Invoice Date</th>
+                  <th>Due Date</th>
+                  <th>Paid Date</th>
+                  <th>Scheduled</th>
+                  <th>Invoiced</th>
+                  <th>Paid</th>
+                  <th>Outstanding</th>
+                  <th>Draw Status</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+
+              <tbody id="paidHistoryTableBody">
+                <tr>
+                  <td colspan="16">Loading paid draw history...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="padding: 0 18px 16px;">
+            <div class="invoice-ready-note">
+              This report is read-only and is intended for Accounting payment history review and export. Payments are entered through the Invoiced / Awaiting Payment Queue above.
+            </div>
+          </div>
+        </section>
+
         <section class="panel">
           <div class="panel-header">
             <div>
@@ -1430,6 +1514,7 @@ let allDrawRows = [];
 let filteredDrawRows = [];
 let approvedInvoiceRows = [];
 let awaitingPaymentRows = [];
+let paidHistoryRows = [];
 
 window.addEventListener('load', async () => {
   setupForecastScrollSync();
@@ -1490,6 +1575,7 @@ async function loadDraws() {
     filteredDrawRows = [];
     renderApprovedForInvoicingQueue([]);
     renderAwaitingPaymentQueue([]);
+    renderPaidHistoryReport([]);
     renderDrawsTable([]);
     setMessage('error', 'Accounting draw report error: ' + error.message);
     return;
@@ -1498,6 +1584,7 @@ async function loadDraws() {
   allDrawRows = data || [];
   renderApprovedForInvoicingQueue(allDrawRows);
   renderAwaitingPaymentQueue(allDrawRows);
+  renderPaidHistoryReport(allDrawRows);
   populateFilters(allDrawRows);
   applyFilters();
 }
@@ -1992,6 +2079,129 @@ function exportApprovedInvoiceCSV() {
 }
 
 
+
+function renderPaidHistoryReport(rows) {
+  paidHistoryRows = (rows || [])
+    .filter(row => {
+      const paidAmount = Number(row.paid_amount || 0);
+      return normalize(row.draw_status) === 'PAID' || paidAmount > 0;
+    })
+    .sort((a, b) => {
+      const paidA = a.paid_date || '0000-00-00';
+      const paidB = b.paid_date || '0000-00-00';
+
+      if (paidA !== paidB) {
+        return paidB.localeCompare(paidA);
+      }
+
+      const projectCompare = String(a.project_number || '').localeCompare(String(b.project_number || ''));
+
+      if (projectCompare !== 0) {
+        return projectCompare;
+      }
+
+      return Number(a.draw_number || 0) - Number(b.draw_number || 0);
+    });
+
+  const paidTotal = sumColumn(paidHistoryRows, 'paid_amount');
+  const latestPaidDate = paidHistoryRows
+    .map(row => row.paid_date)
+    .filter(value => value)
+    .sort()
+    .pop();
+
+  setText('paidHistoryCountPill', `${paidHistoryRows.length} Paid`);
+  setText('paidHistoryCountValue', paidHistoryRows.length);
+  setText('paidHistoryAmountValue', formatCurrencyShort(paidTotal));
+  setText('paidHistoryLatestDateValue', latestPaidDate ? formatDate(latestPaidDate) : 'N/A');
+
+  const tbody = document.getElementById('paidHistoryTableBody');
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.innerHTML = '';
+
+  if (paidHistoryRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="16">No paid draw history found.</td></tr>';
+    return;
+  }
+
+  paidHistoryRows.forEach(row => {
+    const invoicedAmount = Number(row.invoiced_amount || 0);
+    const paidAmount = Number(row.paid_amount || 0);
+    const outstandingAmount = Math.max(Number(row.outstanding_amount || (invoicedAmount - paidAmount) || 0), 0);
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>
+        <a class="action-link" href="project-detail.html?project_id=${encodeURIComponent(row.project_id)}">
+          <div class="project-block">
+            <span class="project-number-large">${escapeHTML(row.project_number || '')}</span>
+            <span class="project-name">${escapeHTML(row.project_name || 'Unnamed Project')}</span>
+          </div>
+        </a>
+      </td>
+      <td>${escapeHTML(row.client_name)}</td>
+      <td>${statusPill(row.project_type_label || row.project_type)}</td>
+      <td>${statusPill(row.project_status)}</td>
+      <td>${escapeHTML(row.draw_number)}</td>
+      <td>${escapeHTML(row.draw_name)}</td>
+      <td>${escapeHTML(row.invoice_number)}</td>
+      <td>${escapeHTML(formatDate(row.invoice_date))}</td>
+      <td>${escapeHTML(formatDate(row.due_date))}</td>
+      <td>${escapeHTML(formatDate(row.paid_date))}</td>
+      <td class="money">${formatCurrency(row.scheduled_amount)}</td>
+      <td class="money">${formatCurrency(row.invoiced_amount)}</td>
+      <td class="money-positive">${formatCurrency(row.paid_amount)}</td>
+      <td class="${outstandingAmount > 0 ? 'money-warning' : 'money'}">${formatCurrency(outstandingAmount)}</td>
+      <td>${statusPill(row.draw_status)}</td>
+      <td class="wide-text">${escapeHTML(row.notes || row.expected_draw_notes || '')}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function exportPaidHistoryCSV() {
+  if (!paidHistoryRows || paidHistoryRows.length === 0) {
+    setMessage('info', 'No paid draw history is available to export.');
+    return;
+  }
+
+  const exportRows = paidHistoryRows.map(row => ({
+    project_number: row.project_number,
+    project_name: row.project_name,
+    client_name: row.client_name,
+    project_type: row.project_type,
+    project_type_label: row.project_type_label,
+    project_status: row.project_status,
+    draw_number: row.draw_number,
+    draw_name: row.draw_name,
+    draw_status: row.draw_status,
+    invoice_number: row.invoice_number,
+    invoice_date: row.invoice_date,
+    due_date: row.due_date,
+    paid_date: row.paid_date,
+    scheduled_amount: row.scheduled_amount,
+    invoiced_amount: row.invoiced_amount,
+    paid_amount: row.paid_amount,
+    outstanding_amount: row.outstanding_amount,
+    expected_draw_date: row.expected_draw_date,
+    trigger_stage: row.trigger_stage,
+    trigger_description: row.trigger_description,
+    expected_draw_notes: row.expected_draw_notes,
+    notes: row.notes,
+    project_id: row.project_id,
+    draw_id: row.draw_id
+  }));
+
+  const datePart = new Date().toISOString().slice(0, 10);
+  exportRowsToCSV(exportRows, `paid_draw_payment_history_${datePart}.csv`);
+}
+
 function renderAwaitingPaymentQueue(rows) {
   awaitingPaymentRows = (rows || [])
     .filter(row => {
@@ -2084,7 +2294,7 @@ function renderAwaitingPaymentQueue(rows) {
 
           <div class="payment-action-field">
             <label class="payment-action-label" for="paid-by-${escapeHTML(row.draw_id)}">Payment Recorded By</label>
-            <input id="paid-by-${escapeHTML(row.draw_id)}" placeholder="Paid By">
+            <input id="paid-by-${escapeHTML(row.draw_id)}" placeholder="Recorded By">
           </div>
 
           <div class="payment-action-field">
@@ -2165,7 +2375,7 @@ async function markDrawPaid(drawId) {
   }
 
   if (!paidBy) {
-    setMessage('error', 'Paid By is required before marking this draw paid.');
+    setMessage('error', 'Payment Recorded By is required before marking this draw paid.');
     return;
   }
 
