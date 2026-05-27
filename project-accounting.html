@@ -476,61 +476,65 @@
     }
 
     .table-wrap {
-      overflow: auto;
       padding: 0 14px 14px;
+      border-top: 1px solid #eef2f7;
+      overflow: hidden;
+    }
+
+    .forecast-split-wrap {
+      display: grid;
+      grid-template-columns: 285px minmax(0, 1fr);
       max-height: 560px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: #ffffff;
       border-top: 1px solid #eef2f7;
     }
 
-
-    .forecast-table {
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-
-    /*
-      Clean sticky Project column for the Project Draw Forecast & Schedule Report.
-      This keeps the Project reference visible while horizontally scrolling and
-      prevents underlying columns from showing through the frozen column.
-    */
-    .forecast-table th:first-child,
-    .forecast-table td:first-child {
+    .forecast-project-fixed {
       position: sticky;
       left: 0;
+      z-index: 14;
+      background: #ffffff;
+      border-right: 1px solid #d9e2ec;
+      box-shadow: 10px 0 14px rgba(15, 23, 42, 0.10);
+      overflow: hidden;
+    }
+
+    .forecast-detail-scroll {
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: visible;
+      background: #ffffff;
+    }
+
+    .forecast-project-table {
+      width: 285px;
       min-width: 285px;
       max-width: 285px;
-      width: 285px;
-      background: #ffffff;
-      background-clip: padding-box;
-      z-index: 18;
-      box-shadow: 10px 0 14px rgba(15, 23, 42, 0.12);
-      border-right: 1px solid #d9e2ec;
+      table-layout: fixed;
     }
 
-    .forecast-table th:first-child {
-      z-index: 35;
-      background: #ffffff;
+    .forecast-detail-table {
+      min-width: 1450px;
     }
 
-    .forecast-table td:first-child {
-      z-index: 18;
+    .forecast-project-table th,
+    .forecast-project-table td {
       background: #ffffff;
     }
 
-    .forecast-table tr:hover td:first-child {
+    .forecast-project-table th {
+      z-index: 16;
+    }
+
+    .forecast-project-table tr:hover td {
       background: #ffffff;
     }
 
-    .forecast-table td:first-child::after,
-    .forecast-table th:first-child::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      right: -1px;
-      width: 1px;
-      height: 100%;
-      background: #d9e2ec;
-      pointer-events: none;
+    .forecast-project-table .project-block {
+      min-width: 250px;
+      max-width: 250px;
     }
 
     table {
@@ -1170,39 +1174,58 @@
           </div>
 
           <div class="table-wrap">
-            <table class="forecast-table">
-              <thead>
-                <tr>
-                  <th>Project</th>
-                  <th>Client</th>
-                  <th>Type</th>
-                  <th>Project Status</th>
-                  <th>Total Project Value</th>
-                  <th>Draw #</th>
-                  <th>Draw Name</th>
-                  <th>Draw Status</th>
-                  <th>Expected Draw Date</th>
-                  <th>Scheduled</th>
-                  <th>Invoiced</th>
-                  <th>Paid</th>
-                  <th>Remaining to Invoice</th>
-                  <th>Outstanding</th>
-                  <th>Trigger Stage</th>
-                  <th>Invoice #</th>
-                  <th>Invoice Date</th>
-                  <th>Due Date</th>
-                  <th>Paid Date</th>
-                  <th>Expected Draw Notes</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
+            <div class="forecast-split-wrap" id="forecastSplitWrap">
+              <div class="forecast-project-fixed">
+                <table class="forecast-project-table">
+                  <thead>
+                    <tr>
+                      <th>Project</th>
+                    </tr>
+                  </thead>
 
-              <tbody id="drawsTableBody">
-                <tr>
-                  <td colspan="21">Loading accounting draws...</td>
-                </tr>
-              </tbody>
-            </table>
+                  <tbody id="drawsProjectTableBody">
+                    <tr>
+                      <td>Loading accounting draws...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="forecast-detail-scroll">
+                <table class="forecast-detail-table">
+                  <thead>
+                    <tr>
+                      <th>Client</th>
+                      <th>Type</th>
+                      <th>Project Status</th>
+                      <th>Total Project Value</th>
+                      <th>Draw #</th>
+                      <th>Draw Name</th>
+                      <th>Draw Status</th>
+                      <th>Expected Draw Date</th>
+                      <th>Scheduled</th>
+                      <th>Invoiced</th>
+                      <th>Paid</th>
+                      <th>Remaining to Invoice</th>
+                      <th>Outstanding</th>
+                      <th>Trigger Stage</th>
+                      <th>Invoice #</th>
+                      <th>Invoice Date</th>
+                      <th>Due Date</th>
+                      <th>Paid Date</th>
+                      <th>Expected Draw Notes</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+
+                  <tbody id="drawsDetailTableBody">
+                    <tr>
+                      <td colspan="20">Loading accounting draws...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1270,6 +1293,8 @@ let approvedInvoiceRows = [];
 window.addEventListener('load', async () => {
   await loadAccountingPage();
 });
+
+window.addEventListener('resize', syncForecastRowHeights);
 
 async function loadAccountingPage() {
   setMessage('info', 'Loading project accounting data...');
@@ -1559,18 +1584,28 @@ function updateForecastSummary(rows, forecastRange) {
 }
 
 function renderDrawsTable(rows) {
-  const tbody = document.getElementById('drawsTableBody');
-  tbody.innerHTML = '';
+  const projectTbody = document.getElementById('drawsProjectTableBody');
+  const detailTbody = document.getElementById('drawsDetailTableBody');
 
-  if (!rows || rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="21">No accounting draw records found for the selected filters.</td></tr>';
+  if (!projectTbody || !detailTbody) {
     return;
   }
 
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
+  projectTbody.innerHTML = '';
+  detailTbody.innerHTML = '';
 
-    tr.innerHTML = `
+  if (!rows || rows.length === 0) {
+    projectTbody.innerHTML = '<tr><td>No records found.</td></tr>';
+    detailTbody.innerHTML = '<tr><td colspan="20">No accounting draw records found for the selected filters.</td></tr>';
+    syncForecastRowHeights();
+    return;
+  }
+
+  rows.forEach((row, index) => {
+    const projectTr = document.createElement('tr');
+    projectTr.dataset.rowIndex = String(index);
+
+    projectTr.innerHTML = `
       <td>
         <a class="action-link" href="project-detail.html?project_id=${encodeURIComponent(row.project_id)}">
           <div class="project-block">
@@ -1579,6 +1614,12 @@ function renderDrawsTable(rows) {
           </div>
         </a>
       </td>
+    `;
+
+    const detailTr = document.createElement('tr');
+    detailTr.dataset.rowIndex = String(index);
+
+    detailTr.innerHTML = `
       <td>${escapeHTML(row.client_name)}</td>
       <td>${statusPill(row.project_type_label || row.project_type)}</td>
       <td>${statusPill(row.project_status)}</td>
@@ -1601,10 +1642,38 @@ function renderDrawsTable(rows) {
       <td class="wide-text">${escapeHTML(row.notes)}</td>
     `;
 
-    tbody.appendChild(tr);
+    projectTbody.appendChild(projectTr);
+    detailTbody.appendChild(detailTr);
   });
+
+  syncForecastRowHeights();
 }
 
+function syncForecastRowHeights() {
+  window.requestAnimationFrame(() => {
+    const projectRows = Array.from(document.querySelectorAll('#drawsProjectTableBody tr'));
+    const detailRows = Array.from(document.querySelectorAll('#drawsDetailTableBody tr'));
+
+    projectRows.forEach((projectRow, index) => {
+      const detailRow = detailRows[index];
+
+      if (!detailRow) {
+        return;
+      }
+
+      projectRow.style.height = '';
+      detailRow.style.height = '';
+
+      const maxHeight = Math.max(
+        projectRow.getBoundingClientRect().height,
+        detailRow.getBoundingClientRect().height
+      );
+
+      projectRow.style.height = `${maxHeight}px`;
+      detailRow.style.height = `${maxHeight}px`;
+    });
+  });
+}
 
 function renderApprovedForInvoicingQueue(rows) {
   approvedInvoiceRows = (rows || [])
