@@ -26,6 +26,7 @@
       --day-width: 26px;
       --row-height: 68px;
       --timeline-header-height: 92px;
+      --frozen-project-offset: 0px;
     }
 
     * { box-sizing: border-box; }
@@ -119,11 +120,101 @@
     .timeline-card { overflow: hidden; }
     .timeline-card-header { padding: 15px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 14px; }
     .timeline-title { color: var(--header-navy); font-size: 17px; font-weight: 900; }
-    .timeline-wrapper { height: calc(100vh - 440px); min-height: 430px; max-height: 760px; overflow: auto; position: relative; background: #fff; }
-    .timeline-grid { min-width: 1900px; }
-    .timeline-header { display: grid; grid-template-columns: var(--project-col-width) 1fr; position: sticky; top: 0; z-index: 30; background: #fff; border-bottom: 1px solid var(--border); height: var(--timeline-header-height); }
-    .project-header-cell { position: sticky; left: 0; z-index: 35; background: #f8fbfd; border-right: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; font-size: 12px; font-weight: 900; color: var(--header-navy); text-transform: uppercase; letter-spacing: 0.25px; }
-    .date-header { position: relative; height: var(--timeline-header-height); background: #fff; }
+    .timeline-wrapper {
+      height: calc(100vh - 440px);
+      min-height: 430px;
+      max-height: 760px;
+      overflow: hidden;
+      position: relative;
+      background: #fff;
+    }
+
+    .timeline-layout {
+      display: grid;
+      grid-template-columns: var(--project-col-width) minmax(0, 1fr);
+      height: 100%;
+      width: 100%;
+      min-width: 0;
+      background: #fff;
+    }
+
+    .frozen-panel {
+      height: 100%;
+      overflow: hidden;
+      background: #fff;
+      border-right: 1px solid var(--border);
+      box-shadow: 8px 0 14px rgba(11,60,93,0.12);
+      z-index: 160;
+    }
+
+    .project-header-cell {
+      height: var(--timeline-header-height);
+      background: #f8fbfd;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--header-navy);
+      text-transform: uppercase;
+      letter-spacing: 0.25px;
+      position: relative;
+      z-index: 170;
+    }
+
+    .frozen-project-viewport {
+      height: calc(100% - var(--timeline-header-height));
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .frozen-project-body {
+      will-change: transform;
+    }
+
+    .frozen-project-row {
+      height: var(--row-height);
+      min-height: var(--row-height);
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      overflow: hidden;
+    }
+
+    .frozen-project-row:nth-child(even) {
+      background: #fbfdff;
+    }
+
+    .timeline-scroll {
+      height: 100%;
+      min-width: 0;
+      overflow: auto;
+      position: relative;
+      background: #fff;
+    }
+
+    .timeline-content {
+      position: relative;
+      width: var(--timeline-content-width, 1900px);
+      min-width: var(--timeline-content-width, 1900px);
+    }
+
+    .timeline-header {
+      width: var(--timeline-content-width, 1900px);
+      min-width: var(--timeline-content-width, 1900px);
+      position: sticky;
+      top: 0;
+      z-index: 80;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      height: var(--timeline-header-height);
+    }
+
+    .date-header { position: relative; z-index: 30; height: var(--timeline-header-height); background: #fff; }
     .month-row, .week-row, .day-row { position: absolute; left: 0; right: 0; display: flex; }
     .month-row { top: 0; height: 30px; }
     .week-row { top: 30px; height: 30px; }
@@ -135,13 +226,20 @@
     .day-letter { font-size: 9px; font-weight: 900; line-height: 1; }
     .day-number { font-size: 10px; line-height: 1; }
     .timeline-body { position: relative; }
-    .project-row { display: grid; grid-template-columns: var(--project-col-width) 1fr; min-height: var(--row-height); border-bottom: 1px solid var(--border); }
-    .project-cell { position: sticky; left: 0; z-index: 20; background: #fff; border-right: 1px solid var(--border); padding: 10px 12px; display: flex; align-items: center; gap: 9px; }
-    .project-row:nth-child(even) .project-cell, .project-row:nth-child(even) .timeline-cell { background: #fbfdff; }
+    .project-row {
+      width: var(--timeline-content-width, 1900px);
+      min-width: var(--timeline-content-width, 1900px);
+      height: var(--row-height);
+      min-height: var(--row-height);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .project-row:nth-child(even) .timeline-cell { background: #fbfdff; }
     .project-id { color: var(--accent-teal); font-size: 12px; font-weight: 900; white-space: nowrap; }
     .project-name { font-size: 13px; font-weight: 900; color: var(--header-navy); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 216px; }
     .project-meta { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 5px; color: var(--muted-text); font-size: 10px; font-weight: 800; }
-    .timeline-cell { position: relative; min-height: var(--row-height); background: #fff; }
+    .timeline-cell { position: relative; height: var(--row-height); min-height: var(--row-height); width: var(--timeline-content-width, 1900px); background: #fff; }
     .timeline-day-grid { position: absolute; inset: 0; display: flex; pointer-events: none; }
     .grid-day { width: var(--day-width); flex: 0 0 var(--day-width); border-right: 1px solid #eef2f6; }
     .grid-day.weekend { background: rgba(242,244,247,0.92); }
@@ -152,8 +250,8 @@
     .phase-bar.adjusted { box-shadow: 0 0 0 2px rgba(26,163,176,0.25), 0 1px 2px rgba(0,0,0,0.07); }
     .phase-bar.draggable { cursor: grab; }
     .phase-bar.dragging { cursor: grabbing; opacity: 0.82; z-index: 25; }
-    .today-line { position: absolute; top: 0; bottom: 0; width: 2px; z-index: 12; pointer-events: none; background: var(--accent-teal); }
-    .today-label { position: absolute; top: 3px; transform: translateX(-50%); z-index: 32; border-radius: 999px; color: #fff; padding: 3px 8px; font-size: 10px; font-weight: 900; white-space: nowrap; pointer-events: none; background: var(--accent-teal); }
+    .today-line { position: absolute; top: 0; bottom: 0; width: 3px; z-index: 90; pointer-events: none; background: var(--danger); box-shadow: 0 0 0 1px rgba(217,45,32,0.18); }
+    .today-label { position: absolute; top: 3px; transform: translateX(-50%); z-index: 130; border-radius: 999px; color: #fff; padding: 3px 8px; font-size: 10px; font-weight: 900; white-space: nowrap; pointer-events: none; background: var(--danger); }
     .drag-ghost-date { position: fixed; z-index: 999; background: var(--header-navy); color: #fff; border-radius: 999px; padding: 5px 9px; font-size: 11px; font-weight: 900; pointer-events: none; box-shadow: 0 8px 18px rgba(0,0,0,0.16); }
     .timeline-footer { padding: 11px 16px; color: var(--muted-text); font-size: 12px; font-weight: 700; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .hidden { display: none !important; }
@@ -232,7 +330,27 @@
         <section class="legend-card"><div class="legend-top"><div><div class="legend-title">Legend</div><div class="timeline-subtitle">Each phase keeps its same color across every project row.</div></div><div class="status-legend"><span class="legend-item"><span class="legend-swatch" style="background:#98a2b3; opacity:.45;"></span>Completed / Locked</span><span class="legend-item"><span class="legend-swatch" style="background:#fff; border:2px solid #0b3c5d;"></span>Current Phase</span><span class="legend-item"><span class="legend-swatch" style="background:#fff; border:2px solid #d92d20;"></span>Capacity Conflict</span><span class="legend-item"><span class="legend-swatch" style="background:#fff; border:2px solid #1aa3b0;"></span>Adjusted</span></div></div><div class="phase-legend" id="phaseLegend"></div></section>
 
         <section class="timeline-card"><div class="timeline-card-header"><div><div class="timeline-title">Stacked Calendar Schedule</div><div class="timeline-subtitle">Project/client rows are stacked vertically. Drag unfinished phase bars to save schedule moves.</div></div><div class="topbar-actions"><button class="btn btn-secondary" type="button" id="zoomOutBtn">−</button><button class="btn btn-secondary" type="button" id="zoomLabelBtn">100%</button><button class="btn btn-secondary" type="button" id="zoomInBtn">+</button></div></div>
-          <div class="timeline-wrapper" id="timelineWrapper"><div class="loading" id="loadingMessage">Loading planning schedule...</div><div class="error hidden" id="errorMessage"></div><div class="empty hidden" id="emptyMessage">No scheduled project rows found for the current filters.</div><div class="timeline-grid hidden" id="timelineGrid"><div class="timeline-header"><div class="project-header-cell">Project / Client</div><div class="date-header" id="dateHeader"></div></div><div class="timeline-body" id="timelineBody"></div></div></div>
+          <div class="timeline-wrapper" id="timelineWrapper">
+            <div class="loading" id="loadingMessage">Loading planning schedule...</div>
+            <div class="error hidden" id="errorMessage"></div>
+            <div class="empty hidden" id="emptyMessage">No scheduled project rows found for the current filters.</div>
+            <div class="timeline-layout hidden" id="timelineGrid">
+              <div class="frozen-panel" id="frozenPanel">
+                <div class="project-header-cell">Project / Client</div>
+                <div class="frozen-project-viewport">
+                  <div class="frozen-project-body" id="frozenProjectBody"></div>
+                </div>
+              </div>
+              <div class="timeline-scroll" id="timelineScroll">
+                <div class="timeline-content" id="timelineContent">
+                  <div class="timeline-header">
+                    <div class="date-header" id="dateHeader"></div>
+                  </div>
+                  <div class="timeline-body" id="timelineBody"></div>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="timeline-footer"><span id="footerStatus">Ready.</span><span>Tip: drag an unfinished phase bar to move it and push the remaining unfinished schedule chain.</span></div>
         </section>
       </section>
@@ -295,6 +413,8 @@
     const emptyMessage = document.getElementById("emptyMessage");
     const timelineGrid = document.getElementById("timelineGrid");
     const timelineWrapper = document.getElementById("timelineWrapper");
+    const timelineScroll = document.getElementById("timelineScroll");
+    const frozenProjectBody = document.getElementById("frozenProjectBody");
     const dateHeader = document.getElementById("dateHeader");
     const timelineBody = document.getElementById("timelineBody");
 
@@ -331,6 +451,13 @@
         document.getElementById(id).addEventListener("change", applyFiltersAndRender);
       });
       document.getElementById("searchInput").addEventListener("keyup", debounce(applyFiltersAndRender, 250));
+      timelineScroll.addEventListener("scroll", syncFrozenProjectColumn, { passive: true });
+      syncFrozenProjectColumn();
+    }
+
+    function syncFrozenProjectColumn() {
+      const y = timelineScroll ? timelineScroll.scrollTop : 0;
+      if (frozenProjectBody) frozenProjectBody.style.transform = `translateY(${-y}px)`;
     }
 
     async function loadSchedule() {
@@ -449,13 +576,14 @@
     function clearFilters() { document.getElementById("searchInput").value = ""; document.getElementById("pmFilter").value = ""; document.getElementById("typeFilter").value = ""; document.getElementById("phaseFilter").value = ""; document.getElementById("capacityInput").value = "3"; applyFiltersAndRender(); }
 
     function renderTimeline(rows) {
-      clearError(); timelineBody.innerHTML = ""; dateHeader.innerHTML = ""; bottleneckDates = new Set(); currentBottleneck = null;
+      clearError(); timelineBody.innerHTML = ""; dateHeader.innerHTML = ""; frozenProjectBody.innerHTML = ""; bottleneckDates = new Set(); currentBottleneck = null;
       if (!rows.length) { timelineGrid.classList.add("hidden"); emptyMessage.classList.remove("hidden"); updateSummary([]); return; }
       emptyMessage.classList.add("hidden"); timelineGrid.classList.remove("hidden");
       const dateRange = getVisibleDateRange(rows); visibleStartDate = dateRange.start; visibleEndDate = dateRange.end;
       const dateList = buildDateList(visibleStartDate, visibleEndDate); const timelineWidth = dateList.length * dayWidth;
       document.documentElement.style.setProperty("--day-width", `${dayWidth}px`);
-      renderDateHeader(dateList, timelineWidth); renderProjectRows(rows, dateList, timelineWidth); analyzeTileBottlenecks(rows, dateList); updateSummary(rows); updateFooter(rows); setTimeout(scrollToToday, 100);
+      document.documentElement.style.setProperty("--timeline-content-width", `${timelineWidth}px`);
+      renderDateHeader(dateList, timelineWidth); renderProjectRows(rows, dateList, timelineWidth); syncFrozenProjectColumn(); analyzeTileBottlenecks(rows, dateList); updateSummary(rows); updateFooter(rows); setTimeout(scrollToToday, 100);
     }
     function getVisibleDateRange(rows) { const starts = rows.map((r) => r._flowStart).filter(Boolean); const ends = rows.map((r) => r._flowEnd).filter(Boolean); return { start: addDays(minDate(starts), -7), end: addDays(maxDate(ends), 14) }; }
 
@@ -472,17 +600,45 @@
     }
 
     function renderProjectRows(rows, dateList, timelineWidth) {
-      const projects = groupRowsByProject(rows); timelineBody.innerHTML = ""; const todayOffset = getDateOffset(new Date());
+      const projects = groupRowsByProject(rows);
+      timelineBody.innerHTML = "";
+      frozenProjectBody.innerHTML = "";
+      const todayOffset = getDateOffset(new Date());
+
       projects.forEach((project) => {
-        const row = document.createElement("div"); row.className = "project-row";
-        const projectCell = document.createElement("div"); projectCell.className = "project-cell";
-        projectCell.innerHTML = `<div style="min-width:0; flex:1;"><div class="project-id">${escapeHtml(project.project_number || "")}</div><div class="project-name" title="${escapeHtml(project.project_name || project.client_name || "")}">${escapeHtml(project.project_name || project.client_name || "Unnamed Project")}</div><div class="project-meta"><span>PM: ${escapeHtml(project.project_manager || "Unassigned")}</span><span>•</span><span>${escapeHtml(project.project_type || "Type Not Set")}</span></div></div><a href="project-detail.html?project_id=${encodeURIComponent(project.project_id)}" title="Open Project Detail" style="color:#667085; font-size:16px;">›</a>`;
-        const timelineCell = document.createElement("div"); timelineCell.className = "timeline-cell"; timelineCell.style.width = `${timelineWidth}px`;
-        const grid = document.createElement("div"); grid.className = "timeline-day-grid"; dateList.forEach((date) => { const gridDay = document.createElement("div"); gridDay.className = `grid-day ${isWeekend(date) ? "weekend" : ""}`; grid.appendChild(gridDay); }); timelineCell.appendChild(grid);
-        if (todayOffset >= 0 && todayOffset <= timelineWidth) { const line = document.createElement("div"); line.className = "today-line"; line.style.left = `${todayOffset}px`; timelineCell.appendChild(line); }
+        const frozenRow = document.createElement("div");
+        frozenRow.className = "frozen-project-row";
+        frozenRow.innerHTML = `<div style="min-width:0; flex:1;"><div class="project-id">${escapeHtml(project.project_number || "")}</div><div class="project-name" title="${escapeHtml(project.project_name || project.client_name || "")}">${escapeHtml(project.project_name || project.client_name || "Unnamed Project")}</div><div class="project-meta"><span>PM: ${escapeHtml(project.project_manager || "Unassigned")}</span><span>•</span><span>${escapeHtml(project.project_type || "Type Not Set")}</span></div></div><a href="project-detail.html?project_id=${encodeURIComponent(project.project_id)}" title="Open Project Detail" style="color:#667085; font-size:16px;">›</a>`;
+        frozenProjectBody.appendChild(frozenRow);
+
+        const row = document.createElement("div");
+        row.className = "project-row";
+        const timelineCell = document.createElement("div");
+        timelineCell.className = "timeline-cell";
+        timelineCell.style.width = `${timelineWidth}px`;
+
+        const grid = document.createElement("div");
+        grid.className = "timeline-day-grid";
+        dateList.forEach((date) => {
+          const gridDay = document.createElement("div");
+          gridDay.className = `grid-day ${isWeekend(date) ? "weekend" : ""}`;
+          grid.appendChild(gridDay);
+        });
+        timelineCell.appendChild(grid);
+
+        if (todayOffset >= 0 && todayOffset <= timelineWidth) {
+          const line = document.createElement("div");
+          line.className = "today-line";
+          line.style.left = `${todayOffset}px`;
+          timelineCell.appendChild(line);
+        }
+
         project.rows.forEach((phase) => timelineCell.appendChild(createPhaseBar(phase)));
-        row.appendChild(projectCell); row.appendChild(timelineCell); timelineBody.appendChild(row);
+        row.appendChild(timelineCell);
+        timelineBody.appendChild(row);
       });
+
+      syncFrozenProjectColumn();
     }
 
     function createPhaseBar(row) {
@@ -570,7 +726,7 @@
       document.querySelectorAll(".phase-bar").forEach((bar) => { const phase = bar.dataset.phase || ""; if (!isTilePhase(phase)) return; const row = rows.find((item) => item.project_id === bar.dataset.projectId && item._phaseName === phase); if (!row) return; const key = `${row.project_id}|${row._phaseName}|${toIsoDate(row._flowStart)}`; if (conflictProjectIds.has(key)) bar.classList.add("conflict"); });
     }
     function renderBottleneckCard(bottleneck) { const card = document.getElementById("bottleneckCard"); const hasConflict = bottleneck && bottleneck.peak > bottleneck.capacity; if (!hasConflict) { card.classList.add("hidden"); return; } card.classList.remove("hidden"); document.getElementById("bottleneckTitle").textContent = "Tile Subcontractor Bottleneck"; document.getElementById("bottleneckSubtitle").textContent = `Peak Tile overlap occurs around ${formatDate(parseDate(bottleneck.peakDate))}. Review sequencing or add capacity.`; document.getElementById("bottleneckCapacity").textContent = `${bottleneck.capacity} crews`; document.getElementById("bottleneckDemand").textContent = `${bottleneck.peak} jobs`; document.getElementById("bottleneckOverBy").textContent = `${bottleneck.peak - bottleneck.capacity}`; document.getElementById("bottleneckJobs").textContent = `${bottleneck.affectedProjectCount}`; }
-    function focusBottleneck() { if (!currentBottleneck || !currentBottleneck.peakDate) return; const offset = getDateOffset(parseDate(currentBottleneck.peakDate)); timelineWrapper.scrollLeft = Math.max(0, offset - 420); document.getElementById("phaseFilter").value = "Tile"; applyFiltersAndRender(); }
+    function focusBottleneck() { if (!currentBottleneck || !currentBottleneck.peakDate) return; const offset = getDateOffset(parseDate(currentBottleneck.peakDate)); timelineScroll.scrollLeft = Math.max(0, offset - 420); document.getElementById("phaseFilter").value = "Tile"; applyFiltersAndRender(); }
 
     function updateSummary(rows) { const projects = new Set(rows.map((r) => r.project_id)); const range = rows.length ? getVisibleDateRange(rows) : null; document.getElementById("activeProjectsCount").textContent = projects.size || "0"; document.getElementById("scheduleRowsCount").textContent = rows.length || "0"; document.getElementById("tileCapacityCount").textContent = document.getElementById("capacityInput").value || "3"; document.getElementById("peakTileDemand").textContent = currentBottleneck ? currentBottleneck.peak : "0"; document.getElementById("bottleneckWeeksCount").textContent = currentBottleneck ? estimateBottleneckWeeks(currentBottleneck.bottleneckDayCount) : "0"; document.getElementById("dateWindowLabel").textContent = range ? `${formatShortDate(range.start)} - ${formatShortDate(range.end)}` : "—"; }
     function estimateBottleneckWeeks(dayCount) { if (!dayCount) return 0; return Math.ceil(dayCount / 5); }
@@ -586,7 +742,7 @@
     }
 
     function setZoom(nextWidth) { dayWidth = Math.max(16, Math.min(44, nextWidth)); document.getElementById("zoomLabelBtn").textContent = `${Math.round((dayWidth / 26) * 100)}%`; renderTimeline(filteredRows); }
-    function scrollToToday() { if (!visibleStartDate) return; const todayOffset = getDateOffset(new Date()); if (todayOffset >= 0) timelineWrapper.scrollLeft = Math.max(0, todayOffset - 420); }
+    function scrollToToday() { if (!visibleStartDate) return; const todayOffset = getDateOffset(new Date()); if (todayOffset >= 0) { timelineScroll.scrollLeft = Math.max(0, todayOffset - 420); syncFrozenProjectColumn(); } }
     function setLoading(isLoading) { loadingMessage.classList.toggle("hidden", !isLoading); if (isLoading) { errorMessage.classList.add("hidden"); emptyMessage.classList.add("hidden"); timelineGrid.classList.add("hidden"); } }
     function showError(message) { errorMessage.textContent = message; errorMessage.classList.remove("hidden"); loadingMessage.classList.add("hidden"); emptyMessage.classList.add("hidden"); timelineGrid.classList.add("hidden"); }
     function clearError() { errorMessage.textContent = ""; errorMessage.classList.add("hidden"); }
