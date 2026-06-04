@@ -494,7 +494,7 @@
 
     .transaction-log-table {
       table-layout: fixed;
-      min-width: 1750px;
+      min-width: 2100px;
     }
 
     .transaction-log-table th,
@@ -508,29 +508,33 @@
     .transaction-log-table th:nth-child(2),
     .transaction-log-table td:nth-child(2) { width: 155px; }
     .transaction-log-table th:nth-child(3),
-    .transaction-log-table td:nth-child(3) { width: 145px; }
+    .transaction-log-table td:nth-child(3) { width: 160px; }
     .transaction-log-table th:nth-child(4),
-    .transaction-log-table td:nth-child(4) { width: 330px; word-break: break-word; line-height: 1.35; }
+    .transaction-log-table td:nth-child(4) { width: 145px; }
     .transaction-log-table th:nth-child(5),
-    .transaction-log-table td:nth-child(5),
+    .transaction-log-table td:nth-child(5) { width: 330px; word-break: break-word; line-height: 1.35; }
     .transaction-log-table th:nth-child(6),
-    .transaction-log-table td:nth-child(6),
+    .transaction-log-table td:nth-child(6) { width: 170px; word-break: break-word; line-height: 1.35; }
     .transaction-log-table th:nth-child(7),
-    .transaction-log-table td:nth-child(7) { width: 110px; }
+    .transaction-log-table td:nth-child(7),
     .transaction-log-table th:nth-child(8),
-    .transaction-log-table td:nth-child(8) { width: 150px; }
+    .transaction-log-table td:nth-child(8),
     .transaction-log-table th:nth-child(9),
-    .transaction-log-table td:nth-child(9),
+    .transaction-log-table td:nth-child(9) { width: 110px; }
     .transaction-log-table th:nth-child(10),
-    .transaction-log-table td:nth-child(10),
+    .transaction-log-table td:nth-child(10) { width: 150px; }
     .transaction-log-table th:nth-child(11),
     .transaction-log-table td:nth-child(11),
     .transaction-log-table th:nth-child(12),
     .transaction-log-table td:nth-child(12),
     .transaction-log-table th:nth-child(13),
-    .transaction-log-table td:nth-child(13) { width: 145px; }
+    .transaction-log-table td:nth-child(13),
     .transaction-log-table th:nth-child(14),
-    .transaction-log-table td:nth-child(14) { width: 280px; word-break: break-word; line-height: 1.35; }
+    .transaction-log-table td:nth-child(14),
+    .transaction-log-table th:nth-child(15),
+    .transaction-log-table td:nth-child(15) { width: 145px; }
+    .transaction-log-table th:nth-child(16),
+    .transaction-log-table td:nth-child(16) { width: 280px; word-break: break-word; line-height: 1.35; }
 
 
     .dead-stock-table {
@@ -1443,14 +1447,14 @@
 
         <label>Type:</label>
         <select id="transactionTypeFilter">
-          <option value="all">All Transactions</option>
-          <option value="RECEIVE">RECEIVE</option>
-          <option value="ISSUED">ISSUED</option>
-          <option value="ADJUSTMENT">ADJUSTMENT</option>
-          <option value="CYCLE_COUNT_ADJUSTMENT">CYCLE_COUNT_ADJUSTMENT</option>
-          <option value="RECEIVE_REVERSAL">RECEIVE_REVERSAL</option>
-          <option value="ISSUE_REVERSAL">ISSUE_REVERSAL</option>
-          <option value="ADJUSTMENT_REVERSAL">ADJUSTMENT_REVERSAL</option>
+          <option value="ALL">All Transaction Types</option>
+          <option value="RECEIVE">Received Inventory</option>
+          <option value="ISSUED">Issued Inventory</option>
+          <option value="ADJUSTMENT">Manual Adjustment</option>
+          <option value="CYCLE_COUNT_ADJUSTMENT">Cycle Count Adjustment</option>
+          <option value="ALL_ADJUSTMENTS">All Adjustments</option>
+          <option value="TRANSACTION_REVERSALS">Transaction Reversals</option>
+          <option value="OTHER_ACTIVITY">Other Activity</option>
         </select>
 
         <div class="button-row">
@@ -1470,8 +1474,10 @@
           <tr>
             <th>Date / Time</th>
             <th>Transaction Type</th>
+            <th>Transaction Label</th>
             <th>Part Number</th>
             <th>Description</th>
+            <th>Serial Number</th>
             <th>Quantity</th>
             <th>Unit Cost</th>
             <th>Total Value</th>
@@ -1486,7 +1492,7 @@
         </thead>
         <tbody id="transactionLogTableBody">
           <tr>
-            <td colspan="14">No transaction report loaded.</td>
+            <td colspan="16">No transaction report loaded.</td>
           </tr>
         </tbody>
       </table>
@@ -1950,6 +1956,22 @@ const DEAD_STOCK_RECOMMENDED_ACTION_OPTIONS = [
   'DISPOSE',
   'RETURN_TO_VENDOR',
   'KEEP_IN_STOCK'
+];
+
+const TRANSACTION_REVERSAL_TYPES = [
+  'RECEIVE_REVERSAL',
+  'ISSUE_REVERSAL',
+  'ISSUED_REVERSAL',
+  'ADJUSTMENT_REVERSAL',
+  'CYCLE_COUNT_ADJUSTMENT_REVERSAL'
+];
+
+const KNOWN_TRANSACTION_TYPES = [
+  'RECEIVE',
+  'ISSUED',
+  'ADJUSTMENT',
+  'CYCLE_COUNT_ADJUSTMENT',
+  ...TRANSACTION_REVERSAL_TYPES
 ];
 
 window.addEventListener('load', async () => {
@@ -2631,7 +2653,11 @@ async function fetchTransactionLogRows() {
       query = query.ilike('part_number', `%${partNumber}%`);
     }
 
-    if (transactionType && transactionType !== 'all') {
+    if (transactionType === 'ALL_ADJUSTMENTS') {
+      query = query.in('transaction_type', ['ADJUSTMENT', 'CYCLE_COUNT_ADJUSTMENT']);
+    } else if (transactionType === 'TRANSACTION_REVERSALS') {
+      query = query.in('transaction_type', TRANSACTION_REVERSAL_TYPES);
+    } else if (transactionType && transactionType !== 'ALL' && transactionType !== 'OTHER_ACTIVITY') {
       query = query.eq('transaction_type', transactionType);
     }
 
@@ -2656,7 +2682,17 @@ async function fetchTransactionLogRows() {
     from += batchSize;
   }
 
-  return allRows;
+  if (transactionType === 'OTHER_ACTIVITY') {
+    allRows = allRows.filter(row => {
+      const rowType = String(row.transaction_type || '').toUpperCase();
+      return !KNOWN_TRANSACTION_TYPES.includes(rowType);
+    });
+  }
+
+  return allRows.map(row => ({
+    ...row,
+    transaction_label: getTransactionDisplayType(row)
+  }));
 }
 
 async function loadTransactionLogReport() {
@@ -2664,14 +2700,14 @@ async function loadTransactionLogReport() {
   const tableBody = document.getElementById('transactionLogTableBody');
 
   summary.textContent = 'Loading transaction log...';
-  tableBody.innerHTML = '<tr><td colspan="14">Loading transaction log...</td></tr>';
+  tableBody.innerHTML = '<tr><td colspan="16">Loading transaction log...</td></tr>';
 
   try {
     transactionLogData = await fetchTransactionLogRows();
   } catch (error) {
     transactionLogData = [];
     summary.textContent = error.message;
-    tableBody.innerHTML = `<tr><td colspan="14">${escapeHTML(error.message)}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="16">${escapeHTML(error.message)}</td></tr>`;
     return;
   }
 
@@ -2684,7 +2720,7 @@ function renderTransactionLogTable() {
   tableBody.innerHTML = '';
 
   if (!transactionLogData || transactionLogData.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="14">No transactions found for the selected filters.</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="16">No transactions found for the selected filters.</td></tr>';
     return;
   }
 
@@ -2698,8 +2734,10 @@ function renderTransactionLogTable() {
     tr.innerHTML = `
       <td>${formatDateTime(transactionDate)}</td>
       <td>${escapeHTML(row.transaction_type || '')}</td>
+      <td>${escapeHTML(row.transaction_label || getTransactionDisplayType(row))}</td>
       <td>${escapeHTML(row.part_number || '')}</td>
       <td>${escapeHTML(row.description || row.part_description || '')}</td>
+      <td>${escapeHTML(row.serial_number || '')}</td>
       <td>${formatNumber(quantity)}</td>
       <td>${formatCurrency(unitCost)}</td>
       <td>${formatCurrency(totalValue)}</td>
@@ -2724,14 +2762,17 @@ function updateTransactionLogSummary() {
     return;
   }
 
+  const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
+
   let receiveCount = 0;
   let issueCount = 0;
   let adjustmentCount = 0;
+  let reversalCount = 0;
   let totalQuantity = 0;
   let totalValue = 0;
 
   transactionLogData.forEach(row => {
-    const type = row.transaction_type || '';
+    const type = String(row.transaction_type || '').toUpperCase();
     const quantity = Number(getFirstValue(row, ['quantity', 'transaction_quantity']) || 0);
     const unitCost = getFirstValue(row, ['unit_cost', 'transaction_unit_cost']);
 
@@ -2742,16 +2783,20 @@ function updateTransactionLogSummary() {
       receiveCount++;
     } else if (type === 'ISSUED') {
       issueCount++;
-    } else if (type.includes('ADJUSTMENT')) {
+    } else if (type === 'ADJUSTMENT' || type === 'CYCLE_COUNT_ADJUSTMENT') {
       adjustmentCount++;
+    } else if (TRANSACTION_REVERSAL_TYPES.includes(type)) {
+      reversalCount++;
     }
   });
 
   summary.textContent =
+    `Report Type: ${getTransactionTypeLabel(selectedTransactionType)}\n` +
     `Transactions Returned: ${formatNumber(transactionLogData.length)}\n` +
     `Receive Count: ${formatNumber(receiveCount)}\n` +
     `Issue Count: ${formatNumber(issueCount)}\n` +
     `Adjustment Count: ${formatNumber(adjustmentCount)}\n` +
+    `Reversal Count: ${formatNumber(reversalCount)}\n` +
     `Net Quantity: ${formatNumber(totalQuantity)}\n` +
     `Net Transaction Value: ${formatCurrency(totalValue)}`;
 }
@@ -2771,7 +2816,11 @@ async function exportTransactionLogCSV() {
     return;
   }
 
-  let csv = 'Date Time,Transaction Type,Part Number,Description,Quantity,Unit Cost,Total Value,Location,Vendor,PO Number,Issued To,Work Order,Client,Notes\n';
+  const startDate = document.getElementById('transactionStartDate').value || 'all_dates';
+  const endDate = document.getElementById('transactionEndDate').value || 'all_dates';
+  const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
+
+  let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PO NUMBER,CLIENT NAME,WORK ORDER,ISSUED TO,NOTES,ID\n';
 
   transactionLogData.forEach(row => {
     const transactionDate = getFirstValue(row, ['created_at', 'transaction_date', 'transaction_at']);
@@ -2782,21 +2831,25 @@ async function exportTransactionLogCSV() {
     csv +=
       `"${cleanCSV(formatDateTime(transactionDate))}",` +
       `"${cleanCSV(row.transaction_type)}",` +
+      `"${cleanCSV(row.transaction_label || getTransactionDisplayType(row))}",` +
       `"${cleanCSV(row.part_number)}",` +
       `"${cleanCSV(row.description || row.part_description)}",` +
+      `"${cleanCSV(row.serial_number)}",` +
       `"${cleanCSV(quantity)}",` +
       `"${cleanCSV(unitCost)}",` +
       `"${cleanCSV(totalValue)}",` +
       `"${cleanCSV(row.location_name)}",` +
       `"${cleanCSV(row.vendor_name)}",` +
       `"${cleanCSV(row.po_number)}",` +
-      `"${cleanCSV(row.issued_to)}",` +
-      `"${cleanCSV(row.work_order || row.job_name)}",` +
       `"${cleanCSV(row.client_name)}",` +
-      `"${cleanCSV(row.notes)}"\n`;
+      `"${cleanCSV(row.work_order || row.job_name)}",` +
+      `"${cleanCSV(row.issued_to)}",` +
+      `"${cleanCSV(row.notes)}",` +
+      `"${cleanCSV(row.id)}"\n`;
   });
 
-  downloadCSV(csv, 'warehouse_transaction_log.csv');
+  const filenamePrefix = getReportFilenamePrefix(selectedTransactionType);
+  downloadCSV(csv, `${filenamePrefix}_${cleanFilename(startDate)}_to_${cleanFilename(endDate)}.csv`);
 }
 
 function getFirstValue(row, keys) {
@@ -2817,6 +2870,89 @@ function getTransactionTotalValue(row, quantity, unitCost) {
   }
 
   return Number(quantity || 0) * Number(unitCost || 0);
+}
+
+function getTransactionTypeLabel(transactionType) {
+  const normalizedType = String(transactionType || '').toUpperCase();
+
+  if (normalizedType === 'RECEIVE') {
+    return 'Received Inventory';
+  }
+
+  if (normalizedType === 'ISSUED') {
+    return 'Issued Inventory';
+  }
+
+  if (normalizedType === 'ADJUSTMENT') {
+    return 'Manual Adjustment';
+  }
+
+  if (normalizedType === 'CYCLE_COUNT_ADJUSTMENT') {
+    return 'Cycle Count Adjustment';
+  }
+
+  if (normalizedType === 'ALL_ADJUSTMENTS') {
+    return 'All Adjustments';
+  }
+
+  if (normalizedType === 'TRANSACTION_REVERSALS') {
+    return 'Transaction Reversals';
+  }
+
+  if (normalizedType === 'OTHER_ACTIVITY') {
+    return 'Other Activity';
+  }
+
+  if (TRANSACTION_REVERSAL_TYPES.includes(normalizedType)) {
+    return 'Transaction Reversal';
+  }
+
+  if (normalizedType === 'ALL' || normalizedType === 'ALL_TRANSACTIONS') {
+    return 'All Transaction Types';
+  }
+
+  return transactionType || 'Unknown Transaction Type';
+}
+
+function getTransactionDisplayType(row) {
+  const rawType = row.transaction_type || row.type || '';
+  return getTransactionTypeLabel(rawType);
+}
+
+function getReportFilenamePrefix(reportType) {
+  if (reportType === 'ALL') {
+    return 'warehouse_transaction_report_all';
+  }
+
+  if (reportType === 'RECEIVE') {
+    return 'warehouse_transaction_report_received_inventory';
+  }
+
+  if (reportType === 'ISSUED') {
+    return 'warehouse_transaction_report_issued_inventory';
+  }
+
+  if (reportType === 'ADJUSTMENT') {
+    return 'warehouse_transaction_report_manual_adjustments';
+  }
+
+  if (reportType === 'CYCLE_COUNT_ADJUSTMENT') {
+    return 'warehouse_transaction_report_cycle_count_adjustments';
+  }
+
+  if (reportType === 'ALL_ADJUSTMENTS') {
+    return 'warehouse_transaction_report_all_adjustments';
+  }
+
+  if (reportType === 'TRANSACTION_REVERSALS') {
+    return 'warehouse_transaction_report_transaction_reversals';
+  }
+
+  if (reportType === 'OTHER_ACTIVITY') {
+    return 'warehouse_transaction_report_other_activity';
+  }
+
+  return 'warehouse_transaction_report';
 }
 
 async function loadReorder() {
