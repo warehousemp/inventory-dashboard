@@ -3175,12 +3175,14 @@ async function changePartSerializationStatus() {
 
 async function loadSerializedInventory() {
   document.getElementById('serializedReport').textContent =
-    'Loading serialized inventory...';
+    'Loading on-hand serialized inventory...';
 
   const { data, error } = await client
     .from('v_serialized_inventory_current')
     .select('*')
-    .order('part_number', { ascending: true });
+    .eq('status', 'on_hand')
+    .order('part_number', { ascending: true })
+    .order('serial_number_raw', { ascending: true });
 
   if (error) {
     document.getElementById('serializedReport').textContent = error.message;
@@ -3189,7 +3191,7 @@ async function loadSerializedInventory() {
 
   if (!data || data.length === 0) {
     document.getElementById('serializedReport').textContent =
-      'No serialized inventory found';
+      'No on-hand serialized inventory found';
     return;
   }
 
@@ -3207,7 +3209,9 @@ async function exportSerializedInventoryCSV() {
   const { data, error } = await client
     .from('v_serialized_inventory_current')
     .select('*')
-    .order('part_number', { ascending: true });
+    .eq('status', 'on_hand')
+    .order('part_number', { ascending: true })
+    .order('serial_number_raw', { ascending: true });
 
   if (error) {
     document.getElementById('serializedReport').textContent = error.message;
@@ -3216,7 +3220,7 @@ async function exportSerializedInventoryCSV() {
 
   if (!data || data.length === 0) {
     document.getElementById('serializedReport').textContent =
-      'No serialized inventory found';
+      'No on-hand serialized inventory found';
     return;
   }
 
@@ -3226,7 +3230,7 @@ async function exportSerializedInventoryCSV() {
     csv += `"${cleanCSV(row.part_number)}","${cleanCSV(row.serial_number_raw)}","${cleanCSV(row.status)}"\n`;
   });
 
-  downloadCSV(csv, 'serialized_inventory.csv');
+  downloadCSV(csv, 'serialized_inventory_on_hand.csv');
 }
 
 async function fetchDeadStockRows(filterValue) {
