@@ -1352,11 +1352,19 @@
 
         <div id="issueSerialContainer" style="display: none;">
           <label>Serial Number:</label>
-          <input id="issueSerial" placeholder="Enter manufacturer serial number" autocomplete="off">
+          <select id="issueSerial">
+            <option value="">Select a part first...</option>
+          </select>
+          <div id="issueSerialHelp" class="help-text">
+            Serialized parts require selecting one on-hand serial number from Main Warehouse.
+          </div>
         </div>
 
         <label>Quantity:</label>
         <input id="issueQty" type="number" value="1">
+        <div id="issueQtyHelp" class="help-text" style="display: none;">
+          Serialized issues are locked to quantity 1 so each serial number has its own transaction history.
+        </div>
 
         <label>Issued To:</label>
         <input id="issueTech" placeholder="Technician or team member">
@@ -2254,15 +2262,114 @@ function updateChangeSerializationPartDescription() {
   updatePartDescription('changeSerializationPartNumber', 'changeSerializationPartDescription');
 }
 
-function checkIssueSerialized() {
+async function checkIssueSerialized() {
   updateIssuePartDescription();
 
   const matchedPart = getMatchedPart('issuePart');
   const isSerialized = matchedPart?.is_serialized === true;
   const serialContainer = document.getElementById('issueSerialContainer');
 
+  setIssueQuantityLock(isSerialized);
+
   if (serialContainer) {
     serialContainer.style.display = isSerialized ? 'block' : 'none';
+  }
+
+  if (isSerialized && matchedPart?.part_number) {
+    await loadAvailableIssueSerialNumbers(matchedPart.part_number);
+  } else {
+    resetIssueSerialDropdown('Select a serialized part first...');
+  }
+}
+
+function setIssueQuantityLock(isLocked) {
+  const quantityInput = document.getElementById('issueQty');
+  const quantityHelp = document.getElementById('issueQtyHelp');
+
+  if (quantityInput) {
+    if (isLocked) {
+      quantityInput.value = '1';
+    }
+
+    quantityInput.disabled = isLocked;
+  }
+
+  if (quantityHelp) {
+    quantityHelp.style.display = isLocked ? 'block' : 'none';
+  }
+}
+
+function resetIssueSerialDropdown(message = 'Select a serialized part first...') {
+  const serialSelect = document.getElementById('issueSerial');
+  const serialHelp = document.getElementById('issueSerialHelp');
+
+  if (serialSelect) {
+    serialSelect.innerHTML = `<option value="">${escapeHTML(message)}</option>`;
+    serialSelect.value = '';
+  }
+
+  if (serialHelp) {
+    serialHelp.textContent = 'Serialized parts require selecting one on-hand serial number from Main Warehouse.';
+  }
+}
+
+async function loadAvailableIssueSerialNumbers(partNumber) {
+  const serialSelect = document.getElementById('issueSerial');
+  const serialHelp = document.getElementById('issueSerialHelp');
+  const output = document.getElementById('issueOutput');
+
+  if (!serialSelect) {
+    return;
+  }
+
+  serialSelect.innerHTML = '<option value="">Loading available serial numbers...</option>';
+  serialSelect.value = '';
+
+  const { data, error } = await client
+    .from('v_serialized_inventory_current')
+    .select('serial_number_raw,current_location,status')
+    .ilike('part_number', partNumber)
+    .eq('status', 'on_hand')
+    .eq('current_location', 'Main Warehouse')
+    .order('serial_number_raw', { ascending: true });
+
+  if (error) {
+    serialSelect.innerHTML = '<option value="">Serial numbers failed to load</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = error.message;
+    }
+
+    if (output) {
+      output.textContent = 'Serial number lookup failed: ' + error.message;
+    }
+
+    return;
+  }
+
+  const availableSerials = data || [];
+
+  if (availableSerials.length === 0) {
+    serialSelect.innerHTML = '<option value="">No on-hand serial numbers available</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = 'No on-hand serial numbers were found for this part in Main Warehouse.';
+    }
+
+    return;
+  }
+
+  serialSelect.innerHTML = '<option value="">Select serial number...</option>';
+
+  availableSerials.forEach(row => {
+    const option = document.createElement('option');
+    option.value = row.serial_number_raw || '';
+    option.textContent = `${row.serial_number_raw || ''} — ${row.current_location || 'Current Location Unknown'}`;
+    serialSelect.appendChild(option);
+  });
+
+  if (serialHelp) {
+    serialHelp.textContent = `${availableSerials.length} on-hand serial number(s) available in Main Warehouse.`;
   }
 }
 
@@ -2283,14 +2390,14 @@ function checkReceiveSerialized() {
   */
 }
 
-document.getElementById('issuePart').addEventListener('input', checkIssueSerialized);
+document.getElementById('issuePart').addEventListener('input', () => { checkIssueSerialized(); });
 document.getElementById('receivePart').addEventListener('input', checkReceiveSerialized);
 document.getElementById('adjustmentPart').addEventListener('input', updateAdjustmentPartDescription);
 document.getElementById('changeSerializationPartNumber').addEventListener('input', updateChangeSerializationPartDescription);
 
 function resetIssueFields() {
   document.getElementById('issuePart').value = '';
-  document.getElementById('issueSerial').value = '';
+  resetIssueSerialDropdown();
   document.getElementById('issueQty').value = '1';
   document.getElementById('issueTech').value = '';
   document.getElementById('issueJob').value = '';
@@ -2301,6 +2408,7 @@ function resetIssueFields() {
     serialContainer.style.display = 'none';
   }
 
+  setIssueQuantityLock(false);
   updateIssuePartDescription();
 }
 
@@ -2340,7 +2448,7 @@ function resetSerializationFields() {
 }
 
 async function issue() {
-  checkIssueSerialized();
+  await checkIssueSerialized();
 
   const matchedPart = getMatchedPart('issuePart');
   const isSerialized = matchedPart?.is_serialized === true;
@@ -2348,7 +2456,14 @@ async function issue() {
 
   if (isSerialized && serialValue === '') {
     document.getElementById('issueOutput').textContent =
-      'Serial number required for serialized parts';
+      'Select an available on-hand serial number before issuing this serialized part.';
+    return;
+  }
+
+  if (isSerialized && Number(document.getElementById('issueQty').value) !== 1) {
+    document.getElementById('issueOutput').textContent =
+      'Serialized inventory must be issued one serial number at a time. Quantity has been reset to 1.';
+    document.getElementById('issueQty').value = '1';
     return;
   }
 
