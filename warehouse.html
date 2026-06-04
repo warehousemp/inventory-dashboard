@@ -2430,11 +2430,24 @@ function resetSerializationFields() {
 }
 
 async function issue() {
-  await checkIssueSerialized();
+  /*
+    Do not call checkIssueSerialized() here.
+    That function reloads the available-serial dropdown, which clears the user's selected serial number.
+    The selected serial must be read exactly as-is when the Issue button is clicked.
+  */
+  updateIssuePartDescription();
 
   const matchedPart = getMatchedPart('issuePart');
-  const isSerialized = matchedPart?.is_serialized === true;
-  const serialValue = document.getElementById('issueSerial').value.trim();
+
+  if (!matchedPart) {
+    document.getElementById('issueOutput').textContent =
+      'Select a valid active part number before issuing inventory.';
+    return;
+  }
+
+  const isSerialized = matchedPart.is_serialized === true;
+  const serialElement = document.getElementById('issueSerial');
+  const serialValue = serialElement ? serialElement.value.trim() : '';
   const quantityValue = isSerialized ? 1 : Number(document.getElementById('issueQty').value);
 
   if (isSerialized && serialValue === '') {
