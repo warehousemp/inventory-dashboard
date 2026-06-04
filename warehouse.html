@@ -758,6 +758,43 @@
     }
 
 
+    .part-suggestions {
+      display: none;
+      margin-top: -12px;
+      margin-bottom: 15px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      max-height: 230px;
+      overflow-y: auto;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+      z-index: 20;
+    }
+
+    .part-suggestion-item {
+      padding: 9px 11px;
+      cursor: pointer;
+      border-bottom: 1px solid #eef2f7;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .part-suggestion-item:hover {
+      background: #eef9fb;
+    }
+
+    .part-suggestion-number {
+      font-weight: 800;
+      color: #0b3c5d;
+    }
+
+    .part-suggestion-description {
+      color: #475569;
+      margin-top: 2px;
+      white-space: normal;
+    }
+
+
 
     .hidden {
       display: none !important;
@@ -2195,8 +2232,12 @@ async function loadParts() {
   partsData.forEach(part => {
     const option = document.createElement('option');
     option.value = part.part_number;
+    option.label = `${part.part_number} — ${part.description || ''}`;
+    option.textContent = `${part.part_number} — ${part.description || ''}`;
     datalist.appendChild(option);
   });
+
+  initializePartAutocomplete();
 
   updateReceivePartDescription();
   updateIssuePartDescription();
@@ -2204,6 +2245,103 @@ async function loadParts() {
   updateChangeSerializationPartDescription();
 
   console.log('Parts loaded into dropdown:', partsData.length);
+}
+
+function initializePartAutocomplete() {
+  const partInputIds = [
+    'receivePart',
+    'issuePart',
+    'adjustmentPart',
+    'transactionPartNumber',
+    'changeCategoryPartNumber',
+    'changeSerializationPartNumber'
+  ];
+
+  partInputIds.forEach(inputId => {
+    const input = document.getElementById(inputId);
+
+    if (!input || input.dataset.partAutocompleteInitialized === 'true') {
+      return;
+    }
+
+    const suggestions = document.createElement('div');
+    suggestions.id = `${inputId}Suggestions`;
+    suggestions.className = 'part-suggestions';
+    input.insertAdjacentElement('afterend', suggestions);
+
+    input.dataset.partAutocompleteInitialized = 'true';
+
+    input.addEventListener('input', () => {
+      renderPartSuggestions(input, suggestions);
+    });
+
+    input.addEventListener('focus', () => {
+      renderPartSuggestions(input, suggestions);
+    });
+
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        suggestions.style.display = 'none';
+      }, 160);
+    });
+  });
+}
+
+function renderPartSuggestions(input, suggestions) {
+  if (!input || !suggestions) {
+    return;
+  }
+
+  const searchValue = input.value.trim().toUpperCase();
+
+  if (!searchValue || searchValue.length < 2 || !partsData || partsData.length === 0) {
+    suggestions.innerHTML = '';
+    suggestions.style.display = 'none';
+    return;
+  }
+
+  const exactMatch = partsData.find(part =>
+    String(part.part_number || '').toUpperCase() === searchValue
+  );
+
+  if (exactMatch) {
+    suggestions.innerHTML = '';
+    suggestions.style.display = 'none';
+    return;
+  }
+
+  const matches = partsData
+    .filter(part => {
+      const partNumber = String(part.part_number || '').toUpperCase();
+      const description = String(part.description || '').toUpperCase();
+      return partNumber.includes(searchValue) || description.includes(searchValue);
+    })
+    .slice(0, 25);
+
+  if (matches.length === 0) {
+    suggestions.innerHTML = '';
+    suggestions.style.display = 'none';
+    return;
+  }
+
+  suggestions.innerHTML = matches.map(part => `
+    <div class="part-suggestion-item" data-part-number="${escapeHTML(part.part_number || '')}">
+      <div class="part-suggestion-number">${escapeHTML(part.part_number || '')}</div>
+      <div class="part-suggestion-description">${escapeHTML(part.description || 'No description on file')}</div>
+    </div>
+  `).join('');
+
+  suggestions.querySelectorAll('.part-suggestion-item').forEach(item => {
+    item.addEventListener('mousedown', event => {
+      event.preventDefault();
+      input.value = item.dataset.partNumber || '';
+      suggestions.style.display = 'none';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
+
+  suggestions.style.display = 'block';
 }
 
 function getMatchedPart(inputId) {
