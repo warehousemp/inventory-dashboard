@@ -555,7 +555,7 @@
         <h2>Client Missing Data Worklist</h2>
 
         <div class="status-note">
-          This page is the Client Services cleanup list. Use the filters below to find active Skimmer clients missing email or phone data. Missing email/phone is detected from the actual blank email/phone fields, not only from the marketing status label. Fix the actual customer record in Skimmer. After a fresh Skimmer Customer CSV is imported on the Client Marketing Sync page, this list will update.
+          This page is the Client Services cleanup list. Use the filters below to find active Skimmer clients missing email or phone data. Missing email/phone is loaded directly from the dedicated Supabase cleanup view, so the worklist and the summary counts use the same database source of truth. Fix the actual customer record in Skimmer. After a fresh Skimmer Customer CSV is imported on the Client Marketing Sync page, this list will update.
         </div>
 
         <div class="warning-note">
@@ -573,7 +573,7 @@
         <div class="small-action-row">
           <button class="warning-btn" onclick="showActiveMissingEmails()">SHOW ACTIVE MISSING EMAILS</button>
           <button class="warning-btn" onclick="showActiveMissingPhones()">SHOW ACTIVE MISSING PHONES</button>
-          <button class="secondary-btn" onclick="showAllActiveClients()">SHOW ALL ACTIVE CLIENTS</button>
+          <button class="secondary-btn" onclick="showAllCleanupRecords()">SHOW ALL CLEANUP RECORDS</button>
           <button class="admin-btn" onclick="loadClientWorklist()">REFRESH LIST</button>
         </div>
 
@@ -589,8 +589,7 @@
               <option value="MISSING_EMAIL">Active Missing Email</option>
               <option value="MISSING_PHONE">Active Missing Phone</option>
               <option value="ANY_MISSING">Any Active Missing Email or Phone</option>
-              <option value="READY_FOR_MARKETING">Ready for Marketing</option>
-              <option value="ALL">All Clients</option>
+              <option value="ALL">All Cleanup Records</option>
             </select>
           </div>
 
@@ -598,8 +597,7 @@
             <label>Active Filter:</label>
             <select id="activeFilter" onchange="filterClientWorklist()">
               <option value="ACTIVE">Active Only</option>
-              <option value="ALL">All</option>
-              <option value="INACTIVE">Inactive Only</option>
+              <option value="ALL">All Cleanup Records</option>
             </select>
           </div>
         </div>
@@ -769,9 +767,9 @@ async function loadClientWorklist() {
   setMessage('worklistMessage', 'info', 'Loading Client Services cleanup list...');
 
   const { data, error } = await client
-    .from('skimmer_client_master_review_view')
+    .from('client_services_missing_data_worklist_view')
     .select('*')
-    .order('last_seen_at', { ascending: false })
+    .order('full_name', { ascending: true })
     .limit(5000);
 
   if (error) {
@@ -788,7 +786,7 @@ async function loadClientWorklist() {
   filterClientWorklist(false);
 
   if (clientWorklistData.length === 0) {
-    setMessage('worklistMessage', 'info', 'No Skimmer client records found yet. Import a Skimmer Customer CSV from Client Marketing Sync first.');
+    setMessage('worklistMessage', 'info', 'No active Skimmer client records are currently missing email or phone data.');
   } else {
     setMessage('worklistMessage', 'success', `${filteredClientWorklistData.length.toLocaleString()} client record(s) shown.`);
   }
@@ -855,9 +853,9 @@ function showActiveMissingPhones() {
   filterClientWorklist();
 }
 
-function showAllActiveClients() {
+function showAllCleanupRecords() {
   document.getElementById('cleanupFilter').value = 'ALL';
-  document.getElementById('activeFilter').value = 'ACTIVE';
+  document.getElementById('activeFilter').value = 'ALL';
   filterClientWorklist();
 }
 
@@ -867,13 +865,14 @@ function filterClientWorklist(showMessage = true) {
   const activeFilter = document.getElementById('activeFilter').value;
 
   filteredClientWorklistData = (clientWorklistData || []).filter(row => {
+    // This page now reads from public.client_services_missing_data_worklist_view.
+    // That database view already limits the list to active clients with missing email and/or phone.
+    // Keep this active filter only as a safety check for future view changes.
     if (activeFilter === 'ACTIVE' && !isActiveRow(row)) return false;
-    if (activeFilter === 'INACTIVE' && isActiveRow(row)) return false;
 
-    if (cleanupFilter === 'MISSING_EMAIL' && !isMissingEmail(row)) return false;
-    if (cleanupFilter === 'MISSING_PHONE' && !isMissingPhone(row)) return false;
-    if (cleanupFilter === 'ANY_MISSING' && !isMissingEmail(row) && !isMissingPhone(row)) return false;
-    if (cleanupFilter === 'READY_FOR_MARKETING' && row.marketing_status !== 'READY_FOR_MARKETING') return false;
+    if (cleanupFilter === 'MISSING_EMAIL' && !hasActiveMissingEmail(row)) return false;
+    if (cleanupFilter === 'MISSING_PHONE' && !hasActiveMissingPhone(row)) return false;
+    if (cleanupFilter === 'ANY_MISSING' && !hasActiveMissingEmail(row) && !hasActiveMissingPhone(row)) return false;
 
     if (searchValue) {
       const combined = [
@@ -973,14 +972,24 @@ function isBlankValue(value) {
   return normalized === '' || normalized === 'null' || normalized === 'undefined' || normalized === 'n/a' || normalized === 'na';
 }
 
-function isMissingEmail(row) {
+function hasActiveMissingEmail(row) {
   if (!row) return false;
-  return isTrueValue(row.missing_email_flag) || isBlankValue(row.primary_email);
+  if ('active_missing_email' in row) return isTrueValue(row.active_missing_email);
+  return isActiveRow(row) && isBlankValue(row.primary_email);
+}
+
+function hasActiveMissingPhone(row) {
+  if (!row) return false;
+  if ('active_missing_phone' in row) return isTrueValue(row.active_missing_phone);
+  return isActiveRow(row) && isBlankValue(row.primary_phone);
+}
+
+function isMissingEmail(row) {
+  return hasActiveMissingEmail(row);
 }
 
 function isMissingPhone(row) {
-  if (!row) return false;
-  return isTrueValue(row.missing_phone_flag) || isBlankValue(row.primary_phone);
+  return hasActiveMissingPhone(row);
 }
 
 function buildLocation(row) {
