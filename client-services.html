@@ -555,7 +555,7 @@
         <h2>Client Missing Data Worklist</h2>
 
         <div class="status-note">
-          This page is the Client Services cleanup list. Use the filters below to find active Skimmer clients missing email or phone data. Fix the actual customer record in Skimmer. After a fresh Skimmer Customer CSV is imported on the Client Marketing Sync page, this list will update.
+          This page is the Client Services cleanup list. Use the filters below to find active Skimmer clients missing email or phone data. Missing email/phone is detected from the actual blank email/phone fields, not only from the marketing status label. Fix the actual customer record in Skimmer. After a fresh Skimmer Customer CSV is imported on the Client Marketing Sync page, this list will update.
         </div>
 
         <div class="warning-note">
@@ -565,8 +565,8 @@
         <div class="info-grid" id="summaryGrid">
           <div class="info-box"><div class="info-label">Total Clients</div><div class="info-value">0</div></div>
           <div class="info-box"><div class="info-label">Active Clients</div><div class="info-value">0</div></div>
-          <div class="info-box"><div class="info-label">Missing Email</div><div class="info-value">0</div></div>
-          <div class="info-box"><div class="info-label">Missing Phone</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Active Missing Email</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Active Missing Phone</div><div class="info-value">0</div></div>
           <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">Not synced</div></div>
         </div>
 
@@ -586,9 +586,9 @@
           <div>
             <label>Cleanup Filter:</label>
             <select id="cleanupFilter" onchange="filterClientWorklist()">
-              <option value="MISSING_EMAIL">Missing Email</option>
-              <option value="MISSING_PHONE">Missing Phone</option>
-              <option value="ANY_MISSING">Any Missing Email or Phone</option>
+              <option value="MISSING_EMAIL">Active Missing Email</option>
+              <option value="MISSING_PHONE">Active Missing Phone</option>
+              <option value="ANY_MISSING">Any Active Missing Email or Phone</option>
               <option value="READY_FOR_MARKETING">Ready for Marketing</option>
               <option value="ALL">All Clients</option>
             </select>
@@ -820,16 +820,16 @@ function renderDashboardSummary(row) {
   grid.innerHTML = `
     <div class="info-box"><div class="info-label">Total Clients</div><div class="info-value">${formatNumber(row.total_clients)}</div></div>
     <div class="info-box"><div class="info-label">Active Clients</div><div class="info-value">${formatNumber(row.active_clients)}</div></div>
-    <div class="info-box"><div class="info-label">Missing Email</div><div class="info-value">${formatNumber(row.active_missing_email)}</div></div>
-    <div class="info-box"><div class="info-label">Missing Phone</div><div class="info-value">${formatNumber(row.active_missing_phone)}</div></div>
+    <div class="info-box"><div class="info-label">Active Missing Email</div><div class="info-value">${formatNumber(row.active_missing_email)}</div></div>
+    <div class="info-box"><div class="info-label">Active Missing Phone</div><div class="info-value">${formatNumber(row.active_missing_phone)}</div></div>
     <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">${escapeHTML(formatDateTime(row.last_skimmer_sync_at) || 'Not synced')}</div></div>
   `;
 }
 
 function renderFallbackSummary(rows) {
-  const active = rows.filter(row => row.is_active === true).length;
-  const missingEmail = rows.filter(row => row.is_active === true && row.missing_email_flag === true).length;
-  const missingPhone = rows.filter(row => row.is_active === true && row.missing_phone_flag === true).length;
+  const active = rows.filter(row => isActiveRow(row)).length;
+  const missingEmail = rows.filter(row => isActiveRow(row) && isMissingEmail(row)).length;
+  const missingPhone = rows.filter(row => isActiveRow(row) && isMissingPhone(row)).length;
   const lastSyncDates = rows.map(row => row.last_seen_at).filter(Boolean).sort().reverse();
   const lastSync = lastSyncDates.length > 0 ? lastSyncDates[0] : null;
 
@@ -837,8 +837,8 @@ function renderFallbackSummary(rows) {
   grid.innerHTML = `
     <div class="info-box"><div class="info-label">Total Clients</div><div class="info-value">${formatNumber(rows.length)}</div></div>
     <div class="info-box"><div class="info-label">Active Clients</div><div class="info-value">${formatNumber(active)}</div></div>
-    <div class="info-box"><div class="info-label">Missing Email</div><div class="info-value">${formatNumber(missingEmail)}</div></div>
-    <div class="info-box"><div class="info-label">Missing Phone</div><div class="info-value">${formatNumber(missingPhone)}</div></div>
+    <div class="info-box"><div class="info-label">Active Missing Email</div><div class="info-value">${formatNumber(missingEmail)}</div></div>
+    <div class="info-box"><div class="info-label">Active Missing Phone</div><div class="info-value">${formatNumber(missingPhone)}</div></div>
     <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">${escapeHTML(formatDateTime(lastSync) || 'Not synced')}</div></div>
   `;
 }
@@ -867,12 +867,12 @@ function filterClientWorklist(showMessage = true) {
   const activeFilter = document.getElementById('activeFilter').value;
 
   filteredClientWorklistData = (clientWorklistData || []).filter(row => {
-    if (activeFilter === 'ACTIVE' && row.is_active !== true) return false;
-    if (activeFilter === 'INACTIVE' && row.is_active === true) return false;
+    if (activeFilter === 'ACTIVE' && !isActiveRow(row)) return false;
+    if (activeFilter === 'INACTIVE' && isActiveRow(row)) return false;
 
-    if (cleanupFilter === 'MISSING_EMAIL' && row.missing_email_flag !== true) return false;
-    if (cleanupFilter === 'MISSING_PHONE' && row.missing_phone_flag !== true) return false;
-    if (cleanupFilter === 'ANY_MISSING' && row.missing_email_flag !== true && row.missing_phone_flag !== true) return false;
+    if (cleanupFilter === 'MISSING_EMAIL' && !isMissingEmail(row)) return false;
+    if (cleanupFilter === 'MISSING_PHONE' && !isMissingPhone(row)) return false;
+    if (cleanupFilter === 'ANY_MISSING' && !isMissingEmail(row) && !isMissingPhone(row)) return false;
     if (cleanupFilter === 'READY_FOR_MARKETING' && row.marketing_status !== 'READY_FOR_MARKETING') return false;
 
     if (searchValue) {
@@ -936,15 +936,37 @@ function renderClientWorklist(rows) {
   });
 }
 
+
+function isTrueValue(value) {
+  if (value === true) return true;
+  return String(value || '').trim().toLowerCase() === 'true';
+}
+
+function isActiveRow(row) {
+  return isTrueValue(row?.is_active);
+}
+
+function isBlankValue(value) {
+  return value === null || value === undefined || String(value).trim() === '';
+}
+
+function isMissingEmail(row) {
+  return isTrueValue(row?.missing_email_flag) || isBlankValue(row?.primary_email);
+}
+
+function isMissingPhone(row) {
+  return isTrueValue(row?.missing_phone_flag) || isBlankValue(row?.primary_phone);
+}
+
 function buildLocation(row) {
   return [row.location_address, row.location_city, row.location_state, row.location_zip].filter(Boolean).join(', ');
 }
 
 function renderReviewBadge(row) {
   if (row.duplicate_flag === true) return '<span class="badge orange">Possible Duplicate</span>';
-  if (row.is_active === false) return '<span class="badge gray">Inactive</span>';
-  if (row.missing_email_flag === true) return '<span class="badge red">Missing Email</span>';
-  if (row.missing_phone_flag === true) return '<span class="badge orange">Missing Phone</span>';
+  if (!isActiveRow(row)) return '<span class="badge gray">Inactive</span>';
+  if (isMissingEmail(row)) return '<span class="badge red">Missing Email</span>';
+  if (isMissingPhone(row)) return '<span class="badge orange">Missing Phone</span>';
   if (row.marketing_status === 'READY_FOR_MARKETING') return '<span class="badge green">Ready</span>';
   if (row.marketing_status === 'DO_NOT_MARKET') return '<span class="badge red">Do Not Market</span>';
   return `<span class="badge blue">${escapeHTML(row.review_status_label || row.marketing_status || 'Review')}</span>`;
