@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Client Services - Missing Data Cleanup</title>
+  <title>Client Services Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -430,6 +430,126 @@
     .badge.red { background: #fee2e2; color: #991b1b; }
     .badge.gray { background: #f1f5f9; color: #475569; }
 
+
+    .client-services-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: white;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 8px rgba(15,23,42,0.04);
+    }
+
+    .client-services-tab {
+      appearance: none;
+      border: 0;
+      border-right: 1px solid var(--border);
+      border-radius: 0;
+      background: #ffffff;
+      color: var(--nav-dark);
+      padding: 13px 16px;
+      margin: 0;
+      min-height: 44px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      cursor: pointer;
+      flex: 1 1 auto;
+      width: auto;
+      white-space: nowrap;
+    }
+
+    .client-services-tab:last-child { border-right: 0; }
+
+    .client-services-tab:hover {
+      background: #f8fafc;
+      opacity: 1;
+    }
+
+    .client-services-tab.active {
+      background: #f8fafc;
+      color: var(--nav-dark);
+      box-shadow: inset 0 -3px 0 var(--accent);
+    }
+
+    .task-panel { display: none; }
+    .task-panel.active { display: block; }
+
+    .task-section-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+    }
+
+    .task-section-header h2 {
+      margin: 0 0 4px;
+      color: var(--header);
+      font-size: 22px;
+    }
+
+    .task-section-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .task-section-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .section-summary-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: var(--nav-dark);
+      font-size: 12px;
+      font-weight: 800;
+      padding: 7px 10px;
+      white-space: nowrap;
+    }
+
+    .collapse-section-btn {
+      background: var(--nav-dark);
+      color: white;
+      width: auto;
+      min-width: 150px;
+      margin: 0;
+      padding: 9px 12px;
+      font-size: 13px;
+      border-radius: 8px;
+    }
+
+    .placeholder-card {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 22px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .placeholder-card h3 {
+      margin: 0 0 8px;
+      color: var(--header);
+      font-size: 18px;
+    }
+
     @media (max-width: 1000px) {
       .info-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
       .three-column-form { grid-template-columns: 1fr; }
@@ -468,6 +588,12 @@
       .small-action-row button { width: 100%; margin-bottom: 10px; }
       .info-grid { grid-template-columns: 1fr; }
       th, td { font-size: 12px; padding: 8px; }
+      .client-services-tabs { display: block; border-radius: 10px; }
+      .client-services-tab { width: 100%; border-right: 0; border-bottom: 1px solid var(--border); }
+      .client-services-tab:last-child { border-bottom: 0; }
+      .task-section-header { display: block; }
+      .task-section-actions { justify-content: flex-start; margin-top: 12px; }
+      .collapse-section-btn { width: 100%; }
     }
 
     @media (max-width: 520px) {
@@ -534,7 +660,7 @@
     <div class="header-bar">
       <div>
         <div class="header-title">Molinari Pools – Client Services</div>
-        <div class="header-subtitle">Missing Data Cleanup Worklist</div>
+        <div class="header-subtitle">Client Services Task Dashboard</div>
       </div>
     </div>
 
@@ -552,80 +678,173 @@
 
     <div id="pageContent" class="main-layout hidden">
       <div class="card">
-        <h2>Client Missing Data Worklist</h2>
+        <h2>Client Services Dashboard</h2>
 
-        <div class="status-note">
-          This page is the Client Services cleanup list. Use the filters below to find active Skimmer clients missing email or phone data. Missing email/phone is loaded directly from the dedicated Supabase cleanup view, so the worklist and the summary counts use the same database source of truth. Fix the actual customer record in Skimmer. After a fresh Skimmer Customer CSV is imported on the Client Marketing Sync page, this list will update.
+        <div class="client-services-tabs" role="tablist" aria-label="Client Services task sections">
+          <button class="client-services-tab" id="clientChangesTab" type="button" role="tab" aria-selected="false" onclick="showClientServicesSection('clientChanges')">Client Changes</button>
+          <button class="client-services-tab" id="weeklyRevenueTab" type="button" role="tab" aria-selected="false" onclick="showClientServicesSection('weeklyRevenue')">Weekly Revenue</button>
+          <button class="client-services-tab active" id="missingDataTab" type="button" role="tab" aria-selected="true" onclick="showClientServicesSection('missingData')">Missing Data</button>
+          <button class="client-services-tab" id="payrollSubmittalTab" type="button" role="tab" aria-selected="false" onclick="showClientServicesSection('payrollSubmittal')">Payroll Submittal</button>
+          <button class="client-services-tab" id="onCallScheduleTab" type="button" role="tab" aria-selected="false" onclick="showClientServicesSection('onCallSchedule')">On Call Schedule</button>
+          <button class="client-services-tab" id="weeklySamsaraTab" type="button" role="tab" aria-selected="false" onclick="showClientServicesSection('weeklySamsara')">Weekly Samsara</button>
         </div>
 
-        <div class="warning-note">
-          Skimmer is the source of truth. Do not manually edit client email or phone values in Supabase. Search Skimmer by client name, phone, service address, customer code, or location code, then update the Skimmer customer record there.
-        </div>
+        <section id="clientChangesPanel" class="task-panel" role="tabpanel" aria-labelledby="clientChangesTab">
+          <div class="task-section-header">
+            <div>
+              <h2>Client Changes</h2>
+              <p>Future Client Services section for reviewing client changes and updates.</p>
+            </div>
+          </div>
+          <div class="placeholder-card">
+            <h3>Coming Soon</h3>
+            <p>This section is reserved for client change review tasks.</p>
+          </div>
+        </section>
 
-        <div class="info-grid" id="summaryGrid">
-          <div class="info-box"><div class="info-label">Total Clients</div><div class="info-value">0</div></div>
-          <div class="info-box"><div class="info-label">Active Clients</div><div class="info-value">0</div></div>
-          <div class="info-box"><div class="info-label">Active Missing Email</div><div class="info-value">0</div></div>
-          <div class="info-box"><div class="info-label">Active Missing Phone</div><div class="info-value">0</div></div>
-          <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">Not synced</div></div>
-        </div>
+        <section id="weeklyRevenuePanel" class="task-panel" role="tabpanel" aria-labelledby="weeklyRevenueTab">
+          <div class="task-section-header">
+            <div>
+              <h2>Weekly Revenue</h2>
+              <p>Future Client Services section for weekly revenue tracking and review.</p>
+            </div>
+          </div>
+          <div class="placeholder-card">
+            <h3>Coming Soon</h3>
+            <p>This section is reserved for weekly revenue workflow tasks.</p>
+          </div>
+        </section>
 
-        <div class="small-action-row">
-          <button class="warning-btn" onclick="showActiveMissingEmails()">SHOW ACTIVE MISSING EMAILS</button>
-          <button class="warning-btn" onclick="showActiveMissingPhones()">SHOW ACTIVE MISSING PHONES</button>
-          <button class="secondary-btn" onclick="showAllCleanupRecords()">SHOW ALL CLEANUP RECORDS</button>
-          <button class="admin-btn" onclick="loadClientWorklist()">REFRESH LIST</button>
-        </div>
+        <section id="missingDataPanel" class="task-panel active" role="tabpanel" aria-labelledby="missingDataTab">
+          <div class="task-section-header">
+            <div>
+              <h2>Missing Data Cleanup</h2>
+              <p>Active Skimmer clients missing email or phone data.</p>
+            </div>
 
-        <div class="three-column-form">
-          <div>
-            <label>Search:</label>
-            <input id="clientSearchInput" placeholder="Name, phone, address, customer code..." autocomplete="off" oninput="filterClientWorklist()">
+            <div class="task-section-actions">
+              <span class="section-summary-pill" id="missingEmailSectionPill">Missing Email: 0</span>
+              <span class="section-summary-pill" id="missingPhoneSectionPill">Missing Phone: 0</span>
+              <button class="collapse-section-btn" onclick="toggleMissingDataSection()" id="missingDataToggleButton" type="button">
+                Collapse Section
+              </button>
+            </div>
           </div>
 
-          <div>
-            <label>Cleanup Filter:</label>
-            <select id="cleanupFilter" onchange="filterClientWorklist()">
-              <option value="MISSING_EMAIL">Active Missing Email</option>
-              <option value="MISSING_PHONE">Active Missing Phone</option>
-              <option value="ANY_MISSING">Any Active Missing Email or Phone</option>
-              <option value="ALL">All Cleanup Records</option>
-            </select>
+          <div id="missingDataSectionBody">
+            <div class="status-note">
+              This page is the Client Services cleanup list. Use the filters below to find active Skimmer clients missing email or phone data. Missing email/phone is loaded directly from the dedicated Supabase cleanup view, so the worklist and the summary counts use the same database source of truth. Fix the actual customer record in Skimmer. After a fresh Skimmer Customer CSV is imported on the Client Marketing Sync page, this list will update.
+            </div>
+
+            <div class="warning-note">
+              Skimmer is the source of truth. Do not manually edit client email or phone values in Supabase. Search Skimmer by client name, phone, service address, customer code, or location code, then update the Skimmer customer record there.
+            </div>
+
+            <div class="info-grid" id="summaryGrid">
+              <div class="info-box"><div class="info-label">Total Clients</div><div class="info-value">0</div></div>
+              <div class="info-box"><div class="info-label">Active Clients</div><div class="info-value">0</div></div>
+              <div class="info-box"><div class="info-label">Active Missing Email</div><div class="info-value">0</div></div>
+              <div class="info-box"><div class="info-label">Active Missing Phone</div><div class="info-value">0</div></div>
+              <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">Not synced</div></div>
+            </div>
+
+            <div class="small-action-row">
+              <button class="warning-btn" onclick="showActiveMissingEmails()">SHOW ACTIVE MISSING EMAILS</button>
+              <button class="warning-btn" onclick="showActiveMissingPhones()">SHOW ACTIVE MISSING PHONES</button>
+              <button class="secondary-btn" onclick="showAllCleanupRecords()">SHOW ALL CLEANUP RECORDS</button>
+              <button class="admin-btn" onclick="loadClientWorklist()">REFRESH LIST</button>
+            </div>
+
+            <div class="three-column-form">
+              <div>
+                <label>Search:</label>
+                <input id="clientSearchInput" placeholder="Name, phone, address, customer code..." autocomplete="off" oninput="filterClientWorklist()">
+              </div>
+
+              <div>
+                <label>Cleanup Filter:</label>
+                <select id="cleanupFilter" onchange="filterClientWorklist()">
+                  <option value="MISSING_EMAIL">Active Missing Email</option>
+                  <option value="MISSING_PHONE">Active Missing Phone</option>
+                  <option value="ANY_MISSING">Any Active Missing Email or Phone</option>
+                  <option value="ALL">All Cleanup Records</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Active Filter:</label>
+                <select id="activeFilter" onchange="filterClientWorklist()">
+                  <option value="ACTIVE">Active Only</option>
+                  <option value="ALL">All Cleanup Records</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="worklistMessage" class="message"></div>
+
+            <div class="table-wrap client-worklist-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="col-review">Review</th>
+                    <th class="col-client">Client</th>
+                    <th class="col-email">Email</th>
+                    <th class="col-phone">Phone</th>
+                    <th class="col-location">Service Location</th>
+                    <th class="col-status">Skimmer Status</th>
+                    <th class="col-marketing">Marketing</th>
+                    <th class="col-hubspot">HubSpot</th>
+                    <th class="col-code">Customer Code</th>
+                    <th class="col-code">Location Code</th>
+                    <th class="col-last">Last Import</th>
+                  </tr>
+                </thead>
+                <tbody id="clientWorklistBody">
+                  <tr><td colspan="11">Loading client cleanup list...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
+        </section>
 
-          <div>
-            <label>Active Filter:</label>
-            <select id="activeFilter" onchange="filterClientWorklist()">
-              <option value="ACTIVE">Active Only</option>
-              <option value="ALL">All Cleanup Records</option>
-            </select>
+        <section id="payrollSubmittalPanel" class="task-panel" role="tabpanel" aria-labelledby="payrollSubmittalTab">
+          <div class="task-section-header">
+            <div>
+              <h2>Payroll Submittal</h2>
+              <p>Future Client Services section for payroll submittal tracking.</p>
+            </div>
           </div>
-        </div>
+          <div class="placeholder-card">
+            <h3>Coming Soon</h3>
+            <p>This section is reserved for payroll submittal workflow tasks.</p>
+          </div>
+        </section>
 
-        <div id="worklistMessage" class="message"></div>
+        <section id="onCallSchedulePanel" class="task-panel" role="tabpanel" aria-labelledby="onCallScheduleTab">
+          <div class="task-section-header">
+            <div>
+              <h2>On Call Schedule</h2>
+              <p>Future Client Services section for on-call schedule visibility.</p>
+            </div>
+          </div>
+          <div class="placeholder-card">
+            <h3>Coming Soon</h3>
+            <p>This section is reserved for on-call schedule workflow tasks.</p>
+          </div>
+        </section>
 
-        <div class="table-wrap client-worklist-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th class="col-review">Review</th>
-                <th class="col-client">Client</th>
-                <th class="col-email">Email</th>
-                <th class="col-phone">Phone</th>
-                <th class="col-location">Service Location</th>
-                <th class="col-status">Skimmer Status</th>
-                <th class="col-marketing">Marketing</th>
-                <th class="col-hubspot">HubSpot</th>
-                <th class="col-code">Customer Code</th>
-                <th class="col-code">Location Code</th>
-                <th class="col-last">Last Import</th>
-              </tr>
-            </thead>
-            <tbody id="clientWorklistBody">
-              <tr><td colspan="11">Loading client cleanup list...</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <section id="weeklySamsaraPanel" class="task-panel" role="tabpanel" aria-labelledby="weeklySamsaraTab">
+          <div class="task-section-header">
+            <div>
+              <h2>Weekly Samsara</h2>
+              <p>Future Client Services section for weekly Samsara review tasks.</p>
+            </div>
+          </div>
+          <div class="placeholder-card">
+            <h3>Coming Soon</h3>
+            <p>This section is reserved for weekly Samsara workflow tasks.</p>
+          </div>
+        </section>
       </div>
     </div>
   </main>
@@ -637,6 +856,8 @@ const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
+const CLIENT_SERVICES_SECTION_STORAGE_KEY = 'clientServicesActiveSection';
+const MISSING_DATA_COLLAPSED_STORAGE_KEY = 'clientServicesMissingDataCollapsed';
 
 let currentProfile = null;
 let currentSession = null;
@@ -646,6 +867,9 @@ let dashboardData = null;
 
 window.addEventListener('load', async () => {
   initializeSidebar();
+
+  initializeClientServicesTabs();
+  initializeMissingDataSection();
 
   const hasAccess = await enforceClientServicesAccess();
   if (!hasAccess) return;
@@ -676,6 +900,81 @@ function initializeSidebar() {
     applySidebarState(collapsed);
     try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(collapsed)); } catch (error) {}
   });
+}
+
+
+function initializeClientServicesTabs() {
+  let savedSection = 'missingData';
+
+  try {
+    savedSection = localStorage.getItem(CLIENT_SERVICES_SECTION_STORAGE_KEY) || 'missingData';
+  } catch (error) {
+    savedSection = 'missingData';
+  }
+
+  showClientServicesSection(savedSection, false);
+}
+
+function showClientServicesSection(sectionKey, saveState = true) {
+  const allowedSections = ['clientChanges', 'weeklyRevenue', 'missingData', 'payrollSubmittal', 'onCallSchedule', 'weeklySamsara'];
+  const activeSection = allowedSections.includes(sectionKey) ? sectionKey : 'missingData';
+
+  allowedSections.forEach(key => {
+    const tab = document.getElementById(`${key}Tab`);
+    const panel = document.getElementById(`${key}Panel`);
+    const isActive = key === activeSection;
+
+    if (tab) {
+      tab.classList.toggle('active', isActive);
+      tab.setAttribute('aria-selected', String(isActive));
+    }
+
+    if (panel) {
+      panel.classList.toggle('active', isActive);
+    }
+  });
+
+  if (saveState) {
+    try {
+      localStorage.setItem(CLIENT_SERVICES_SECTION_STORAGE_KEY, activeSection);
+    } catch (error) {}
+  }
+}
+
+function initializeMissingDataSection() {
+  let collapsed = false;
+
+  try {
+    collapsed = localStorage.getItem(MISSING_DATA_COLLAPSED_STORAGE_KEY) === 'true';
+  } catch (error) {
+    collapsed = false;
+  }
+
+  applyMissingDataSectionState(collapsed);
+}
+
+function toggleMissingDataSection() {
+  const body = document.getElementById('missingDataSectionBody');
+  const collapsed = body ? !body.classList.contains('hidden') : false;
+  applyMissingDataSectionState(collapsed);
+
+  try {
+    localStorage.setItem(MISSING_DATA_COLLAPSED_STORAGE_KEY, String(collapsed));
+  } catch (error) {}
+}
+
+function applyMissingDataSectionState(collapsed) {
+  const body = document.getElementById('missingDataSectionBody');
+  const button = document.getElementById('missingDataToggleButton');
+
+  if (body) {
+    body.classList.toggle('hidden', collapsed);
+  }
+
+  if (button) {
+    button.textContent = collapsed ? 'Expand Section' : 'Collapse Section';
+    button.setAttribute('aria-expanded', String(!collapsed));
+  }
 }
 
 function showAccessGate(message, type = 'warning') {
@@ -822,6 +1121,8 @@ function renderDashboardSummary(row) {
     <div class="info-box"><div class="info-label">Active Missing Phone</div><div class="info-value">${formatNumber(row.active_missing_phone)}</div></div>
     <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">${escapeHTML(formatDateTime(row.last_skimmer_sync_at) || 'Not synced')}</div></div>
   `;
+
+  updateMissingDataSectionPills(row.active_missing_email, row.active_missing_phone);
 }
 
 function renderFallbackSummary(rows) {
@@ -839,6 +1140,21 @@ function renderFallbackSummary(rows) {
     <div class="info-box"><div class="info-label">Active Missing Phone</div><div class="info-value">${formatNumber(missingPhone)}</div></div>
     <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">${escapeHTML(formatDateTime(lastSync) || 'Not synced')}</div></div>
   `;
+
+  updateMissingDataSectionPills(missingEmail, missingPhone);
+}
+
+function updateMissingDataSectionPills(activeMissingEmail, activeMissingPhone) {
+  const emailPill = document.getElementById('missingEmailSectionPill');
+  const phonePill = document.getElementById('missingPhoneSectionPill');
+
+  if (emailPill) {
+    emailPill.textContent = `Missing Email: ${formatNumber(activeMissingEmail)}`;
+  }
+
+  if (phonePill) {
+    phonePill.textContent = `Missing Phone: ${formatNumber(activeMissingPhone)}`;
+  }
 }
 
 function showActiveMissingEmails() {
