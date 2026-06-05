@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Molinari Pools | Pool / Spa Equipment Inspection Request</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --sidebar-navy: #062f4f;
+      --sidebar-dark-navy: #04233c;
+      --header-navy: #0b3c5d;
+      --accent-teal: #1aa3b0;
+      --page-bg: #f4f8fb;
+      --card-bg: #ffffff;
+      --main-text: #1f2933;
+      --muted-text: #667085;
+      --border: #d9e2ec;
+      --danger: #b42318;
+      --success: #027a48;
+      --warning-bg: #fff8e5;
+      --warning-border: #f6c85f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--page-bg);
+      color: var(--main-text);
+      line-height: 1.5;
+    }
+
+    .top-header {
+      background: linear-gradient(135deg, var(--sidebar-navy), var(--header-navy));
+      color: #ffffff;
+      padding: 26px 18px;
+      text-align: center;
+    }
+
+    .top-header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .top-header p {
+      margin: 8px auto 0;
+      max-width: 850px;
+      color: #dcebf4;
+      font-size: 15px;
+    }
+
+    .page-wrap {
+      max-width: 1050px;
+      margin: 24px auto 48px;
+      padding: 0 16px;
+    }
+
+    .notice {
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 18px;
+      color: #4b3b00;
+    }
+
+    .notice strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #3d2d00;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 18px;
+      box-shadow: 0 6px 18px rgba(6, 47, 79, 0.06);
+    }
+
+    .card h2 {
+      margin: 0 0 6px;
+      color: var(--header-navy);
+      font-size: 21px;
+    }
+
+    .section-intro {
+      margin: 0 0 18px;
+      color: var(--muted-text);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--main-text);
+    }
+
+    .required {
+      color: var(--danger);
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-size: 15px;
+      color: var(--main-text);
+      background: #ffffff;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent-teal);
+      box-shadow: 0 0 0 3px rgba(26, 163, 176, 0.14);
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .checkbox-row input {
+      width: auto;
+      margin-top: 4px;
+    }
+
+    .checkbox-row label {
+      font-weight: 500;
+    }
+
+    .helper {
+      color: var(--muted-text);
+      font-size: 13px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .button-row {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 13px 22px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--accent-teal);
+      color: #ffffff;
+      transition: transform 0.05s ease, opacity 0.2s ease;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .status-box {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 10px;
+      display: none;
+      font-weight: 700;
+    }
+
+    .status-success {
+      display: block;
+      background: #ecfdf3;
+      border: 1px solid #abefc6;
+      color: var(--success);
+    }
+
+    .status-error {
+      display: block;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: var(--danger);
+    }
+
+    .footer-note {
+      text-align: center;
+      color: var(--muted-text);
+      font-size: 13px;
+      margin-top: 20px;
+    }
+
+    .brand-small {
+      font-weight: 700;
+      color: var(--header-navy);
+    }
+
+    /* Honeypot */
+    .company-website-wrap {
+      position: absolute;
+      left: -10000px;
+      top: auto;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+    }
+
+    @media (max-width: 780px) {
+      .grid,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .top-header h1 {
+        font-size: 23px;
+      }
+
+      .card {
+        padding: 18px;
+      }
+
+      .button-row {
+        justify-content: stretch;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="top-header">
+    <h1>Pool / Spa Equipment Inspection Request</h1>
+    <p>
+      Use this form to request a Pool / Spa Equipment Inspection from Molinari Pools.
+      The office will review your request and contact you to confirm scheduling.
+    </p>
+  </header>
+
+  <main class="page-wrap">
+    <div class="notice">
+      <strong>Important Inspection Notice</strong>
+      This request form is for pool, spa, and accessible equipment inspection scheduling.
+      The inspection report is separate from any repair or replacement quote.
+      Final findings, recommendations, photos, and pricing will only be provided to the authorized client or authorized client representative after office review.
+    </div>
+
+    <form id="inspectionForm">
+      <div class="company-website-wrap">
+        <label for="company_website">Company Website</label>
+        <input type="text" id="company_website" name="company_website" autocomplete="off" />
+      </div>
+
+      <section class="card">
+        <h2>1. Requester Information</h2>
+        <p class="section-intro">Tell us who is submitting this inspection request.</p>
+
+        <div class="grid">
+          <div class="field">
+            <label for="requester_first_name">First Name <span class="required">*</span></label>
+            <input id="requester_first_name" name="requester_first_name" required />
+          </div>
+
+          <div class="field">
+            <label for="requester_last_name">Last Name <span class="required">*</span></label>
+            <input id="requester_last_name" name="requester_last_name" required />
+          </div>
+
+          <div class="field">
+            <label for="requester_company">Company</label>
+            <input id="requester_company" name="requester_company" placeholder="Realty company, property management company, etc." />
+          </div>
+
+          <div class="field">
+            <label for="requester_role">Your Role <span class="required">*</span></label>
+            <select id="requester_role" name="requester_role" required>
+              <option value="">Select one</option>
+              <option value="BUYER">Buyer</option>
+              <option value="SELLER">Seller</option>
+              <option value="HOMEOWNER">Homeowner</option>
+              <option value="REALTOR">Realtor</option>
+              <option value="PROPERTY_MANAGER">Property Manager</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+
+          <div class="field hidden" id="requesterRoleOtherWrap">
+            <label for="requester_role_other">Other Role</label>
+            <input id="requester_role_other" name="requester_role_other" />
+          </div>
+
+          <div class="field">
+            <label for="requester_email">Email <span class="required">*</span></label>
+            <input id="requester_email" name="requester_email" type="email" required />
+          </div>
+
+          <div class="field">
+            <label for="requester_phone">Phone <span class="required">*</span></label>
+            <input id="requester_phone" name="requester_phone" type="tel" required />
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>2. Who Is the Inspection For?</h2>
+        <p class="section-intro">This controls who is authorized to receive findings, photos, recommendations, and pricing.</p>
+
+        <div class="grid">
+          <div class="field">
+            <label for="inspection_for_role">Inspection Requested For <span class="required">*</span></label>
+            <select id="inspection_for_role" name="inspection_for_role" required>
+              <option value="">Select one</option>
+              <option value="BUYER">Buyer</option>
+              <option value="SELLER">Seller</option>
+              <option value="HOMEOWNER">Homeowner</option>
+              <option value="REALTOR">Realtor</option>
+              <option value="PROPERTY_MANAGER">Property Manager</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="inspection_for_name">Client / Representative Name</label>
+            <input id="inspection_for_name" name="inspection_for_name" />
+          </div>
+
+          <div class="field">
+            <label for="inspection_for_company">Company</label>
+            <input id="inspection_for_company" name="inspection_for_company" />
+          </div>
+
+          <div class="field">
+            <label for="inspection_for_email">Email</label>
+            <input id="inspection_for_email" name="inspection_for_email" type="email" />
+          </div>
+
+          <div class="field">
+            <label for="inspection_for_phone">Phone</label>
+            <input id="inspection_for_phone" name="inspection_for_phone" type="tel" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>3. Property Information</h2>
+        <p class="section-intro">Provide the address where the pool/spa equipment inspection will be completed.</p>
+
+        <div class="grid">
+          <div class="field full">
+            <label for="property_address_1">Property Address <span class="required">*</span></label>
+            <input id="property_address_1" name="property_address_1" required />
+          </div>
+
+          <div class="field full">
+            <label for="property_address_2">Address Line 2</label>
+            <input id="property_address_2" name="property_address_2" placeholder="Unit, suite, gate name, etc." />
+          </div>
+
+          <div class="field">
+            <label for="property_city">City <span class="required">*</span></label>
+            <input id="property_city" name="property_city" required />
+          </div>
+
+          <div class="field">
+            <label for="property_state">State <span class="required">*</span></label>
+            <input id="property_state" name="property_state" value="FL" required />
+          </div>
+
+          <div class="field">
+            <label for="property_zip">ZIP <span class="required">*</span></label>
+            <input id="property_zip" name="property_zip" required />
+          </div>
+
+          <div class="field">
+            <label for="property_type">Property Type</label>
+            <select id="property_type" name="property_type">
+              <option value="">Select one</option>
+              <option value="SINGLE_FAMILY">Single Family</option>
+              <option value="CONDO_TOWNHOME">Condo / Townhome</option>
+              <option value="COMMERCIAL">Commercial</option>
+              <option value="HOA_COMMUNITY">HOA / Community</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+
+          <div class="field hidden" id="propertyTypeOtherWrap">
+            <label for="property_type_other">Other Property Type</label>
+            <input id="property_type_other" name="property_type_other" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>4. Real Estate Transaction Information</h2>
+        <p class="section-intro">Complete this section if the inspection is related to a purchase, sale, or closing deadline.</p>
+
+        <div class="grid">
+          <div class="field">
+            <label for="is_real_estate_transaction">Is this for a real estate transaction?</label>
+            <select id="is_real_estate_transaction" name="is_real_estate_transaction">
+              <option value="false">No</option>
+              <option value="true">Yes</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="transaction_side">Transaction Side</label>
+            <select id="transaction_side" name="transaction_side">
+              <option value="">Select one</option>
+              <option value="BUYER_SIDE">Buyer Side</option>
+              <option value="SELLER_SIDE">Seller Side</option>
+              <option value="BOTH_UNKNOWN">Both / Unknown</option>
+              <option value="NOT_APPLICABLE">Not Applicable</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="inspection_deadline">Inspection Deadline</label>
+            <input id="inspection_deadline" name="inspection_deadline" type="date" />
+          </div>
+
+          <div class="field">
+            <label for="closing_date">Closing Date</label>
+            <input id="closing_date" name="closing_date" type="date" />
+          </div>
+
+          <div class="field">
+            <label for="buyer_agent_name">Buyer Agent Name</label>
+            <input id="buyer_agent_name" name="buyer_agent_name" />
+          </div>
+
+          <div class="field">
+            <label for="buyer_agent_email">Buyer Agent Email</label>
+            <input id="buyer_agent_email" name="buyer_agent_email" type="email" />
+          </div>
+
+          <div class="field">
+            <label for="buyer_agent_phone">Buyer Agent Phone</label>
+            <input id="buyer_agent_phone" name="buyer_agent_phone" type="tel" />
+          </div>
+
+          <div class="field">
+            <label for="seller_agent_name">Seller Agent Name</label>
+            <input id="seller_agent_name" name="seller_agent_name" />
+          </div>
+
+          <div class="field">
+            <label for="seller_agent_email">Seller Agent Email</label>
+            <input id="seller_agent_email" name="seller_agent_email" type="email" />
+          </div>
+
+          <div class="field">
+            <label for="seller_agent_phone">Seller Agent Phone</label>
+            <input id="seller_agent_phone" name="seller_agent_phone" type="tel" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>5. Access Information</h2>
+        <p class="section-intro">Provide the best access contact and any gate, lockbox, or scheduling instructions.</p>
+
+        <div class="grid">
+          <div class="field">
+            <label for="preferred_inspection_date_1">Preferred Date 1</label>
+            <input id="preferred_inspection_date_1" name="preferred_inspection_date_1" type="date" />
+          </div>
+
+          <div class="field">
+            <label for="preferred_inspection_date_2">Preferred Date 2</label>
+            <input id="preferred_inspection_date_2" name="preferred_inspection_date_2" type="date" />
+          </div>
+
+          <div class="field">
+            <label for="preferred_inspection_time_window">Preferred Time Window</label>
+            <select id="preferred_inspection_time_window" name="preferred_inspection_time_window">
+              <option value="">Select one</option>
+              <option value="MORNING">Morning</option>
+              <option value="AFTERNOON">Afternoon</option>
+              <option value="ANYTIME">Anytime</option>
+              <option value="CALL_TO_COORDINATE">Call to Coordinate</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="access_contact_name">Access Contact Name <span class="required">*</span></label>
+            <input id="access_contact_name" name="access_contact_name" required />
+          </div>
+
+          <div class="field">
+            <label for="access_contact_phone">Access Contact Phone <span class="required">*</span></label>
+            <input id="access_contact_phone" name="access_contact_phone" type="tel" required />
+          </div>
+
+          <div class="field">
+            <label for="access_contact_email">Access Contact Email</label>
+            <input id="access_contact_email" name="access_contact_email" type="email" />
+          </div>
+
+          <div class="field">
+            <label for="access_method">Access Method <span class="required">*</span></label>
+            <select id="access_method" name="access_method" required>
+              <option value="">Select one</option>
+              <option value="OWNER_PRESENT">Owner Present</option>
+              <option value="REALTOR_PRESENT">Realtor Present</option>
+              <option value="LOCKBOX">Lockbox</option>
+              <option value="GATE_CODE">Gate Code</option>
+              <option value="PROPERTY_MANAGER">Property Manager</option>
+              <option value="CALL_TO_COORDINATE">Call to Coordinate</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+
+          <div class="field hidden" id="accessMethodOtherWrap">
+            <label for="access_method_other">Other Access Method</label>
+            <input id="access_method_other" name="access_method_other" />
+          </div>
+
+          <div class="field">
+            <label for="gate_code">Gate Code</label>
+            <input id="gate_code" name="gate_code" />
+          </div>
+
+          <div class="field">
+            <label for="lockbox_location">Lockbox Location / Code</label>
+            <input id="lockbox_location" name="lockbox_location" />
+          </div>
+
+          <div class="field full">
+            <label for="access_notes">Access Notes</label>
+            <textarea id="access_notes" name="access_notes" placeholder="Pets, alarms, gate instructions, who will be present, parking instructions, etc."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>6. Pool / Spa Information</h2>
+        <p class="section-intro">Share what you know about the pool, spa, equipment, and any current concerns.</p>
+
+        <div class="grid">
+          <div class="field">
+            <label for="has_pool">Pool Present?</label>
+            <select id="has_pool" name="has_pool">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="has_spa">Spa Present?</label>
+            <select id="has_spa" name="has_spa">
+              <option value="false">No</option>
+              <option value="true">Yes</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="pool_type">Pool Sanitizer Type</label>
+            <select id="pool_type" name="pool_type">
+              <option value="">Select one</option>
+              <option value="CHLORINE">Chlorine</option>
+              <option value="SALT">Salt</option>
+              <option value="UNKNOWN">Unknown</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+
+          <div class="field hidden" id="poolTypeOtherWrap">
+            <label for="pool_type_other">Other Pool Type</label>
+            <input id="pool_type_other" name="pool_type_other" />
+          </div>
+
+          <div class="field full">
+            <label for="known_equipment">Known Equipment</label>
+            <textarea id="known_equipment" name="known_equipment" placeholder="Pump, filter, heater, automation, salt system, spa equipment, etc."></textarea>
+          </div>
+
+          <div class="field full">
+            <label for="known_issues">Known Issues / Concerns</label>
+            <textarea id="known_issues" name="known_issues" placeholder="Leaks, heater not working, salt system warning, cloudy pool, noisy pump, broken valves, automation issue, etc."></textarea>
+          </div>
+
+          <div class="field full">
+            <label for="recent_repairs_or_service">Recent Repairs or Service</label>
+            <textarea id="recent_repairs_or_service" name="recent_repairs_or_service" placeholder="Any recent repair, equipment replacement, leak repair, salt cell replacement, heater repair, etc."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>7. Authorized Report Recipient</h2>
+        <p class="section-intro">
+          Molinari Pools will only provide inspection findings, photos, recommendations, and pricing to the authorized client or authorized client representative.
+        </p>
+
+        <div class="grid">
+          <div class="field">
+            <label for="authorized_report_recipient_name">Authorized Recipient Name <span class="required">*</span></label>
+            <input id="authorized_report_recipient_name" name="authorized_report_recipient_name" required />
+          </div>
+
+          <div class="field">
+            <label for="authorized_report_recipient_email">Authorized Recipient Email <span class="required">*</span></label>
+            <input id="authorized_report_recipient_email" name="authorized_report_recipient_email" type="email" required />
+          </div>
+
+          <div class="field">
+            <label for="authorized_report_recipient_phone">Authorized Recipient Phone</label>
+            <input id="authorized_report_recipient_phone" name="authorized_report_recipient_phone" type="tel" />
+          </div>
+
+          <div class="field full">
+            <label for="additional_authorized_recipients">Additional Authorized Recipients</label>
+            <textarea id="additional_authorized_recipients" name="additional_authorized_recipients" placeholder="List any additional people authorized to receive findings, photos, recommendations, and pricing. Include name, role, email, and phone if available."></textarea>
+          </div>
+
+          <div class="field full">
+            <label for="unauthorized_parties_present_notes">Unauthorized Parties / Access-Only Parties</label>
+            <textarea id="unauthorized_parties_present_notes" name="unauthorized_parties_present_notes" placeholder="Example: Seller's realtor will be present only for access and is not authorized to receive detailed findings or pricing."></textarea>
+          </div>
+
+          <div class="field full">
+            <label for="communication_restrictions">Communication Restrictions / Special Instructions</label>
+            <textarea id="communication_restrictions" name="communication_restrictions" placeholder="Example: Do not discuss findings with seller or seller's agent. Send final report only to buyer's realtor."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>8. Quote / Follow-Up Preference</h2>
+        <p class="section-intro">The inspection report and repair quote are separate. The office will review inspection findings before sending any quote.</p>
+
+        <div class="grid">
+          <div class="field">
+            <label for="quote_requested_if_repairs_needed">Would you like a quote if repairs are recommended?</label>
+            <select id="quote_requested_if_repairs_needed" name="quote_requested_if_repairs_needed">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="buyer_seller_negotiation_deadline">Negotiation / Response Deadline</label>
+            <input id="buyer_seller_negotiation_deadline" name="buyer_seller_negotiation_deadline" placeholder="Example: Need report by Friday at 5 PM" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>9. Required Acknowledgements</h2>
+        <p class="section-intro">Please review and confirm before submitting your request.</p>
+
+        <div class="checkbox-row">
+          <input id="authorized_to_request_inspection" name="authorized_to_request_inspection" type="checkbox" required />
+          <label for="authorized_to_request_inspection">
+            I confirm that I am authorized to request this Pool / Spa Equipment Inspection for the property listed above. <span class="required">*</span>
+          </label>
+        </div>
+
+        <div class="checkbox-row">
+          <input id="understands_report_review_process" name="understands_report_review_process" type="checkbox" required />
+          <label for="understands_report_review_process">
+            I understand that technician notes and photos are reviewed by the Molinari Pools office before any final client-facing report is sent. <span class="required">*</span>
+          </label>
+        </div>
+
+        <div class="checkbox-row">
+          <input id="understands_quote_separate" name="understands_quote_separate" type="checkbox" required />
+          <label for="understands_quote_separate">
+            I understand that repair/replacement quotes are separate from the inspection report and will only be sent to authorized recipients after office review. <span class="required">*</span>
+          </label>
+        </div>
+
+        <div class="button-row">
+          <button type="submit" id="submitBtn">Submit Inspection Request</button>
+        </div>
+
+        <div id="statusBox" class="status-box"></div>
+      </section>
+    </form>
+
+    <p class="footer-note">
+      <span class="brand-small">Molinari Pools</span> &mdash; Pool / Spa Equipment Inspection Request
+    </p>
+  </main>
+
+  <script>
+    // ============================================================
+    // Supabase Configuration
+    // Replace these with your actual Supabase project values.
+    // The anon key is safe to use in public frontend code when RLS is enabled.
+    // ============================================================
+
+    const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR_PUBLIC_ANON_KEY';
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const form = document.getElementById('inspectionForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusBox = document.getElementById('statusBox');
+
+    function getValue(id) {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      const value = el.value.trim();
+      return value === '' ? null : value;
+    }
+
+    function getBoolean(id) {
+      const el = document.getElementById(id);
+      return el && el.value === 'true';
+    }
+
+    function getCheckbox(id) {
+      const el = document.getElementById(id);
+      return !!(el && el.checked);
+    }
+
+    function showStatus(type, message) {
+      statusBox.className = 'status-box ' + (type === 'success' ? 'status-success' : 'status-error');
+      statusBox.textContent = message;
+      statusBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function toggleOther(selectId, wrapId) {
+      const select = document.getElementById(selectId);
+      const wrap = document.getElementById(wrapId);
+
+      if (!select || !wrap) return;
+
+      function update() {
+        if (select.value === 'OTHER') {
+          wrap.classList.remove('hidden');
+        } else {
+          wrap.classList.add('hidden');
+          const input = wrap.querySelector('input, textarea, select');
+          if (input) input.value = '';
+        }
+      }
+
+      select.addEventListener('change', update);
+      update();
+    }
+
+    toggleOther('requester_role', 'requesterRoleOtherWrap');
+    toggleOther('property_type', 'propertyTypeOtherWrap');
+    toggleOther('access_method', 'accessMethodOtherWrap');
+    toggleOther('pool_type', 'poolTypeOtherWrap');
+
+    form.addEventListener('submit', async function(event) {
+      event.preventDefault();
+
+      statusBox.className = 'status-box';
+      statusBox.textContent = '';
+
+      // Honeypot spam protection.
+      // If filled, do not insert but show a normal success message.
+      const honeypot = document.getElementById('company_website').value;
+      if (honeypot && honeypot.trim() !== '') {
+        form.reset();
+        showStatus('success', 'Thank you. Your inspection request has been submitted.');
+        return;
+      }
+
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+
+      const payload = {
+        request_status: 'NEW',
+
+        requester_first_name: getValue('requester_first_name'),
+        requester_last_name: getValue('requester_last_name'),
+        requester_company: getValue('requester_company'),
+        requester_email: getValue('requester_email'),
+        requester_phone: getValue('requester_phone'),
+        requester_role: getValue('requester_role'),
+        requester_role_other: getValue('requester_role_other'),
+
+        inspection_for_role: getValue('inspection_for_role'),
+        inspection_for_name: getValue('inspection_for_name'),
+        inspection_for_company: getValue('inspection_for_company'),
+        inspection_for_email: getValue('inspection_for_email'),
+        inspection_for_phone: getValue('inspection_for_phone'),
+
+        property_address_1: getValue('property_address_1'),
+        property_address_2: getValue('property_address_2'),
+        property_city: getValue('property_city'),
+        property_state: getValue('property_state') || 'FL',
+        property_zip: getValue('property_zip'),
+        property_type: getValue('property_type'),
+        property_type_other: getValue('property_type_other'),
+
+        is_real_estate_transaction: getBoolean('is_real_estate_transaction'),
+        transaction_side: getValue('transaction_side'),
+        inspection_deadline: getValue('inspection_deadline'),
+        closing_date: getValue('closing_date'),
+
+        buyer_agent_name: getValue('buyer_agent_name'),
+        buyer_agent_email: getValue('buyer_agent_email'),
+        buyer_agent_phone: getValue('buyer_agent_phone'),
+
+        seller_agent_name: getValue('seller_agent_name'),
+        seller_agent_email: getValue('seller_agent_email'),
+        seller_agent_phone: getValue('seller_agent_phone'),
+
+        preferred_inspection_date_1: getValue('preferred_inspection_date_1'),
+        preferred_inspection_date_2: getValue('preferred_inspection_date_2'),
+        preferred_inspection_time_window: getValue('preferred_inspection_time_window'),
+
+        access_contact_name: getValue('access_contact_name'),
+        access_contact_phone: getValue('access_contact_phone'),
+        access_contact_email: getValue('access_contact_email'),
+        access_method: getValue('access_method'),
+        access_method_other: getValue('access_method_other'),
+        gate_code: getValue('gate_code'),
+        lockbox_location: getValue('lockbox_location'),
+        access_notes: getValue('access_notes'),
+
+        has_pool: getBoolean('has_pool'),
+        has_spa: getBoolean('has_spa'),
+        pool_type: getValue('pool_type'),
+        pool_type_other: getValue('pool_type_other'),
+        known_equipment: getValue('known_equipment'),
+        known_issues: getValue('known_issues'),
+        recent_repairs_or_service: getValue('recent_repairs_or_service'),
+
+        authorized_report_recipient_name: getValue('authorized_report_recipient_name'),
+        authorized_report_recipient_email: getValue('authorized_report_recipient_email'),
+        authorized_report_recipient_phone: getValue('authorized_report_recipient_phone'),
+        additional_authorized_recipients: getValue('additional_authorized_recipients'),
+        unauthorized_parties_present_notes: getValue('unauthorized_parties_present_notes'),
+        communication_restrictions: getValue('communication_restrictions'),
+
+        quote_requested_if_repairs_needed: getBoolean('quote_requested_if_repairs_needed'),
+        buyer_seller_negotiation_deadline: getValue('buyer_seller_negotiation_deadline'),
+
+        authorized_to_request_inspection: getCheckbox('authorized_to_request_inspection'),
+        understands_report_review_process: getCheckbox('understands_report_review_process'),
+        understands_quote_separate: getCheckbox('understands_quote_separate'),
+
+        source: 'PUBLIC_INTAKE_FORM'
+      };
+
+      try {
+        const { error } = await supabaseClient
+          .from('pool_spa_inspection_requests')
+          .insert([payload]);
+
+        if (error) {
+          console.error('Supabase insert error:', error);
+          showStatus('error', 'There was a problem submitting your request. Please call Molinari Pools or try again.');
+          return;
+        }
+
+        form.reset();
+
+        // Re-apply default visible state after reset.
+        document.getElementById('property_state').value = 'FL';
+        document.getElementById('has_pool').value = 'true';
+        document.getElementById('has_spa').value = 'false';
+        document.getElementById('quote_requested_if_repairs_needed').value = 'true';
+        document.getElementById('is_real_estate_transaction').value = 'false';
+
+        toggleOther('requester_role', 'requesterRoleOtherWrap');
+        toggleOther('property_type', 'propertyTypeOtherWrap');
+        toggleOther('access_method', 'accessMethodOtherWrap');
+        toggleOther('pool_type', 'poolTypeOtherWrap');
+
+        showStatus('success', 'Thank you. Your inspection request has been submitted. The Molinari Pools office will review your request and contact you to confirm next steps.');
+      } catch (err) {
+        console.error('Unexpected submit error:', err);
+        showStatus('error', 'There was a problem submitting your request. Please call Molinari Pools or try again.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Inspection Request';
+      }
+    });
+  </script>
+</body>
+</html>
