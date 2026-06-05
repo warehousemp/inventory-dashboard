@@ -1017,6 +1017,7 @@
       </div>
 
       <div class="modal-footer">
+        <button class="btn btn-dark" id="printRequestBtn" type="button">Print Inspection Request</button>
         <button class="btn btn-secondary" id="markReviewedBtn" type="button">Mark Reviewed</button>
         <button class="btn btn-secondary" id="markPaymentRecordedBtn" type="button">Record Payment</button>
         <button class="btn btn-secondary" id="markConvertedBtn" type="button">Mark Converted</button>
@@ -1092,6 +1093,7 @@
     const paymentNotes = document.getElementById("paymentNotes");
     const officeNotes = document.getElementById("officeNotes");
 
+    const printRequestBtn = document.getElementById("printRequestBtn");
     const markReviewedBtn = document.getElementById("markReviewedBtn");
     const markPaymentRecordedBtn = document.getElementById("markPaymentRecordedBtn");
     const markConvertedBtn = document.getElementById("markConvertedBtn");
@@ -1156,6 +1158,7 @@
         if (event.target === requestModalBackdrop) closeModal();
       });
 
+      printRequestBtn.addEventListener("click", printSelectedRequest);
       saveOfficeUpdateBtn.addEventListener("click", () => saveOfficeUpdate());
       markReviewedBtn.addEventListener("click", () => {
         officeStatus.value = "REVIEWED";
@@ -1660,22 +1663,348 @@
         return;
       }
 
-      showAlert(modalAlert, "Office update saved successfully.", "success");
+      const savedRequestId = selectedRequest.id;
+
       await loadRequests();
 
-      const refreshed = allRequests.find(item => item.id === selectedRequest.id);
+      closeModal();
+      showAlert(pageAlert, "Office update saved successfully.", "success", 3200);
+
+      const refreshed = allRequests.find(item => item.id === savedRequestId);
       if (refreshed) {
         selectedRequest = refreshed;
-        openModal(refreshed);
-        showAlert(modalAlert, "Office update saved successfully.", "success");
       }
     }
 
     function setOfficeButtonsLoading(isLoading) {
       setButtonLoading(saveOfficeUpdateBtn, isLoading, isLoading ? "Saving..." : "Save Office Update");
+      printRequestBtn.disabled = isLoading;
       markReviewedBtn.disabled = isLoading;
       markPaymentRecordedBtn.disabled = isLoading;
       markConvertedBtn.disabled = isLoading;
+    }
+
+    function printSelectedRequest() {
+      if (!selectedRequest) {
+        showAlert(modalAlert, "No inspection request is selected to print.", "error");
+        return;
+      }
+
+      const row = selectedRequest;
+      const requesterName = safe(row.requester_full_name) ||
+        [row.requester_first_name, row.requester_last_name].map(safe).filter(Boolean).join(" ");
+      const propertyAddress = safe(row.property_full_address) || formatAddress(row);
+      const statusLabel = safe(row.request_status_label) || safe(row.request_status) || "Submitted";
+      const paymentLabel = safe(row.payment_record_status_label) || safe(row.payment_status_label) || (row.payment_recorded ? "Payment Recorded" : "Not Recorded");
+
+      const printWindow = window.open("", "_blank", "width=900,height=1100");
+
+      if (!printWindow) {
+        showAlert(modalAlert, "The browser blocked the print window. Please allow pop-ups for this page and try again.", "error");
+        return;
+      }
+
+      const html = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8" />
+          <title>Inspection Request - ${escapeHtml(requesterName || row.id)}</title>
+          <style>
+            * {
+              box-sizing: border-box;
+            }
+
+            body {
+              margin: 0;
+              padding: 28px;
+              font-family: Arial, Helvetica, sans-serif;
+              color: #1f2933;
+              background: #ffffff;
+              font-size: 12px;
+              line-height: 1.35;
+            }
+
+            .print-page {
+              max-width: 8.5in;
+              margin: 0 auto;
+            }
+
+            .print-header {
+              border-bottom: 3px solid #0b3c5d;
+              padding-bottom: 14px;
+              margin-bottom: 18px;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              gap: 20px;
+            }
+
+            .brand-title {
+              color: #0b3c5d;
+              font-size: 22px;
+              font-weight: 800;
+              margin: 0;
+            }
+
+            .brand-subtitle {
+              margin: 3px 0 0;
+              color: #667085;
+              font-size: 12px;
+            }
+
+            .doc-title {
+              text-align: right;
+            }
+
+            .doc-title h1 {
+              margin: 0;
+              color: #0b3c5d;
+              font-size: 18px;
+            }
+
+            .doc-title p {
+              margin: 4px 0 0;
+              color: #667085;
+              font-size: 11px;
+            }
+
+            .summary-box {
+              border: 1px solid #d9e2ec;
+              border-radius: 10px;
+              padding: 12px;
+              margin-bottom: 16px;
+              background: #f8fafc;
+            }
+
+            .summary-grid {
+              display: grid;
+              grid-template-columns: 1.2fr 1.2fr 0.8fr 0.8fr;
+              gap: 12px;
+            }
+
+            .section {
+              border: 1px solid #d9e2ec;
+              border-radius: 10px;
+              margin-bottom: 14px;
+              overflow: hidden;
+              page-break-inside: avoid;
+            }
+
+            .section-title {
+              background: #0b3c5d;
+              color: #ffffff;
+              font-weight: 800;
+              font-size: 13px;
+              padding: 8px 10px;
+            }
+
+            .section-body {
+              padding: 10px;
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 8px 14px;
+            }
+
+            .item.full {
+              grid-column: 1 / -1;
+            }
+
+            .label {
+              color: #667085;
+              font-size: 10px;
+              text-transform: uppercase;
+              font-weight: 800;
+              letter-spacing: 0.03em;
+              margin-bottom: 2px;
+            }
+
+            .value {
+              color: #1f2933;
+              font-size: 12px;
+              white-space: pre-wrap;
+              word-break: break-word;
+            }
+
+            .badge {
+              display: inline-block;
+              border-radius: 999px;
+              padding: 4px 8px;
+              font-size: 10px;
+              font-weight: 800;
+              text-transform: uppercase;
+              border: 1px solid #d9e2ec;
+              background: #ffffff;
+              color: #0b3c5d;
+            }
+
+            .footer {
+              margin-top: 20px;
+              padding-top: 10px;
+              border-top: 1px solid #d9e2ec;
+              color: #667085;
+              font-size: 10px;
+              display: flex;
+              justify-content: space-between;
+              gap: 16px;
+            }
+
+            @page {
+              margin: 0.45in;
+            }
+
+            @media print {
+              body {
+                padding: 0;
+              }
+
+              .print-page {
+                max-width: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-page">
+            <div class="print-header">
+              <div>
+                <h1 class="brand-title">Molinari Pools</h1>
+                <p class="brand-subtitle">Pool / Spa Equipment Inspection Request</p>
+              </div>
+              <div class="doc-title">
+                <h1>Inspection Request</h1>
+                <p>Printed ${escapeHtml(formatDateTime(new Date().toISOString()))}</p>
+                <p>Request ID: ${escapeHtml(row.id)}</p>
+              </div>
+            </div>
+
+            <div class="summary-box">
+              <div class="summary-grid">
+                ${printItem("Requester", requesterName || "Not provided")}
+                ${printItem("Property", propertyAddress || "Not provided")}
+                ${printItem("Status", statusLabel)}
+                ${printItem("Payment", paymentLabel)}
+              </div>
+            </div>
+
+            ${printSection("Requester / Contact", [
+              ["Requester Name", requesterName],
+              ["Requester Role", row.requester_role],
+              ["Company", row.requester_company],
+              ["Email", row.requester_email],
+              ["Phone", row.requester_phone],
+              ["Access Contact", row.access_contact_name],
+              ["Access Contact Phone", row.access_contact_phone],
+              ["Access Contact Email", row.access_contact_email],
+              ["Who Will Provide Access", row.who_will_provide_access]
+            ])}
+
+            ${printSection("Property", [
+              ["Property Address", propertyAddress],
+              ["Street", row.property_street_address],
+              ["City", row.property_city],
+              ["State", row.property_state],
+              ["ZIP", row.property_zip],
+              ["Property Owner", row.property_owner_name],
+              ["Owner Phone", row.property_owner_phone],
+              ["Owner Email", row.property_owner_email],
+              ["Gate Code / Access Notes", row.gate_code_access_notes, true]
+            ])}
+
+            ${printSection("Inspection Details", [
+              ["Inspection Type", row.inspection_type || row.requested_inspection_type || row.pool_spa_type || row.pool_type],
+              ["Preferred Inspection Date", formatDate(row.preferred_inspection_date)],
+              ["Preferred Inspection Time", row.preferred_inspection_time],
+              ["Deadline / Closing Date", formatDate(row.deadline_or_closing_date)],
+              ["Pool Type", row.pool_type],
+              ["Spa Present", boolText(row.spa_present)],
+              ["Heater Present", boolText(row.heater_present)],
+              ["Automation Present", boolText(row.automation_present)],
+              ["Special Instructions", row.special_instructions, true],
+              ["Known Issues", row.known_issues, true]
+            ])}
+
+            ${printSection("Report / Communication Control", [
+              ["Authorized Recipient Name", row.authorized_report_recipient_name],
+              ["Authorized Recipient Email", row.authorized_report_recipient_email],
+              ["Authorized Recipient Phone", row.authorized_report_recipient_phone],
+              ["Communication Restrictions", row.communication_restrictions, true],
+              ["Findings Can Be Shared With", row.findings_can_be_shared_with],
+              ["Pricing Can Be Shared With", row.pricing_can_be_shared_with]
+            ])}
+
+            ${printSection("Acknowledgements", [
+              ["Authorized To Request Inspection", boolText(row.authorized_to_request_inspection)],
+              ["Understands Report Review Process", boolText(row.understands_report_review_process)],
+              ["Understands Quote Separate", boolText(row.understands_quote_separate)],
+              ["Understands Payment Required", boolText(row.understands_payment_required)]
+            ])}
+
+            ${printSection("Payment / Skimmer / CompanyCam", [
+              ["Payment Recorded", row.payment_recorded ? "Yes" : "No"],
+              ["Payment Status", paymentLabel],
+              ["Skimmer Invoice #", row.skimmer_invoice_number],
+              ["Payment Processed By", row.payment_processed_by],
+              ["Payment Processed At", formatDateTime(row.payment_processed_at)],
+              ["Skimmer Customer ID", row.skimmer_customer_id],
+              ["Skimmer Work Order ID", row.skimmer_work_order_id],
+              ["CompanyCam Project ID", row.companycam_project_id],
+              ["Payment Notes", row.payment_notes, true]
+            ])}
+
+            ${printSection("Office Review Notes", [
+              ["Office Notes", row.office_notes, true],
+              ["Reviewed By", row.reviewed_by],
+              ["Reviewed At", formatDateTime(row.reviewed_at)],
+              ["Converted To Skimmer By", row.converted_to_skimmer_by],
+              ["Converted To Skimmer At", formatDateTime(row.converted_to_skimmer_at)]
+            ])}
+
+            <div class="footer">
+              <div>Molinari Pools internal office review copy.</div>
+              <div>Generated from inspection-requests-office.html</div>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.focus();
+              window.print();
+            };
+          <\/script>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+    }
+
+    function printSection(title, items) {
+      const visibleItems = items.filter(item => hasDisplayValue(item[1]));
+
+      if (!visibleItems.length) {
+        return "";
+      }
+
+      return `
+        <div class="section">
+          <div class="section-title">${escapeHtml(title)}</div>
+          <div class="section-body">
+            ${visibleItems.map(item => printItem(item[0], item[1], item[2])).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function printItem(label, value, full) {
+      return `
+        <div class="item ${full ? "full" : ""}">
+          <div class="label">${escapeHtml(label)}</div>
+          <div class="value">${escapeHtml(safe(value) || "—")}</div>
+        </div>
+      `;
     }
 
     function exportCsv() {
