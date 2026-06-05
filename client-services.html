@@ -227,7 +227,8 @@
     label { display: block; font-weight: bold; color: #333; margin-bottom: 5px; font-size: 14px; }
 
     select,
-    input {
+    input,
+    textarea {
       width: 100%;
       padding: 12px;
       margin-bottom: 15px;
@@ -239,7 +240,14 @@
     }
 
     select:focus,
-    input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,163,176,0.15); }
+    input:focus,
+    textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,163,176,0.15); }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+      line-height: 1.4;
+    }
 
     button {
       padding: 12px 18px;
@@ -567,6 +575,134 @@
 
 
 
+    .revenue-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .revenue-summary-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .revenue-summary-card .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+
+    .revenue-summary-card .value {
+      font-size: 23px;
+      font-weight: 800;
+      color: var(--header);
+      word-break: break-word;
+    }
+
+    .revenue-summary-card .sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .revenue-entry-card,
+    .revenue-reporting-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 16px;
+      margin-bottom: 18px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .revenue-entry-card h3,
+    .revenue-reporting-card h3 {
+      margin: 0 0 12px;
+      color: var(--header);
+      font-size: 17px;
+    }
+
+    .revenue-entry-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    .revenue-entry-grid .full { grid-column: 1 / -1; }
+
+    .revenue-field label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0 0 6px;
+    }
+
+    .revenue-actions,
+    .revenue-filter-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 10px 0 0;
+    }
+
+    .revenue-actions button,
+    .revenue-filter-actions button {
+      width: auto;
+      min-width: 150px;
+      margin: 0;
+      padding: 10px 13px;
+      font-size: 13px;
+    }
+
+    .revenue-filter-grid {
+      display: grid;
+      grid-template-columns: minmax(170px, 0.8fr) minmax(150px, 0.7fr) minmax(150px, 0.7fr) minmax(220px, 1fr);
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    .revenue-table-wrap {
+      width: 100%;
+      max-width: 100%;
+      max-height: 760px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 12px;
+      margin-bottom: 12px;
+    }
+
+    .revenue-table {
+      width: 100%;
+      min-width: 1660px;
+      border-collapse: collapse;
+      background: white;
+      table-layout: auto;
+    }
+
+    .revenue-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #f8fafc;
+      color: var(--header);
+    }
+
+    .variance-positive { color: #166534; font-weight: 800; }
+    .variance-negative { color: var(--danger); font-weight: 800; }
+
+
+
+
     .inspection-summary-grid {
       display: grid;
       grid-template-columns: repeat(5, minmax(140px, 1fr));
@@ -815,7 +951,10 @@
 
     @media (max-width: 1000px) {
       .info-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
-      .three-column-form { grid-template-columns: 1fr; }
+      .three-column-form,
+      .revenue-entry-grid,
+      .revenue-filter-grid { grid-template-columns: 1fr; }
+      .revenue-summary-grid,
       .inspection-filters,
       .inspection-summary-grid,
       .inspection-detail-grid,
@@ -1012,13 +1151,206 @@
           <div class="task-section-header">
             <div>
               <h2>Weekly Revenue</h2>
-              <p>Future Client Services section for weekly revenue tracking and review.</p>
+              <p>Daily CSC revenue and quote entry with weekly, monthly, quarterly, yearly, and custom reporting filters.</p>
+            </div>
+
+            <div class="task-section-actions">
+              <span class="section-summary-pill" id="revenueSelectedPeriodPill">This Week</span>
+              <button class="collapse-section-btn" id="revenueRefreshBtn" type="button" onclick="loadWeeklyRevenueDashboard(true)">Refresh Revenue</button>
+              <button class="collapse-section-btn" id="revenueExportCsvBtn" type="button" onclick="exportRevenueCsv()">Export CSV</button>
             </div>
           </div>
-          <div class="placeholder-card">
-            <h3>Coming Soon</h3>
-            <p>This section is reserved for weekly revenue workflow tasks.</p>
-          </div>
+
+          <div id="revenueMessage" class="message"></div>
+
+          <section class="revenue-summary-grid" aria-label="Weekly Revenue summary cards">
+            <div class="revenue-summary-card">
+              <div class="label">Selected Period</div>
+              <div class="value" id="revenueSummaryPeriod">—</div>
+              <div class="sub" id="revenueSummaryDays">0 days entered</div>
+            </div>
+            <div class="revenue-summary-card">
+              <div class="label">Total Quoted</div>
+              <div class="value" id="revenueSummaryQuoted">$0.00</div>
+              <div class="sub" id="revenueSummaryQuotedGoal">Goal: $0.00</div>
+            </div>
+            <div class="revenue-summary-card">
+              <div class="label">Quoted Difference</div>
+              <div class="value" id="revenueSummaryQuotedDifference">$0.00</div>
+              <div class="sub">Actual quoted minus quoted goal</div>
+            </div>
+            <div class="revenue-summary-card">
+              <div class="label">Service Revenue Generated</div>
+              <div class="value" id="revenueSummaryGenerated">$0.00</div>
+              <div class="sub" id="revenueSummaryGeneratedGoal">Goal: $0.00</div>
+            </div>
+            <div class="revenue-summary-card">
+              <div class="label">Revenue Difference</div>
+              <div class="value" id="revenueSummaryGeneratedDifference">$0.00</div>
+              <div class="sub">Generated revenue minus revenue goal</div>
+            </div>
+            <div class="revenue-summary-card">
+              <div class="label">Projects Work $</div>
+              <div class="value" id="revenueSummaryProjectsWork">$0.00</div>
+              <div class="sub">Project-related service work</div>
+            </div>
+            <div class="revenue-summary-card">
+              <div class="label">Work Throughput</div>
+              <div class="value" id="revenueSummaryThroughput">$0.00</div>
+              <div class="sub">Technician/category total</div>
+            </div>
+            <div class="revenue-summary-card">
+              <div class="label">Last Updated</div>
+              <div class="value" id="revenueSummaryLastUpdated">—</div>
+              <div class="sub" id="revenueSummaryLastEntry">Last entry: —</div>
+            </div>
+          </section>
+
+          <section class="revenue-entry-card">
+            <h3>CSC Daily Revenue Entry</h3>
+            <div class="status-note">
+              Enter one daily row for the CSC revenue matrix. Saving a date that already exists will update that date. Goals default to $9,000 quoted and $5,760 service revenue generated, but can be edited when needed.
+            </div>
+
+            <div class="revenue-entry-grid">
+              <div class="revenue-field">
+                <label for="revenueEntryDate">Entry Date</label>
+                <input id="revenueEntryDate" type="date" onchange="populateRevenueFormForSelectedDate()">
+              </div>
+              <div class="revenue-field">
+                <label for="revenueUpdatedBy">Entered / Updated By</label>
+                <input id="revenueUpdatedBy" type="text" placeholder="CSC name">
+              </div>
+              <div class="revenue-field">
+                <label for="dailyQuotedInput">Daily Quoted</label>
+                <input id="dailyQuotedInput" type="number" step="0.01" min="0" value="0">
+              </div>
+              <div class="revenue-field">
+                <label for="quotedGoalInput">Daily Quoted Goal</label>
+                <input id="quotedGoalInput" type="number" step="0.01" min="0" value="9000">
+              </div>
+              <div class="revenue-field">
+                <label for="elenaTotalInput">Elena's Total</label>
+                <input id="elenaTotalInput" type="number" step="0.01" min="0" value="0">
+              </div>
+              <div class="revenue-field">
+                <label for="serviceDeptQuotesInput">Service Dept. Quotes</label>
+                <input id="serviceDeptQuotesInput" type="number" step="0.01" min="0" value="0">
+              </div>
+              <div class="revenue-field">
+                <label for="serviceRevenueGeneratedInput">Service Revenue Generated</label>
+                <input id="serviceRevenueGeneratedInput" type="number" step="0.01" min="0" value="0">
+              </div>
+              <div class="revenue-field">
+                <label for="serviceRevenueGoalInput">Daily Revenue Goal</label>
+                <input id="serviceRevenueGoalInput" type="number" step="0.01" min="0" value="5760">
+              </div>
+              <div class="revenue-field">
+                <label for="projectsWorkAmountInput">Projects Work $</label>
+                <input id="projectsWorkAmountInput" type="number" step="0.01" min="0" value="0">
+              </div>
+              <div class="revenue-field">
+                <label for="tommyAmountInput">Tommy</label>
+                <input id="tommyAmountInput" type="number" step="0.01" min="0" value="0">
+              </div>
+              <div class="revenue-field">
+                <label for="davidAmountInput">David</label>
+                <input id="davidAmountInput" type="number" step="0.01" min="0" value="0">
+              </div>
+              <div class="revenue-field">
+                <label for="kenAmountInput">Ken</label>
+                <input id="kenAmountInput" type="number" step="0.01" min="0" value="0">
+              </div>
+              <div class="revenue-field">
+                <label for="leakDetectionAmountInput">Leak Detection</label>
+                <input id="leakDetectionAmountInput" type="number" step="0.01" min="0" value="0">
+              </div>
+              <div class="revenue-field">
+                <label for="routeServiceAmountInput">Route Service</label>
+                <input id="routeServiceAmountInput" type="number" step="0.01" min="0" value="0">
+              </div>
+              <div class="revenue-field full">
+                <label for="revenueNotesInput">Notes</label>
+                <textarea id="revenueNotesInput" placeholder="Optional notes for this daily entry."></textarea>
+              </div>
+            </div>
+
+            <div class="revenue-actions">
+              <button class="admin-btn" id="saveRevenueEntryBtn" type="button" onclick="saveDailyRevenueEntry()">Save Daily Revenue Entry</button>
+              <button class="secondary-btn" type="button" onclick="clearDailyRevenueEntryForm()">Clear Form</button>
+            </div>
+          </section>
+
+          <section class="revenue-reporting-card">
+            <h3>Revenue Reporting Matrix</h3>
+            <div class="revenue-filter-grid">
+              <div class="revenue-field">
+                <label for="revenuePeriodFilter">Period</label>
+                <select id="revenuePeriodFilter" onchange="applyRevenuePeriodFilter()">
+                  <option value="this_week">This Week</option>
+                  <option value="this_month">This Month</option>
+                  <option value="this_quarter">This Quarter</option>
+                  <option value="this_year">This Year</option>
+                  <option value="custom">Custom Date Range</option>
+                </select>
+              </div>
+              <div class="revenue-field">
+                <label for="revenueStartDateFilter">Start Date</label>
+                <input id="revenueStartDateFilter" type="date" onchange="applyCustomRevenueFilter()">
+              </div>
+              <div class="revenue-field">
+                <label for="revenueEndDateFilter">End Date</label>
+                <input id="revenueEndDateFilter" type="date" onchange="applyCustomRevenueFilter()">
+              </div>
+              <div class="revenue-field">
+                <label for="revenueSearchInput">Search Notes / Entered By</label>
+                <input id="revenueSearchInput" type="search" placeholder="Search revenue entries..." oninput="filterRevenueEntries()">
+              </div>
+            </div>
+
+            <div class="revenue-filter-actions">
+              <button class="secondary-btn" type="button" onclick="setRevenuePeriod('this_week')">This Week</button>
+              <button class="secondary-btn" type="button" onclick="setRevenuePeriod('this_month')">This Month</button>
+              <button class="secondary-btn" type="button" onclick="setRevenuePeriod('this_quarter')">This Quarter</button>
+              <button class="secondary-btn" type="button" onclick="setRevenuePeriod('this_year')">This Year</button>
+            </div>
+
+            <div class="revenue-table-wrap">
+              <table class="revenue-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Day</th>
+                    <th>Daily Quoted</th>
+                    <th>Quoted Goal</th>
+                    <th>Quoted +/-</th>
+                    <th>Elena</th>
+                    <th>Service Dept Quotes</th>
+                    <th>Revenue Generated</th>
+                    <th>Revenue Goal</th>
+                    <th>Revenue +/-</th>
+                    <th>Projects Work</th>
+                    <th>Tommy</th>
+                    <th>David</th>
+                    <th>Ken</th>
+                    <th>Leak Detection</th>
+                    <th>Route Service</th>
+                    <th>Work Throughput</th>
+                    <th>WTD Quoted</th>
+                    <th>WTD Revenue</th>
+                    <th>Notes</th>
+                    <th>Entered / Updated</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="revenueReportingTbody">
+                  <tr><td colspan="22">Revenue entries will load here.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="footer-note" id="revenueResultCount">0 revenue entries loaded.</div>
+          </section>
         </section>
 
         <section id="missingDataPanel" class="task-panel active" role="tabpanel" aria-labelledby="missingDataTab">
@@ -1367,12 +1699,21 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
 const CLIENT_SERVICES_SECTION_STORAGE_KEY = 'clientServicesActiveSection';
 const MISSING_DATA_COLLAPSED_STORAGE_KEY = 'clientServicesMissingDataCollapsed';
+const REVENUE_VIEW = 'client_services_revenue_reporting_view';
+const REVENUE_SAVE_RPC = 'save_client_services_daily_revenue_entry';
+const REVENUE_SUMMARY_RPC = 'get_client_services_revenue_summary';
+const REVENUE_UPDATED_BY_STORAGE_KEY = 'clientServicesRevenueUpdatedBy';
 
 let currentProfile = null;
 let currentSession = null;
 let clientWorklistData = [];
 let filteredClientWorklistData = [];
 let dashboardData = null;
+let allRevenueEntries = [];
+let filteredRevenueEntries = [];
+let revenueEntriesLoaded = false;
+let currentRevenueStartDate = '';
+let currentRevenueEndDate = '';
 
 const INSPECTION_OFFICE_VIEW = 'pool_spa_inspection_requests_office_view';
 const INSPECTION_OFFICE_RPC = 'update_pool_spa_inspection_request_office_status';
@@ -1392,6 +1733,11 @@ window.addEventListener('load', async () => {
   if (!hasAccess) return;
 
   await loadClientWorklist();
+
+  const activeWeeklyRevenueTab = document.getElementById('weeklyRevenueTab');
+  if (activeWeeklyRevenueTab && activeWeeklyRevenueTab.classList.contains('active')) {
+    await loadWeeklyRevenueDashboard(false);
+  }
 
   const activeInspectionTab = document.getElementById('inspectionQueueTab');
   if (activeInspectionTab && activeInspectionTab.classList.contains('active')) {
@@ -1460,6 +1806,10 @@ function showClientServicesSection(sectionKey, saveState = true) {
     try {
       localStorage.setItem(CLIENT_SERVICES_SECTION_STORAGE_KEY, activeSection);
     } catch (error) {}
+  }
+
+  if (activeSection === 'weeklyRevenue' && currentSession && !revenueEntriesLoaded) {
+    loadWeeklyRevenueDashboard(false);
   }
 
   if (activeSection === 'inspectionQueue' && currentSession && !inspectionRequestsLoaded) {
@@ -1915,6 +2265,433 @@ function escapeHTML(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+
+function getLocalDateISO(date = new Date()) {
+  const copy = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return copy.toISOString().slice(0, 10);
+}
+
+function getRevenuePeriodRange(periodKey) {
+  const today = new Date();
+  const start = new Date(today);
+  const end = new Date(today);
+
+  if (periodKey === 'this_week') {
+    const day = today.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    start.setDate(today.getDate() + diffToMonday);
+    end.setTime(start.getTime());
+    end.setDate(start.getDate() + 6);
+  } else if (periodKey === 'this_month') {
+    start.setDate(1);
+    end.setMonth(today.getMonth() + 1, 0);
+  } else if (periodKey === 'this_quarter') {
+    const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
+    start.setMonth(quarterStartMonth, 1);
+    end.setMonth(quarterStartMonth + 3, 0);
+  } else if (periodKey === 'this_year') {
+    start.setMonth(0, 1);
+    end.setMonth(11, 31);
+  }
+
+  return {
+    startDate: getLocalDateISO(start),
+    endDate: getLocalDateISO(end)
+  };
+}
+
+function setRevenueDefaultFormValues() {
+  const entryDate = document.getElementById('revenueEntryDate');
+  const updatedBy = document.getElementById('revenueUpdatedBy');
+
+  if (entryDate && !entryDate.value) entryDate.value = getLocalDateISO();
+  if (updatedBy && !updatedBy.value) {
+    let savedName = '';
+    try { savedName = localStorage.getItem(REVENUE_UPDATED_BY_STORAGE_KEY) || ''; } catch (error) { savedName = ''; }
+    updatedBy.value = savedName || currentProfile?.full_name || '';
+  }
+}
+
+async function loadWeeklyRevenueDashboard(showSuccessMessage = true) {
+  setRevenueDefaultFormValues();
+
+  const periodFilter = document.getElementById('revenuePeriodFilter');
+  const selectedPeriod = periodFilter?.value || 'this_week';
+
+  if (selectedPeriod !== 'custom') {
+    const range = getRevenuePeriodRange(selectedPeriod);
+    currentRevenueStartDate = range.startDate;
+    currentRevenueEndDate = range.endDate;
+    setValue('revenueStartDateFilter', currentRevenueStartDate);
+    setValue('revenueEndDateFilter', currentRevenueEndDate);
+  } else {
+    currentRevenueStartDate = document.getElementById('revenueStartDateFilter')?.value || getLocalDateISO();
+    currentRevenueEndDate = document.getElementById('revenueEndDateFilter')?.value || currentRevenueStartDate;
+  }
+
+  updateRevenuePeriodPill(selectedPeriod, currentRevenueStartDate, currentRevenueEndDate);
+  setMessage('revenueMessage', 'info', 'Loading revenue dashboard...');
+
+  await loadRevenueSummary(currentRevenueStartDate, currentRevenueEndDate);
+  await loadRevenueEntries(currentRevenueStartDate, currentRevenueEndDate);
+
+  revenueEntriesLoaded = true;
+  if (showSuccessMessage) {
+    setMessage('revenueMessage', 'success', `${filteredRevenueEntries.length.toLocaleString()} revenue entr${filteredRevenueEntries.length === 1 ? 'y' : 'ies'} shown.`);
+  }
+}
+
+function setRevenuePeriod(periodKey) {
+  const filter = document.getElementById('revenuePeriodFilter');
+  if (filter) filter.value = periodKey;
+  applyRevenuePeriodFilter();
+}
+
+function applyRevenuePeriodFilter() {
+  const filter = document.getElementById('revenuePeriodFilter');
+  if (filter && filter.value !== 'custom') {
+    const range = getRevenuePeriodRange(filter.value);
+    setValue('revenueStartDateFilter', range.startDate);
+    setValue('revenueEndDateFilter', range.endDate);
+  }
+  loadWeeklyRevenueDashboard(true);
+}
+
+function applyCustomRevenueFilter() {
+  const filter = document.getElementById('revenuePeriodFilter');
+  if (filter) filter.value = 'custom';
+  loadWeeklyRevenueDashboard(true);
+}
+
+function updateRevenuePeriodPill(periodKey, startDate, endDate) {
+  const labelMap = {
+    this_week: 'This Week',
+    this_month: 'This Month',
+    this_quarter: 'This Quarter',
+    this_year: 'This Year',
+    custom: 'Custom'
+  };
+
+  setText('revenueSelectedPeriodPill', labelMap[periodKey] || 'Selected Period');
+  setText('revenueSummaryPeriod', `${formatShortDate(startDate)} – ${formatShortDate(endDate)}`);
+}
+
+async function loadRevenueSummary(startDate, endDate) {
+  const { data, error } = await client.rpc(REVENUE_SUMMARY_RPC, {
+    p_start_date: startDate,
+    p_end_date: endDate
+  });
+
+  if (error) {
+    renderRevenueSummary(null, startDate, endDate);
+    setMessage('revenueMessage', 'error', 'Unable to load revenue summary: ' + error.message);
+    return;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  renderRevenueSummary(row, startDate, endDate);
+}
+
+function renderRevenueSummary(row, startDate, endDate) {
+  const summary = row || {};
+  const totalDays = Number(summary.total_days || 0);
+
+  setText('revenueSummaryPeriod', `${formatShortDate(startDate)} – ${formatShortDate(endDate)}`);
+  setText('revenueSummaryDays', `${totalDays} day${totalDays === 1 ? '' : 's'} entered`);
+
+  setText('revenueSummaryQuoted', formatCurrency(summary.total_quoted));
+  setText('revenueSummaryQuotedGoal', `Goal: ${formatCurrency(summary.total_quoted_goal)}`);
+  setVarianceText('revenueSummaryQuotedDifference', summary.total_quoted_difference);
+
+  setText('revenueSummaryGenerated', formatCurrency(summary.total_service_revenue_generated));
+  setText('revenueSummaryGeneratedGoal', `Goal: ${formatCurrency(summary.total_service_revenue_goal)}`);
+  setVarianceText('revenueSummaryGeneratedDifference', summary.total_service_revenue_difference);
+
+  setText('revenueSummaryProjectsWork', formatCurrency(summary.total_projects_work));
+  setText('revenueSummaryThroughput', formatCurrency(summary.total_work_throughput));
+  setText('revenueSummaryLastUpdated', summary.last_updated_at ? formatDateTime(summary.last_updated_at) : '—');
+  setText('revenueSummaryLastEntry', `Last entry: ${summary.last_entry_date ? formatShortDate(summary.last_entry_date) : '—'}`);
+}
+
+async function loadRevenueEntries(startDate, endDate) {
+  const tbody = document.getElementById('revenueReportingTbody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="22">Loading revenue entries...</td></tr>';
+
+  const { data, error } = await client
+    .from(REVENUE_VIEW)
+    .select('*')
+    .gte('entry_date', startDate)
+    .lte('entry_date', endDate)
+    .order('entry_date', { ascending: false });
+
+  if (error) {
+    allRevenueEntries = [];
+    filteredRevenueEntries = [];
+    renderRevenueEntries([]);
+    setMessage('revenueMessage', 'error', 'Unable to load revenue entries: ' + error.message);
+    return;
+  }
+
+  allRevenueEntries = Array.isArray(data) ? data : [];
+  filterRevenueEntries(false);
+}
+
+function filterRevenueEntries(showMessage = true) {
+  const searchTerm = String(document.getElementById('revenueSearchInput')?.value || '').trim().toLowerCase();
+
+  filteredRevenueEntries = (allRevenueEntries || []).filter(row => {
+    if (!searchTerm) return true;
+    const haystack = [
+      row.entry_date,
+      row.entry_day,
+      row.notes,
+      row.entered_by,
+      row.updated_by
+    ].map(value => String(value || '').toLowerCase()).join(' ');
+    return haystack.includes(searchTerm);
+  });
+
+  renderRevenueEntries(filteredRevenueEntries);
+
+  if (showMessage) {
+    setMessage('revenueMessage', 'success', `${filteredRevenueEntries.length.toLocaleString()} revenue entr${filteredRevenueEntries.length === 1 ? 'y' : 'ies'} shown.`);
+  }
+}
+
+function renderRevenueEntries(rows) {
+  const tbody = document.getElementById('revenueReportingTbody');
+  const count = document.getElementById('revenueResultCount');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  if (count) count.textContent = `${rows.length} revenue entr${rows.length === 1 ? 'y' : 'ies'} shown.`;
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="22">No revenue entries match the current filters.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${escapeHTML(formatShortDate(row.entry_date))}</strong></td>
+      <td>${escapeHTML(row.entry_day || '')}</td>
+      <td>${formatCurrency(row.daily_quoted)}</td>
+      <td>${formatCurrency(row.quoted_daily_goal)}</td>
+      <td>${renderVariance(row.quoted_difference)}</td>
+      <td>${formatCurrency(row.elena_total)}</td>
+      <td>${formatCurrency(row.service_dept_quotes)}</td>
+      <td>${formatCurrency(row.service_revenue_generated)}</td>
+      <td>${formatCurrency(row.service_revenue_daily_goal)}</td>
+      <td>${renderVariance(row.service_revenue_difference)}</td>
+      <td>${formatCurrency(row.projects_work_amount)}</td>
+      <td>${formatCurrency(row.tommy_amount)}</td>
+      <td>${formatCurrency(row.david_amount)}</td>
+      <td>${formatCurrency(row.ken_amount)}</td>
+      <td>${formatCurrency(row.leak_detection_amount)}</td>
+      <td>${formatCurrency(row.route_service_amount)}</td>
+      <td>${formatCurrency(row.work_throughput_amount)}</td>
+      <td>${formatCurrency(row.wtd_total_quoted)}</td>
+      <td>${formatCurrency(row.wtd_revenue_generated)}</td>
+      <td class="wrap-cell">${escapeHTML(truncateText(row.notes, 110) || '—')}</td>
+      <td class="wrap-cell">
+        <strong>${escapeHTML(row.updated_by || row.entered_by || '—')}</strong>
+        <span class="muted-small">${escapeHTML(formatDateTime(row.updated_at) || '')}</span>
+      </td>
+      <td><button class="inspection-btn inspection-btn-secondary" type="button" onclick="editRevenueEntry('${escapeHTML(row.id)}')">Edit</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function populateRevenueFormForSelectedDate() {
+  const selectedDate = document.getElementById('revenueEntryDate')?.value;
+  if (!selectedDate) return;
+  const row = (allRevenueEntries || []).find(item => item.entry_date === selectedDate);
+  if (row) fillRevenueEntryForm(row);
+}
+
+function editRevenueEntry(id) {
+  const row = (allRevenueEntries || []).find(item => String(item.id) === String(id));
+  if (!row) return;
+  fillRevenueEntryForm(row);
+  setMessage('revenueMessage', 'info', `Loaded ${formatShortDate(row.entry_date)} into the daily entry form for editing.`);
+  const form = document.getElementById('revenueEntryDate');
+  if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function fillRevenueEntryForm(row) {
+  setValue('revenueEntryDate', row.entry_date || getLocalDateISO());
+  setValue('revenueUpdatedBy', row.updated_by || row.entered_by || currentProfile?.full_name || '');
+  setValue('dailyQuotedInput', toInputNumber(row.daily_quoted));
+  setValue('quotedGoalInput', toInputNumber(row.quoted_daily_goal || 9000));
+  setValue('elenaTotalInput', toInputNumber(row.elena_total));
+  setValue('serviceDeptQuotesInput', toInputNumber(row.service_dept_quotes));
+  setValue('serviceRevenueGeneratedInput', toInputNumber(row.service_revenue_generated));
+  setValue('serviceRevenueGoalInput', toInputNumber(row.service_revenue_daily_goal || 5760));
+  setValue('projectsWorkAmountInput', toInputNumber(row.projects_work_amount));
+  setValue('tommyAmountInput', toInputNumber(row.tommy_amount));
+  setValue('davidAmountInput', toInputNumber(row.david_amount));
+  setValue('kenAmountInput', toInputNumber(row.ken_amount));
+  setValue('leakDetectionAmountInput', toInputNumber(row.leak_detection_amount));
+  setValue('routeServiceAmountInput', toInputNumber(row.route_service_amount));
+  setValue('revenueNotesInput', row.notes || '');
+}
+
+function clearDailyRevenueEntryForm() {
+  setValue('revenueEntryDate', getLocalDateISO());
+  setValue('dailyQuotedInput', 0);
+  setValue('quotedGoalInput', 9000);
+  setValue('elenaTotalInput', 0);
+  setValue('serviceDeptQuotesInput', 0);
+  setValue('serviceRevenueGeneratedInput', 0);
+  setValue('serviceRevenueGoalInput', 5760);
+  setValue('projectsWorkAmountInput', 0);
+  setValue('tommyAmountInput', 0);
+  setValue('davidAmountInput', 0);
+  setValue('kenAmountInput', 0);
+  setValue('leakDetectionAmountInput', 0);
+  setValue('routeServiceAmountInput', 0);
+  setValue('revenueNotesInput', '');
+  setRevenueDefaultFormValues();
+}
+
+async function saveDailyRevenueEntry() {
+  const entryDate = document.getElementById('revenueEntryDate')?.value;
+  const updatedBy = String(document.getElementById('revenueUpdatedBy')?.value || '').trim();
+
+  if (!entryDate) {
+    setMessage('revenueMessage', 'error', 'Entry Date is required.');
+    return;
+  }
+
+  if (!updatedBy) {
+    setMessage('revenueMessage', 'error', 'Entered / Updated By is required.');
+    const input = document.getElementById('revenueUpdatedBy');
+    if (input) input.focus();
+    return;
+  }
+
+  try { localStorage.setItem(REVENUE_UPDATED_BY_STORAGE_KEY, updatedBy); } catch (error) {}
+
+  const payload = {
+    p_entry_date: entryDate,
+    p_daily_quoted: parseMoneyInput('dailyQuotedInput'),
+    p_quoted_daily_goal: parseMoneyInput('quotedGoalInput', 9000),
+    p_elena_total: parseMoneyInput('elenaTotalInput'),
+    p_service_dept_quotes: parseMoneyInput('serviceDeptQuotesInput'),
+    p_service_revenue_generated: parseMoneyInput('serviceRevenueGeneratedInput'),
+    p_service_revenue_daily_goal: parseMoneyInput('serviceRevenueGoalInput', 5760),
+    p_projects_work_amount: parseMoneyInput('projectsWorkAmountInput'),
+    p_tommy_amount: parseMoneyInput('tommyAmountInput'),
+    p_david_amount: parseMoneyInput('davidAmountInput'),
+    p_ken_amount: parseMoneyInput('kenAmountInput'),
+    p_leak_detection_amount: parseMoneyInput('leakDetectionAmountInput'),
+    p_route_service_amount: parseMoneyInput('routeServiceAmountInput'),
+    p_notes: String(document.getElementById('revenueNotesInput')?.value || '').trim() || null,
+    p_updated_by: updatedBy
+  };
+
+  const saveBtn = document.getElementById('saveRevenueEntryBtn');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+  }
+
+  const { error } = await client.rpc(REVENUE_SAVE_RPC, payload);
+
+  if (saveBtn) {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save Daily Revenue Entry';
+  }
+
+  if (error) {
+    setMessage('revenueMessage', 'error', 'Unable to save daily revenue entry: ' + error.message);
+    return;
+  }
+
+  setMessage('revenueMessage', 'success', 'Daily revenue entry saved successfully.');
+  await loadWeeklyRevenueDashboard(false);
+}
+
+function exportRevenueCsv() {
+  if (!filteredRevenueEntries.length) {
+    setMessage('revenueMessage', 'error', 'There are no revenue entries to export.');
+    return;
+  }
+
+  const columns = [
+    ['entry_date', 'Date'], ['entry_day', 'Day'], ['daily_quoted', 'Daily Quoted'], ['quoted_daily_goal', 'Quoted Goal'], ['quoted_difference', 'Quoted Difference'],
+    ['elena_total', 'Elena'], ['service_dept_quotes', 'Service Dept Quotes'], ['service_revenue_generated', 'Revenue Generated'], ['service_revenue_daily_goal', 'Revenue Goal'], ['service_revenue_difference', 'Revenue Difference'],
+    ['projects_work_amount', 'Projects Work'], ['tommy_amount', 'Tommy'], ['david_amount', 'David'], ['ken_amount', 'Ken'], ['leak_detection_amount', 'Leak Detection'], ['route_service_amount', 'Route Service'], ['work_throughput_amount', 'Work Throughput'],
+    ['wtd_total_quoted', 'WTD Quoted'], ['wtd_revenue_generated', 'WTD Revenue'], ['mtd_total_quoted', 'MTD Quoted'], ['mtd_revenue_generated', 'MTD Revenue'], ['qtd_total_quoted', 'QTD Quoted'], ['qtd_revenue_generated', 'QTD Revenue'], ['ytd_total_quoted', 'YTD Quoted'], ['ytd_revenue_generated', 'YTD Revenue'],
+    ['notes', 'Notes'], ['entered_by', 'Entered By'], ['entered_at', 'Entered At'], ['updated_by', 'Updated By'], ['updated_at', 'Updated At']
+  ];
+
+  const header = columns.map(col => csvEscape(col[1])).join(',');
+  const rows = filteredRevenueEntries.map(row => columns.map(([key]) => csvEscape(row[key])).join(','));
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `client-services-revenue-${currentRevenueStartDate || 'start'}-to-${currentRevenueEndDate || 'end'}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  setMessage('revenueMessage', 'success', 'Revenue CSV export created.');
+}
+
+function parseMoneyInput(id, defaultValue = 0) {
+  const raw = document.getElementById(id)?.value;
+  const number = Number(raw);
+  return Number.isFinite(number) ? number : defaultValue;
+}
+
+function toInputNumber(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number.toFixed(2) : '0.00';
+}
+
+function formatCurrency(value) {
+  const number = Number(value || 0);
+  return number.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+}
+
+function renderVariance(value) {
+  const number = Number(value || 0);
+  const className = number < 0 ? 'variance-negative' : 'variance-positive';
+  return `<span class="${className}">${formatCurrency(number)}</span>`;
+}
+
+function setVarianceText(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const number = Number(value || 0);
+  el.textContent = formatCurrency(number);
+  el.classList.toggle('variance-negative', number < 0);
+  el.classList.toggle('variance-positive', number >= 0);
+}
+
+function formatShortDate(value) {
+  if (!value) return '—';
+  const date = new Date(value + 'T00:00:00');
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function truncateText(value, maxLength) {
+  const text = String(value || '').trim();
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength - 1) + '…';
+}
+
+function csvEscape(value) {
+  const text = value === null || value === undefined ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 async function loadInspectionRequests() {
