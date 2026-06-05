@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Client Marketing Sync - Inventory System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Molinari Inventory">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f8fb;
+      margin: 0;
+      padding: 0;
+      color: #1f2933;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      min-height: 100vh;
+      transition: grid-template-columns 0.2s ease;
+    }
+
+    .app-shell.sidebar-collapsed { grid-template-columns: 66px 1fr; }
+
+    .sidebar {
+      background: linear-gradient(180deg, #062f4f, #04233c);
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      transition: width 0.2s ease;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 70px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+      flex: 0 0 auto;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+      white-space: nowrap;
+      transition: opacity 0.15s ease, width 0.15s ease;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .sidebar-toggle-wrap {
+      padding: 12px 12px 4px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(26,163,176,0.34);
+      border-color: rgba(255,255,255,0.42);
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      width: 17px;
+      height: 2px;
+      border-radius: 999px;
+      background: white;
+    }
+
+    .side-nav { padding: 8px 10px 14px; }
+
+    .side-nav a,
+    .side-nav button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 4px;
+      white-space: nowrap;
+      min-height: 44px;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font-family: Arial, sans-serif;
+      text-align: left;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover,
+    .side-nav button:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+    }
+
+    .nav-section {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.72);
+      font-weight: 800;
+      padding: 14px 12px 4px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .nav-icon {
+      width: 20px;
+      min-width: 20px;
+      text-align: center;
+      opacity: 0.95;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .nav-label {
+      transition: opacity 0.15s ease, width 0.15s ease;
+      overflow: hidden;
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      padding: 10px;
+      margin-top: auto;
+    }
+
+    .app-shell.sidebar-collapsed .brand {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .app-shell.sidebar-collapsed .brand-text,
+    .app-shell.sidebar-collapsed .nav-label,
+    .app-shell.sidebar-collapsed .nav-section {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav,
+    .app-shell.sidebar-collapsed .sidebar-footer {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav a,
+    .app-shell.sidebar-collapsed .side-nav button {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+      gap: 0;
+    }
+
+    .main { min-width: 0; }
+
+    .header-bar {
+      background: #0b3c5d;
+      color: white;
+      padding: 18px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title { font-size: 20px; font-weight: bold; }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      max-width: 1450px;
+      margin: 30px auto;
+      padding: 0 20px;
+      align-items: flex-start;
+    }
+
+    .card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 18px;
+      color: #0b3c5d;
+      font-size: 22px;
+    }
+
+    h3 {
+      color: #0b3c5d;
+      margin-top: 26px;
+      margin-bottom: 14px;
+      font-size: 18px;
+      border-top: 1px solid #e6edf3;
+      padding-top: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
+    select,
+    input,
+    textarea {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    textarea { min-height: 90px; resize: vertical; }
+
+    select:focus,
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #1aa3b0;
+      box-shadow: 0 0 0 3px rgba(26,163,176,0.15);
+    }
+
+    button {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 14px;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+      font-family: Arial, sans-serif;
+    }
+
+    button:hover { opacity: 0.92; }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .admin-btn { background: #0b3c5d; color: white; width: 100%; margin-top: 10px; }
+    .secondary-btn { background: #04233c; color: white; width: 100%; margin-top: 10px; }
+    .warning-btn { background: #dd6b20; color: white; width: 100%; margin-top: 10px; }
+    .danger-btn { background: #b42318; color: white; width: 100%; margin-top: 10px; }
+
+    .small-btn {
+      width: auto;
+      margin: 0;
+      padding: 8px 12px;
+      font-size: 13px;
+      border-radius: 7px;
+    }
+
+    .section-refresh-btn {
+      width: auto;
+      min-width: 120px;
+      margin-top: -8px;
+      margin-bottom: 18px;
+      padding: 7px 11px;
+      font-size: 12px;
+      border-radius: 7px;
+    }
+
+    .help-text {
+      margin-top: -8px;
+      margin-bottom: 15px;
+      font-size: 12px;
+      color: #667085;
+      line-height: 1.4;
+    }
+
+    .status-note,
+    .warning-note,
+    .danger-note {
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .status-note { background: #ecfdf3; border: 1px solid #bbf7d0; color: #0b3c5d; }
+    .warning-note { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+    .danger-note { background: #fef3f2; border: 1px solid #fecdca; color: #b42318; }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(145px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .info-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .info-label {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: bold;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .info-value {
+      font-size: 18px;
+      color: #1f2933;
+      font-weight: bold;
+      word-break: break-word;
+    }
+
+    .two-column-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      align-items: end;
+    }
+
+    .three-column-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      align-items: end;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      margin-bottom: 8px;
+    }
+
+    .button-row button {
+      width: auto;
+      min-width: 180px;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 12px;
+      margin-bottom: 18px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1200px;
+      background: white;
+    }
+
+    th {
+      background: #dcfce7;
+      color: #04233c;
+      text-align: left;
+      padding: 10px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px;
+      font-size: 13px;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    tr:hover td { background: #f8fafc; }
+
+    .message {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      display: none;
+      white-space: pre-wrap;
+    }
+
+    .message.success { display: block; background: #ecfdf3; border: 1px solid #bbf7d0; color: #0b3c5d; }
+    .message.error { display: block; background: #fef3f2; border: 1px solid #fecdca; color: #b42318; }
+    .message.info { display: block; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+
+    .hidden { display: none !important; }
+
+    .access-layout {
+      max-width: 680px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .access-card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .access-actions .nav-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      color: white;
+      background: #04233c;
+    }
+
+    .access-actions .logout-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      background: #b42318;
+      color: white;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge.green { background: #dcfce7; color: #166534; }
+    .badge.blue { background: #dbeafe; color: #1d4ed8; }
+    .badge.orange { background: #ffedd5; color: #9a3412; }
+    .badge.red { background: #fee2e2; color: #991b1b; }
+    .badge.gray { background: #f1f5f9; color: #475569; }
+
+    .progress-wrap {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 12px;
+      margin-bottom: 12px;
+    }
+
+    .progress-bar-shell {
+      width: 100%;
+      height: 14px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #1aa3b0;
+      border-radius: 999px;
+      transition: width 0.15s ease;
+    }
+
+    .progress-text {
+      font-size: 12px;
+      color: #475467;
+      margin-top: 8px;
+      font-weight: bold;
+    }
+
+    @media (max-width: 1000px) {
+      .info-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+      .two-column-form,
+      .three-column-form { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell,
+      .app-shell.sidebar-collapsed { grid-template-columns: 1fr; }
+      .sidebar { position: relative; height: auto; }
+      .brand { min-height: auto; }
+      .sidebar-toggle-wrap { display: none; }
+      .app-shell.sidebar-collapsed .brand { justify-content: flex-start; padding: 18px 18px 16px; }
+      .app-shell.sidebar-collapsed .brand-text { opacity: 1; width: auto; }
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav { display: grid; grid-template-columns: repeat(2, 1fr); padding: 14px 10px; }
+      .app-shell.sidebar-collapsed .side-nav a,
+      .app-shell.sidebar-collapsed .side-nav button,
+      .side-nav a,
+      .side-nav button { justify-content: flex-start; padding: 12px 12px; gap: 10px; }
+      .app-shell.sidebar-collapsed .nav-label,
+      .app-shell.sidebar-collapsed .nav-section { opacity: 1; width: auto; }
+    }
+
+    @media (max-width: 650px) {
+      .header-bar { padding: 16px 18px; text-align: center; justify-content: center; }
+      .header-title { width: 100%; text-align: center; }
+      .main-layout { margin: 18px auto; padding: 0 12px; gap: 16px; }
+      .card { padding: 20px; border-radius: 12px; }
+      h2 { font-size: 20px; }
+      select,
+      input,
+      textarea { font-size: 16px; padding: 13px; }
+      button { width: 100%; padding: 14px; font-size: 15px; }
+      .button-row { display: block; }
+      .button-row button { width: 100%; }
+      .info-grid { grid-template-columns: 1fr; }
+      th, td { font-size: 12px; padding: 8px; }
+    }
+
+    @media (max-width: 520px) {
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app-shell" id="appShell">
+  <aside class="sidebar" aria-label="Inventory navigation">
+    <div class="brand">
+      <div class="brand-mark">MP</div>
+      <div class="brand-text">
+        <strong>MOLINARI</strong>
+        <span>INVENTORY</span>
+      </div>
+    </div>
+
+    <div class="sidebar-toggle-wrap">
+      <button class="sidebar-toggle" id="inventorySidebarToggle" type="button" title="Collapse" aria-label="Collapse sidebar">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+
+    <nav class="side-nav" aria-label="Inventory navigation">
+      <div class="nav-section">Inventory Pages</div>
+
+      <a href="warehouse.html" title="Warehouse">
+        <span class="nav-icon">▣</span>
+        <span class="nav-label">Warehouse</span>
+      </a>
+
+      <a href="service.html" title="Service Parts Lookup">
+        <span class="nav-icon">⌕</span>
+        <span class="nav-label">Service Parts Lookup</span>
+      </a>
+
+      <a href="accounting.html" title="Accounting">
+        <span class="nav-icon">$</span>
+        <span class="nav-label">Accounting</span>
+      </a>
+
+      <a href="admin.html" title="Inventory Administration">
+        <span class="nav-icon">⚙</span>
+        <span class="nav-label">Inventory Administration</span>
+      </a>
+
+      <a href="users.html" title="User Access">
+        <span class="nav-icon">◇</span>
+        <span class="nav-label">User Access</span>
+      </a>
+
+      <a href="inspection-requests-office.html" title="Inspection Requests">
+        <span class="nav-icon">✓</span>
+        <span class="nav-label">Inspection Requests</span>
+      </a>
+
+      <a class="active" href="client-marketing-sync.html" title="Client Marketing Sync">
+        <span class="nav-icon">⇄</span>
+        <span class="nav-label">Client Marketing Sync</span>
+      </a>
+
+      <div class="nav-section">Other Systems</div>
+
+      <a href="projects-command.html" title="Projects Command Center">
+        <span class="nav-icon">◆</span>
+        <span class="nav-label">Projects Command Center</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <nav class="side-nav" aria-label="Inventory utility navigation">
+        <a href="index.html" title="Main Menu">
+          <span class="nav-icon">↩</span>
+          <span class="nav-label">Main Menu</span>
+        </a>
+
+        <button type="button" onclick="adminLogout()" title="Logout">
+          <span class="nav-icon">⇥</span>
+          <span class="nav-label">Logout</span>
+        </button>
+      </nav>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <div class="header-title">Molinari Pools – Client Marketing Sync</div>
+    </div>
+
+    <div id="adminAccessGate" class="access-layout">
+      <div class="access-card">
+        <h2>Admin Access Required</h2>
+
+        <div id="adminAccessMessage" class="warning-note">
+          Checking admin access...
+        </div>
+
+        <div class="access-actions">
+          <a class="nav-action-btn" href="login.html">GO TO LOGIN</a>
+          <a class="nav-action-btn" href="index.html">BACK TO MAIN MENU</a>
+          <button class="logout-action-btn" onclick="adminLogout()">LOGOUT</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="adminContent" class="main-layout hidden">
+
+      <div class="card">
+        <h2>Skimmer Customer CSV Import</h2>
+        <button class="secondary-btn section-refresh-btn" onclick="refreshAdminPage()">REFRESH PAGE</button>
+
+        <div class="status-note">
+          Admin-only sync page. Upload the Skimmer Customers CSV here. The page stores the raw Skimmer rows,
+          processes them into the clean client master table, and prepares the data for future HubSpot export mapping.
+        </div>
+
+        <div class="warning-note">
+          Phase 1 only: this page does not export HubSpot yet. It imports Skimmer data, cleans it, flags missing email/phone,
+          and lets you export an internal client review CSV.
+        </div>
+
+        <div class="three-column-form">
+          <div>
+            <label>Skimmer Customers CSV:</label>
+            <input id="skimmerCsvInput" type="file" accept=".csv,text/csv">
+          </div>
+
+          <div>
+            <label>Uploaded By:</label>
+            <input id="uploadedByInput" placeholder="Example: Tim" autocomplete="off">
+          </div>
+
+          <div>
+            <label>Import Notes:</label>
+            <input id="importNotesInput" placeholder="Optional notes..." autocomplete="off">
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button class="admin-btn" id="processImportButton" onclick="uploadAndProcessSkimmerCsv()">UPLOAD AND PROCESS SKIMMER CSV</button>
+          <button class="secondary-btn" onclick="loadImportBatches()">REFRESH IMPORT HISTORY</button>
+        </div>
+
+        <div id="importMessage" class="message"></div>
+
+        <div id="importProgressWrap" class="progress-wrap hidden">
+          <div class="progress-bar-shell">
+            <div class="progress-bar-fill" id="importProgressFill"></div>
+          </div>
+          <div class="progress-text" id="importProgressText">Waiting...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Client Master Summary</h2>
+        <button class="secondary-btn section-refresh-btn" onclick="loadClientMaster()">REFRESH CLIENTS</button>
+
+        <div class="info-grid" id="clientSummaryGrid">
+          <div class="info-box"><div class="info-label">Total Clients</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Active</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Ready</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Missing Email</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Missing Phone</div><div class="info-value">0</div></div>
+        </div>
+
+        <div class="three-column-form">
+          <div>
+            <label>Search:</label>
+            <input id="clientSearchInput" placeholder="Name, email, phone, address, customer code..." autocomplete="off" oninput="filterClientMaster()">
+          </div>
+
+          <div>
+            <label>Review Filter:</label>
+            <select id="clientReviewFilter" onchange="filterClientMaster()">
+              <option value="ALL">All Clients</option>
+              <option value="READY_FOR_MARKETING">Ready for Marketing</option>
+              <option value="MISSING_EMAIL">Missing Email</option>
+              <option value="MISSING_PHONE">Missing Phone</option>
+              <option value="POSSIBLE_DUPLICATE">Possible Duplicate</option>
+              <option value="EXCLUDE_INACTIVE">Inactive / Excluded</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Active Filter:</label>
+            <select id="clientActiveFilter" onchange="filterClientMaster()">
+              <option value="ALL">All</option>
+              <option value="ACTIVE">Active Only</option>
+              <option value="INACTIVE">Inactive Only</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button class="admin-btn" onclick="loadClientMaster()">LOAD CLIENT MASTER</button>
+          <button class="secondary-btn" onclick="exportFilteredClientMasterCSV()">EXPORT FILTERED CLIENT CSV</button>
+        </div>
+
+        <div id="clientMasterMessage" class="message"></div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Review</th>
+                <th>Client</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Lead Source</th>
+                <th>Tags</th>
+                <th>Customer Code</th>
+                <th>Last Import</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="clientMasterBody">
+              <tr><td colspan="11">Click LOAD CLIENT MASTER after importing Skimmer data.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Import History</h2>
+        <button class="secondary-btn section-refresh-btn" onclick="loadImportBatches()">REFRESH IMPORT HISTORY</button>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Uploaded At</th>
+                <th>File Name</th>
+                <th>Uploaded By</th>
+                <th>Status</th>
+                <th>Total Rows</th>
+                <th>Active</th>
+                <th>Inactive</th>
+                <th>New</th>
+                <th>Updated</th>
+                <th>Errors</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="importBatchesBody">
+              <tr><td colspan="11">Import history will load here.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const INVENTORY_SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
+
+let currentAdminProfile = null;
+let currentAdminSession = null;
+let importBatchData = [];
+let clientMasterData = [];
+let filteredClientMasterData = [];
+
+window.addEventListener('load', async () => {
+  initializeInventorySidebar();
+
+  const hasAccess = await enforceAdminAccess();
+
+  if (!hasAccess) {
+    return;
+  }
+
+  const uploadedByInput = document.getElementById('uploadedByInput');
+  if (uploadedByInput && currentAdminProfile?.full_name) {
+    uploadedByInput.value = currentAdminProfile.full_name;
+  }
+
+  await loadImportBatches();
+  await loadClientMaster();
+});
+
+function initializeInventorySidebar() {
+  const appShell = document.getElementById('appShell');
+  const toggleButton = document.getElementById('inventorySidebarToggle');
+
+  if (!appShell || !toggleButton) {
+    return;
+  }
+
+  function applySidebarState(collapsed) {
+    appShell.classList.toggle('sidebar-collapsed', collapsed);
+    toggleButton.title = collapsed ? 'Expand' : 'Collapse';
+    toggleButton.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    toggleButton.setAttribute('aria-expanded', String(!collapsed));
+  }
+
+  let savedState = false;
+
+  try {
+    savedState = localStorage.getItem(INVENTORY_SIDEBAR_STORAGE_KEY) === 'true';
+  } catch (error) {
+    savedState = false;
+  }
+
+  applySidebarState(savedState);
+
+  toggleButton.addEventListener('click', () => {
+    const collapsed = !appShell.classList.contains('sidebar-collapsed');
+    applySidebarState(collapsed);
+
+    try {
+      localStorage.setItem(INVENTORY_SIDEBAR_STORAGE_KEY, String(collapsed));
+    } catch (error) {
+      // Ignore localStorage errors so navigation remains usable.
+    }
+  });
+}
+
+function showAdminAccessGate(message, type = 'warning') {
+  const gate = document.getElementById('adminAccessGate');
+  const content = document.getElementById('adminContent');
+  const messageBox = document.getElementById('adminAccessMessage');
+
+  if (gate) {
+    gate.classList.remove('hidden');
+  }
+
+  if (content) {
+    content.classList.add('hidden');
+  }
+
+  if (messageBox) {
+    messageBox.className =
+      type === 'success' ? 'status-note' :
+      type === 'danger' ? 'danger-note' :
+      'warning-note';
+
+    messageBox.textContent = message;
+  }
+}
+
+function showAdminContent(profile, email) {
+  const gate = document.getElementById('adminAccessGate');
+  const content = document.getElementById('adminContent');
+
+  if (gate) {
+    gate.classList.add('hidden');
+  }
+
+  if (content) {
+    content.classList.remove('hidden');
+  }
+
+  console.log('Admin access granted:', {
+    full_name: profile?.full_name || '',
+    email: email || '',
+    role: profile?.role || ''
+  });
+}
+
+async function enforceAdminAccess() {
+  showAdminAccessGate('Checking admin access...', 'warning');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showAdminAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session || !session.user) {
+    showAdminAccessGate('You must be logged in as an ADMIN user to access this page.', 'danger');
+    return false;
+  }
+
+  currentAdminSession = session;
+
+  const { data: profileData, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showAdminAccessGate('Login found, but user profile could not be loaded: ' + profileError.message, 'danger');
+    return false;
+  }
+
+  if (!profileData || profileData.active !== true) {
+    showAdminAccessGate('This user profile is inactive or unavailable. Contact an admin.', 'danger');
+    return false;
+  }
+
+  const allowedAdminRoles = ['SYSTEM_ADMIN', 'ADMIN'];
+
+  if (!allowedAdminRoles.includes(profileData.role)) {
+    showAdminAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page requires SYSTEM_ADMIN or ADMIN access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentAdminProfile = profileData;
+  showAdminContent(profileData, session.user.email);
+  return true;
+}
+
+async function adminLogout() {
+  await client.auth.signOut();
+  currentAdminProfile = null;
+  currentAdminSession = null;
+  window.location.href = 'login.html';
+}
+
+function refreshAdminPage() {
+  window.location.reload();
+}
+
+async function uploadAndProcessSkimmerCsv() {
+  const fileInput = document.getElementById('skimmerCsvInput');
+  const uploadedBy = document.getElementById('uploadedByInput').value.trim();
+  const notes = document.getElementById('importNotesInput').value.trim();
+  const processButton = document.getElementById('processImportButton');
+
+  clearMessage('importMessage');
+
+  const file = fileInput?.files?.[0];
+
+  if (!file) {
+    setMessage('importMessage', 'error', 'Select the Skimmer Customers CSV before processing.');
+    return;
+  }
+
+  if (!uploadedBy) {
+    setMessage('importMessage', 'error', 'Uploaded By is required.');
+    return;
+  }
+
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    setMessage('importMessage', 'error', 'The selected file must be a CSV file.');
+    return;
+  }
+
+  const browserConfirm = confirm(
+    `Process Skimmer CSV?\n\nFile: ${file.name}\nUploaded By: ${uploadedBy}\n\nThis will insert raw rows and update the Skimmer client master table.`
+  );
+
+  if (!browserConfirm) {
+    setMessage('importMessage', 'info', 'Import cancelled.');
+    return;
+  }
+
+  try {
+    processButton.disabled = true;
+    showProgress(3, 'Reading CSV file...');
+    setMessage('importMessage', 'info', 'Reading and parsing CSV file...');
+
+    const csvText = await file.text();
+    const parsed = parseCSV(csvText);
+
+    if (!parsed.headers || parsed.headers.length === 0 || parsed.rows.length === 0) {
+      throw new Error('CSV appears to be empty or missing headers.');
+    }
+
+    const missingHeaders = getMissingRequiredHeaders(parsed.headers);
+    if (missingHeaders.length > 0) {
+      throw new Error('CSV is missing expected Skimmer column(s): ' + missingHeaders.join(', '));
+    }
+
+    showProgress(10, `Creating import batch for ${parsed.rows.length} CSV rows...`);
+
+    const { data: batch, error: batchError } = await client
+      .from('skimmer_import_batches')
+      .insert({
+        file_name: file.name,
+        uploaded_by: uploadedBy,
+        total_rows: parsed.rows.length,
+        import_status: 'UPLOADED',
+        notes: notes || null
+      })
+      .select('id')
+      .single();
+
+    if (batchError) {
+      throw batchError;
+    }
+
+    const batchId = batch.id;
+    const rawRows = parsed.rows.map((row, index) => mapSkimmerCsvRowToRawInsert(row, index + 1, batchId));
+
+    const chunkSize = 150;
+    let insertedCount = 0;
+
+    for (let i = 0; i < rawRows.length; i += chunkSize) {
+      const chunk = rawRows.slice(i, i + chunkSize);
+
+      const { error: insertError } = await client
+        .from('skimmer_client_import_raw')
+        .insert(chunk);
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      insertedCount += chunk.length;
+      const percent = 10 + Math.round((insertedCount / rawRows.length) * 70);
+      showProgress(percent, `Inserted ${insertedCount.toLocaleString()} of ${rawRows.length.toLocaleString()} raw Skimmer rows...`);
+    }
+
+    showProgress(85, 'Processing raw rows into client master table...');
+
+    const { data: processResult, error: processError } = await client.rpc('process_skimmer_import_batch', {
+      p_batch_id: batchId
+    });
+
+    if (processError) {
+      throw processError;
+    }
+
+    showProgress(100, 'Import complete. Refreshing page data...');
+
+    setMessage(
+      'importMessage',
+      'success',
+      'Skimmer CSV import processed successfully.\n\n' + JSON.stringify(processResult, null, 2)
+    );
+
+    fileInput.value = '';
+    document.getElementById('importNotesInput').value = '';
+
+    await loadImportBatches();
+    await loadClientMaster();
+  } catch (error) {
+    console.error('Skimmer import error:', error);
+    setMessage('importMessage', 'error', error.message || String(error));
+    showProgress(0, 'Import failed.');
+  } finally {
+    processButton.disabled = false;
+  }
+}
+
+function getMissingRequiredHeaders(headers) {
+  const normalized = headers.map(h => normalizeHeaderName(h));
+  const required = ['FullName', 'Status', 'LocationAddress', 'LocationZip'];
+  return required.filter(header => !normalized.includes(normalizeHeaderName(header)));
+}
+
+function mapSkimmerCsvRowToRawInsert(row, rowNumber, batchId) {
+  const get = (name) => getCsvValue(row, name);
+
+  return {
+    batch_id: batchId,
+    row_number: rowNumber,
+
+    full_name: cleanNullable(get('FullName')),
+    display_as_company: parseBoolean(get('DisplayAsCompany')),
+
+    mobile_phone_1: cleanNullable(get('MobilePhone1')),
+    mobile_phone_2: cleanNullable(get('MobilePhone2')),
+    mobile_label_1: cleanNullable(get('MobileLabel1')),
+    mobile_label_2: cleanNullable(get('MobileLabel2')),
+    home_phone: cleanNullable(get('HomePhone')),
+    work_phone: cleanNullable(get('WorkPhone')),
+
+    email_1: cleanNullable(get('Email1')),
+    email_2: cleanNullable(get('Email2')),
+    email_3: cleanNullable(get('Email3')),
+    email_4: cleanNullable(get('Email4')),
+
+    customer_notes: cleanNullable(get('CustomerNotes')),
+    tag_list: cleanNullable(get('TagList')),
+
+    billing_address: cleanNullable(get('BillingAddress')),
+    billing_city: cleanNullable(get('BillingCity')),
+    billing_state: cleanNullable(get('BillingState')),
+    billing_zip: cleanNullable(get('BillingZip')),
+
+    status: cleanNullable(get('Status')),
+
+    location_address: cleanNullable(get('LocationAddress')),
+    location_city: cleanNullable(get('LocationCity')),
+    location_state: cleanNullable(get('LocationState')),
+    location_zip: cleanNullable(get('LocationZip')),
+    location_code: cleanNullable(get('LocationCode')),
+
+    gate_code: cleanNullable(get('GateCode')),
+    dogs_name: cleanNullable(get('DogsName')),
+
+    rate: parseNullableNumber(get('Rate')),
+    rate_type: cleanNullable(get('RateType')),
+    labor_cost: parseNullableNumber(get('LaborCost')),
+    labor_cost_type: cleanNullable(get('LaborCostType')),
+    minutes_at_stop: parseNullableInteger(get('MinutesAtStop')),
+
+    location_notes: cleanNullable(get('LocationNotes')),
+    lead_source: cleanNullable(get('LeadSource')),
+
+    first_name: cleanNullable(get('FirstName')),
+    last_name: cleanNullable(get('LastName')),
+    company_name: cleanNullable(get('CompanyName')),
+    customer_code: cleanNullable(get('CustomerCode')),
+
+    full_name_or_company_display: cleanNullable(get('FullNameOrCompanyDisplay')),
+    list_sort_name: cleanNullable(get('ListSortName')),
+
+    raw_payload: row,
+    import_action: 'PENDING',
+    import_error: null
+  };
+}
+
+async function loadImportBatches() {
+  const tbody = document.getElementById('importBatchesBody');
+  tbody.innerHTML = '<tr><td colspan="11">Loading import history...</td></tr>';
+
+  const { data, error } = await client
+    .from('skimmer_import_batches_summary_view')
+    .select('*')
+    .order('uploaded_at', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    importBatchData = [];
+    tbody.innerHTML = `<tr><td colspan="11">${escapeHTML(error.message)}</td></tr>`;
+    return;
+  }
+
+  importBatchData = data || [];
+  renderImportBatches(importBatchData);
+}
+
+function renderImportBatches(rows) {
+  const tbody = document.getElementById('importBatchesBody');
+  tbody.innerHTML = '';
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11">No Skimmer import batches found yet.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(formatDateTime(row.uploaded_at))}</td>
+      <td>${escapeHTML(row.file_name)}</td>
+      <td>${escapeHTML(row.uploaded_by)}</td>
+      <td>${renderStatusBadge(row.import_status)}</td>
+      <td>${escapeHTML(formatNumber(row.total_rows))}</td>
+      <td>${escapeHTML(formatNumber(row.active_rows))}</td>
+      <td>${escapeHTML(formatNumber(row.inactive_rows))}</td>
+      <td>${escapeHTML(formatNumber(row.new_master_records))}</td>
+      <td>${escapeHTML(formatNumber(row.updated_master_records))}</td>
+      <td>${escapeHTML(formatNumber(row.error_rows))}</td>
+      <td>${escapeHTML(row.notes)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function loadClientMaster() {
+  setMessage('clientMasterMessage', 'info', 'Loading Skimmer client master...');
+
+  const { data, error } = await client
+    .from('skimmer_client_master_review_view')
+    .select('*')
+    .order('last_seen_at', { ascending: false })
+    .limit(5000);
+
+  if (error) {
+    clientMasterData = [];
+    filteredClientMasterData = [];
+    renderClientMaster([]);
+    renderClientSummary([]);
+    setMessage('clientMasterMessage', 'error', error.message);
+    return;
+  }
+
+  clientMasterData = data || [];
+  filterClientMaster(false);
+  renderClientSummary(clientMasterData);
+
+  if (clientMasterData.length === 0) {
+    setMessage('clientMasterMessage', 'info', 'No Skimmer client master records found yet. Upload and process a Skimmer CSV first.');
+  } else {
+    setMessage('clientMasterMessage', 'success', `${clientMasterData.length.toLocaleString()} client master record(s) loaded.`);
+  }
+}
+
+function filterClientMaster(showMessage = true) {
+  const searchValue = document.getElementById('clientSearchInput').value.trim().toLowerCase();
+  const reviewFilter = document.getElementById('clientReviewFilter').value;
+  const activeFilter = document.getElementById('clientActiveFilter').value;
+
+  filteredClientMasterData = (clientMasterData || []).filter(row => {
+    if (reviewFilter !== 'ALL') {
+      if (reviewFilter === 'POSSIBLE_DUPLICATE') {
+        if (row.duplicate_flag !== true) return false;
+      } else if (row.marketing_status !== reviewFilter) {
+        return false;
+      }
+    }
+
+    if (activeFilter === 'ACTIVE' && row.is_active !== true) return false;
+    if (activeFilter === 'INACTIVE' && row.is_active === true) return false;
+
+    if (searchValue) {
+      const combined = [
+        row.full_name,
+        row.first_name,
+        row.last_name,
+        row.company_name,
+        row.primary_email,
+        row.primary_phone,
+        row.location_address,
+        row.location_city,
+        row.location_zip,
+        row.skimmer_customer_code,
+        row.skimmer_location_code,
+        row.lead_source,
+        row.tag_list
+      ].map(value => String(value || '').toLowerCase()).join(' ');
+
+      if (!combined.includes(searchValue)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  renderClientMaster(filteredClientMasterData);
+
+  if (showMessage) {
+    setMessage('clientMasterMessage', 'success', `${filteredClientMasterData.length.toLocaleString()} client record(s) shown.`);
+  }
+}
+
+function renderClientSummary(rows) {
+  const total = rows.length;
+  const active = rows.filter(row => row.is_active === true).length;
+  const ready = rows.filter(row => row.marketing_status === 'READY_FOR_MARKETING').length;
+  const missingEmail = rows.filter(row => row.missing_email_flag === true).length;
+  const missingPhone = rows.filter(row => row.missing_phone_flag === true).length;
+
+  const grid = document.getElementById('clientSummaryGrid');
+  grid.innerHTML = `
+    <div class="info-box"><div class="info-label">Total Clients</div><div class="info-value">${formatNumber(total)}</div></div>
+    <div class="info-box"><div class="info-label">Active</div><div class="info-value">${formatNumber(active)}</div></div>
+    <div class="info-box"><div class="info-label">Ready</div><div class="info-value">${formatNumber(ready)}</div></div>
+    <div class="info-box"><div class="info-label">Missing Email</div><div class="info-value">${formatNumber(missingEmail)}</div></div>
+    <div class="info-box"><div class="info-label">Missing Phone</div><div class="info-value">${formatNumber(missingPhone)}</div></div>
+  `;
+}
+
+function renderClientMaster(rows) {
+  const tbody = document.getElementById('clientMasterBody');
+  tbody.innerHTML = '';
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11">No client records match the current filters.</td></tr>';
+    return;
+  }
+
+  rows.slice(0, 1000).forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${renderReviewBadge(row)}</td>
+      <td>
+        <strong>${escapeHTML(row.full_name || row.company_name || '')}</strong><br>
+        <span class="help-text">${escapeHTML(row.company_name || '')}</span>
+      </td>
+      <td>${escapeHTML(row.primary_email)}</td>
+      <td>${escapeHTML(formatPhone(row.primary_phone))}</td>
+      <td>${escapeHTML(row.full_location_address)}</td>
+      <td>${renderStatusBadge(row.skimmer_status)}</td>
+      <td>${escapeHTML(row.lead_source)}</td>
+      <td>${escapeHTML(row.tag_list)}</td>
+      <td>${escapeHTML(row.skimmer_customer_code)}</td>
+      <td>${escapeHTML(formatDateTime(row.last_seen_at))}</td>
+      <td>
+        <button class="secondary-btn small-btn" onclick="markClientReady('${escapeJS(row.id)}')">READY</button>
+        <button class="warning-btn small-btn" onclick="markClientDuplicate('${escapeJS(row.id)}')">DUPLICATE</button>
+        <button class="danger-btn small-btn" onclick="markClientDoNotMarket('${escapeJS(row.id)}')">DO NOT MARKET</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (rows.length > 1000) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="11">Showing first 1,000 of ${rows.length.toLocaleString()} filtered records. Use search/filter or export CSV for the full filtered list.</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+async function markClientReady(clientId) {
+  await updateClientReviewStatus(clientId, 'READY_FOR_MARKETING', 'READY_FOR_EXPORT', false);
+}
+
+async function markClientDuplicate(clientId) {
+  await updateClientReviewStatus(clientId, 'POSSIBLE_DUPLICATE', 'NEEDS_REVIEW', true);
+}
+
+async function markClientDoNotMarket(clientId) {
+  await updateClientReviewStatus(clientId, 'DO_NOT_MARKET', 'DO_NOT_EXPORT', false);
+}
+
+async function updateClientReviewStatus(clientId, marketingStatus, hubspotStatus, duplicateFlag) {
+  setMessage('clientMasterMessage', 'info', 'Updating client review status...');
+
+  const { error } = await client.rpc('update_skimmer_client_review_status', {
+    p_client_id: clientId,
+    p_marketing_status: marketingStatus,
+    p_hubspot_status: hubspotStatus,
+    p_duplicate_flag: duplicateFlag
+  });
+
+  if (error) {
+    setMessage('clientMasterMessage', 'error', error.message);
+    return;
+  }
+
+  setMessage('clientMasterMessage', 'success', 'Client review status updated.');
+  await loadClientMaster();
+}
+
+function exportFilteredClientMasterCSV() {
+  if (!filteredClientMasterData || filteredClientMasterData.length === 0) {
+    setMessage('clientMasterMessage', 'info', 'No filtered client data available to export.');
+    return;
+  }
+
+  const exportRows = filteredClientMasterData.map(row => ({
+    full_name: row.full_name,
+    first_name: row.first_name,
+    last_name: row.last_name,
+    company_name: row.company_name,
+    primary_email: row.primary_email,
+    email_2: row.email_2,
+    email_3: row.email_3,
+    email_4: row.email_4,
+    primary_phone: row.primary_phone,
+    mobile_phone_1: row.mobile_phone_1,
+    mobile_phone_2: row.mobile_phone_2,
+    home_phone: row.home_phone,
+    work_phone: row.work_phone,
+    location_address: row.location_address,
+    location_city: row.location_city,
+    location_state: row.location_state,
+    location_zip: row.location_zip,
+    billing_address: row.billing_address,
+    billing_city: row.billing_city,
+    billing_state: row.billing_state,
+    billing_zip: row.billing_zip,
+    skimmer_status: row.skimmer_status,
+    is_active: row.is_active,
+    lead_source: row.lead_source,
+    tag_list: row.tag_list,
+    marketing_status: row.marketing_status,
+    hubspot_status: row.hubspot_status,
+    missing_email_flag: row.missing_email_flag,
+    missing_phone_flag: row.missing_phone_flag,
+    duplicate_flag: row.duplicate_flag,
+    skimmer_customer_code: row.skimmer_customer_code,
+    skimmer_location_code: row.skimmer_location_code,
+    last_seen_at: row.last_seen_at,
+    last_seen_file_name: row.last_seen_file_name
+  }));
+
+  exportRowsToCSV(exportRows, `client_marketing_sync_${getTodayString()}.csv`);
+}
+
+function parseCSV(text) {
+  const rows = [];
+  let currentRow = [];
+  let currentValue = '';
+  let insideQuotes = false;
+
+  const normalizedText = String(text || '').replace(/^\uFEFF/, '');
+
+  for (let i = 0; i < normalizedText.length; i++) {
+    const char = normalizedText[i];
+    const nextChar = normalizedText[i + 1];
+
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        currentValue += '"';
+        i++;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if (char === ',' && !insideQuotes) {
+      currentRow.push(currentValue);
+      currentValue = '';
+    } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
+
+      currentRow.push(currentValue);
+      rows.push(currentRow);
+      currentRow = [];
+      currentValue = '';
+    } else {
+      currentValue += char;
+    }
+  }
+
+  if (currentValue.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentValue);
+    rows.push(currentRow);
+  }
+
+  const nonEmptyRows = rows.filter(row => row.some(value => String(value || '').trim() !== ''));
+
+  if (nonEmptyRows.length === 0) {
+    return { headers: [], rows: [] };
+  }
+
+  const headers = nonEmptyRows[0].map(header => String(header || '').trim());
+  const dataRows = nonEmptyRows.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((header, index) => {
+      obj[header] = row[index] === undefined ? '' : row[index];
+    });
+    return obj;
+  });
+
+  return { headers, rows: dataRows };
+}
+
+function getCsvValue(row, expectedHeader) {
+  const expected = normalizeHeaderName(expectedHeader);
+  const foundKey = Object.keys(row).find(key => normalizeHeaderName(key) === expected);
+  return foundKey ? row[foundKey] : '';
+}
+
+function normalizeHeaderName(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function cleanNullable(value) {
+  const trimmed = String(value ?? '').trim();
+  return trimmed === '' ? null : trimmed;
+}
+
+function parseBoolean(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['true', 'yes', 'y', '1'].includes(normalized)) return true;
+  if (['false', 'no', 'n', '0'].includes(normalized)) return false;
+  return false;
+}
+
+function parseNullableNumber(value) {
+  const cleaned = String(value ?? '').replace(/[$,]/g, '').trim();
+  if (!cleaned) return null;
+  const number = Number(cleaned);
+  return Number.isNaN(number) ? null : number;
+}
+
+function parseNullableInteger(value) {
+  const cleaned = String(value ?? '').replace(/,/g, '').trim();
+  if (!cleaned) return null;
+  const number = parseInt(cleaned, 10);
+  return Number.isNaN(number) ? null : number;
+}
+
+function showProgress(percent, text) {
+  const wrap = document.getElementById('importProgressWrap');
+  const fill = document.getElementById('importProgressFill');
+  const progressText = document.getElementById('importProgressText');
+
+  wrap.classList.remove('hidden');
+  fill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+  progressText.textContent = text || '';
+}
+
+function renderReviewBadge(row) {
+  if (row.duplicate_flag === true) {
+    return '<span class="badge orange">Possible Duplicate</span>';
+  }
+
+  if (row.is_active === false) {
+    return '<span class="badge gray">Inactive</span>';
+  }
+
+  if (row.missing_email_flag === true) {
+    return '<span class="badge red">Missing Email</span>';
+  }
+
+  if (row.missing_phone_flag === true) {
+    return '<span class="badge orange">Missing Phone</span>';
+  }
+
+  if (row.marketing_status === 'READY_FOR_MARKETING') {
+    return '<span class="badge green">Ready</span>';
+  }
+
+  if (row.marketing_status === 'DO_NOT_MARKET') {
+    return '<span class="badge red">Do Not Market</span>';
+  }
+
+  return `<span class="badge blue">${escapeHTML(row.review_status_label || row.marketing_status || 'Review')}</span>`;
+}
+
+function renderStatusBadge(status) {
+  const value = String(status || '').trim();
+  const normalized = value.toLowerCase();
+
+  if (normalized === 'active' || normalized === 'processed') {
+    return `<span class="badge green">${escapeHTML(value)}</span>`;
+  }
+
+  if (normalized === 'inactive') {
+    return `<span class="badge gray">${escapeHTML(value)}</span>`;
+  }
+
+  if (normalized.includes('error') || normalized.includes('failed')) {
+    return `<span class="badge red">${escapeHTML(value)}</span>`;
+  }
+
+  if (!value) {
+    return '<span class="badge gray">Blank</span>';
+  }
+
+  return `<span class="badge blue">${escapeHTML(value)}</span>`;
+}
+
+function formatPhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return value || '';
+}
+
+function exportRowsToCSV(rows, filename) {
+  if (!rows || rows.length === 0) {
+    return;
+  }
+
+  const columns = Object.keys(rows[0]);
+  let csv = columns.map(col => `"${cleanCSV(col)}"`).join(',') + '\n';
+
+  rows.forEach(row => {
+    csv += columns.map(col => `"${cleanCSV(row[col])}"`).join(',') + '\n';
+  });
+
+  downloadCSV(csv, filename);
+}
+
+function cleanCSV(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return String(value).replace(/"/g, '""');
+}
+
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+}
+
+function setMessage(elementId, type, message) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.className = `message ${type}`;
+  el.textContent = message;
+}
+
+function clearMessage(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.className = 'message';
+  el.textContent = '';
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
+function formatNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return '0';
+  }
+
+  const number = Number(value);
+
+  if (Number.isNaN(number)) {
+    return value;
+  }
+
+  return number.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+}
+
+function getTodayString() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeJS(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"');
+}
+</script>
+
+</body>
+</html>
