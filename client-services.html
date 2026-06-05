@@ -1156,7 +1156,7 @@
             </div>
 
             <div class="task-section-actions">
-              <span class="section-summary-pill" id="revenueSelectedPeriodPill">This Week</span>
+              <span class="section-summary-pill" id="revenueSelectedPeriodPill">Today</span>
               <button class="collapse-section-btn" id="revenueRefreshBtn" type="button" onclick="loadWeeklyRevenueDashboard(true)">Refresh Revenue</button>
               <button class="collapse-section-btn" id="revenueExportCsvBtn" type="button" onclick="exportRevenueCsv()">Export CSV</button>
             </div>
@@ -1269,6 +1269,7 @@
               <div class="revenue-field">
                 <label for="revenuePeriodFilter">Period</label>
                 <select id="revenuePeriodFilter" onchange="applyRevenuePeriodFilter()">
+                  <option value="today" selected>Today</option>
                   <option value="this_week">This Week</option>
                   <option value="this_month">This Month</option>
                   <option value="this_quarter">This Quarter</option>
@@ -1333,6 +1334,7 @@
             </div>
 
             <div class="revenue-filter-actions">
+              <button class="secondary-btn" type="button" onclick="setRevenuePeriod('today')">Today</button>
               <button class="secondary-btn" type="button" onclick="setRevenuePeriod('this_week')">This Week</button>
               <button class="secondary-btn" type="button" onclick="setRevenuePeriod('this_month')">This Month</button>
               <button class="secondary-btn" type="button" onclick="setRevenuePeriod('this_quarter')">This Quarter</button>
@@ -2293,7 +2295,10 @@ function getRevenuePeriodRange(periodKey) {
   const start = new Date(today);
   const end = new Date(today);
 
-  if (periodKey === 'this_week') {
+  if (periodKey === 'today') {
+    start.setTime(today.getTime());
+    end.setTime(today.getTime());
+  } else if (periodKey === 'this_week') {
     const day = today.getDay();
     const diffToMonday = day === 0 ? -6 : 1 - day;
     start.setDate(today.getDate() + diffToMonday);
@@ -2333,7 +2338,7 @@ async function loadWeeklyRevenueDashboard(showSuccessMessage = true) {
   setRevenueDefaultFormValues();
 
   const periodFilter = document.getElementById('revenuePeriodFilter');
-  const selectedPeriod = periodFilter?.value || 'this_week';
+  const selectedPeriod = periodFilter?.value || 'today';
 
   if (selectedPeriod !== 'custom') {
     const range = getRevenuePeriodRange(selectedPeriod);
@@ -2382,6 +2387,7 @@ function applyCustomRevenueFilter() {
 
 function updateRevenuePeriodPill(periodKey, startDate, endDate) {
   const labelMap = {
+    today: 'Today',
     this_week: 'This Week',
     this_month: 'This Month',
     this_quarter: 'This Quarter',
