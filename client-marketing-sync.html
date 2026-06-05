@@ -429,6 +429,21 @@
       min-width: 180px;
     }
 
+    .quick-filter-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 12px 0 18px;
+    }
+
+    .quick-filter-row button {
+      width: auto;
+      min-width: 185px;
+      margin: 0;
+      padding: 10px 13px;
+      font-size: 13px;
+    }
+
     .table-wrap {
       width: 100%;
       max-width: 100%;
@@ -834,6 +849,17 @@
           <div class="info-box"><div class="info-label">Possible Duplicates</div><div class="info-value">0</div></div>
           <div class="info-box"><div class="info-label">Do Not Market</div><div class="info-value">0</div></div>
           <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">Not synced</div></div>
+        </div>
+
+        <div class="status-note">
+          Use this section as the live Skimmer cleanup worklist. Filter to missing data, update the actual customer record in Skimmer, then re-export/import the Skimmer Customers CSV so this dashboard refreshes. Supabase is the mirror; Skimmer remains the source of truth.
+        </div>
+
+        <div class="quick-filter-row" aria-label="Client cleanup shortcuts">
+          <button class="danger-btn" type="button" onclick="setClientQualityFilter('MISSING_EMAIL', 'ACTIVE')">SHOW ACTIVE MISSING EMAILS</button>
+          <button class="warning-btn" type="button" onclick="setClientQualityFilter('MISSING_PHONE', 'ACTIVE')">SHOW ACTIVE MISSING PHONES</button>
+          <button class="secondary-btn" type="button" onclick="setClientQualityFilter('READY_FOR_MARKETING', 'ACTIVE')">SHOW ACTIVE READY CLIENTS</button>
+          <button class="admin-btn" type="button" onclick="setClientQualityFilter('ALL', 'ACTIVE')">SHOW ALL ACTIVE CLIENTS</button>
         </div>
 
         <div class="three-column-form">
@@ -1390,6 +1416,26 @@ async function loadClientSyncDashboard() {
   }
 }
 
+function setClientQualityFilter(reviewFilterValue, activeFilterValue) {
+  const reviewFilter = document.getElementById('clientReviewFilter');
+  const activeFilter = document.getElementById('clientActiveFilter');
+  const searchInput = document.getElementById('clientSearchInput');
+
+  if (reviewFilter) {
+    reviewFilter.value = reviewFilterValue || 'ALL';
+  }
+
+  if (activeFilter) {
+    activeFilter.value = activeFilterValue || 'ALL';
+  }
+
+  if (searchInput) {
+    searchInput.value = '';
+  }
+
+  filterClientMaster(true);
+}
+
 function filterClientMaster(showMessage = true) {
   const searchValue = document.getElementById('clientSearchInput').value.trim().toLowerCase();
   const reviewFilter = document.getElementById('clientReviewFilter').value;
@@ -1397,8 +1443,14 @@ function filterClientMaster(showMessage = true) {
 
   filteredClientMasterData = (clientMasterData || []).filter(row => {
     if (reviewFilter !== 'ALL') {
-      if (reviewFilter === 'POSSIBLE_DUPLICATE') {
+      if (reviewFilter === 'MISSING_EMAIL') {
+        if (row.missing_email_flag !== true) return false;
+      } else if (reviewFilter === 'MISSING_PHONE') {
+        if (row.missing_phone_flag !== true) return false;
+      } else if (reviewFilter === 'POSSIBLE_DUPLICATE') {
         if (row.duplicate_flag !== true) return false;
+      } else if (reviewFilter === 'EXCLUDE_INACTIVE') {
+        if (row.is_active === true && row.marketing_status !== 'EXCLUDE_INACTIVE') return false;
       } else if (row.marketing_status !== reviewFilter) {
         return false;
       }
@@ -1435,8 +1487,17 @@ function filterClientMaster(showMessage = true) {
   renderClientMaster(filteredClientMasterData);
 
   if (showMessage) {
-    setMessage('clientMasterMessage', 'success', `${filteredClientMasterData.length.toLocaleString()} client record(s) shown.`);
+    const reviewLabel = getSelectedOptionText('clientReviewFilter');
+    const activeLabel = getSelectedOptionText('clientActiveFilter');
+    setMessage('clientMasterMessage', 'success', `${filteredClientMasterData.length.toLocaleString()} client record(s) shown. Work this list in Skimmer, then re-import the Skimmer CSV to refresh the count. Filter: ${reviewLabel} / ${activeLabel}.`);
   }
+}
+
+function getSelectedOptionText(selectId) {
+  const select = document.getElementById(selectId);
+  if (!select) return '';
+  const option = select.options[select.selectedIndex];
+  return option ? option.textContent : '';
 }
 
 function renderClientDashboardSummary(row) {
