@@ -433,6 +433,40 @@
       margin-bottom: 18px;
     }
 
+    .client-master-scroll {
+      max-height: 900px;
+      overflow: auto;
+    }
+
+    .client-master-scroll thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+    }
+
+    .client-master-scroll td {
+      white-space: nowrap;
+    }
+
+    .client-name-cell {
+      min-width: 220px;
+      white-space: normal !important;
+    }
+
+    .client-location-cell {
+      min-width: 260px;
+      white-space: normal !important;
+    }
+
+    .client-action-cell {
+      min-width: 270px;
+    }
+
+    .client-action-cell .small-btn {
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -771,10 +805,15 @@
 
         <div class="info-grid" id="clientSummaryGrid">
           <div class="info-box"><div class="info-label">Total Clients</div><div class="info-value">0</div></div>
-          <div class="info-box"><div class="info-label">Active</div><div class="info-value">0</div></div>
-          <div class="info-box"><div class="info-label">Ready</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Active Clients</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Inactive Clients</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Ready for Marketing</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Future HubSpot Ready</div><div class="info-value">0</div></div>
           <div class="info-box"><div class="info-label">Missing Email</div><div class="info-value">0</div></div>
           <div class="info-box"><div class="info-label">Missing Phone</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Possible Duplicates</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Do Not Market</div><div class="info-value">0</div></div>
+          <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">Not synced</div></div>
         </div>
 
         <div class="three-column-form">
@@ -812,7 +851,7 @@
 
         <div id="clientMasterMessage" class="message"></div>
 
-        <div class="table-wrap">
+        <div class="table-wrap client-master-scroll">
           <table>
             <thead>
               <tr>
@@ -880,6 +919,7 @@ let currentAdminSession = null;
 let importBatchData = [];
 let clientMasterData = [];
 let filteredClientMasterData = [];
+let clientSyncDashboardData = null;
 
 window.addEventListener('load', async () => {
   initializeInventorySidebar();
@@ -1293,19 +1333,40 @@ async function loadClientMaster() {
     clientMasterData = [];
     filteredClientMasterData = [];
     renderClientMaster([]);
-    renderClientSummary([]);
+    await loadClientSyncDashboard();
     setMessage('clientMasterMessage', 'error', error.message);
     return;
   }
 
   clientMasterData = data || [];
   filterClientMaster(false);
-  renderClientSummary(clientMasterData);
+  await loadClientSyncDashboard();
 
   if (clientMasterData.length === 0) {
     setMessage('clientMasterMessage', 'info', 'No Skimmer client master records found yet. Upload and process a Skimmer CSV first.');
   } else {
-    setMessage('clientMasterMessage', 'success', `${clientMasterData.length.toLocaleString()} client master record(s) loaded.`);
+    setMessage('clientMasterMessage', 'success', `${clientMasterData.length.toLocaleString()} client master record(s) loaded. Scroll inside the client table section to review the rest.`);
+  }
+}
+
+async function loadClientSyncDashboard() {
+  const { data, error } = await client
+    .from('skimmer_client_sync_dashboard_view')
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    clientSyncDashboardData = null;
+    renderClientSummary(clientMasterData || []);
+    return;
+  }
+
+  clientSyncDashboardData = data || null;
+
+  if (clientSyncDashboardData) {
+    renderClientDashboardSummary(clientSyncDashboardData);
+  } else {
+    renderClientSummary(clientMasterData || []);
   }
 }
 
@@ -1358,20 +1419,48 @@ function filterClientMaster(showMessage = true) {
   }
 }
 
+function renderClientDashboardSummary(row) {
+  const grid = document.getElementById('clientSummaryGrid');
+
+  grid.innerHTML = `
+    <div class="info-box"><div class="info-label">Total Clients</div><div class="info-value">${formatNumber(row.total_clients)}</div></div>
+    <div class="info-box"><div class="info-label">Active Clients</div><div class="info-value">${formatNumber(row.active_clients)}</div></div>
+    <div class="info-box"><div class="info-label">Inactive Clients</div><div class="info-value">${formatNumber(row.inactive_clients)}</div></div>
+    <div class="info-box"><div class="info-label">Ready for Marketing</div><div class="info-value">${formatNumber(row.ready_for_marketing)}</div></div>
+    <div class="info-box"><div class="info-label">Future HubSpot Ready</div><div class="info-value">${formatNumber(row.ready_for_future_hubspot_export)}</div></div>
+    <div class="info-box"><div class="info-label">Missing Email</div><div class="info-value">${formatNumber(row.active_missing_email)}</div></div>
+    <div class="info-box"><div class="info-label">Missing Phone</div><div class="info-value">${formatNumber(row.active_missing_phone)}</div></div>
+    <div class="info-box"><div class="info-label">Possible Duplicates</div><div class="info-value">${formatNumber(row.possible_duplicates)}</div></div>
+    <div class="info-box"><div class="info-label">Do Not Market</div><div class="info-value">${formatNumber(row.do_not_market)}</div></div>
+    <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">${escapeHTML(formatDateTime(row.last_skimmer_sync_at) || 'Not synced')}</div></div>
+  `;
+}
+
 function renderClientSummary(rows) {
   const total = rows.length;
   const active = rows.filter(row => row.is_active === true).length;
+  const inactive = rows.filter(row => row.is_active !== true).length;
   const ready = rows.filter(row => row.marketing_status === 'READY_FOR_MARKETING').length;
-  const missingEmail = rows.filter(row => row.missing_email_flag === true).length;
-  const missingPhone = rows.filter(row => row.missing_phone_flag === true).length;
+  const hubspotReady = rows.filter(row => row.hubspot_status === 'READY_FOR_EXPORT').length;
+  const missingEmail = rows.filter(row => row.is_active === true && row.missing_email_flag === true).length;
+  const missingPhone = rows.filter(row => row.is_active === true && row.missing_phone_flag === true).length;
+  const duplicates = rows.filter(row => row.duplicate_flag === true).length;
+  const doNotMarket = rows.filter(row => row.marketing_status === 'DO_NOT_MARKET').length;
+  const lastSyncDates = rows.map(row => row.last_seen_at).filter(Boolean).sort().reverse();
+  const lastSync = lastSyncDates.length > 0 ? lastSyncDates[0] : null;
 
   const grid = document.getElementById('clientSummaryGrid');
   grid.innerHTML = `
     <div class="info-box"><div class="info-label">Total Clients</div><div class="info-value">${formatNumber(total)}</div></div>
-    <div class="info-box"><div class="info-label">Active</div><div class="info-value">${formatNumber(active)}</div></div>
-    <div class="info-box"><div class="info-label">Ready</div><div class="info-value">${formatNumber(ready)}</div></div>
+    <div class="info-box"><div class="info-label">Active Clients</div><div class="info-value">${formatNumber(active)}</div></div>
+    <div class="info-box"><div class="info-label">Inactive Clients</div><div class="info-value">${formatNumber(inactive)}</div></div>
+    <div class="info-box"><div class="info-label">Ready for Marketing</div><div class="info-value">${formatNumber(ready)}</div></div>
+    <div class="info-box"><div class="info-label">Future HubSpot Ready</div><div class="info-value">${formatNumber(hubspotReady)}</div></div>
     <div class="info-box"><div class="info-label">Missing Email</div><div class="info-value">${formatNumber(missingEmail)}</div></div>
     <div class="info-box"><div class="info-label">Missing Phone</div><div class="info-value">${formatNumber(missingPhone)}</div></div>
+    <div class="info-box"><div class="info-label">Possible Duplicates</div><div class="info-value">${formatNumber(duplicates)}</div></div>
+    <div class="info-box"><div class="info-label">Do Not Market</div><div class="info-value">${formatNumber(doNotMarket)}</div></div>
+    <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">${escapeHTML(formatDateTime(lastSync) || 'Not synced')}</div></div>
   `;
 }
 
@@ -1388,19 +1477,19 @@ function renderClientMaster(rows) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${renderReviewBadge(row)}</td>
-      <td>
+      <td class="client-name-cell">
         <strong>${escapeHTML(row.full_name || row.company_name || '')}</strong><br>
         <span class="help-text">${escapeHTML(row.company_name || '')}</span>
       </td>
       <td>${escapeHTML(row.primary_email)}</td>
       <td>${escapeHTML(formatPhone(row.primary_phone))}</td>
-      <td>${escapeHTML(row.full_location_address)}</td>
+      <td class="client-location-cell">${escapeHTML(row.full_location_address)}</td>
       <td>${renderStatusBadge(row.skimmer_status)}</td>
       <td>${escapeHTML(row.lead_source)}</td>
       <td>${escapeHTML(row.tag_list)}</td>
       <td>${escapeHTML(row.skimmer_customer_code)}</td>
       <td>${escapeHTML(formatDateTime(row.last_seen_at))}</td>
-      <td>
+      <td class="client-action-cell">
         <button class="secondary-btn small-btn" onclick="markClientReady('${escapeJS(row.id)}')">READY</button>
         <button class="warning-btn small-btn" onclick="markClientDuplicate('${escapeJS(row.id)}')">DUPLICATE</button>
         <button class="danger-btn small-btn" onclick="markClientDoNotMarket('${escapeJS(row.id)}')">DO NOT MARKET</button>
