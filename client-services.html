@@ -937,25 +937,50 @@ function renderClientWorklist(rows) {
 }
 
 
+function normalizeCompareValue(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
 function isTrueValue(value) {
   if (value === true) return true;
-  return String(value || '').trim().toLowerCase() === 'true';
+  if (value === 1) return true;
+
+  const normalized = normalizeCompareValue(value);
+  return ['true', 't', '1', 'yes', 'y', 'active'].includes(normalized);
+}
+
+function isFalseValue(value) {
+  if (value === false) return true;
+  if (value === 0) return true;
+
+  const normalized = normalizeCompareValue(value);
+  return ['false', 'f', '0', 'no', 'n', 'inactive'].includes(normalized);
 }
 
 function isActiveRow(row) {
-  return isTrueValue(row?.is_active);
+  if (!row) return false;
+
+  if (row.is_active !== null && row.is_active !== undefined && String(row.is_active).trim() !== '') {
+    return isTrueValue(row.is_active);
+  }
+
+  const skimmerStatus = normalizeCompareValue(row.skimmer_status || row.status);
+  return skimmerStatus === 'active';
 }
 
 function isBlankValue(value) {
-  return value === null || value === undefined || String(value).trim() === '';
+  const normalized = normalizeCompareValue(value);
+  return normalized === '' || normalized === 'null' || normalized === 'undefined' || normalized === 'n/a' || normalized === 'na';
 }
 
 function isMissingEmail(row) {
-  return isTrueValue(row?.missing_email_flag) || isBlankValue(row?.primary_email);
+  if (!row) return false;
+  return isTrueValue(row.missing_email_flag) || isBlankValue(row.primary_email);
 }
 
 function isMissingPhone(row) {
-  return isTrueValue(row?.missing_phone_flag) || isBlankValue(row?.primary_phone);
+  if (!row) return false;
+  return isTrueValue(row.missing_phone_flag) || isBlankValue(row.primary_phone);
 }
 
 function buildLocation(row) {
