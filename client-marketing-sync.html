@@ -223,7 +223,10 @@
       gap: 0;
     }
 
-    .main { min-width: 0; }
+    .main {
+      min-width: 0;
+      overflow-x: hidden;
+    }
 
     .header-bar {
       background: #0b3c5d;
@@ -257,6 +260,8 @@
       border-radius: 14px;
       box-shadow: 0 6px 18px rgba(0,0,0,0.08);
       border: 1px solid #e6edf3;
+      min-width: 0;
+      max-width: 100%;
     }
 
     h2 {
@@ -426,6 +431,7 @@
 
     .table-wrap {
       width: 100%;
+      max-width: 100%;
       overflow-x: auto;
       border: 1px solid #e2e8f0;
       border-radius: 10px;
@@ -434,8 +440,9 @@
     }
 
     .client-master-scroll {
-      max-height: 900px;
+      max-height: 760px;
       overflow: auto;
+      overscroll-behavior: contain;
     }
 
     .client-master-scroll thead th {
@@ -458,20 +465,33 @@
       white-space: normal !important;
     }
 
-    .client-action-cell {
-      min-width: 270px;
+    .truncate-cell {
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .client-action-cell .small-btn {
-      margin-right: 4px;
-      margin-bottom: 4px;
+    .compact-status-cell {
+      width: 130px;
+      min-width: 130px;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1200px;
+      min-width: 1000px;
       background: white;
+    }
+
+    .client-master-table {
+      min-width: 1000px;
+      table-layout: fixed;
+    }
+
+    .client-master-table th,
+    .client-master-table td {
+      overflow: hidden;
     }
 
     th {
@@ -852,20 +872,20 @@
         <div id="clientMasterMessage" class="message"></div>
 
         <div class="table-wrap client-master-scroll">
-          <table>
+          <table class="client-master-table">
             <thead>
               <tr>
-                <th>Review</th>
-                <th>Client</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Location</th>
-                <th>Status</th>
-                <th>Lead Source</th>
-                <th>Tags</th>
-                <th>Customer Code</th>
-                <th>Last Import</th>
-                <th>Actions</th>
+                <th class="compact-status-cell">Review</th>
+                <th style="width: 190px;">Client</th>
+                <th style="width: 190px;">Email</th>
+                <th style="width: 125px;">Phone</th>
+                <th style="width: 230px;">Location</th>
+                <th class="compact-status-cell">Skimmer Status</th>
+                <th class="compact-status-cell">Marketing</th>
+                <th class="compact-status-cell">HubSpot</th>
+                <th style="width: 140px;">Lead Source</th>
+                <th style="width: 120px;">Customer Code</th>
+                <th style="width: 160px;">Last Import</th>
               </tr>
             </thead>
             <tbody id="clientMasterBody">
@@ -1474,26 +1494,25 @@ function renderClientMaster(rows) {
   }
 
   rows.slice(0, 1000).forEach(row => {
+    const clientName = row.full_name || row.company_name || '';
+    const companyLine = row.company_name && row.company_name !== clientName ? row.company_name : '';
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${renderReviewBadge(row)}</td>
+      <td class="compact-status-cell">${renderReviewBadge(row)}</td>
       <td class="client-name-cell">
-        <strong>${escapeHTML(row.full_name || row.company_name || '')}</strong><br>
-        <span class="help-text">${escapeHTML(row.company_name || '')}</span>
+        <strong>${escapeHTML(clientName)}</strong>
+        ${companyLine ? `<br><span class="help-text">${escapeHTML(companyLine)}</span>` : ''}
       </td>
-      <td>${escapeHTML(row.primary_email)}</td>
+      <td class="truncate-cell" title="${escapeHTML(row.primary_email)}">${escapeHTML(row.primary_email)}</td>
       <td>${escapeHTML(formatPhone(row.primary_phone))}</td>
-      <td class="client-location-cell">${escapeHTML(row.full_location_address)}</td>
-      <td>${renderStatusBadge(row.skimmer_status)}</td>
-      <td>${escapeHTML(row.lead_source)}</td>
-      <td>${escapeHTML(row.tag_list)}</td>
-      <td>${escapeHTML(row.skimmer_customer_code)}</td>
+      <td class="client-location-cell" title="${escapeHTML(row.full_location_address)}">${escapeHTML(row.full_location_address)}</td>
+      <td class="compact-status-cell">${renderStatusBadge(row.skimmer_status)}</td>
+      <td class="compact-status-cell">${renderMarketingStatusBadge(row.marketing_status)}</td>
+      <td class="compact-status-cell">${renderHubspotStatusBadge(row.hubspot_status)}</td>
+      <td class="truncate-cell" title="${escapeHTML(row.lead_source)}">${escapeHTML(row.lead_source)}</td>
+      <td class="truncate-cell" title="${escapeHTML(row.skimmer_customer_code)}">${escapeHTML(row.skimmer_customer_code)}</td>
       <td>${escapeHTML(formatDateTime(row.last_seen_at))}</td>
-      <td class="client-action-cell">
-        <button class="secondary-btn small-btn" onclick="markClientReady('${escapeJS(row.id)}')">READY</button>
-        <button class="warning-btn small-btn" onclick="markClientDuplicate('${escapeJS(row.id)}')">DUPLICATE</button>
-        <button class="danger-btn small-btn" onclick="markClientDoNotMarket('${escapeJS(row.id)}')">DO NOT MARKET</button>
-      </td>
     `;
     tbody.appendChild(tr);
   });
@@ -1713,6 +1732,58 @@ function renderReviewBadge(row) {
   }
 
   return `<span class="badge blue">${escapeHTML(row.review_status_label || row.marketing_status || 'Review')}</span>`;
+}
+
+
+function renderMarketingStatusBadge(status) {
+  const value = String(status || '').trim();
+
+  if (value === 'READY_FOR_MARKETING') {
+    return '<span class="badge green">Ready</span>';
+  }
+
+  if (value === 'DO_NOT_MARKET') {
+    return '<span class="badge red">Do Not Market</span>';
+  }
+
+  if (value === 'POSSIBLE_DUPLICATE') {
+    return '<span class="badge orange">Duplicate</span>';
+  }
+
+  if (!value) {
+    return '<span class="badge gray">Not Set</span>';
+  }
+
+  return `<span class="badge blue">${escapeHTML(formatStatusLabel(value))}</span>`;
+}
+
+function renderHubspotStatusBadge(status) {
+  const value = String(status || '').trim();
+
+  if (value === 'READY_FOR_EXPORT') {
+    return '<span class="badge green">Export Ready</span>';
+  }
+
+  if (value === 'DO_NOT_EXPORT') {
+    return '<span class="badge red">Do Not Export</span>';
+  }
+
+  if (value === 'NEEDS_REVIEW') {
+    return '<span class="badge orange">Review</span>';
+  }
+
+  if (!value) {
+    return '<span class="badge gray">Not Set</span>';
+  }
+
+  return `<span class="badge blue">${escapeHTML(formatStatusLabel(value))}</span>`;
+}
+
+function formatStatusLabel(value) {
+  return String(value || '')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, char => char.toUpperCase());
 }
 
 function renderStatusBadge(status) {
