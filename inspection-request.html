@@ -247,6 +247,16 @@
       color: var(--header-navy);
     }
 
+    /* Honeypot */
+    .company-website-wrap {
+      position: absolute;
+      left: -10000px;
+      top: auto;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+    }
+
     @media (max-width: 780px) {
       .grid,
       .grid-3 {
@@ -290,6 +300,11 @@
     </div>
 
     <form id="inspectionForm">
+      <div class="company-website-wrap">
+        <label for="company_website">Company Website</label>
+        <input type="text" id="company_website" name="company_website" autocomplete="off" />
+      </div>
+
       <section class="card">
         <h2>1. Requester Information</h2>
         <p class="section-intro">Tell us who is submitting this inspection request.</p>
@@ -724,6 +739,12 @@
   </main>
 
   <script>
+    // ============================================================
+    // Supabase Configuration
+    // Replace these with your actual Supabase project values.
+    // The anon key is safe to use in public frontend code when RLS is enabled.
+    // ============================================================
+
     const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
@@ -786,6 +807,16 @@
 
       statusBox.className = 'status-box';
       statusBox.textContent = '';
+
+      // Honeypot spam protection.
+      // If this hidden field is filled, block the submission and show an error.
+      // This prevents a false success message when a browser, extension, or bot fills the hidden field.
+      const honeypot = document.getElementById('company_website').value;
+      if (honeypot && honeypot.trim() !== '') {
+        console.warn('Submission blocked by honeypot field.');
+        showStatus('error', 'There was a problem submitting your request. Please call Molinari Pools at 772-778-2633 or try again.');
+        return;
+      }
 
       if (!form.checkValidity()) {
         form.reportValidity();
@@ -884,6 +915,7 @@
 
         form.reset();
 
+        // Re-apply default visible state after reset.
         document.getElementById('property_state').value = 'FL';
         document.getElementById('has_pool').value = 'true';
         document.getElementById('has_spa').value = 'false';
