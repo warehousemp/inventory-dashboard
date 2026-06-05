@@ -1,0 +1,1884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Molinari Pools | Inspection Requests Office Review</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --sidebar-navy: #062f4f;
+      --sidebar-dark-navy: #04233c;
+      --header-navy: #0b3c5d;
+      --accent-teal: #1aa3b0;
+      --page-bg: #f4f8fb;
+      --card-bg: #ffffff;
+      --main-text: #1f2933;
+      --muted-text: #667085;
+      --border: #d9e2ec;
+      --danger: #b42318;
+      --danger-bg: #fef3f2;
+      --success: #027a48;
+      --success-bg: #ecfdf3;
+      --warning: #b54708;
+      --warning-bg: #fffaeb;
+      --info-bg: #eff8ff;
+      --info: #175cd3;
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      --sidebar-width: 230px;
+      --sidebar-collapsed-width: 66px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--page-bg);
+      color: var(--main-text);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .app-shell {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--sidebar-navy);
+      color: #ffffff;
+      flex-shrink: 0;
+      transition: width 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 50;
+      overflow: hidden;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar {
+      width: var(--sidebar-collapsed-width);
+    }
+
+    .brand {
+      padding: 18px 16px 10px;
+      font-weight: 700;
+      font-size: 18px;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .brand-small {
+      display: block;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.72);
+      font-weight: 400;
+      margin-top: 4px;
+    }
+
+    .app-shell.sidebar-collapsed .brand {
+      font-size: 0;
+      padding: 18px 0 10px;
+      text-align: center;
+    }
+
+    .app-shell.sidebar-collapsed .brand::before {
+      content: "MP";
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .app-shell.sidebar-collapsed .brand-small {
+      display: none;
+    }
+
+    .sidebar-toggle {
+      width: 36px;
+      height: 34px;
+      margin: 6px 16px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: var(--sidebar-dark-navy);
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      padding: 0 8px;
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      height: 2px;
+      background: #ffffff;
+      border-radius: 2px;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle {
+      margin-left: 15px;
+    }
+
+    .nav {
+      padding: 4px 8px 16px;
+      overflow-y: auto;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 10px;
+      border-radius: 9px;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 14px;
+      margin-bottom: 4px;
+      white-space: nowrap;
+    }
+
+    .nav a:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .nav a.active {
+      background: var(--accent-teal);
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .nav-icon {
+      width: 22px;
+      min-width: 22px;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .app-shell.sidebar-collapsed .nav-label {
+      display: none;
+    }
+
+    .main {
+      flex: 1;
+      margin-left: var(--sidebar-width);
+      transition: margin-left 0.2s ease;
+      min-width: 0;
+    }
+
+    .app-shell.sidebar-collapsed .main {
+      margin-left: var(--sidebar-collapsed-width);
+    }
+
+    .topbar {
+      background: var(--header-navy);
+      color: #ffffff;
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16);
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .topbar p {
+      margin: 4px 0 0;
+      color: rgba(255, 255, 255, 0.76);
+      font-size: 13px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .content {
+      padding: 22px 24px 40px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .card-header h2 {
+      margin: 0;
+      font-size: 17px;
+      color: var(--header-navy);
+    }
+
+    .card-header p {
+      margin: 4px 0 0;
+      color: var(--muted-text);
+      font-size: 13px;
+    }
+
+    .card-body {
+      padding: 18px;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(150px, 0.7fr)) auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--main-text);
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px 11px;
+      font-size: 14px;
+      color: var(--main-text);
+      background: #ffffff;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent-teal);
+      box-shadow: 0 0 0 3px rgba(26, 163, 176, 0.14);
+    }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 9px;
+      padding: 10px 13px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      line-height: 1;
+      min-height: 38px;
+    }
+
+    .btn-primary {
+      background: var(--accent-teal);
+      color: #ffffff;
+    }
+
+    .btn-secondary {
+      background: #eef4f7;
+      color: var(--header-navy);
+      border: 1px solid var(--border);
+    }
+
+    .btn-dark {
+      background: var(--header-navy);
+      color: #ffffff;
+    }
+
+    .btn-danger {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid #fecdca;
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(140px, 1fr));
+      gap: 12px;
+    }
+
+    .summary-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 14px;
+    }
+
+    .summary-card .label {
+      font-size: 12px;
+      color: var(--muted-text);
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+
+    .summary-card .value {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--header-navy);
+    }
+
+    .summary-card .sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted-text);
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1220px;
+    }
+
+    th {
+      background: #f8fafc;
+      color: var(--header-navy);
+      text-align: left;
+      font-size: 12px;
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      vertical-align: top;
+    }
+
+    tr:hover td {
+      background: #fbfdff;
+    }
+
+    .nowrap {
+      white-space: nowrap;
+    }
+
+    .muted {
+      color: var(--muted-text);
+    }
+
+    .small {
+      font-size: 12px;
+    }
+
+    .strong {
+      font-weight: 700;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+      border: 1px solid transparent;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-new,
+    .badge-submitted {
+      background: var(--info-bg);
+      color: var(--info);
+      border-color: #b2ddff;
+    }
+
+    .badge-reviewed {
+      background: var(--warning-bg);
+      color: var(--warning);
+      border-color: #fedf89;
+    }
+
+    .badge-payment,
+    .badge-paid {
+      background: var(--success-bg);
+      color: var(--success);
+      border-color: #abefc6;
+    }
+
+    .badge-converted,
+    .badge-scheduled,
+    .badge-completed {
+      background: #eef4ff;
+      color: #3538cd;
+      border-color: #c7d7fe;
+    }
+
+    .badge-cancelled {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border-color: #fecdca;
+    }
+
+    .badge-neutral {
+      background: #f2f4f7;
+      color: #344054;
+      border-color: #eaecf0;
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .empty-state {
+      padding: 36px 18px;
+      text-align: center;
+      color: var(--muted-text);
+    }
+
+    .alert {
+      border-radius: 11px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .alert-success {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid #abefc6;
+    }
+
+    .alert-error {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid #fecdca;
+    }
+
+    .auth-panel {
+      max-width: 460px;
+      margin: 70px auto;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.56);
+      z-index: 100;
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 36px 18px;
+      overflow-y: auto;
+    }
+
+    .modal-backdrop.show {
+      display: flex;
+    }
+
+    .modal {
+      width: min(1120px, 100%);
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 24px 72px rgba(15, 23, 42, 0.28);
+      overflow: hidden;
+      margin-bottom: 40px;
+    }
+
+    .modal-header {
+      background: var(--header-navy);
+      color: #ffffff;
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 19px;
+    }
+
+    .modal-header p {
+      margin: 5px 0 0;
+      color: rgba(255,255,255,0.75);
+      font-size: 13px;
+    }
+
+    .modal-body {
+      padding: 18px;
+    }
+
+    .modal-footer {
+      padding: 14px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: #f8fafc;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .detail-section {
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .detail-section.full {
+      grid-column: 1 / -1;
+    }
+
+    .detail-section h3 {
+      margin: 0;
+      padding: 12px 14px;
+      background: #f8fafc;
+      color: var(--header-navy);
+      font-size: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail-section-body {
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 16px;
+    }
+
+    .detail-item {
+      min-width: 0;
+    }
+
+    .detail-item.full {
+      grid-column: 1 / -1;
+    }
+
+    .detail-label {
+      color: var(--muted-text);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+
+    .detail-value {
+      color: var(--main-text);
+      font-size: 13px;
+      line-height: 1.35;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .office-form {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .office-form .full {
+      grid-column: 1 / -1;
+    }
+
+    .office-form .two {
+      grid-column: span 2;
+    }
+
+    .footer-note {
+      font-size: 12px;
+      color: var(--muted-text);
+      margin-top: 8px;
+    }
+
+    @media (max-width: 980px) {
+      .filters {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
+      }
+
+      .detail-grid,
+      .detail-section-body,
+      .office-form {
+        grid-template-columns: 1fr;
+      }
+
+      .office-form .two,
+      .office-form .full,
+      .detail-section.full,
+      .detail-item.full {
+        grid-column: auto;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .topbar-actions {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .sidebar {
+        position: fixed;
+        transform: translateX(0);
+      }
+
+      .main {
+        margin-left: var(--sidebar-collapsed-width);
+      }
+
+      .app-shell:not(.sidebar-collapsed) .main {
+        margin-left: var(--sidebar-width);
+      }
+
+      .content {
+        padding: 16px 14px 32px;
+      }
+
+      .filters,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar">
+      <div class="brand">
+        Molinari Pools
+        <span class="brand-small">Operations</span>
+      </div>
+
+      <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <nav class="nav">
+        <a href="index.html">
+          <span class="nav-icon">↩</span>
+          <span class="nav-label">Main Menu</span>
+        </a>
+        <a href="warehouse.html">
+          <span class="nav-icon">▣</span>
+          <span class="nav-label">Warehouse</span>
+        </a>
+        <a href="service.html">
+          <span class="nav-icon">⌕</span>
+          <span class="nav-label">Service Parts Lookup</span>
+        </a>
+        <a href="accounting.html">
+          <span class="nav-icon">$</span>
+          <span class="nav-label">Accounting</span>
+        </a>
+        <a href="admin.html">
+          <span class="nav-icon">⚙</span>
+          <span class="nav-label">Inventory Administration</span>
+        </a>
+        <a href="users.html">
+          <span class="nav-icon">◇</span>
+          <span class="nav-label">User Access</span>
+        </a>
+        <a href="inspection-requests-office.html" class="active">
+          <span class="nav-icon">✓</span>
+          <span class="nav-label">Inspection Requests</span>
+        </a>
+        <a href="projects-command.html">
+          <span class="nav-icon">◆</span>
+          <span class="nav-label">Projects Command Center</span>
+        </a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1>Pool / Spa Inspection Requests</h1>
+          <p>Internal office review, payment tracking, Skimmer setup, and CompanyCam reference tracking.</p>
+        </div>
+
+        <div class="topbar-actions">
+          <span id="authUserLabel" class="small"></span>
+          <button class="btn btn-secondary hidden" id="refreshBtn" type="button">Refresh</button>
+          <button class="btn btn-secondary hidden" id="exportCsvBtn" type="button">Export CSV</button>
+          <button class="btn btn-danger hidden" id="logoutBtn" type="button">Logout</button>
+        </div>
+      </header>
+
+      <section class="content">
+        <div id="authCard" class="card auth-panel">
+          <div class="card-header">
+            <div>
+              <h2>Office Sign In</h2>
+              <p>Sign in with an authorized Molinari Pools account to review inspection requests.</p>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div id="authAlert" class="alert alert-error"></div>
+
+            <div class="field" style="margin-bottom: 12px;">
+              <label for="emailInput">Email</label>
+              <input id="emailInput" type="email" autocomplete="email" placeholder="office@molinaripools.com" />
+            </div>
+
+            <div class="field" style="margin-bottom: 16px;">
+              <label for="passwordInput">Password</label>
+              <input id="passwordInput" type="password" autocomplete="current-password" placeholder="Password" />
+            </div>
+
+            <button class="btn btn-primary" id="loginBtn" type="button" style="width: 100%;">
+              Sign In
+            </button>
+
+            <div class="footer-note">
+              This page uses the authenticated Supabase user session. If access fails after login, confirm RLS/select permissions for the office view and execute permission for the office status RPC.
+            </div>
+          </div>
+        </div>
+
+        <div id="officeApp" class="hidden">
+          <div id="pageAlert" class="alert"></div>
+
+          <section class="summary-grid" style="margin-bottom: 18px;">
+            <div class="summary-card">
+              <div class="label">Total Requests</div>
+              <div class="value" id="summaryTotal">0</div>
+              <div class="sub">Loaded from office view</div>
+            </div>
+
+            <div class="summary-card">
+              <div class="label">New / Submitted</div>
+              <div class="value" id="summaryNew">0</div>
+              <div class="sub">Needs office review</div>
+            </div>
+
+            <div class="summary-card">
+              <div class="label">Reviewed</div>
+              <div class="value" id="summaryReviewed">0</div>
+              <div class="sub">Reviewed by office</div>
+            </div>
+
+            <div class="summary-card">
+              <div class="label">Payment Recorded</div>
+              <div class="value" id="summaryPaid">0</div>
+              <div class="sub">Skimmer invoice/payment tracked</div>
+            </div>
+
+            <div class="summary-card">
+              <div class="label">Converted</div>
+              <div class="value" id="summaryConverted">0</div>
+              <div class="sub">Skimmer / CompanyCam IDs entered</div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h2>Filters</h2>
+                <p>Search by requester, property, email, phone, Skimmer invoice, Skimmer IDs, or CompanyCam ID.</p>
+              </div>
+            </div>
+
+            <div class="card-body">
+              <div class="filters">
+                <div class="field">
+                  <label for="searchInput">Search</label>
+                  <input id="searchInput" type="search" placeholder="Search requests..." />
+                </div>
+
+                <div class="field">
+                  <label for="statusFilter">Request Status</label>
+                  <select id="statusFilter">
+                    <option value="">All statuses</option>
+                    <option value="SUBMITTED">Submitted</option>
+                    <option value="NEW">New</option>
+                    <option value="REVIEWED">Reviewed</option>
+                    <option value="PAYMENT_PENDING">Payment Pending</option>
+                    <option value="PAYMENT_RECORDED">Payment Recorded</option>
+                    <option value="CONVERTED_TO_SKIMMER">Converted to Skimmer</option>
+                    <option value="SCHEDULED">Scheduled</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="paymentFilter">Payment</label>
+                  <select id="paymentFilter">
+                    <option value="">All payment records</option>
+                    <option value="recorded">Payment recorded</option>
+                    <option value="not_recorded">Payment not recorded</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="sortFilter">Sort</label>
+                  <select id="sortFilter">
+                    <option value="created_desc">Newest first</option>
+                    <option value="created_asc">Oldest first</option>
+                    <option value="updated_desc">Recently updated</option>
+                    <option value="property_asc">Property A-Z</option>
+                    <option value="requester_asc">Requester A-Z</option>
+                  </select>
+                </div>
+
+                <button class="btn btn-secondary" id="clearFiltersBtn" type="button">Clear</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h2>Inspection Request Queue</h2>
+                <p id="resultCount">0 requests loaded.</p>
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Created</th>
+                    <th>Status</th>
+                    <th>Requester</th>
+                    <th>Property</th>
+                    <th>Inspection</th>
+                    <th>Payment</th>
+                    <th>Skimmer Invoice</th>
+                    <th>Skimmer / CompanyCam</th>
+                    <th>Office Notes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="requestsTbody"></tbody>
+              </table>
+            </div>
+
+            <div id="emptyState" class="empty-state hidden">
+              No inspection requests match the current filters.
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="requestModalBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h2 id="modalTitle">Inspection Request</h2>
+          <p id="modalSubtitle"></p>
+        </div>
+        <button class="btn btn-secondary" id="closeModalBtn" type="button">Close</button>
+      </div>
+
+      <div class="modal-body">
+        <div id="modalAlert" class="alert"></div>
+
+        <div class="detail-grid" id="detailGrid"></div>
+
+        <section class="detail-section full" style="margin-top: 14px;">
+          <h3>Office Review / Update</h3>
+
+          <div style="padding: 14px;">
+            <div class="office-form">
+              <div class="field">
+                <label for="officeUpdatedBy">Updated By</label>
+                <input id="officeUpdatedBy" type="text" placeholder="Office user name" />
+              </div>
+
+              <div class="field">
+                <label for="officeStatus">Request Status</label>
+                <select id="officeStatus">
+                  <option value="SUBMITTED">Submitted</option>
+                  <option value="NEW">New</option>
+                  <option value="REVIEWED">Reviewed</option>
+                  <option value="PAYMENT_PENDING">Payment Pending</option>
+                  <option value="PAYMENT_RECORDED">Payment Recorded</option>
+                  <option value="CONVERTED_TO_SKIMMER">Converted to Skimmer</option>
+                  <option value="SCHEDULED">Scheduled</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="skimmerInvoiceNumber">Skimmer Invoice #</label>
+                <input id="skimmerInvoiceNumber" type="text" placeholder="Example: INV-12345" />
+              </div>
+
+              <div class="field">
+                <label for="skimmerCustomerId">Skimmer Customer ID</label>
+                <input id="skimmerCustomerId" type="text" placeholder="Skimmer customer reference" />
+              </div>
+
+              <div class="field">
+                <label for="skimmerWorkOrderId">Skimmer Work Order ID</label>
+                <input id="skimmerWorkOrderId" type="text" placeholder="Skimmer work order reference" />
+              </div>
+
+              <div class="field">
+                <label for="companycamProjectId">CompanyCam Project ID</label>
+                <input id="companycamProjectId" type="text" placeholder="CompanyCam project reference" />
+              </div>
+
+              <div class="field full">
+                <label for="paymentNotes">Payment Notes</label>
+                <textarea id="paymentNotes" placeholder="Record payment confirmation notes, Skimmer invoice/payment details, or billing notes."></textarea>
+              </div>
+
+              <div class="field full">
+                <label for="officeNotes">Office Notes</label>
+                <textarea id="officeNotes" placeholder="Internal office review notes, scheduling notes, restrictions, or follow-up items."></textarea>
+              </div>
+            </div>
+
+            <div class="footer-note">
+              Saving uses RPC: public.update_pool_spa_inspection_request_office_status().
+              Payment is considered recorded when invoice/payment fields are saved through the office workflow.
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="markReviewedBtn" type="button">Mark Reviewed</button>
+        <button class="btn btn-secondary" id="markPaymentRecordedBtn" type="button">Record Payment</button>
+        <button class="btn btn-secondary" id="markConvertedBtn" type="button">Mark Converted</button>
+        <button class="btn btn-primary" id="saveOfficeUpdateBtn" type="button">Save Office Update</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /************************************************************
+     * Supabase configuration
+     * Replace these with the same values used in your working pages.
+     ************************************************************/
+    const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR_PUBLIC_ANON_KEY';
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const OFFICE_VIEW = "pool_spa_inspection_requests_office_view";
+    const OFFICE_RPC = "update_pool_spa_inspection_request_office_status";
+    const SIDEBAR_STORAGE_KEY = "inventorySidebarCollapsed";
+    const OFFICE_NAME_STORAGE_KEY = "inspectionOfficeUpdatedBy";
+
+    let allRequests = [];
+    let filteredRequests = [];
+    let selectedRequest = null;
+
+    const appShell = document.getElementById("appShell");
+    const sidebarToggle = document.getElementById("sidebarToggle");
+
+    const authCard = document.getElementById("authCard");
+    const officeApp = document.getElementById("officeApp");
+    const authAlert = document.getElementById("authAlert");
+    const pageAlert = document.getElementById("pageAlert");
+
+    const emailInput = document.getElementById("emailInput");
+    const passwordInput = document.getElementById("passwordInput");
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const exportCsvBtn = document.getElementById("exportCsvBtn");
+    const authUserLabel = document.getElementById("authUserLabel");
+
+    const searchInput = document.getElementById("searchInput");
+    const statusFilter = document.getElementById("statusFilter");
+    const paymentFilter = document.getElementById("paymentFilter");
+    const sortFilter = document.getElementById("sortFilter");
+    const clearFiltersBtn = document.getElementById("clearFiltersBtn");
+
+    const requestsTbody = document.getElementById("requestsTbody");
+    const emptyState = document.getElementById("emptyState");
+    const resultCount = document.getElementById("resultCount");
+
+    const summaryTotal = document.getElementById("summaryTotal");
+    const summaryNew = document.getElementById("summaryNew");
+    const summaryReviewed = document.getElementById("summaryReviewed");
+    const summaryPaid = document.getElementById("summaryPaid");
+    const summaryConverted = document.getElementById("summaryConverted");
+
+    const requestModalBackdrop = document.getElementById("requestModalBackdrop");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalSubtitle = document.getElementById("modalSubtitle");
+    const modalAlert = document.getElementById("modalAlert");
+    const detailGrid = document.getElementById("detailGrid");
+
+    const officeUpdatedBy = document.getElementById("officeUpdatedBy");
+    const officeStatus = document.getElementById("officeStatus");
+    const skimmerInvoiceNumber = document.getElementById("skimmerInvoiceNumber");
+    const skimmerCustomerId = document.getElementById("skimmerCustomerId");
+    const skimmerWorkOrderId = document.getElementById("skimmerWorkOrderId");
+    const companycamProjectId = document.getElementById("companycamProjectId");
+    const paymentNotes = document.getElementById("paymentNotes");
+    const officeNotes = document.getElementById("officeNotes");
+
+    const markReviewedBtn = document.getElementById("markReviewedBtn");
+    const markPaymentRecordedBtn = document.getElementById("markPaymentRecordedBtn");
+    const markConvertedBtn = document.getElementById("markConvertedBtn");
+    const saveOfficeUpdateBtn = document.getElementById("saveOfficeUpdateBtn");
+
+    document.addEventListener("DOMContentLoaded", init);
+
+    async function init() {
+      initSidebar();
+      bindEvents();
+
+      const { data } = await supabaseClient.auth.getSession();
+
+      if (data && data.session) {
+        showOfficeApp(data.session.user);
+        await loadRequests();
+      } else {
+        showAuth();
+      }
+    }
+
+    function initSidebar() {
+      const collapsed = localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+      if (collapsed) {
+        appShell.classList.add("sidebar-collapsed");
+      }
+    }
+
+    function bindEvents() {
+      sidebarToggle.addEventListener("click", () => {
+        appShell.classList.toggle("sidebar-collapsed");
+        localStorage.setItem(
+          SIDEBAR_STORAGE_KEY,
+          appShell.classList.contains("sidebar-collapsed") ? "true" : "false"
+        );
+      });
+
+      loginBtn.addEventListener("click", handleLogin);
+      passwordInput.addEventListener("keydown", event => {
+        if (event.key === "Enter") handleLogin();
+      });
+
+      logoutBtn.addEventListener("click", handleLogout);
+      refreshBtn.addEventListener("click", loadRequests);
+      exportCsvBtn.addEventListener("click", exportCsv);
+
+      searchInput.addEventListener("input", applyFilters);
+      statusFilter.addEventListener("change", applyFilters);
+      paymentFilter.addEventListener("change", applyFilters);
+      sortFilter.addEventListener("change", applyFilters);
+
+      clearFiltersBtn.addEventListener("click", () => {
+        searchInput.value = "";
+        statusFilter.value = "";
+        paymentFilter.value = "";
+        sortFilter.value = "created_desc";
+        applyFilters();
+      });
+
+      closeModalBtn.addEventListener("click", closeModal);
+      requestModalBackdrop.addEventListener("click", event => {
+        if (event.target === requestModalBackdrop) closeModal();
+      });
+
+      saveOfficeUpdateBtn.addEventListener("click", () => saveOfficeUpdate());
+      markReviewedBtn.addEventListener("click", () => {
+        officeStatus.value = "REVIEWED";
+        saveOfficeUpdate("REVIEWED");
+      });
+      markPaymentRecordedBtn.addEventListener("click", () => {
+        officeStatus.value = "PAYMENT_RECORDED";
+        saveOfficeUpdate("PAYMENT_RECORDED");
+      });
+      markConvertedBtn.addEventListener("click", () => {
+        officeStatus.value = "CONVERTED_TO_SKIMMER";
+        saveOfficeUpdate("CONVERTED_TO_SKIMMER");
+      });
+    }
+
+    async function handleLogin() {
+      clearAlert(authAlert);
+
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      if (!email || !password) {
+        showAlert(authAlert, "Please enter email and password.", "error");
+        return;
+      }
+
+      setButtonLoading(loginBtn, true, "Signing In...");
+
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      setButtonLoading(loginBtn, false, "Sign In");
+
+      if (error) {
+        showAlert(authAlert, error.message || "Unable to sign in.", "error");
+        return;
+      }
+
+      showOfficeApp(data.user);
+      await loadRequests();
+    }
+
+    async function handleLogout() {
+      await supabaseClient.auth.signOut();
+      allRequests = [];
+      filteredRequests = [];
+      showAuth();
+    }
+
+    function showAuth() {
+      authCard.classList.remove("hidden");
+      officeApp.classList.add("hidden");
+      logoutBtn.classList.add("hidden");
+      refreshBtn.classList.add("hidden");
+      exportCsvBtn.classList.add("hidden");
+      authUserLabel.textContent = "";
+    }
+
+    function showOfficeApp(user) {
+      authCard.classList.add("hidden");
+      officeApp.classList.remove("hidden");
+      logoutBtn.classList.remove("hidden");
+      refreshBtn.classList.remove("hidden");
+      exportCsvBtn.classList.remove("hidden");
+      authUserLabel.textContent = user && user.email ? user.email : "Signed in";
+    }
+
+    async function loadRequests() {
+      clearAlert(pageAlert);
+      requestsTbody.innerHTML = "";
+      resultCount.textContent = "Loading requests...";
+
+      setButtonLoading(refreshBtn, true, "Refreshing...");
+
+      const { data, error } = await supabaseClient
+        .from(OFFICE_VIEW)
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      setButtonLoading(refreshBtn, false, "Refresh");
+
+      if (error) {
+        showAlert(
+          pageAlert,
+          "Unable to load inspection requests. Check authenticated select access on public.pool_spa_inspection_requests_office_view. " + error.message,
+          "error"
+        );
+        resultCount.textContent = "Unable to load requests.";
+        return;
+      }
+
+      allRequests = Array.isArray(data) ? data : [];
+      applyFilters();
+      showAlert(pageAlert, "Inspection requests loaded successfully.", "success", 2400);
+    }
+
+    function applyFilters() {
+      const term = searchInput.value.trim().toLowerCase();
+      const selectedStatus = statusFilter.value;
+      const selectedPayment = paymentFilter.value;
+      const selectedSort = sortFilter.value;
+
+      filteredRequests = allRequests.filter(row => {
+        const status = safe(row.request_status).toUpperCase();
+
+        if (selectedStatus && status !== selectedStatus) {
+          return false;
+        }
+
+        const paymentRecorded = Boolean(row.payment_recorded);
+        if (selectedPayment === "recorded" && !paymentRecorded) {
+          return false;
+        }
+        if (selectedPayment === "not_recorded" && paymentRecorded) {
+          return false;
+        }
+
+        if (term) {
+          const haystack = [
+            row.requester_full_name,
+            row.requester_first_name,
+            row.requester_last_name,
+            row.requester_email,
+            row.requester_phone,
+            row.requester_company,
+            row.property_full_address,
+            row.property_street_address,
+            row.property_city,
+            row.property_state,
+            row.property_zip,
+            row.property_owner_name,
+            row.skimmer_invoice_number,
+            row.skimmer_customer_id,
+            row.skimmer_work_order_id,
+            row.companycam_project_id,
+            row.office_notes,
+            row.payment_notes
+          ].map(safe).join(" ").toLowerCase();
+
+          if (!haystack.includes(term)) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      filteredRequests.sort((a, b) => {
+        if (selectedSort === "created_asc") {
+          return dateValue(a.created_at) - dateValue(b.created_at);
+        }
+
+        if (selectedSort === "updated_desc") {
+          return dateValue(b.updated_at) - dateValue(a.updated_at);
+        }
+
+        if (selectedSort === "property_asc") {
+          return safe(a.property_full_address).localeCompare(safe(b.property_full_address));
+        }
+
+        if (selectedSort === "requester_asc") {
+          return safe(a.requester_full_name).localeCompare(safe(b.requester_full_name));
+        }
+
+        return dateValue(b.created_at) - dateValue(a.created_at);
+      });
+
+      renderSummary();
+      renderTable();
+    }
+
+    function renderSummary() {
+      const total = allRequests.length;
+
+      const newCount = allRequests.filter(row => {
+        const s = safe(row.request_status).toUpperCase();
+        return s === "SUBMITTED" || s === "NEW" || !s;
+      }).length;
+
+      const reviewedCount = allRequests.filter(row => {
+        const s = safe(row.request_status).toUpperCase();
+        return s === "REVIEWED";
+      }).length;
+
+      const paidCount = allRequests.filter(row => Boolean(row.payment_recorded)).length;
+
+      const convertedCount = allRequests.filter(row => {
+        const s = safe(row.request_status).toUpperCase();
+        return s === "CONVERTED_TO_SKIMMER" ||
+          Boolean(row.skimmer_customer_id) ||
+          Boolean(row.skimmer_work_order_id) ||
+          Boolean(row.companycam_project_id);
+      }).length;
+
+      summaryTotal.textContent = total;
+      summaryNew.textContent = newCount;
+      summaryReviewed.textContent = reviewedCount;
+      summaryPaid.textContent = paidCount;
+      summaryConverted.textContent = convertedCount;
+    }
+
+    function renderTable() {
+      requestsTbody.innerHTML = "";
+
+      resultCount.textContent = `${filteredRequests.length} request${filteredRequests.length === 1 ? "" : "s"} shown.`;
+
+      if (!filteredRequests.length) {
+        emptyState.classList.remove("hidden");
+        return;
+      }
+
+      emptyState.classList.add("hidden");
+
+      filteredRequests.forEach(row => {
+        const tr = document.createElement("tr");
+
+        const requesterName = safe(row.requester_full_name) ||
+          [row.requester_first_name, row.requester_last_name].map(safe).filter(Boolean).join(" ");
+
+        const propertyAddress = safe(row.property_full_address) || formatAddress(row);
+        const inspectionType = safe(row.inspection_type || row.requested_inspection_type || row.pool_spa_type || row.pool_type);
+        const statusLabel = safe(row.request_status_label) || safe(row.request_status) || "Submitted";
+        const paymentLabel = safe(row.payment_record_status_label) || safe(row.payment_status_label) || (row.payment_recorded ? "Payment Recorded" : "Not Recorded");
+
+        tr.innerHTML = `
+          <td class="nowrap">
+            <div class="strong">${formatDate(row.created_at)}</div>
+            <div class="muted small">${formatDateTime(row.created_at)}</div>
+          </td>
+
+          <td>
+            ${statusBadge(row.request_status, statusLabel)}
+          </td>
+
+          <td>
+            <div class="strong">${escapeHtml(requesterName || "Not provided")}</div>
+            <div class="muted small">${escapeHtml(safe(row.requester_email))}</div>
+            <div class="muted small">${escapeHtml(safe(row.requester_phone))}</div>
+            ${row.requester_company ? `<div class="muted small">${escapeHtml(row.requester_company)}</div>` : ""}
+          </td>
+
+          <td>
+            <div class="strong">${escapeHtml(propertyAddress || "Not provided")}</div>
+            ${row.property_owner_name ? `<div class="muted small">Owner: ${escapeHtml(row.property_owner_name)}</div>` : ""}
+          </td>
+
+          <td>
+            <div>${escapeHtml(inspectionType || "Pool / Spa Equipment Inspection")}</div>
+            ${row.preferred_inspection_date ? `<div class="muted small">Preferred: ${escapeHtml(formatDate(row.preferred_inspection_date))}</div>` : ""}
+          </td>
+
+          <td>
+            ${paymentBadge(row.payment_recorded, paymentLabel)}
+            ${row.payment_processed_by ? `<div class="muted small">By: ${escapeHtml(row.payment_processed_by)}</div>` : ""}
+            ${row.payment_processed_at ? `<div class="muted small">${escapeHtml(formatDateTime(row.payment_processed_at))}</div>` : ""}
+          </td>
+
+          <td>
+            <div class="strong">${escapeHtml(safe(row.skimmer_invoice_number) || "—")}</div>
+            ${row.payment_notes ? `<div class="muted small">${escapeHtml(truncate(row.payment_notes, 90))}</div>` : ""}
+          </td>
+
+          <td>
+            <div class="small"><span class="strong">Customer:</span> ${escapeHtml(safe(row.skimmer_customer_id) || "—")}</div>
+            <div class="small"><span class="strong">WO:</span> ${escapeHtml(safe(row.skimmer_work_order_id) || "—")}</div>
+            <div class="small"><span class="strong">CompanyCam:</span> ${escapeHtml(safe(row.companycam_project_id) || "—")}</div>
+          </td>
+
+          <td>
+            <div class="small">${escapeHtml(truncate(row.office_notes, 120) || "—")}</div>
+          </td>
+
+          <td>
+            <div class="row-actions">
+              <button class="btn btn-secondary" type="button" data-action="view" data-id="${escapeHtml(row.id)}">View / Update</button>
+            </div>
+          </td>
+        `;
+
+        requestsTbody.appendChild(tr);
+      });
+
+      requestsTbody.querySelectorAll("[data-action='view']").forEach(button => {
+        button.addEventListener("click", () => {
+          const id = button.getAttribute("data-id");
+          const row = allRequests.find(item => item.id === id);
+          if (row) openModal(row);
+        });
+      });
+    }
+
+    function openModal(row) {
+      selectedRequest = row;
+      clearAlert(modalAlert);
+
+      const requesterName = safe(row.requester_full_name) ||
+        [row.requester_first_name, row.requester_last_name].map(safe).filter(Boolean).join(" ");
+
+      const propertyAddress = safe(row.property_full_address) || formatAddress(row);
+
+      modalTitle.textContent = requesterName || "Inspection Request";
+      modalSubtitle.textContent = propertyAddress || "Property address not provided";
+
+      officeUpdatedBy.value = localStorage.getItem(OFFICE_NAME_STORAGE_KEY) || "";
+      officeStatus.value = safe(row.request_status).toUpperCase() || "REVIEWED";
+      skimmerInvoiceNumber.value = safe(row.skimmer_invoice_number);
+      skimmerCustomerId.value = safe(row.skimmer_customer_id);
+      skimmerWorkOrderId.value = safe(row.skimmer_work_order_id);
+      companycamProjectId.value = safe(row.companycam_project_id);
+      paymentNotes.value = safe(row.payment_notes);
+      officeNotes.value = safe(row.office_notes);
+
+      renderDetails(row);
+      requestModalBackdrop.classList.add("show");
+    }
+
+    function closeModal() {
+      requestModalBackdrop.classList.remove("show");
+      selectedRequest = null;
+      clearAlert(modalAlert);
+    }
+
+    function renderDetails(row) {
+      detailGrid.innerHTML = "";
+
+      const sections = [
+        {
+          title: "Request Summary",
+          items: [
+            ["Request ID", row.id],
+            ["Created", formatDateTime(row.created_at)],
+            ["Updated", formatDateTime(row.updated_at)],
+            ["Request Status", safe(row.request_status_label) || safe(row.request_status)],
+            ["Payment Status", safe(row.payment_record_status_label) || safe(row.payment_status_label) || (row.payment_recorded ? "Payment Recorded" : "Not Recorded")],
+            ["Payment Recorded", row.payment_recorded ? "Yes" : "No"]
+          ]
+        },
+        {
+          title: "Requester / Access Contact",
+          items: [
+            ["Requester Name", row.requester_full_name || [row.requester_first_name, row.requester_last_name].map(safe).filter(Boolean).join(" ")],
+            ["Requester Role", row.requester_role],
+            ["Company", row.requester_company],
+            ["Email", row.requester_email],
+            ["Phone", row.requester_phone],
+            ["Access Contact", row.access_contact_name],
+            ["Access Contact Phone", row.access_contact_phone],
+            ["Access Contact Email", row.access_contact_email],
+            ["Who Will Provide Access", row.who_will_provide_access]
+          ]
+        },
+        {
+          title: "Property",
+          items: [
+            ["Property Address", row.property_full_address || formatAddress(row)],
+            ["Street", row.property_street_address],
+            ["City", row.property_city],
+            ["State", row.property_state],
+            ["ZIP", row.property_zip],
+            ["Property Owner", row.property_owner_name],
+            ["Owner Phone", row.property_owner_phone],
+            ["Owner Email", row.property_owner_email],
+            ["Gate Code / Access Notes", row.gate_code_access_notes]
+          ]
+        },
+        {
+          title: "Inspection Details",
+          items: [
+            ["Inspection Type", row.inspection_type || row.requested_inspection_type || row.pool_spa_type || row.pool_type],
+            ["Preferred Date", formatDate(row.preferred_inspection_date)],
+            ["Preferred Time", row.preferred_inspection_time],
+            ["Deadline / Closing Date", formatDate(row.deadline_or_closing_date)],
+            ["Pool Type", row.pool_type],
+            ["Spa Present", boolText(row.spa_present)],
+            ["Heater Present", boolText(row.heater_present)],
+            ["Automation Present", boolText(row.automation_present)],
+            ["Special Instructions", row.special_instructions],
+            ["Known Issues", row.known_issues]
+          ]
+        },
+        {
+          title: "Report / Communication Control",
+          items: [
+            ["Authorized Recipient Name", row.authorized_report_recipient_name],
+            ["Authorized Recipient Email", row.authorized_report_recipient_email],
+            ["Authorized Recipient Phone", row.authorized_report_recipient_phone],
+            ["Communication Restrictions", row.communication_restrictions],
+            ["Findings Can Be Shared With", row.findings_can_be_shared_with],
+            ["Pricing Can Be Shared With", row.pricing_can_be_shared_with]
+          ]
+        },
+        {
+          title: "Acknowledgements",
+          items: [
+            ["Authorized To Request Inspection", boolText(row.authorized_to_request_inspection)],
+            ["Understands Report Review Process", boolText(row.understands_report_review_process)],
+            ["Understands Quote Separate", boolText(row.understands_quote_separate)],
+            ["Understands Payment Required", boolText(row.understands_payment_required)]
+          ]
+        },
+        {
+          title: "Payment / Skimmer / CompanyCam",
+          items: [
+            ["Skimmer Invoice #", row.skimmer_invoice_number],
+            ["Payment Processed By", row.payment_processed_by],
+            ["Payment Processed At", formatDateTime(row.payment_processed_at)],
+            ["Payment Notes", row.payment_notes],
+            ["Skimmer Customer ID", row.skimmer_customer_id],
+            ["Skimmer Work Order ID", row.skimmer_work_order_id],
+            ["CompanyCam Project ID", row.companycam_project_id]
+          ]
+        },
+        {
+          title: "Office Audit",
+          items: [
+            ["Office Notes", row.office_notes],
+            ["Reviewed By", row.reviewed_by],
+            ["Reviewed At", formatDateTime(row.reviewed_at)],
+            ["Converted To Skimmer By", row.converted_to_skimmer_by],
+            ["Converted To Skimmer At", formatDateTime(row.converted_to_skimmer_at)]
+          ],
+          full: true
+        }
+      ];
+
+      sections.forEach(section => {
+        const sectionEl = document.createElement("section");
+        sectionEl.className = "detail-section" + (section.full ? " full" : "");
+
+        const visibleItems = section.items.filter(item => hasDisplayValue(item[1]));
+
+        sectionEl.innerHTML = `
+          <h3>${escapeHtml(section.title)}</h3>
+          <div class="detail-section-body">
+            ${
+              visibleItems.length
+                ? visibleItems.map(([label, value]) => detailItem(label, value)).join("")
+                : detailItem("No Data", "No information was provided for this section.", true)
+            }
+          </div>
+        `;
+
+        detailGrid.appendChild(sectionEl);
+      });
+    }
+
+    function detailItem(label, value, full) {
+      return `
+        <div class="detail-item ${full ? "full" : ""}">
+          <div class="detail-label">${escapeHtml(label)}</div>
+          <div class="detail-value">${escapeHtml(safe(value) || "—")}</div>
+        </div>
+      `;
+    }
+
+    async function saveOfficeUpdate(forcedStatus) {
+      clearAlert(modalAlert);
+
+      if (!selectedRequest || !selectedRequest.id) {
+        showAlert(modalAlert, "No inspection request is selected.", "error");
+        return;
+      }
+
+      const updatedBy = officeUpdatedBy.value.trim();
+
+      if (!updatedBy) {
+        showAlert(modalAlert, "Please enter Updated By before saving.", "error");
+        officeUpdatedBy.focus();
+        return;
+      }
+
+      localStorage.setItem(OFFICE_NAME_STORAGE_KEY, updatedBy);
+
+      const newStatus = forcedStatus || officeStatus.value;
+
+      const payload = {
+        p_request_id: selectedRequest.id,
+        p_request_status: newStatus,
+        p_updated_by: updatedBy,
+        p_office_notes: officeNotes.value.trim() || null,
+        p_skimmer_invoice_number: skimmerInvoiceNumber.value.trim() || null,
+        p_payment_notes: paymentNotes.value.trim() || null,
+        p_skimmer_customer_id: skimmerCustomerId.value.trim() || null,
+        p_skimmer_work_order_id: skimmerWorkOrderId.value.trim() || null,
+        p_companycam_project_id: companycamProjectId.value.trim() || null
+      };
+
+      setOfficeButtonsLoading(true);
+
+      const { error } = await supabaseClient.rpc(OFFICE_RPC, payload);
+
+      setOfficeButtonsLoading(false);
+
+      if (error) {
+        showAlert(
+          modalAlert,
+          "Unable to save office update. Confirm RPC execute permission for authenticated users and that the request status is allowed. " + error.message,
+          "error"
+        );
+        return;
+      }
+
+      showAlert(modalAlert, "Office update saved successfully.", "success");
+      await loadRequests();
+
+      const refreshed = allRequests.find(item => item.id === selectedRequest.id);
+      if (refreshed) {
+        selectedRequest = refreshed;
+        openModal(refreshed);
+        showAlert(modalAlert, "Office update saved successfully.", "success");
+      }
+    }
+
+    function setOfficeButtonsLoading(isLoading) {
+      setButtonLoading(saveOfficeUpdateBtn, isLoading, isLoading ? "Saving..." : "Save Office Update");
+      markReviewedBtn.disabled = isLoading;
+      markPaymentRecordedBtn.disabled = isLoading;
+      markConvertedBtn.disabled = isLoading;
+    }
+
+    function exportCsv() {
+      if (!filteredRequests.length) {
+        showAlert(pageAlert, "There are no filtered requests to export.", "error", 3000);
+        return;
+      }
+
+      const columns = [
+        ["id", "Request ID"],
+        ["created_at", "Created At"],
+        ["updated_at", "Updated At"],
+        ["request_status", "Request Status"],
+        ["request_status_label", "Request Status Label"],
+        ["requester_full_name", "Requester Name"],
+        ["requester_role", "Requester Role"],
+        ["requester_company", "Requester Company"],
+        ["requester_email", "Requester Email"],
+        ["requester_phone", "Requester Phone"],
+        ["property_full_address", "Property Address"],
+        ["property_owner_name", "Property Owner"],
+        ["property_owner_email", "Property Owner Email"],
+        ["property_owner_phone", "Property Owner Phone"],
+        ["access_contact_name", "Access Contact Name"],
+        ["access_contact_phone", "Access Contact Phone"],
+        ["access_contact_email", "Access Contact Email"],
+        ["preferred_inspection_date", "Preferred Inspection Date"],
+        ["preferred_inspection_time", "Preferred Inspection Time"],
+        ["deadline_or_closing_date", "Deadline / Closing Date"],
+        ["special_instructions", "Special Instructions"],
+        ["known_issues", "Known Issues"],
+        ["authorized_to_request_inspection", "Authorized To Request Inspection"],
+        ["understands_report_review_process", "Understands Report Review Process"],
+        ["understands_quote_separate", "Understands Quote Separate"],
+        ["understands_payment_required", "Understands Payment Required"],
+        ["payment_recorded", "Payment Recorded"],
+        ["payment_status_label", "Payment Status Label"],
+        ["payment_record_status_label", "Payment Record Status Label"],
+        ["skimmer_invoice_number", "Skimmer Invoice Number"],
+        ["payment_processed_by", "Payment Processed By"],
+        ["payment_processed_at", "Payment Processed At"],
+        ["payment_notes", "Payment Notes"],
+        ["skimmer_customer_id", "Skimmer Customer ID"],
+        ["skimmer_work_order_id", "Skimmer Work Order ID"],
+        ["companycam_project_id", "CompanyCam Project ID"],
+        ["office_notes", "Office Notes"],
+        ["reviewed_by", "Reviewed By"],
+        ["reviewed_at", "Reviewed At"],
+        ["converted_to_skimmer_by", "Converted To Skimmer By"],
+        ["converted_to_skimmer_at", "Converted To Skimmer At"]
+      ];
+
+      const header = columns.map(col => csvEscape(col[1])).join(",");
+
+      const rows = filteredRequests.map(row => {
+        return columns.map(([key]) => csvEscape(row[key])).join(",");
+      });
+
+      const csv = [header, ...rows].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `inspection-requests-office-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+      showAlert(pageAlert, "CSV export created.", "success", 2400);
+    }
+
+    function statusBadge(status, label) {
+      const normalized = safe(status).toUpperCase();
+
+      let className = "badge-neutral";
+
+      if (normalized === "SUBMITTED" || normalized === "NEW" || !normalized) {
+        className = "badge-submitted";
+      } else if (normalized === "REVIEWED") {
+        className = "badge-reviewed";
+      } else if (normalized === "PAYMENT_PENDING" || normalized === "PAYMENT_RECORDED") {
+        className = "badge-payment";
+      } else if (
+        normalized === "CONVERTED_TO_SKIMMER" ||
+        normalized === "SCHEDULED" ||
+        normalized === "COMPLETED"
+      ) {
+        className = "badge-converted";
+      } else if (normalized === "CANCELLED") {
+        className = "badge-cancelled";
+      }
+
+      return `<span class="badge ${className}">${escapeHtml(label || normalized || "Submitted")}</span>`;
+    }
+
+    function paymentBadge(recorded, label) {
+      if (recorded) {
+        return `<span class="badge badge-paid">${escapeHtml(label || "Payment Recorded")}</span>`;
+      }
+
+      return `<span class="badge badge-neutral">${escapeHtml(label || "Not Recorded")}</span>`;
+    }
+
+    function formatAddress(row) {
+      return [
+        row.property_street_address,
+        row.property_city,
+        row.property_state,
+        row.property_zip
+      ].map(safe).filter(Boolean).join(", ");
+    }
+
+    function boolText(value) {
+      if (value === true) return "Yes";
+      if (value === false) return "No";
+      return "";
+    }
+
+    function hasDisplayValue(value) {
+      if (value === true || value === false) return true;
+      return safe(value) !== "";
+    }
+
+    function safe(value) {
+      if (value === null || value === undefined) return "";
+      return String(value).trim();
+    }
+
+    function dateValue(value) {
+      const time = new Date(value || 0).getTime();
+      return Number.isNaN(time) ? 0 : time;
+    }
+
+    function formatDate(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return safe(value);
+
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      });
+    }
+
+    function formatDateTime(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return safe(value);
+
+      return date.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+    }
+
+    function truncate(value, maxLength) {
+      const text = safe(value);
+      if (!text) return "";
+      if (text.length <= maxLength) return text;
+      return text.slice(0, maxLength - 1) + "…";
+    }
+
+    function escapeHtml(value) {
+      return safe(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function csvEscape(value) {
+      const text = safe(value);
+      return `"${text.replaceAll('"', '""')}"`;
+    }
+
+    function showAlert(element, message, type, timeoutMs) {
+      element.textContent = message;
+      element.classList.remove("alert-success", "alert-error");
+      element.classList.add(type === "success" ? "alert-success" : "alert-error");
+      element.classList.add("show");
+
+      if (timeoutMs) {
+        window.setTimeout(() => clearAlert(element), timeoutMs);
+      }
+    }
+
+    function clearAlert(element) {
+      element.textContent = "";
+      element.classList.remove("show", "alert-success", "alert-error");
+    }
+
+    function setButtonLoading(button, isLoading, text) {
+      if (!button) return;
+      button.disabled = isLoading;
+      button.textContent = text;
+    }
+  </script>
+</body>
+</html>
