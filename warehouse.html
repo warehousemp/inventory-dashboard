@@ -1406,6 +1406,14 @@
         <input id="issuePart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
         <div id="issuePartDescription" class="part-description-display">Part description will appear here after a part number is selected.</div>
 
+        <label>Issue From Location:</label>
+        <select id="issueSourceLocation">
+          <option value="">Loading locations...</option>
+        </select>
+        <div class="help-text">
+          Required. Select the warehouse or van location where the inventory is physically being used from.
+        </div>
+
         <div id="issueSerialContainer" style="display: none;">
           <label>Serial Number:</label>
           <select id="issueSerial">
@@ -2229,7 +2237,8 @@ async function loadCategoryDropdowns() {
 async function loadInventoryLocationDropdowns() {
   const selects = [
     document.getElementById('transferFromLocation'),
-    document.getElementById('transferToLocation')
+    document.getElementById('transferToLocation'),
+    document.getElementById('issueSourceLocation')
   ];
 
   selects.forEach(select => {
@@ -2261,9 +2270,15 @@ async function loadInventoryLocationDropdowns() {
       return;
     }
 
-    const placeholder = select.id === 'transferFromLocation'
-      ? 'Select source location...'
-      : 'Select destination location...';
+    let placeholder = 'Select location...';
+
+    if (select.id === 'transferFromLocation') {
+      placeholder = 'Select source location...';
+    } else if (select.id === 'transferToLocation') {
+      placeholder = 'Select destination location...';
+    } else if (select.id === 'issueSourceLocation') {
+      placeholder = 'Select issue source location...';
+    }
 
     select.innerHTML = `<option value="">${placeholder}</option>`;
 
@@ -2276,10 +2291,15 @@ async function loadInventoryLocationDropdowns() {
   });
 
   const fromSelect = document.getElementById('transferFromLocation');
+  const issueSourceSelect = document.getElementById('issueSourceLocation');
   const transferByElement = document.getElementById('transferBy');
 
   if (fromSelect && inventoryLocationData.some(location => String(location.id) === MAIN_WAREHOUSE_ID)) {
     fromSelect.value = MAIN_WAREHOUSE_ID;
+  }
+
+  if (issueSourceSelect && inventoryLocationData.some(location => String(location.id) === MAIN_WAREHOUSE_ID)) {
+    issueSourceSelect.value = MAIN_WAREHOUSE_ID;
   }
 
   if (transferByElement && currentWarehouseProfile?.full_name && !transferByElement.value.trim()) {
@@ -2461,12 +2481,25 @@ async function loadAvailableIssueSerials(matchedPart) {
     return;
   }
 
+  const sourceLocationId = document.getElementById('issueSourceLocation')?.value || MAIN_WAREHOUSE_ID;
+  const sourceLocationName = getLocationNameById(sourceLocationId);
+
+  if (!sourceLocationId) {
+    serialSelect.innerHTML = '<option value="">Select issue source location first...</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Select an Issue From Location before choosing a serial number.';
+    }
+
+    return;
+  }
+
   const { data, error } = await client
     .from('v_serialized_inventory_current')
     .select('serial_number_raw, status, current_location')
     .eq('part_number', matchedPart.part_number)
     .eq('status', 'on_hand')
-    .eq('current_location', 'Main Warehouse')
+    .eq('current_location', sourceLocationName)
     .order('serial_number_raw', { ascending: true });
 
   if (error) {
@@ -2500,8 +2533,8 @@ async function loadAvailableIssueSerials(matchedPart) {
 
   if (serialHelp) {
     serialHelp.textContent = rows.length === 0
-      ? 'No on-hand serial numbers are available in Main Warehouse for this part.'
-      : `${rows.length} on-hand serial number(s) available in Main Warehouse.`;
+      ? `No on-hand serial numbers are available in ${sourceLocationName} for this part.`
+      : `${rows.length} on-hand serial number(s) available in ${sourceLocationName}.`;
   }
 }
 
@@ -2523,6 +2556,11 @@ function checkReceiveSerialized() {
 }
 
 document.getElementById('issuePart').addEventListener('input', checkIssueSerialized);
+
+const issueSourceLocationElement = document.getElementById('issueSourceLocation');
+if (issueSourceLocationElement) {
+  issueSourceLocationElement.addEventListener('change', checkIssueSerialized);
+}
 document.getElementById('receivePart').addEventListener('input', checkReceiveSerialized);
 document.getElementById('transferPart').addEventListener('input', updateTransferPartDescription);
 document.getElementById('adjustmentPart').addEventListener('input', updateAdjustmentPartDescription);
@@ -2541,6 +2579,11 @@ function resetIssueFields() {
   document.getElementById('issueTech').value = '';
   document.getElementById('issueJob').value = '';
   document.getElementById('issueClient').value = '';
+
+  const issueSourceLocationElement = document.getElementById('issueSourceLocation');
+  if (issueSourceLocationElement) {
+    issueSourceLocationElement.value = MAIN_WAREHOUSE_ID;
+  }
 
   const quantityInput = document.getElementById('issueQty');
   if (quantityInput) {
@@ -2778,7 +2821,16 @@ async function issue() {
   const serialValue = serialElement ? serialElement.value.trim() : '';
   const jobTypeElement = document.getElementById('issueJobType');
   const jobTypeValue = jobTypeElement ? jobTypeElement.value.trim().toUpperCase() : '';
+  const sourceLocationElement = document.getElementById('issueSourceLocation');
+  const sourceLocationId = sourceLocationElement ? sourceLocationElement.value : '';
+  const sourceLocationName = getLocationNameById(sourceLocationId);
   const quantityValue = isSerialized ? 1 : Number(document.getElementById('issueQty').value);
+
+  if (!sourceLocationId) {
+    document.getElementById('issueOutput').textContent =
+      'Select an Issue From Location before issuing inventory.';
+    return;
+  }
 
   if (!['PROJECT', 'REPAIR'].includes(jobTypeValue)) {
     document.getElementById('issueOutput').textContent =
@@ -2799,11 +2851,14 @@ async function issue() {
     p_work_order: document.getElementById('issueJob').value,
     p_client_name: document.getElementById('issueClient').value,
     p_job_type: jobTypeValue,
-    p_serial_number: serialValue || null
+    p_serial_number: serialValue || null,
+    p_source_location_id: sourceLocationId
   });
 
   document.getElementById('issueOutput').textContent =
-    error ? error.message : 'Issued successfully';
+    error
+      ? error.message
+      : `Issued successfully.\nSource Location: ${sourceLocationName}`;
 
   if (!error) {
     resetIssueFields();
