@@ -1161,9 +1161,9 @@
           </div>
 
           <section class="revenue-reporting-card">
-            <h3>Reporting Controls</h3>
+            <h3>Summary Reporting Controls</h3>
             <div class="status-note">
-              These controls update the entire Weekly Revenue report: summary cards, totals, and the transaction log below. Use Today for daily CSC closeout, or select a prior period for reporting review.
+              These controls update the Weekly Revenue summary cards and totals. The Revenue Transaction Log below has its own reporting controls so the table can be reviewed independently.
             </div>
 
             <div class="revenue-filter-grid">
@@ -1192,7 +1192,7 @@
               </div>
               <div class="revenue-field">
                 <label>&nbsp;</label>
-                <button class="admin-btn" id="revenueRefreshBtn" type="button" onclick="loadWeeklyRevenueDashboard(true)">Refresh Revenue</button>
+                <button class="admin-btn" id="revenueRefreshBtn" type="button" onclick="loadWeeklyRevenueDashboard(true)">Refresh Summary</button>
               </div>
             </div>
 
@@ -1206,7 +1206,6 @@
               <button class="secondary-btn" type="button" onclick="setRevenuePeriod('this_quarter')">This Quarter</button>
               <button class="secondary-btn" type="button" onclick="setRevenuePeriod('last_quarter')">Last Quarter</button>
               <button class="secondary-btn" type="button" onclick="setRevenuePeriod('this_year')">This Year</button>
-              <button class="secondary-btn" id="revenueExportCsvBtn" type="button" onclick="exportRevenueCsv()">Export CSV</button>
             </div>
           </section>
 
@@ -1314,7 +1313,54 @@
           <section class="revenue-reporting-card">
             <h3>Revenue Transaction Log</h3>
             <div class="status-note">
-              The table below follows the selected reporting period above. Use these table filters only to narrow the visible transaction rows after the period has loaded.
+              These controls update only the transaction log below. Use this section for detailed review, CSV export, void review, and searching/filtering transaction rows.
+            </div>
+
+            <div class="revenue-filter-grid">
+              <div class="revenue-field">
+                <label for="revenueLogPeriodFilter">Transaction Log Period</label>
+                <select id="revenueLogPeriodFilter" onchange="applyRevenueLogPeriodFilter()">
+                  <option value="today" selected>Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="this_week">This Week</option>
+                  <option value="last_week">Last Week</option>
+                  <option value="this_month">This Month</option>
+                  <option value="last_month">Last Month</option>
+                  <option value="this_quarter">This Quarter</option>
+                  <option value="last_quarter">Last Quarter</option>
+                  <option value="this_year">This Year</option>
+                  <option value="custom">Custom Date Range</option>
+                </select>
+              </div>
+              <div class="revenue-field">
+                <label for="revenueLogStartDateFilter">Log Start Date</label>
+                <input id="revenueLogStartDateFilter" type="date" onchange="applyCustomRevenueLogFilter()">
+              </div>
+              <div class="revenue-field">
+                <label for="revenueLogEndDateFilter">Log End Date</label>
+                <input id="revenueLogEndDateFilter" type="date" onchange="applyCustomRevenueLogFilter()">
+              </div>
+              <div class="revenue-field">
+                <label>&nbsp;</label>
+                <button class="admin-btn" id="revenueLogRefreshBtn" type="button" onclick="loadRevenueTransactionLog(true)">Refresh Log</button>
+              </div>
+            </div>
+
+            <div class="revenue-filter-actions">
+              <button class="secondary-btn" type="button" onclick="setRevenueLogPeriod('today')">Today</button>
+              <button class="secondary-btn" type="button" onclick="setRevenueLogPeriod('yesterday')">Yesterday</button>
+              <button class="secondary-btn" type="button" onclick="setRevenueLogPeriod('this_week')">This Week</button>
+              <button class="secondary-btn" type="button" onclick="setRevenueLogPeriod('last_week')">Last Week</button>
+              <button class="secondary-btn" type="button" onclick="setRevenueLogPeriod('this_month')">This Month</button>
+              <button class="secondary-btn" type="button" onclick="setRevenueLogPeriod('last_month')">Last Month</button>
+              <button class="secondary-btn" type="button" onclick="setRevenueLogPeriod('this_quarter')">This Quarter</button>
+              <button class="secondary-btn" type="button" onclick="setRevenueLogPeriod('last_quarter')">Last Quarter</button>
+              <button class="secondary-btn" type="button" onclick="setRevenueLogPeriod('this_year')">This Year</button>
+              <button class="secondary-btn" id="revenueExportCsvBtn" type="button" onclick="exportRevenueCsv()">Export CSV</button>
+            </div>
+
+            <div class="warning-note">
+              Search and table filters below only narrow the transactions already loaded for the selected transaction-log period.
             </div>
 
             <div class="revenue-filter-grid">
@@ -1752,6 +1798,8 @@ let filteredRevenueEntries = [];
 let revenueEntriesLoaded = false;
 let currentRevenueStartDate = '';
 let currentRevenueEndDate = '';
+let currentRevenueLogStartDate = '';
+let currentRevenueLogEndDate = '';
 
 const INSPECTION_OFFICE_VIEW = 'pool_spa_inspection_requests_office_view';
 const INSPECTION_OFFICE_RPC = 'update_pool_spa_inspection_request_office_status';
@@ -1775,6 +1823,7 @@ window.addEventListener('load', async () => {
   const activeWeeklyRevenueTab = document.getElementById('weeklyRevenueTab');
   if (activeWeeklyRevenueTab && activeWeeklyRevenueTab.classList.contains('active')) {
     await loadWeeklyRevenueDashboard(false);
+    await loadRevenueTransactionLog(false);
   }
 
   const activeInspectionTab = document.getElementById('inspectionQueueTab');
@@ -1848,6 +1897,7 @@ function showClientServicesSection(sectionKey, saveState = true) {
 
   if (activeSection === 'weeklyRevenue' && currentSession && !revenueEntriesLoaded) {
     loadWeeklyRevenueDashboard(false);
+    loadRevenueTransactionLog(false);
   }
 
   if (activeSection === 'inspectionQueue' && currentSession && !inspectionRequestsLoaded) {
@@ -2385,14 +2435,12 @@ async function loadWeeklyRevenueDashboard(showSuccessMessage = true) {
   }
 
   updateRevenuePeriodPill(selectedPeriod, currentRevenueStartDate, currentRevenueEndDate);
-  setMessage('revenueMessage', 'info', 'Loading revenue transaction log...');
+  setMessage('revenueMessage', 'info', 'Loading revenue summary...');
 
   await loadRevenueSummary(currentRevenueStartDate, currentRevenueEndDate);
-  await loadRevenueEntries(currentRevenueStartDate, currentRevenueEndDate);
 
-  revenueEntriesLoaded = true;
   if (showSuccessMessage) {
-    setMessage('revenueMessage', 'success', `${filteredRevenueEntries.length.toLocaleString()} revenue transaction${filteredRevenueEntries.length === 1 ? '' : 's'} shown.`);
+    setMessage('revenueMessage', 'success', `Weekly Revenue summary refreshed for ${formatShortDate(currentRevenueStartDate)} – ${formatShortDate(currentRevenueEndDate)}.`);
   }
 }
 
@@ -2416,6 +2464,53 @@ function applyCustomRevenueFilter() {
   const filter = document.getElementById('revenuePeriodFilter');
   if (filter) filter.value = 'custom';
   loadWeeklyRevenueDashboard(true);
+}
+
+async function loadRevenueTransactionLog(showSuccessMessage = true) {
+  const periodFilter = document.getElementById('revenueLogPeriodFilter');
+  const selectedPeriod = periodFilter?.value || 'today';
+
+  if (selectedPeriod !== 'custom') {
+    const range = getRevenuePeriodRange(selectedPeriod);
+    currentRevenueLogStartDate = range.startDate;
+    currentRevenueLogEndDate = range.endDate;
+    setValue('revenueLogStartDateFilter', currentRevenueLogStartDate);
+    setValue('revenueLogEndDateFilter', currentRevenueLogEndDate);
+  } else {
+    currentRevenueLogStartDate = document.getElementById('revenueLogStartDateFilter')?.value || getLocalDateISO();
+    currentRevenueLogEndDate = document.getElementById('revenueLogEndDateFilter')?.value || currentRevenueLogStartDate;
+  }
+
+  clearRevenueTransactionFilters(false);
+  setMessage('revenueMessage', 'info', 'Loading revenue transaction log...');
+  await loadRevenueEntries(currentRevenueLogStartDate, currentRevenueLogEndDate);
+  revenueEntriesLoaded = true;
+
+  if (showSuccessMessage) {
+    setMessage('revenueMessage', 'success', `${filteredRevenueEntries.length.toLocaleString()} revenue transaction${filteredRevenueEntries.length === 1 ? '' : 's'} shown for ${formatShortDate(currentRevenueLogStartDate)} – ${formatShortDate(currentRevenueLogEndDate)}.`);
+  }
+}
+
+function setRevenueLogPeriod(periodKey) {
+  const filter = document.getElementById('revenueLogPeriodFilter');
+  if (filter) filter.value = periodKey;
+  applyRevenueLogPeriodFilter();
+}
+
+function applyRevenueLogPeriodFilter() {
+  const filter = document.getElementById('revenueLogPeriodFilter');
+  if (filter && filter.value !== 'custom') {
+    const range = getRevenuePeriodRange(filter.value);
+    setValue('revenueLogStartDateFilter', range.startDate);
+    setValue('revenueLogEndDateFilter', range.endDate);
+  }
+  loadRevenueTransactionLog(true);
+}
+
+function applyCustomRevenueLogFilter() {
+  const filter = document.getElementById('revenueLogPeriodFilter');
+  if (filter) filter.value = 'custom';
+  loadRevenueTransactionLog(true);
 }
 
 function updateRevenuePeriodPill(periodKey, startDate, endDate) {
@@ -2532,12 +2627,12 @@ function filterRevenueEntries(showMessage = true) {
   }
 }
 
-function clearRevenueTransactionFilters() {
+function clearRevenueTransactionFilters(showMessage = true) {
   setValue('revenueSearchInput', '');
   setValue('revenueEntryTypeFilter', '');
   setValue('revenueEarnedByFilter', '');
   setValue('revenueVoidFilter', 'active');
-  filterRevenueEntries(true);
+  filterRevenueEntries(showMessage);
 }
 
 function renderRevenueEntries(rows) {
@@ -2662,6 +2757,7 @@ async function addRevenueTransaction() {
   setMessage('revenueMessage', 'success', 'Revenue transaction added successfully.');
   clearRevenueTransactionForm();
   await loadWeeklyRevenueDashboard(false);
+  await loadRevenueTransactionLog(false);
 }
 
 async function voidRevenueTransaction(transactionId) {
@@ -2696,6 +2792,7 @@ async function voidRevenueTransaction(transactionId) {
 
   setMessage('revenueMessage', 'success', 'Revenue transaction voided successfully.');
   await loadWeeklyRevenueDashboard(false);
+  await loadRevenueTransactionLog(false);
 }
 
 function exportRevenueCsv() {
@@ -2719,7 +2816,7 @@ function exportRevenueCsv() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `client-services-revenue-transactions-${currentRevenueStartDate || 'start'}-to-${currentRevenueEndDate || 'end'}.csv`;
+  link.download = `client-services-revenue-transactions-${currentRevenueLogStartDate || 'start'}-to-${currentRevenueLogEndDate || 'end'}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
