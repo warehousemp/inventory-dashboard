@@ -737,6 +737,11 @@
         <span class="nav-label">Inspection Requests</span>
       </a>
 
+      <a href="client-services.html" title="Client Services">
+        <span class="nav-icon">◇</span>
+        <span class="nav-label">Client Services</span>
+      </a>
+
       <a class="active" href="client-marketing-sync.html" title="Client Marketing Sync">
         <span class="nav-icon">⇄</span>
         <span class="nav-label">Client Marketing Sync</span>
@@ -755,6 +760,11 @@
         <a href="index.html" title="Main Menu">
           <span class="nav-icon">↩</span>
           <span class="nav-label">Main Menu</span>
+        </a>
+
+        <a href="login.html" title="Login">
+          <span class="nav-icon">◇</span>
+          <span class="nav-label">Login</span>
         </a>
 
         <button type="button" onclick="adminLogout()" title="Logout">
@@ -852,7 +862,7 @@
         </div>
 
         <div class="status-note">
-          Use this section as the live Skimmer cleanup worklist. Filter to missing data, update the actual customer record in Skimmer, then re-export/import the Skimmer Customers CSV so this dashboard refreshes. Supabase is the mirror; Skimmer remains the source of truth.
+          Use this section as the live Skimmer cleanup worklist. The Active Missing Email and Active Missing Phone shortcuts use the same dedicated missing-data worklist as Client Services. Update the actual customer record in Skimmer, then re-export/import the Skimmer Customers CSV so this dashboard refreshes. Supabase is the mirror; Skimmer remains the source of truth.
         </div>
 
         <div class="quick-filter-row" aria-label="Client cleanup shortcuts">
@@ -959,11 +969,13 @@ const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const INVENTORY_SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
+const CLIENT_SERVICES_MISSING_DATA_WORKLIST_VIEW = 'client_services_missing_data_worklist_view';
 
 let currentAdminProfile = null;
 let currentAdminSession = null;
 let importBatchData = [];
 let clientMasterData = [];
+let clientMissingDataWorklistData = [];
 let filteredClientMasterData = [];
 let clientSyncDashboardData = null;
 
@@ -1367,7 +1379,7 @@ function renderImportBatches(rows) {
 }
 
 async function loadClientMaster() {
-  setMessage('clientMasterMessage', 'info', 'Loading Skimmer client master...');
+  setMessage('clientMasterMessage', 'info', 'Loading Skimmer client master and active missing-data worklist...');
 
   const { data, error } = await client
     .from('skimmer_client_master_review_view')
@@ -1377,6 +1389,7 @@ async function loadClientMaster() {
 
   if (error) {
     clientMasterData = [];
+    clientMissingDataWorklistData = [];
     filteredClientMasterData = [];
     renderClientMaster([]);
     await loadClientSyncDashboard();
@@ -1385,14 +1398,37 @@ async function loadClientMaster() {
   }
 
   clientMasterData = data || [];
+
+  await loadClientMissingDataWorklist();
+
   filterClientMaster(false);
   await loadClientSyncDashboard();
 
-  if (clientMasterData.length === 0) {
+  if (clientMasterData.length === 0 && clientMissingDataWorklistData.length === 0) {
     setMessage('clientMasterMessage', 'info', 'No Skimmer client master records found yet. Upload and process a Skimmer CSV first.');
   } else {
-    setMessage('clientMasterMessage', 'success', `${clientMasterData.length.toLocaleString()} client master record(s) loaded. Scroll inside the client table section to review the rest.`);
+    setMessage(
+      'clientMasterMessage',
+      'success',
+      `${clientMasterData.length.toLocaleString()} client master record(s) loaded. Active missing-data worklist loaded from public.client_services_missing_data_worklist_view.`
+    );
   }
+}
+
+async function loadClientMissingDataWorklist() {
+  const { data, error } = await client
+    .from(CLIENT_SERVICES_MISSING_DATA_WORKLIST_VIEW)
+    .select('*')
+    .order('full_name', { ascending: true })
+    .limit(5000);
+
+  if (error) {
+    clientMissingDataWorklistData = [];
+    console.error('Unable to load active missing-data worklist:', error);
+    return;
+  }
+
+  clientMissingDataWorklistData = Array.isArray(data) ? data : [];
 }
 
 async function loadClientSyncDashboard() {
@@ -1441,23 +1477,26 @@ function filterClientMaster(showMessage = true) {
   const reviewFilter = document.getElementById('clientReviewFilter').value;
   const activeFilter = document.getElementById('clientActiveFilter').value;
 
-  filteredClientMasterData = (clientMasterData || []).filter(row => {
+  const useDedicatedMissingWorklist = reviewFilter === 'MISSING_EMAIL' || reviewFilter === 'MISSING_PHONE';
+  const sourceRows = useDedicatedMissingWorklist ? (clientMissingDataWorklistData || []) : (clientMasterData || []);
+
+  filteredClientMasterData = sourceRows.filter(row => {
+    if (activeFilter === 'ACTIVE' && !isActiveClientRow(row)) return false;
+    if (activeFilter === 'INACTIVE' && isActiveClientRow(row)) return false;
+
     if (reviewFilter !== 'ALL') {
       if (reviewFilter === 'MISSING_EMAIL') {
-        if (row.missing_email_flag !== true) return false;
+        if (!hasActiveMissingEmail(row)) return false;
       } else if (reviewFilter === 'MISSING_PHONE') {
-        if (row.missing_phone_flag !== true) return false;
+        if (!hasActiveMissingPhone(row)) return false;
       } else if (reviewFilter === 'POSSIBLE_DUPLICATE') {
         if (row.duplicate_flag !== true) return false;
       } else if (reviewFilter === 'EXCLUDE_INACTIVE') {
-        if (row.is_active === true && row.marketing_status !== 'EXCLUDE_INACTIVE') return false;
+        if (isActiveClientRow(row) && row.marketing_status !== 'EXCLUDE_INACTIVE') return false;
       } else if (row.marketing_status !== reviewFilter) {
         return false;
       }
     }
-
-    if (activeFilter === 'ACTIVE' && row.is_active !== true) return false;
-    if (activeFilter === 'INACTIVE' && row.is_active === true) return false;
 
     if (searchValue) {
       const combined = [
@@ -1467,6 +1506,7 @@ function filterClientMaster(showMessage = true) {
         row.company_name,
         row.primary_email,
         row.primary_phone,
+        row.full_location_address,
         row.location_address,
         row.location_city,
         row.location_zip,
@@ -1489,7 +1529,15 @@ function filterClientMaster(showMessage = true) {
   if (showMessage) {
     const reviewLabel = getSelectedOptionText('clientReviewFilter');
     const activeLabel = getSelectedOptionText('clientActiveFilter');
-    setMessage('clientMasterMessage', 'success', `${filteredClientMasterData.length.toLocaleString()} client record(s) shown. Work this list in Skimmer, then re-import the Skimmer CSV to refresh the count. Filter: ${reviewLabel} / ${activeLabel}.`);
+    const sourceLabel = useDedicatedMissingWorklist
+      ? 'Source: public.client_services_missing_data_worklist_view.'
+      : 'Source: Skimmer client master review view.';
+
+    setMessage(
+      'clientMasterMessage',
+      'success',
+      `${filteredClientMasterData.length.toLocaleString()} client record(s) shown. Work this list in Skimmer, then re-import the Skimmer CSV to refresh the count. Filter: ${reviewLabel} / ${activeLabel}. ${sourceLabel}`
+    );
   }
 }
 
@@ -1519,12 +1567,18 @@ function renderClientDashboardSummary(row) {
 
 function renderClientSummary(rows) {
   const total = rows.length;
-  const active = rows.filter(row => row.is_active === true).length;
-  const inactive = rows.filter(row => row.is_active !== true).length;
+  const active = rows.filter(row => isActiveClientRow(row)).length;
+  const inactive = rows.filter(row => !isActiveClientRow(row)).length;
   const ready = rows.filter(row => row.marketing_status === 'READY_FOR_MARKETING').length;
   const hubspotReady = rows.filter(row => row.hubspot_status === 'READY_FOR_EXPORT').length;
-  const missingEmail = rows.filter(row => row.is_active === true && row.missing_email_flag === true).length;
-  const missingPhone = rows.filter(row => row.is_active === true && row.missing_phone_flag === true).length;
+
+  const missingSourceRows = clientMissingDataWorklistData && clientMissingDataWorklistData.length
+    ? clientMissingDataWorklistData
+    : rows;
+
+  const missingEmail = missingSourceRows.filter(row => hasActiveMissingEmail(row)).length;
+  const missingPhone = missingSourceRows.filter(row => hasActiveMissingPhone(row)).length;
+
   const duplicates = rows.filter(row => row.duplicate_flag === true).length;
   const doNotMarket = rows.filter(row => row.marketing_status === 'DO_NOT_MARKET').length;
   const lastSyncDates = rows.map(row => row.last_seen_at).filter(Boolean).sort().reverse();
@@ -1557,6 +1611,7 @@ function renderClientMaster(rows) {
   rows.slice(0, 1000).forEach(row => {
     const clientName = row.full_name || row.company_name || '';
     const companyLine = row.company_name && row.company_name !== clientName ? row.company_name : '';
+    const locationAddress = row.full_location_address || buildLocationAddress(row);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1567,8 +1622,8 @@ function renderClientMaster(rows) {
       </td>
       <td class="truncate-cell" title="${escapeHTML(row.primary_email)}">${escapeHTML(row.primary_email)}</td>
       <td>${escapeHTML(formatPhone(row.primary_phone))}</td>
-      <td class="client-location-cell" title="${escapeHTML(row.full_location_address)}">${escapeHTML(row.full_location_address)}</td>
-      <td class="compact-status-cell">${renderStatusBadge(row.skimmer_status)}</td>
+      <td class="client-location-cell" title="${escapeHTML(locationAddress)}">${escapeHTML(locationAddress)}</td>
+      <td class="compact-status-cell">${renderStatusBadge(row.skimmer_status || row.status)}</td>
       <td class="compact-status-cell">${renderMarketingStatusBadge(row.marketing_status)}</td>
       <td class="compact-status-cell">${renderHubspotStatusBadge(row.hubspot_status)}</td>
       <td class="truncate-cell" title="${escapeHTML(row.lead_source)}">${escapeHTML(row.lead_source)}</td>
@@ -1636,6 +1691,7 @@ function exportFilteredClientMasterCSV() {
     mobile_phone_2: row.mobile_phone_2,
     home_phone: row.home_phone,
     work_phone: row.work_phone,
+    full_location_address: row.full_location_address || buildLocationAddress(row),
     location_address: row.location_address,
     location_city: row.location_city,
     location_state: row.location_state,
@@ -1644,14 +1700,16 @@ function exportFilteredClientMasterCSV() {
     billing_city: row.billing_city,
     billing_state: row.billing_state,
     billing_zip: row.billing_zip,
-    skimmer_status: row.skimmer_status,
-    is_active: row.is_active,
+    skimmer_status: row.skimmer_status || row.status,
+    is_active: isActiveClientRow(row),
     lead_source: row.lead_source,
     tag_list: row.tag_list,
     marketing_status: row.marketing_status,
     hubspot_status: row.hubspot_status,
-    missing_email_flag: row.missing_email_flag,
-    missing_phone_flag: row.missing_phone_flag,
+    missing_email_flag: hasActiveMissingEmail(row),
+    missing_phone_flag: hasActiveMissingPhone(row),
+    active_missing_email: row.active_missing_email,
+    active_missing_phone: row.active_missing_phone,
     duplicate_flag: row.duplicate_flag,
     skimmer_customer_code: row.skimmer_customer_code,
     skimmer_location_code: row.skimmer_location_code,
@@ -1772,15 +1830,15 @@ function renderReviewBadge(row) {
     return '<span class="badge orange">Possible Duplicate</span>';
   }
 
-  if (row.is_active === false) {
+  if (!isActiveClientRow(row)) {
     return '<span class="badge gray">Inactive</span>';
   }
 
-  if (row.missing_email_flag === true) {
+  if (hasActiveMissingEmail(row)) {
     return '<span class="badge red">Missing Email</span>';
   }
 
-  if (row.missing_phone_flag === true) {
+  if (hasActiveMissingPhone(row)) {
     return '<span class="badge orange">Missing Phone</span>';
   }
 
@@ -1809,6 +1867,18 @@ function renderMarketingStatusBadge(status) {
 
   if (value === 'POSSIBLE_DUPLICATE') {
     return '<span class="badge orange">Duplicate</span>';
+  }
+
+  if (value === 'MISSING_EMAIL') {
+    return '<span class="badge red">Missing Email</span>';
+  }
+
+  if (value === 'MISSING_PHONE') {
+    return '<span class="badge orange">Missing Phone</span>';
+  }
+
+  if (value === 'EXCLUDE_INACTIVE') {
+    return '<span class="badge gray">Inactive</span>';
   }
 
   if (!value) {
@@ -1868,6 +1938,61 @@ function renderStatusBadge(status) {
   }
 
   return `<span class="badge blue">${escapeHTML(value)}</span>`;
+}
+
+function normalizeCompareValue(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function isTrueValue(value) {
+  if (value === true) return true;
+  if (value === 1) return true;
+  const normalized = normalizeCompareValue(value);
+  return ['true', 't', '1', 'yes', 'y', 'active'].includes(normalized);
+}
+
+function isFalseValue(value) {
+  if (value === false) return true;
+  if (value === 0) return true;
+  const normalized = normalizeCompareValue(value);
+  return ['false', 'f', '0', 'no', 'n', 'inactive'].includes(normalized);
+}
+
+function isBlankValue(value) {
+  const normalized = normalizeCompareValue(value);
+  return normalized === '' || normalized === 'null' || normalized === 'undefined' || normalized === 'n/a' || normalized === 'na';
+}
+
+function isActiveClientRow(row) {
+  if (!row) return false;
+
+  if (row.is_active !== null && row.is_active !== undefined && String(row.is_active).trim() !== '') {
+    return isTrueValue(row.is_active);
+  }
+
+  const skimmerStatus = normalizeCompareValue(row.skimmer_status || row.status);
+  return skimmerStatus === 'active';
+}
+
+function hasActiveMissingEmail(row) {
+  if (!row) return false;
+  if ('active_missing_email' in row) return isTrueValue(row.active_missing_email);
+  if ('missing_email_flag' in row) return isActiveClientRow(row) && isTrueValue(row.missing_email_flag);
+  return isActiveClientRow(row) && isBlankValue(row.primary_email);
+}
+
+function hasActiveMissingPhone(row) {
+  if (!row) return false;
+  if ('active_missing_phone' in row) return isTrueValue(row.active_missing_phone);
+  if ('missing_phone_flag' in row) return isActiveClientRow(row) && isTrueValue(row.missing_phone_flag);
+  return isActiveClientRow(row) && isBlankValue(row.primary_phone);
+}
+
+function buildLocationAddress(row) {
+  return [row.location_address, row.location_city, row.location_state, row.location_zip]
+    .map(value => String(value || '').trim())
+    .filter(Boolean)
+    .join(', ');
 }
 
 function formatPhone(value) {
