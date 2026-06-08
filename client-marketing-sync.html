@@ -903,6 +903,7 @@
         <div class="button-row">
           <button class="admin-btn" onclick="loadClientMaster()">LOAD CLIENT MASTER</button>
           <button class="secondary-btn" onclick="exportFilteredClientMasterCSV()">EXPORT FILTERED CLIENT CSV</button>
+          <button class="warning-btn" onclick="exportHubSpotReadyCSV()">EXPORT HUBSPOT READY CSV</button>
         </div>
 
         <div id="clientMasterMessage" class="message"></div>
@@ -1718,6 +1719,56 @@ function exportFilteredClientMasterCSV() {
   }));
 
   exportRowsToCSV(exportRows, `client_marketing_sync_${getTodayString()}.csv`);
+}
+
+function exportHubSpotReadyCSV() {
+  const sourceRows = Array.isArray(clientMasterData) ? clientMasterData : [];
+
+  const hubspotRows = sourceRows
+    .filter(row => isActiveClientRow(row))
+    .filter(row => String(row.hubspot_status || '').trim() === 'READY_FOR_EXPORT')
+    .filter(row => String(row.marketing_status || '').trim() !== 'DO_NOT_MARKET')
+    .filter(row => row.duplicate_flag !== true)
+    .filter(row => !hasActiveMissingEmail(row))
+    .filter(row => String(row.primary_email || '').trim() !== '')
+    .map(row => {
+      const nameParts = getHubSpotNameParts(row);
+
+      return {
+        'First Name': nameParts.firstName,
+        'Last Name': nameParts.lastName,
+        'Email Address': String(row.primary_email || '').trim(),
+        'Phone Number': String(row.primary_phone || '').trim(),
+        'City': String(row.location_city || row.billing_city || '').trim()
+      };
+    });
+
+  if (!hubspotRows.length) {
+    setMessage('clientMasterMessage', 'info', 'No HubSpot-ready clients are available to export. Expected: active, READY_FOR_EXPORT, not duplicate, not Do Not Market, and with a valid primary email.');
+    return;
+  }
+
+  exportRowsToCSV(hubspotRows, `hubspot_ready_contacts_${getTodayString()}.csv`);
+  setMessage('clientMasterMessage', 'success', `${hubspotRows.length.toLocaleString()} HubSpot-ready contact${hubspotRows.length === 1 ? '' : 's'} exported using the sample HubSpot column format.`);
+}
+
+function getHubSpotNameParts(row) {
+  let firstName = String(row.first_name || '').trim();
+  let lastName = String(row.last_name || '').trim();
+
+  if (!firstName && !lastName) {
+    const fullName = String(row.full_name || row.company_name || '').trim();
+    const parts = fullName.split(/\s+/).filter(Boolean);
+
+    if (parts.length === 1) {
+      firstName = parts[0];
+    } else if (parts.length > 1) {
+      firstName = parts.shift();
+      lastName = parts.join(' ');
+    }
+  }
+
+  return { firstName, lastName };
 }
 
 function parseCSV(text) {
