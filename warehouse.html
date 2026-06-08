@@ -164,6 +164,11 @@
       color: white;
     }
 
+    .transfer-btn {
+      background: #64748b;
+      color: white;
+    }
+
     .adjustment-btn {
       background: #d97706;
       color: white;
@@ -653,7 +658,7 @@
 
     .inventory-workflow-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(300px, 1fr));
+      grid-template-columns: repeat(3, minmax(280px, 1fr));
       gap: 18px;
       align-items: flex-start;
     }
@@ -681,6 +686,10 @@
       color: #0b3c5d;
     }
 
+    .inventory-workflow-panel.transfer-panel h3 {
+      color: #64748b;
+    }
+
     .inventory-workflow-panel.adjustment-panel {
       grid-column: 1 / -1;
     }
@@ -698,7 +707,8 @@
     }
 
     .inventory-workflow-panel .issue-btn,
-    .inventory-workflow-panel .receive-btn {
+    .inventory-workflow-panel .receive-btn,
+    .inventory-workflow-panel .transfer-btn {
       width: 100%;
       margin-top: 8px;
       margin-right: 0;
@@ -813,6 +823,10 @@
     @media (max-width: 1250px) {
       .main-layout {
         grid-template-columns: repeat(2, minmax(340px, 1fr));
+      }
+
+      .inventory-workflow-grid {
+        grid-template-columns: repeat(2, minmax(300px, 1fr));
       }
     }
 
@@ -1346,6 +1360,41 @@
         <pre id="receiveOutput" class="workflow-output">Receive status will appear here...</pre>
       </div>
 
+      <div class="inventory-workflow-panel transfer-panel">
+        <h3>TRANSFER INVENTORY</h3>
+
+        <div class="inventory-workflow-note">
+          Use this section to move inventory between Main Warehouse and van locations. This does not issue inventory to a job or work order.
+        </div>
+
+        <label>Part Number:</label>
+        <input id="transferPart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
+        <div id="transferPartDescription" class="part-description-display">Part description will appear here after a part number is selected.</div>
+
+        <label>From Location:</label>
+        <select id="transferFromLocation">
+          <option value="">Loading locations...</option>
+        </select>
+
+        <label>To Location:</label>
+        <select id="transferToLocation">
+          <option value="">Loading locations...</option>
+        </select>
+
+        <label>Quantity:</label>
+        <input id="transferQty" type="number" step="1" value="1">
+
+        <label>Transferred By:</label>
+        <input id="transferBy" placeholder="Warehouse team member name" autocomplete="off">
+
+        <label>Notes:</label>
+        <textarea id="transferNotes" placeholder="Optional transfer notes"></textarea>
+
+        <button class="transfer-btn" onclick="transferInventory()">TRANSFER INVENTORY</button>
+
+        <pre id="transferOutput" class="workflow-output">Transfer status will appear here...</pre>
+      </div>
+
       <div class="inventory-workflow-panel issue-panel">
         <h3>ISSUE INVENTORY</h3>
 
@@ -1467,6 +1516,7 @@
           <option value="ALL">All Transaction Types</option>
           <option value="RECEIVE">Received Inventory</option>
           <option value="ISSUED">Issued Inventory</option>
+          <option value="ALL_TRANSFERS">Inventory Transfers</option>
           <option value="ADJUSTMENT">Manual Adjustment</option>
           <option value="CYCLE_COUNT_ADJUSTMENT">Cycle Count Adjustment</option>
           <option value="ALL_ADJUSTMENTS">All Adjustments</option>
@@ -1959,6 +2009,7 @@ let deadStockReportData = [];
 let needsCategoryReportData = [];
 let transactionLogData = [];
 let categoryData = [];
+let inventoryLocationData = [];
 
 let currentWarehouseProfile = null;
 let currentWarehouseSession = null;
@@ -1984,11 +2035,17 @@ const TRANSACTION_REVERSAL_TYPES = [
   'CYCLE_COUNT_ADJUSTMENT_REVERSAL'
 ];
 
+const TRANSFER_TRANSACTION_TYPES = [
+  'TRANSFER_OUT',
+  'TRANSFER_IN'
+];
+
 const KNOWN_TRANSACTION_TYPES = [
   'RECEIVE',
   'ISSUED',
   'ADJUSTMENT',
   'CYCLE_COUNT_ADJUSTMENT',
+  ...TRANSFER_TRANSACTION_TYPES,
   ...TRANSACTION_REVERSAL_TYPES
 ];
 
@@ -2000,6 +2057,7 @@ window.addEventListener('load', async () => {
   }
 
   await loadCategoryDropdowns();
+  await loadInventoryLocationDropdowns();
   await loadParts();
   await loadReorder();
   await loadCycleCountCategories();
@@ -2168,6 +2226,69 @@ async function loadCategoryDropdowns() {
   console.log('Active inventory categories loaded:', categoryData.length);
 }
 
+async function loadInventoryLocationDropdowns() {
+  const selects = [
+    document.getElementById('transferFromLocation'),
+    document.getElementById('transferToLocation')
+  ];
+
+  selects.forEach(select => {
+    if (select) {
+      select.innerHTML = '<option value="">Loading locations...</option>';
+    }
+  });
+
+  const { data, error } = await client
+    .from('inventory_locations')
+    .select('id, location_name, active')
+    .eq('active', true)
+    .order('location_name', { ascending: true });
+
+  if (error) {
+    selects.forEach(select => {
+      if (select) {
+        select.innerHTML = '<option value="">Location load error</option>';
+      }
+    });
+    console.error('Inventory location load error:', error);
+    return;
+  }
+
+  inventoryLocationData = data || [];
+
+  selects.forEach(select => {
+    if (!select) {
+      return;
+    }
+
+    const placeholder = select.id === 'transferFromLocation'
+      ? 'Select source location...'
+      : 'Select destination location...';
+
+    select.innerHTML = `<option value="">${placeholder}</option>`;
+
+    inventoryLocationData.forEach(location => {
+      const option = document.createElement('option');
+      option.value = location.id;
+      option.textContent = location.location_name;
+      select.appendChild(option);
+    });
+  });
+
+  const fromSelect = document.getElementById('transferFromLocation');
+  const transferByElement = document.getElementById('transferBy');
+
+  if (fromSelect && inventoryLocationData.some(location => String(location.id) === MAIN_WAREHOUSE_ID)) {
+    fromSelect.value = MAIN_WAREHOUSE_ID;
+  }
+
+  if (transferByElement && currentWarehouseProfile?.full_name && !transferByElement.value.trim()) {
+    transferByElement.value = currentWarehouseProfile.full_name;
+  }
+
+  console.log('Active inventory locations loaded:', inventoryLocationData.length);
+}
+
 async function loadParts() {
   let allParts = [];
   let from = 0;
@@ -2209,6 +2330,7 @@ async function loadParts() {
   });
 
   updateReceivePartDescription();
+  updateTransferPartDescription();
   updateIssuePartDescription();
   updateAdjustmentPartDescription();
   updateChangeSerializationPartDescription();
@@ -2258,6 +2380,10 @@ function updatePartDescription(inputId, descriptionId) {
 
 function updateReceivePartDescription() {
   updatePartDescription('receivePart', 'receivePartDescription');
+}
+
+function updateTransferPartDescription() {
+  updatePartDescription('transferPart', 'transferPartDescription');
 }
 
 function updateIssuePartDescription() {
@@ -2398,6 +2524,7 @@ function checkReceiveSerialized() {
 
 document.getElementById('issuePart').addEventListener('input', checkIssueSerialized);
 document.getElementById('receivePart').addEventListener('input', checkReceiveSerialized);
+document.getElementById('transferPart').addEventListener('input', updateTransferPartDescription);
 document.getElementById('adjustmentPart').addEventListener('input', updateAdjustmentPartDescription);
 document.getElementById('changeSerializationPartNumber').addEventListener('input', updateChangeSerializationPartDescription);
 
@@ -2456,6 +2583,30 @@ function resetReceiveFields() {
   updateReceivePartDescription();
 }
 
+function resetTransferFields() {
+  document.getElementById('transferPart').value = '';
+  document.getElementById('transferQty').value = '1';
+  document.getElementById('transferNotes').value = '';
+
+  const fromLocationElement = document.getElementById('transferFromLocation');
+  const toLocationElement = document.getElementById('transferToLocation');
+  const transferByElement = document.getElementById('transferBy');
+
+  if (fromLocationElement) {
+    fromLocationElement.value = MAIN_WAREHOUSE_ID;
+  }
+
+  if (toLocationElement) {
+    toLocationElement.value = '';
+  }
+
+  if (transferByElement && currentWarehouseProfile?.full_name) {
+    transferByElement.value = currentWarehouseProfile.full_name;
+  }
+
+  updateTransferPartDescription();
+}
+
 function resetAdjustmentFields() {
   document.getElementById('adjustmentPart').value = '';
   document.getElementById('adjustmentQty').value = '1';
@@ -2473,6 +2624,137 @@ function resetSerializationFields() {
   document.getElementById('serializationReason').value = '';
 
   updateChangeSerializationPartDescription();
+}
+
+async function getPartIdForTransfer(matchedPart) {
+  if (!matchedPart) {
+    return null;
+  }
+
+  if (matchedPart.part_id) {
+    return matchedPart.part_id;
+  }
+
+  if (matchedPart.id) {
+    return matchedPart.id;
+  }
+
+  const partNumber = matchedPart.part_number || document.getElementById('transferPart').value.trim();
+
+  if (!partNumber) {
+    return null;
+  }
+
+  const { data, error } = await client
+    .from('parts')
+    .select('id')
+    .eq('part_number', partNumber)
+    .eq('active', true)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.id || null;
+}
+
+async function transferInventory() {
+  updateTransferPartDescription();
+
+  const matchedPart = getMatchedPart('transferPart');
+  const fromLocationId = document.getElementById('transferFromLocation').value;
+  const toLocationId = document.getElementById('transferToLocation').value;
+  const quantity = Number(document.getElementById('transferQty').value);
+  const transferredBy = document.getElementById('transferBy').value.trim();
+  const notes = document.getElementById('transferNotes').value.trim();
+  const output = document.getElementById('transferOutput');
+
+  if (!matchedPart) {
+    output.textContent = 'Select a valid active part number before transferring inventory.';
+    return;
+  }
+
+  if (matchedPart.is_serialized === true) {
+    output.textContent =
+      'Serialized part transfers are blocked on this page for now. Serial-aware transfer support needs to be added before moving serialized inventory between locations.';
+    return;
+  }
+
+  if (!fromLocationId) {
+    output.textContent = 'From Location is required.';
+    return;
+  }
+
+  if (!toLocationId) {
+    output.textContent = 'To Location is required.';
+    return;
+  }
+
+  if (fromLocationId === toLocationId) {
+    output.textContent = 'From Location and To Location cannot be the same.';
+    return;
+  }
+
+  if (!quantity || quantity <= 0) {
+    output.textContent = 'Transfer quantity must be greater than zero.';
+    return;
+  }
+
+  if (!transferredBy) {
+    output.textContent = 'Transferred By is required.';
+    return;
+  }
+
+  output.textContent = 'Transferring inventory...';
+
+  let partId = null;
+
+  try {
+    partId = await getPartIdForTransfer(matchedPart);
+  } catch (error) {
+    output.textContent = 'Unable to look up part ID for transfer: ' + error.message;
+    return;
+  }
+
+  if (!partId) {
+    output.textContent = 'Unable to determine the selected part ID for transfer.';
+    return;
+  }
+
+  const { data, error } = await client.rpc('transfer_inventory', {
+    p_part_id: partId,
+    p_from_location_id: fromLocationId,
+    p_to_location_id: toLocationId,
+    p_quantity: quantity,
+    p_transferred_by: transferredBy,
+    p_notes: notes || null
+  });
+
+  if (error) {
+    output.textContent = error.message;
+    return;
+  }
+
+  const result = data || {};
+  const fromLocationName = result.from_location_name || getLocationNameById(fromLocationId);
+  const toLocationName = result.to_location_name || getLocationNameById(toLocationId);
+
+  output.textContent =
+    `Transfer completed successfully.\n\n` +
+    `Part Number: ${matchedPart.part_number}\n` +
+    `Description: ${matchedPart.description || ''}\n` +
+    `From: ${fromLocationName}\n` +
+    `To: ${toLocationName}\n` +
+    `Quantity Transferred: ${formatNumber(quantity)}`;
+
+  resetTransferFields();
+  await loadReorder();
+}
+
+function getLocationNameById(locationId) {
+  const location = inventoryLocationData.find(row => String(row.id) === String(locationId));
+  return location?.location_name || locationId || '';
 }
 
 async function issue() {
@@ -2688,6 +2970,8 @@ async function fetchTransactionLogRows() {
 
     if (transactionType === 'ALL_ADJUSTMENTS') {
       query = query.in('transaction_type', ['ADJUSTMENT', 'CYCLE_COUNT_ADJUSTMENT']);
+    } else if (transactionType === 'ALL_TRANSFERS') {
+      query = query.in('transaction_type', TRANSFER_TRANSACTION_TYPES);
     } else if (transactionType === 'TRANSACTION_REVERSALS') {
       query = query.in('transaction_type', TRANSACTION_REVERSAL_TYPES);
     } else if (transactionType && transactionType !== 'ALL' && transactionType !== 'OTHER_ACTIVITY') {
@@ -2801,6 +3085,7 @@ function updateTransactionLogSummary() {
   let receiveCount = 0;
   let issueCount = 0;
   let adjustmentCount = 0;
+  let transferCount = 0;
   let reversalCount = 0;
   let totalQuantity = 0;
   let totalValue = 0;
@@ -2819,6 +3104,8 @@ function updateTransactionLogSummary() {
       issueCount++;
     } else if (type === 'ADJUSTMENT' || type === 'CYCLE_COUNT_ADJUSTMENT') {
       adjustmentCount++;
+    } else if (TRANSFER_TRANSACTION_TYPES.includes(type)) {
+      transferCount++;
     } else if (TRANSACTION_REVERSAL_TYPES.includes(type)) {
       reversalCount++;
     }
@@ -2829,6 +3116,7 @@ function updateTransactionLogSummary() {
     `Transactions Returned: ${formatNumber(transactionLogData.length)}\n` +
     `Receive Count: ${formatNumber(receiveCount)}\n` +
     `Issue Count: ${formatNumber(issueCount)}\n` +
+    `Transfer Count: ${formatNumber(transferCount)}\n` +
     `Adjustment Count: ${formatNumber(adjustmentCount)}\n` +
     `Reversal Count: ${formatNumber(reversalCount)}\n` +
     `Net Quantity: ${formatNumber(totalQuantity)}\n` +
@@ -2918,6 +3206,18 @@ function getTransactionTypeLabel(transactionType) {
     return 'Issued Inventory';
   }
 
+  if (normalizedType === 'TRANSFER_OUT') {
+    return 'Inventory Transfer Out';
+  }
+
+  if (normalizedType === 'TRANSFER_IN') {
+    return 'Inventory Transfer In';
+  }
+
+  if (normalizedType === 'ALL_TRANSFERS') {
+    return 'Inventory Transfers';
+  }
+
   if (normalizedType === 'ADJUSTMENT') {
     return 'Manual Adjustment';
   }
@@ -2965,6 +3265,10 @@ function getReportFilenamePrefix(reportType) {
 
   if (reportType === 'ISSUED') {
     return 'warehouse_transaction_report_issued_inventory';
+  }
+
+  if (reportType === 'ALL_TRANSFERS') {
+    return 'warehouse_transaction_report_inventory_transfers';
   }
 
   if (reportType === 'ADJUSTMENT') {
