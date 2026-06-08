@@ -494,7 +494,7 @@
 
     .transaction-log-table {
       table-layout: fixed;
-      min-width: 2100px;
+      min-width: 2250px;
     }
 
     .transaction-log-table th,
@@ -532,9 +532,11 @@
     .transaction-log-table th:nth-child(14),
     .transaction-log-table td:nth-child(14),
     .transaction-log-table th:nth-child(15),
-    .transaction-log-table td:nth-child(15) { width: 145px; }
+    .transaction-log-table td:nth-child(15),
     .transaction-log-table th:nth-child(16),
-    .transaction-log-table td:nth-child(16) { width: 280px; word-break: break-word; line-height: 1.35; }
+    .transaction-log-table td:nth-child(16) { width: 145px; }
+    .transaction-log-table th:nth-child(17),
+    .transaction-log-table td:nth-child(17) { width: 280px; word-break: break-word; line-height: 1.35; }
 
 
     .dead-stock-table {
@@ -1490,6 +1492,7 @@
             <th>Date / Time</th>
             <th>Transaction Type</th>
             <th>Transaction Label</th>
+            <th>Class Code</th>
             <th>Part Number</th>
             <th>Description</th>
             <th>Serial Number</th>
@@ -1507,7 +1510,7 @@
         </thead>
         <tbody id="transactionLogTableBody">
           <tr>
-            <td colspan="16">No transaction report loaded.</td>
+            <td colspan="17">No transaction report loaded.</td>
           </tr>
         </tbody>
       </table>
@@ -2730,14 +2733,14 @@ async function loadTransactionLogReport() {
   const tableBody = document.getElementById('transactionLogTableBody');
 
   summary.textContent = 'Loading transaction log...';
-  tableBody.innerHTML = '<tr><td colspan="16">Loading transaction log...</td></tr>';
+  tableBody.innerHTML = '<tr><td colspan="17">Loading transaction log...</td></tr>';
 
   try {
     transactionLogData = await fetchTransactionLogRows();
   } catch (error) {
     transactionLogData = [];
     summary.textContent = error.message;
-    tableBody.innerHTML = `<tr><td colspan="16">${escapeHTML(error.message)}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="17">${escapeHTML(error.message)}</td></tr>`;
     return;
   }
 
@@ -2750,7 +2753,7 @@ function renderTransactionLogTable() {
   tableBody.innerHTML = '';
 
   if (!transactionLogData || transactionLogData.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="16">No transactions found for the selected filters.</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="17">No transactions found for the selected filters.</td></tr>';
     return;
   }
 
@@ -2765,6 +2768,7 @@ function renderTransactionLogTable() {
       <td>${formatDateTime(transactionDate)}</td>
       <td>${escapeHTML(row.transaction_type || '')}</td>
       <td>${escapeHTML(row.transaction_label || getTransactionDisplayType(row))}</td>
+      <td>${escapeHTML(row.job_type || '')}</td>
       <td>${escapeHTML(row.part_number || '')}</td>
       <td>${escapeHTML(row.description || row.part_description || '')}</td>
       <td>${escapeHTML(row.serial_number || '')}</td>
@@ -2850,7 +2854,7 @@ async function exportTransactionLogCSV() {
   const endDate = document.getElementById('transactionEndDate').value || 'all_dates';
   const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
 
-  let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PO NUMBER,CLIENT NAME,WORK ORDER,ISSUED TO,NOTES,ID\n';
+  let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,CLASS CODE,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PO NUMBER,CLIENT NAME,WORK ORDER,ISSUED TO,NOTES,ID\n';
 
   transactionLogData.forEach(row => {
     const transactionDate = getFirstValue(row, ['created_at', 'transaction_date', 'transaction_at']);
@@ -2862,6 +2866,7 @@ async function exportTransactionLogCSV() {
       `"${cleanCSV(formatDateTime(transactionDate))}",` +
       `"${cleanCSV(row.transaction_type)}",` +
       `"${cleanCSV(row.transaction_label || getTransactionDisplayType(row))}",` +
+      `"${cleanCSV(row.job_type)}",` +
       `"${cleanCSV(row.part_number)}",` +
       `"${cleanCSV(row.description || row.part_description)}",` +
       `"${cleanCSV(row.serial_number)}",` +
