@@ -1368,6 +1368,16 @@
         <label>Quantity:</label>
         <input id="issueQty" type="number" value="1">
 
+        <label>Job Type / Class:</label>
+        <select id="issueJobType" required>
+          <option value="">Select Project or Repair...</option>
+          <option value="PROJECT">Project</option>
+          <option value="REPAIR">Repair</option>
+        </select>
+        <div class="help-text">
+          Required for all future issued inventory. Select whether this part is being issued to a Project or a Repair job.
+        </div>
+
         <label>Issued To:</label>
         <input id="issueTech" placeholder="Technician or team member">
 
@@ -2392,6 +2402,12 @@ function resetIssueFields() {
   document.getElementById('issuePart').value = '';
   document.getElementById('issueSerial').value = '';
   document.getElementById('issueQty').value = '1';
+
+  const issueJobTypeElement = document.getElementById('issueJobType');
+  if (issueJobTypeElement) {
+    issueJobTypeElement.value = '';
+  }
+
   document.getElementById('issueTech').value = '';
   document.getElementById('issueJob').value = '';
   document.getElementById('issueClient').value = '';
@@ -2475,7 +2491,15 @@ async function issue() {
   const isSerialized = matchedPart.is_serialized === true;
   const serialElement = document.getElementById('issueSerial');
   const serialValue = serialElement ? serialElement.value.trim() : '';
+  const jobTypeElement = document.getElementById('issueJobType');
+  const jobTypeValue = jobTypeElement ? jobTypeElement.value.trim().toUpperCase() : '';
   const quantityValue = isSerialized ? 1 : Number(document.getElementById('issueQty').value);
+
+  if (!['PROJECT', 'REPAIR'].includes(jobTypeValue)) {
+    document.getElementById('issueOutput').textContent =
+      'Select Project or Repair before issuing inventory.';
+    return;
+  }
 
   if (isSerialized && serialValue === '') {
     document.getElementById('issueOutput').textContent =
@@ -2489,6 +2513,7 @@ async function issue() {
     p_issued_to: document.getElementById('issueTech').value,
     p_work_order: document.getElementById('issueJob').value,
     p_client_name: document.getElementById('issueClient').value,
+    p_job_type: jobTypeValue,
     p_serial_number: serialValue || null
   });
 
