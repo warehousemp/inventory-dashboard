@@ -701,6 +701,35 @@
     .variance-positive { color: #166534; font-weight: 800; }
     .variance-negative { color: var(--danger); font-weight: 800; }
 
+    .revenue-summary-card.goal-below {
+      border-color: #fecdca;
+      background: #fffbfa;
+    }
+
+    .revenue-summary-card.goal-near {
+      border-color: #fedf89;
+      background: #fffcf5;
+    }
+
+    .revenue-summary-card.goal-met {
+      border-color: #abefc6;
+      background: #f6fef9;
+    }
+
+    .revenue-summary-card .value.goal-below { color: var(--danger); }
+    .revenue-summary-card .value.goal-near { color: #b54708; }
+    .revenue-summary-card .value.goal-met { color: #027a48; }
+
+    .goal-note {
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .goal-note.goal-below { color: var(--danger); }
+    .goal-note.goal-near { color: #b54708; }
+    .goal-note.goal-met { color: #027a48; }
+
 
 
 
@@ -1217,15 +1246,17 @@
               <div class="value" id="revenueSummaryPeriod">—</div>
               <div class="sub" id="revenueSummaryTransactions">0 transactions</div>
             </div>
-            <div class="revenue-summary-card">
+            <div class="revenue-summary-card" id="revenueSummaryQuotedCard">
               <div class="label">Total Quoted</div>
-              <div class="value" id="revenueSummaryQuoted">$0.00</div>
+              <div class="value" id="revenueSummaryQuoted">$0.00 / $0.00</div>
               <div class="sub" id="revenueSummaryQuotedBreakdown">Service: $0.00 | CRM: $0.00</div>
+              <div class="goal-note" id="revenueSummaryQuotedGoalNote">Goal status: —</div>
             </div>
-            <div class="revenue-summary-card">
+            <div class="revenue-summary-card" id="revenueSummaryRevenueCard">
               <div class="label">Total Revenue</div>
-              <div class="value" id="revenueSummaryRevenue">$0.00</div>
+              <div class="value" id="revenueSummaryRevenue">$0.00 / $0.00</div>
               <div class="sub">Project, tech, leak, route, and other revenue</div>
+              <div class="goal-note" id="revenueSummaryRevenueGoalNote">Goal status: —</div>
             </div>
             <div class="revenue-summary-card">
               <div class="label">Project Work $</div>
@@ -1787,6 +1818,8 @@ const REVENUE_ADD_RPC = 'add_client_services_revenue_transaction';
 const REVENUE_VOID_RPC = 'void_client_services_revenue_transaction';
 const REVENUE_SUMMARY_RPC = 'get_client_services_revenue_transaction_summary';
 const REVENUE_ENTERED_BY_STORAGE_KEY = 'clientServicesRevenueEnteredBy';
+const CSC_DAILY_QUOTED_GOAL = 9000;
+const CSC_DAILY_REVENUE_GOAL = 5760;
 
 let currentProfile = null;
 let currentSession = null;
@@ -2554,10 +2587,28 @@ function renderRevenueSummary(row, startDate, endDate) {
   setText('revenueSummaryPeriod', `${formatShortDate(startDate)} – ${formatShortDate(endDate)}`);
   setText('revenueSummaryTransactions', `${transactionCount} active transaction${transactionCount === 1 ? '' : 's'}`);
 
-  setText('revenueSummaryQuoted', formatCurrency(summary.total_quoted));
+  const goalDays = getRevenueGoalDayCount(startDate, endDate);
+  const quotedGoal = CSC_DAILY_QUOTED_GOAL * goalDays;
+  const revenueGoal = CSC_DAILY_REVENUE_GOAL * goalDays;
+
+  renderRevenueGoalCard({
+    cardId: 'revenueSummaryQuotedCard',
+    valueId: 'revenueSummaryQuoted',
+    noteId: 'revenueSummaryQuotedGoalNote',
+    actual: Number(summary.total_quoted || 0),
+    goal: quotedGoal,
+    goalDays
+  });
   setText('revenueSummaryQuotedBreakdown', `Service: ${formatCurrency(summary.total_service_quoted)} | CRM: ${formatCurrency(summary.total_crm_quoted)}`);
 
-  setText('revenueSummaryRevenue', formatCurrency(summary.total_revenue));
+  renderRevenueGoalCard({
+    cardId: 'revenueSummaryRevenueCard',
+    valueId: 'revenueSummaryRevenue',
+    noteId: 'revenueSummaryRevenueGoalNote',
+    actual: Number(summary.total_revenue || 0),
+    goal: revenueGoal,
+    goalDays
+  });
   setText('revenueSummaryProjectWork', formatCurrency(summary.total_project_work));
   setText('revenueSummaryRepairTech', formatCurrency(summary.total_repair_tech_revenue));
   setText('revenueSummaryLeakDetection', formatCurrency(summary.total_leak_detection));
@@ -2565,6 +2616,59 @@ function renderRevenueSummary(row, startDate, endDate) {
   setText('revenueSummaryLastUpdated', summary.last_updated_at ? formatDateTime(summary.last_updated_at) : '—');
   setText('revenueSummaryLastEntry', `Last transaction: ${summary.last_transaction_date ? formatShortDate(summary.last_transaction_date) : '—'}`);
 }
+
+
+function getRevenueGoalDayCount(startDate, endDate) {
+  if (!startDate || !endDate) return 1;
+
+  const start = new Date(startDate + 'T00:00:00');
+  const end = new Date(endDate + 'T00:00:00');
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1;
+
+  const step = start <= end ? 1 : -1;
+  let count = 0;
+  const cursor = new Date(start.getTime());
+
+  while ((step === 1 && cursor <= end) || (step === -1 && cursor >= end)) {
+    const day = cursor.getDay();
+    if (day !== 0 && day !== 6) count += 1;
+    cursor.setDate(cursor.getDate() + step);
+  }
+
+  return Math.max(count, 1);
+}
+
+function renderRevenueGoalCard({ cardId, valueId, noteId, actual, goal, goalDays }) {
+  const safeActual = Number(actual || 0);
+  const safeGoal = Number(goal || 0);
+  const percent = safeGoal > 0 ? (safeActual / safeGoal) * 100 : 0;
+  const statusClass = safeActual >= safeGoal ? 'goal-met' : percent >= 80 ? 'goal-near' : 'goal-below';
+  const statusLabel = safeActual >= safeGoal ? 'Goal met' : percent >= 80 ? 'Close to goal' : 'Below goal';
+  const goalDayLabel = goalDays === 1 ? '1 goal day' : `${goalDays} goal days`;
+
+  const card = document.getElementById(cardId);
+  const valueEl = document.getElementById(valueId);
+  const noteEl = document.getElementById(noteId);
+
+  if (card) {
+    card.classList.remove('goal-below', 'goal-near', 'goal-met');
+    card.classList.add(statusClass);
+  }
+
+  if (valueEl) {
+    valueEl.classList.remove('goal-below', 'goal-near', 'goal-met');
+    valueEl.classList.add(statusClass);
+    valueEl.textContent = `${formatCurrency(safeActual)} / ${formatCurrency(safeGoal)}`;
+  }
+
+  if (noteEl) {
+    noteEl.classList.remove('goal-below', 'goal-near', 'goal-met');
+    noteEl.classList.add(statusClass);
+    noteEl.textContent = `${percent.toFixed(1)}% of goal | ${goalDayLabel} | ${statusLabel}`;
+  }
+}
+
 
 async function loadRevenueEntries(startDate, endDate) {
   const tbody = document.getElementById('revenueReportingTbody');
