@@ -1817,9 +1817,8 @@ const REVENUE_VIEW = 'client_services_revenue_transaction_reporting_view';
 const REVENUE_ADD_RPC = 'add_client_services_revenue_transaction';
 const REVENUE_VOID_RPC = 'void_client_services_revenue_transaction';
 const REVENUE_SUMMARY_RPC = 'get_client_services_revenue_transaction_summary';
+const REVENUE_GOAL_TARGETS_RPC = 'get_client_services_revenue_goal_targets';
 const REVENUE_ENTERED_BY_STORAGE_KEY = 'clientServicesRevenueEnteredBy';
-const CSC_DAILY_QUOTED_GOAL = 9000;
-const CSC_DAILY_REVENUE_GOAL = 5760;
 
 let currentProfile = null;
 let currentSession = null;
@@ -2394,6 +2393,33 @@ function getLocalDateISO(date = new Date()) {
   return copy.toISOString().slice(0, 10);
 }
 
+function getFiscalQuarterStartDate(date) {
+  const month = date.getMonth();
+  const year = date.getFullYear();
+
+  if (month >= 6 && month <= 8) return new Date(year, 6, 1);      // Fiscal Q1: Jul-Sep
+  if (month >= 9 && month <= 11) return new Date(year, 9, 1);     // Fiscal Q2: Oct-Dec
+  if (month >= 0 && month <= 2) return new Date(year, 0, 1);      // Fiscal Q3: Jan-Mar
+  return new Date(year, 3, 1);                                    // Fiscal Q4: Apr-Jun
+}
+
+function getFiscalYearRange(date) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+
+  if (month >= 6) {
+    return {
+      start: new Date(year, 6, 1),
+      end: new Date(year + 1, 6, 0)
+    };
+  }
+
+  return {
+    start: new Date(year - 1, 6, 1),
+    end: new Date(year, 6, 0)
+  };
+}
+
 function getRevenuePeriodRange(periodKey) {
   const today = new Date();
   let start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -2420,16 +2446,16 @@ function getRevenuePeriodRange(periodKey) {
     start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     end = new Date(today.getFullYear(), today.getMonth(), 0);
   } else if (periodKey === 'this_quarter') {
-    const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
-    start = new Date(today.getFullYear(), quarterStartMonth, 1);
-    end = new Date(today.getFullYear(), quarterStartMonth + 3, 0);
+    start = getFiscalQuarterStartDate(today);
+    end = new Date(start.getFullYear(), start.getMonth() + 3, 0);
   } else if (periodKey === 'last_quarter') {
-    const currentQuarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
-    start = new Date(today.getFullYear(), currentQuarterStartMonth - 3, 1);
-    end = new Date(today.getFullYear(), currentQuarterStartMonth, 0);
+    const currentFiscalQuarterStart = getFiscalQuarterStartDate(today);
+    start = new Date(currentFiscalQuarterStart.getFullYear(), currentFiscalQuarterStart.getMonth() - 3, 1);
+    end = new Date(currentFiscalQuarterStart.getFullYear(), currentFiscalQuarterStart.getMonth(), 0);
   } else if (periodKey === 'this_year') {
-    start = new Date(today.getFullYear(), 0, 1);
-    end = new Date(today.getFullYear(), 11, 31);
+    const fiscalYearRange = getFiscalYearRange(today);
+    start = fiscalYearRange.start;
+    end = fiscalYearRange.end;
   }
 
   return {
@@ -2565,39 +2591,53 @@ function updateRevenuePeriodPill(periodKey, startDate, endDate) {
 }
 
 async function loadRevenueSummary(startDate, endDate) {
-  const { data, error } = await client.rpc(REVENUE_SUMMARY_RPC, {
-    p_start_date: startDate,
-    p_end_date: endDate
-  });
+  const [summaryResponse, goalResponse] = await Promise.all([
+    client.rpc(REVENUE_SUMMARY_RPC, {
+      p_start_date: startDate,
+      p_end_date: endDate
+    }),
+    client.rpc(REVENUE_GOAL_TARGETS_RPC, {
+      p_start_date: startDate,
+      p_end_date: endDate
+    })
+  ]);
 
-  if (error) {
-    renderRevenueSummary(null, startDate, endDate);
-    setMessage('revenueMessage', 'error', 'Unable to load revenue summary: ' + error.message);
+  if (summaryResponse.error) {
+    renderRevenueSummary(null, null, startDate, endDate);
+    setMessage('revenueMessage', 'error', 'Unable to load revenue summary: ' + summaryResponse.error.message);
     return;
   }
 
-  const row = Array.isArray(data) ? data[0] : data;
-  renderRevenueSummary(row, startDate, endDate);
+  if (goalResponse.error) {
+    const row = Array.isArray(summaryResponse.data) ? summaryResponse.data[0] : summaryResponse.data;
+    renderRevenueSummary(row, null, startDate, endDate);
+    setMessage('revenueMessage', 'error', 'Unable to load revenue goal targets: ' + goalResponse.error.message);
+    return;
+  }
+
+  const summaryRow = Array.isArray(summaryResponse.data) ? summaryResponse.data[0] : summaryResponse.data;
+  const goalRow = Array.isArray(goalResponse.data) ? goalResponse.data[0] : goalResponse.data;
+  renderRevenueSummary(summaryRow, goalRow, startDate, endDate);
 }
 
-function renderRevenueSummary(row, startDate, endDate) {
+function renderRevenueSummary(row, goalRow, startDate, endDate) {
   const summary = row || {};
+  const goals = goalRow || {};
   const transactionCount = Number(summary.transaction_count || 0);
+  const goalDays = Number(goals.goal_business_days || 0);
 
   setText('revenueSummaryPeriod', `${formatShortDate(startDate)} – ${formatShortDate(endDate)}`);
   setText('revenueSummaryTransactions', `${transactionCount} active transaction${transactionCount === 1 ? '' : 's'}`);
-
-  const goalDays = getRevenueGoalDayCount(startDate, endDate);
-  const quotedGoal = CSC_DAILY_QUOTED_GOAL * goalDays;
-  const revenueGoal = CSC_DAILY_REVENUE_GOAL * goalDays;
 
   renderRevenueGoalCard({
     cardId: 'revenueSummaryQuotedCard',
     valueId: 'revenueSummaryQuoted',
     noteId: 'revenueSummaryQuotedGoalNote',
     actual: Number(summary.total_quoted || 0),
-    goal: quotedGoal,
-    goalDays
+    goal: Number(goals.quoted_goal || 0),
+    goalDays,
+    dailyGoal: Number(goals.quoted_daily_goal || 0),
+    weeklyPace: Number(goals.quoted_weekly_pace || 0)
   });
   setText('revenueSummaryQuotedBreakdown', `Service: ${formatCurrency(summary.total_service_quoted)} | CRM: ${formatCurrency(summary.total_crm_quoted)}`);
 
@@ -2606,8 +2646,10 @@ function renderRevenueSummary(row, startDate, endDate) {
     valueId: 'revenueSummaryRevenue',
     noteId: 'revenueSummaryRevenueGoalNote',
     actual: Number(summary.total_revenue || 0),
-    goal: revenueGoal,
-    goalDays
+    goal: Number(goals.revenue_goal || 0),
+    goalDays,
+    dailyGoal: Number(goals.revenue_daily_goal || 0),
+    weeklyPace: Number(goals.revenue_weekly_pace || 0)
   });
   setText('revenueSummaryProjectWork', formatCurrency(summary.total_project_work));
   setText('revenueSummaryRepairTech', formatCurrency(summary.total_repair_tech_revenue));
@@ -2617,35 +2659,15 @@ function renderRevenueSummary(row, startDate, endDate) {
   setText('revenueSummaryLastEntry', `Last transaction: ${summary.last_transaction_date ? formatShortDate(summary.last_transaction_date) : '—'}`);
 }
 
-
-function getRevenueGoalDayCount(startDate, endDate) {
-  if (!startDate || !endDate) return 1;
-
-  const start = new Date(startDate + 'T00:00:00');
-  const end = new Date(endDate + 'T00:00:00');
-
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1;
-
-  const step = start <= end ? 1 : -1;
-  let count = 0;
-  const cursor = new Date(start.getTime());
-
-  while ((step === 1 && cursor <= end) || (step === -1 && cursor >= end)) {
-    const day = cursor.getDay();
-    if (day !== 0 && day !== 6) count += 1;
-    cursor.setDate(cursor.getDate() + step);
-  }
-
-  return Math.max(count, 1);
-}
-
-function renderRevenueGoalCard({ cardId, valueId, noteId, actual, goal, goalDays }) {
+function renderRevenueGoalCard({ cardId, valueId, noteId, actual, goal, goalDays, dailyGoal, weeklyPace }) {
   const safeActual = Number(actual || 0);
   const safeGoal = Number(goal || 0);
   const percent = safeGoal > 0 ? (safeActual / safeGoal) * 100 : 0;
   const statusClass = safeActual >= safeGoal ? 'goal-met' : percent >= 80 ? 'goal-near' : 'goal-below';
   const statusLabel = safeActual >= safeGoal ? 'Goal met' : percent >= 80 ? 'Close to goal' : 'Below goal';
   const goalDayLabel = goalDays === 1 ? '1 goal day' : `${goalDays} goal days`;
+  const dailyGoalText = safeGoal > 0 && dailyGoal ? ` | Daily: ${formatCurrency(dailyGoal)}` : '';
+  const weeklyPaceText = safeGoal > 0 && weeklyPace ? ` | Weekly pace: ${formatCurrency(weeklyPace)}` : '';
 
   const card = document.getElementById(cardId);
   const valueEl = document.getElementById(valueId);
@@ -2665,7 +2687,7 @@ function renderRevenueGoalCard({ cardId, valueId, noteId, actual, goal, goalDays
   if (noteEl) {
     noteEl.classList.remove('goal-below', 'goal-near', 'goal-met');
     noteEl.classList.add(statusClass);
-    noteEl.textContent = `${percent.toFixed(1)}% of goal | ${goalDayLabel} | ${statusLabel}`;
+    noteEl.textContent = `${percent.toFixed(1)}% of goal | ${goalDayLabel}${dailyGoalText}${weeklyPaceText} | ${statusLabel}`;
   }
 }
 
