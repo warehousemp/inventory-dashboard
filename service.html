@@ -901,9 +901,12 @@ async function lookupInventoryPart() {
     totalValue += Number(row.inventory_value || 0);
   });
 
+  const categoryDisplay = getPartCategoryDisplay(data[0]);
+
   let output =
     `PART NUMBER: ${data[0].part_number}\n` +
     `DESCRIPTION: ${data[0].description || ''}\n` +
+    `CATEGORY: ${categoryDisplay}\n` +
     `SERIALIZED: ${data[0].is_serialized ? 'YES' : 'NO'}\n` +
     `TOTAL QTY ON HAND: ${totalQty}\n` +
     `UNIT COST: ${formatCurrency(data[0].unit_cost)}\n` +
@@ -920,6 +923,24 @@ async function lookupInventoryPart() {
   });
 
   document.getElementById('lookupResult').textContent = output;
+}
+
+function getPartCategoryDisplay(row) {
+  if (!row) {
+    return 'Needs Category';
+  }
+
+  const candidateFields = ['category', 'category_name', 'part_category'];
+
+  for (const field of candidateFields) {
+    const value = String(row[field] || '').trim();
+
+    if (value.length > 0) {
+      return value;
+    }
+  }
+
+  return 'Needs Category';
 }
 
 async function detectCategoryField() {
