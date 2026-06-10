@@ -1817,7 +1817,7 @@ const REVENUE_VIEW = 'client_services_revenue_transaction_reporting_view';
 const REVENUE_ADD_RPC = 'add_client_services_revenue_transaction';
 const REVENUE_VOID_RPC = 'void_client_services_revenue_transaction';
 const REVENUE_SUMMARY_RPC = 'get_client_services_revenue_transaction_summary';
-const REVENUE_GOAL_PACING_RPC = 'get_client_services_goal_pacing';
+const REVENUE_GOAL_TARGETS_RPC = 'get_client_services_revenue_goal_targets';
 const REVENUE_ENTERED_BY_STORAGE_KEY = 'clientServicesRevenueEnteredBy';
 
 let currentProfile = null;
@@ -2590,16 +2590,131 @@ function updateRevenuePeriodPill(periodKey, startDate, endDate) {
   setText('revenueSummaryPeriod', `${formatShortDate(startDate)} – ${formatShortDate(endDate)}`);
 }
 
+function getWeekRangeForDate(dateISO) {
+  const date = parseLocalDateISO(dateISO) || new Date();
+  const day = date.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate() + diffToMonday);
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+
+  return {
+    startDate: getLocalDateISO(monday),
+    endDate: getLocalDateISO(sunday)
+  };
+}
+
+function parseLocalDateISO(value) {
+  if (!value) return null;
+  const date = new Date(String(value).slice(0, 10) + 'T00:00:00');
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function compareDateISO(a, b) {
+  return String(a || '').slice(0, 10).localeCompare(String(b || '').slice(0, 10));
+}
+
+function clampDateISO(value, minValue, maxValue) {
+  let result = String(value || '').slice(0, 10);
+  if (minValue && compareDateISO(result, minValue) < 0) result = String(minValue).slice(0, 10);
+  if (maxValue && compareDateISO(result, maxValue) > 0) result = String(maxValue).slice(0, 10);
+  return result;
+}
+
+function isBusinessDateISO(value) {
+  const date = parseLocalDateISO(value);
+  if (!date) return false;
+  const day = date.getDay();
+  return day !== 0 && day !== 6;
+}
+
+function countBusinessDaysInclusive(startISO, endISO) {
+  const start = parseLocalDateISO(startISO);
+  const end = parseLocalDateISO(endISO);
+
+  if (!start || !end || end < start) return 0;
+
+  let count = 0;
+  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+
+  while (cursor <= end) {
+    const day = cursor.getDay();
+    if (day !== 0 && day !== 6) count += 1;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return count;
+}
+
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+  return 0;
+}
+
+function normalizeRevenueGoalTargets(goalData, startDate, endDate) {
+  const source = Array.isArray(goalData) ? (goalData[0] || {}) : (goalData || {});
+  const periodBusinessDays = firstFiniteNumber(source.period_business_days, source.business_days, source.total_business_days);
+  const quotedDailyGoal = firstFiniteNumber(source.quoted_daily_goal, source.daily_quoted_goal);
+  const revenueDailyGoal = firstFiniteNumber(source.revenue_daily_goal, source.daily_revenue_goal);
+
+  const weekReferenceDate = compareDateISO(getLocalDateISO(), startDate) >= 0 && compareDateISO(getLocalDateISO(), endDate) <= 0
+    ? getLocalDateISO()
+    : startDate;
+
+  const weekRange = getWeekRangeForDate(weekReferenceDate);
+  const weekBusinessDays = countBusinessDaysInclusive(weekRange.startDate, weekRange.endDate);
+  const paceThroughDate = clampDateISO(
+    compareDateISO(getLocalDateISO(), weekRange.startDate) >= 0 && compareDateISO(getLocalDateISO(), weekRange.endDate) <= 0
+      ? getLocalDateISO()
+      : endDate,
+    weekRange.startDate,
+    weekRange.endDate
+  );
+  const elapsedWeekBusinessDays = countBusinessDaysInclusive(weekRange.startDate, paceThroughDate);
+
+  const quotedPeriodGoal = firstFiniteNumber(
+    source.quoted_period_goal,
+    source.quoted_goal,
+    source.total_quoted_goal,
+    periodBusinessDays * quotedDailyGoal
+  );
+
+  const revenuePeriodGoal = firstFiniteNumber(
+    source.revenue_period_goal,
+    source.revenue_goal,
+    source.total_revenue_goal,
+    periodBusinessDays * revenueDailyGoal
+  );
+
+  return {
+    ...source,
+    period_business_days: periodBusinessDays,
+    quoted_period_goal: quotedPeriodGoal,
+    revenue_period_goal: revenuePeriodGoal,
+    quoted_daily_goal: quotedDailyGoal,
+    revenue_daily_goal: revenueDailyGoal,
+    week_start_date: weekRange.startDate,
+    week_end_date: weekRange.endDate,
+    week_business_days: weekBusinessDays,
+    elapsed_week_business_days: elapsedWeekBusinessDays,
+    quoted_week_goal: firstFiniteNumber(source.quoted_week_goal, weekBusinessDays * quotedDailyGoal),
+    revenue_week_goal: firstFiniteNumber(source.revenue_week_goal, weekBusinessDays * revenueDailyGoal),
+    quoted_expected_by_today: firstFiniteNumber(source.quoted_expected_by_today, elapsedWeekBusinessDays * quotedDailyGoal),
+    revenue_expected_by_today: firstFiniteNumber(source.revenue_expected_by_today, elapsedWeekBusinessDays * revenueDailyGoal)
+  };
+}
+
 async function loadRevenueSummary(startDate, endDate) {
   const [summaryResponse, goalResponse] = await Promise.all([
     client.rpc(REVENUE_SUMMARY_RPC, {
       p_start_date: startDate,
       p_end_date: endDate
     }),
-    client.rpc(REVENUE_GOAL_PACING_RPC, {
-      p_as_of_date: getLocalDateISO(),
-      p_period_start_date: startDate,
-      p_period_end_date: endDate
+    client.rpc(REVENUE_GOAL_TARGETS_RPC, {
+      p_start_date: startDate,
+      p_end_date: endDate
     })
   ]);
 
@@ -2609,24 +2724,23 @@ async function loadRevenueSummary(startDate, endDate) {
     return;
   }
 
+  const summaryRow = Array.isArray(summaryResponse.data) ? summaryResponse.data[0] : summaryResponse.data;
+
   if (goalResponse.error) {
-    const row = Array.isArray(summaryResponse.data) ? summaryResponse.data[0] : summaryResponse.data;
-    renderRevenueSummary(row, null, null, startDate, endDate);
-    setMessage('revenueMessage', 'error', 'Unable to load revenue goal pacing: ' + goalResponse.error.message);
+    renderRevenueSummary(summaryRow, null, null, startDate, endDate);
+    setMessage('revenueMessage', 'error', 'Unable to load revenue goal targets: ' + goalResponse.error.message);
     return;
   }
 
-  const summaryRow = Array.isArray(summaryResponse.data) ? summaryResponse.data[0] : summaryResponse.data;
-  const goalRow = Array.isArray(goalResponse.data) ? goalResponse.data[0] : goalResponse.data;
-
+  const goalRow = normalizeRevenueGoalTargets(goalResponse.data, startDate, endDate);
   let weeklySummaryRow = null;
 
   if (goalRow?.week_start_date && goalRow?.week_end_date) {
-    const selectedIsCurrentWeek =
+    const selectedIsSameWeekRange =
       String(startDate) === String(goalRow.week_start_date) &&
       String(endDate) === String(goalRow.week_end_date);
 
-    if (selectedIsCurrentWeek) {
+    if (selectedIsSameWeekRange) {
       weeklySummaryRow = summaryRow;
     } else {
       const weeklySummaryResponse = await client.rpc(REVENUE_SUMMARY_RPC, {
@@ -2636,7 +2750,7 @@ async function loadRevenueSummary(startDate, endDate) {
 
       if (weeklySummaryResponse.error) {
         renderRevenueSummary(summaryRow, goalRow, null, startDate, endDate);
-        setMessage('revenueMessage', 'error', 'Unable to load current-week revenue pace: ' + weeklySummaryResponse.error.message);
+        setMessage('revenueMessage', 'error', 'Unable to load weekly revenue pace: ' + weeklySummaryResponse.error.message);
         return;
       }
 
