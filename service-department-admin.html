@@ -1397,7 +1397,7 @@ function fillCurrentFiscalQuarter() {
 
 function handleFiscalQuarterChange() {
   const fiscalYear = Number(document.getElementById('fiscalYearInput')?.value || 0);
-  const fiscalQuarter = document.getElementById('fiscalQuarterInput')?.value || 'Q1';
+  const fiscalQuarter = normalizeFiscalQuarter(document.getElementById('fiscalQuarterInput')?.value || 'Q1');
 
   if (!fiscalYear || fiscalYear < 2020) return;
 
@@ -1427,26 +1427,53 @@ function getFiscalQuarter(date) {
   return 'Q4';
 }
 
+function normalizeFiscalQuarter(value) {
+  const raw = String(value || '').trim().toUpperCase();
+
+  if (raw === '1' || raw === 'Q1') return 'Q1';
+  if (raw === '2' || raw === 'Q2') return 'Q2';
+  if (raw === '3' || raw === 'Q3') return 'Q3';
+  if (raw === '4' || raw === 'Q4') return 'Q4';
+
+  return 'Q1';
+}
+
+function fiscalQuarterLabel(value) {
+  return normalizeFiscalQuarter(value);
+}
+
+function fiscalQuarterNumber(value) {
+  const q = normalizeFiscalQuarter(value);
+
+  if (q === 'Q1') return 1;
+  if (q === 'Q2') return 2;
+  if (q === 'Q3') return 3;
+  if (q === 'Q4') return 4;
+
+  return 1;
+}
+
 function getFiscalQuarterDates(fiscalYear, fiscalQuarter) {
   const fy = Number(fiscalYear);
+  const q = normalizeFiscalQuarter(fiscalQuarter);
 
   if (!fy || Number.isNaN(fy)) {
     return { start: '', end: '' };
   }
 
-  if (fiscalQuarter === 'Q1') {
+  if (q === 'Q1') {
     return { start: `${fy - 1}-07-01`, end: `${fy - 1}-09-30` };
   }
 
-  if (fiscalQuarter === 'Q2') {
+  if (q === 'Q2') {
     return { start: `${fy - 1}-10-01`, end: `${fy - 1}-12-31` };
   }
 
-  if (fiscalQuarter === 'Q3') {
+  if (q === 'Q3') {
     return { start: `${fy}-01-01`, end: `${fy}-03-31` };
   }
 
-  if (fiscalQuarter === 'Q4') {
+  if (q === 'Q4') {
     return { start: `${fy}-04-01`, end: `${fy}-06-30` };
   }
 
@@ -1527,10 +1554,15 @@ function filterQuarterlyGoals(showMessage = true) {
     if (statusFilter === 'inactive' && row.active === true) return false;
 
     if (searchTerm) {
+      const quarterLabel = fiscalQuarterLabel(row.fiscal_quarter);
       const haystack = [
         row.id,
         row.fiscal_year,
         row.fiscal_quarter,
+        quarterLabel,
+        `${row.fiscal_year} ${quarterLabel}`,
+        `FY${row.fiscal_year}`,
+        `FY${row.fiscal_year} ${quarterLabel}`,
         row.quarter_start_date,
         row.quarter_end_date,
         row.quoted_quarterly_goal,
@@ -1586,6 +1618,8 @@ function renderQuarterlyGoals(rows) {
       ? '<span class="badge green">Active</span>'
       : '<span class="badge gray">Inactive</span>';
 
+    const quarterLabel = fiscalQuarterLabel(row.fiscal_quarter);
+
     tr.innerHTML = `
       <td><strong>FY${escapeHTML(row.fiscal_year)}</strong></td>
       <td>${renderQuarterBadge(row.fiscal_quarter)}</td>
@@ -1616,7 +1650,7 @@ function renderQuarterlyGoals(rows) {
 }
 
 function renderQuarterBadge(quarter) {
-  const q = String(quarter || '').toUpperCase();
+  const q = fiscalQuarterLabel(quarter);
 
   if (q === 'Q1') return '<span class="badge blue">Q1</span>';
   if (q === 'Q2') return '<span class="badge orange">Q2</span>';
@@ -1641,9 +1675,11 @@ function editQuarterlyGoal(goalId) {
   const row = (allQuarterlyGoals || []).find(item => String(item.id) === String(goalId));
   if (!row) return;
 
+  const quarterLabel = fiscalQuarterLabel(row.fiscal_quarter);
+
   setValue('goalIdInput', row.id || '');
   setValue('fiscalYearInput', row.fiscal_year || '');
-  setValue('fiscalQuarterInput', String(row.fiscal_quarter || 'Q1').toUpperCase());
+  setValue('fiscalQuarterInput', quarterLabel);
   setValue('quarterStartDateInput', row.quarter_start_date || '');
   setValue('quarterEndDateInput', row.quarter_end_date || '');
   setValue('quotedQuarterlyGoalInput', normalizeMoneyForInput(row.quoted_quarterly_goal));
@@ -1652,10 +1688,10 @@ function editQuarterlyGoal(goalId) {
   setValue('updatedByInput', getDefaultUpdatedBy());
   setValue('goalNotesInput', row.notes || '');
 
-  setText('summarySelectedQuarter', `FY${row.fiscal_year || '—'} ${row.fiscal_quarter || '—'}`);
+  setText('summarySelectedQuarter', `FY${row.fiscal_year || '—'} ${quarterLabel}`);
   setText('summarySelectedDates', `${formatShortDate(row.quarter_start_date)} – ${formatShortDate(row.quarter_end_date)}`);
 
-  setMessage('adminMessage', 'info', `Editing FY${row.fiscal_year} ${row.fiscal_quarter}. Make changes and click Save Goal.`);
+  setMessage('adminMessage', 'info', `Editing FY${row.fiscal_year} ${quarterLabel}. Make changes and click Save Goal.`);
   scrollToForm();
 }
 
@@ -1663,9 +1699,11 @@ function copyQuarterlyGoal(goalId) {
   const row = (allQuarterlyGoals || []).find(item => String(item.id) === String(goalId));
   if (!row) return;
 
+  const quarterLabel = fiscalQuarterLabel(row.fiscal_quarter);
+
   setValue('goalIdInput', '');
   setValue('fiscalYearInput', row.fiscal_year || '');
-  setValue('fiscalQuarterInput', String(row.fiscal_quarter || 'Q1').toUpperCase());
+  setValue('fiscalQuarterInput', quarterLabel);
   setValue('quarterStartDateInput', row.quarter_start_date || '');
   setValue('quarterEndDateInput', row.quarter_end_date || '');
   setValue('quotedQuarterlyGoalInput', normalizeMoneyForInput(row.quoted_quarterly_goal));
@@ -1674,10 +1712,10 @@ function copyQuarterlyGoal(goalId) {
   setValue('updatedByInput', getDefaultUpdatedBy());
   setValue('goalNotesInput', row.notes || '');
 
-  setText('summarySelectedQuarter', `FY${row.fiscal_year || '—'} ${row.fiscal_quarter || '—'}`);
+  setText('summarySelectedQuarter', `FY${row.fiscal_year || '—'} ${quarterLabel}`);
   setText('summarySelectedDates', `${formatShortDate(row.quarter_start_date)} – ${formatShortDate(row.quarter_end_date)}`);
 
-  setMessage('adminMessage', 'info', `Copied FY${row.fiscal_year} ${row.fiscal_quarter} into the form as a new inactive row. Adjust fiscal year/quarter and activate before saving if needed.`);
+  setMessage('adminMessage', 'info', `Copied FY${row.fiscal_year} ${quarterLabel} into the form as a new inactive row. Adjust fiscal year/quarter and activate before saving if needed.`);
   scrollToForm();
 }
 
@@ -1695,7 +1733,7 @@ function clearGoalForm() {
 async function saveQuarterlyGoal() {
   const goalId = String(document.getElementById('goalIdInput')?.value || '').trim() || null;
   const fiscalYear = Number(document.getElementById('fiscalYearInput')?.value || 0);
-  const fiscalQuarter = String(document.getElementById('fiscalQuarterInput')?.value || '').trim().toUpperCase();
+  const fiscalQuarter = normalizeFiscalQuarter(document.getElementById('fiscalQuarterInput')?.value || '');
   const quarterStartDate = String(document.getElementById('quarterStartDateInput')?.value || '').trim();
   const quarterEndDate = String(document.getElementById('quarterEndDateInput')?.value || '').trim();
   const quotedGoal = parseMoneyInput('quotedQuarterlyGoalInput');
@@ -1749,10 +1787,12 @@ async function saveQuarterlyGoal() {
     localStorage.setItem(UPDATED_BY_STORAGE_KEY, updatedBy);
   } catch (error) {}
 
+  const selectedQuarterNumber = fiscalQuarterNumber(fiscalQuarter);
+
   const activeConflict = active && allQuarterlyGoals.some(row => {
     return row.active === true &&
       String(row.fiscal_year) === String(fiscalYear) &&
-      String(row.fiscal_quarter).toUpperCase() === fiscalQuarter &&
+      Number(row.fiscal_quarter) === selectedQuarterNumber &&
       String(row.id) !== String(goalId || '');
   });
 
@@ -1774,7 +1814,6 @@ async function saveQuarterlyGoal() {
     p_updated_by: updatedBy
   };
 
-  const saveBtn = document.getElementById('saveGoalBtn');
   setButtonLoading('saveGoalBtn', true, 'Saving...');
   setMessage('adminMessage', 'info', 'Saving quarterly goal...');
 
@@ -1789,12 +1828,13 @@ async function saveQuarterlyGoal() {
 
   const savedRow = Array.isArray(data) ? data[0] : data;
 
-  setMessage('adminMessage', 'success', `Quarterly goal saved successfully${savedRow?.fiscal_year ? ` for FY${savedRow.fiscal_year} ${savedRow.fiscal_quarter}` : ''}.`);
   await loadQuarterlyGoals(false);
 
   if (savedRow && savedRow.id) {
     editQuarterlyGoal(savedRow.id);
-    setMessage('adminMessage', 'success', `Quarterly goal saved successfully for FY${savedRow.fiscal_year} ${savedRow.fiscal_quarter}.`);
+    setMessage('adminMessage', 'success', `Quarterly goal saved successfully for FY${savedRow.fiscal_year} ${fiscalQuarterLabel(savedRow.fiscal_quarter)}.`);
+  } else {
+    setMessage('adminMessage', 'success', `Quarterly goal saved successfully for FY${fiscalYear} ${fiscalQuarter}.`);
   }
 }
 
@@ -1821,7 +1861,13 @@ function exportGoalsCsv() {
   ];
 
   const header = columns.map(col => csvEscape(col[1])).join(',');
-  const rows = filteredQuarterlyGoals.map(row => columns.map(([key]) => csvEscape(row[key])).join(','));
+  const rows = filteredQuarterlyGoals.map(row => {
+    return columns.map(([key]) => {
+      if (key === 'fiscal_quarter') return csvEscape(fiscalQuarterLabel(row[key]));
+      return csvEscape(row[key]);
+    }).join(',');
+  });
+
   const csv = [header, ...rows].join('\n');
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
