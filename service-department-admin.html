@@ -1399,6 +1399,16 @@ function handleFiscalQuarterChange() {
   const fiscalYear = Number(document.getElementById('fiscalYearInput')?.value || 0);
   const fiscalQuarter = normalizeFiscalQuarter(document.getElementById('fiscalQuarterInput')?.value || 'Q1');
 
+  /*
+    Important: if the user just saved/edited one quarter and then changes the
+    fiscal year or quarter to enter another goal, the hidden goal id must be
+    cleared. Otherwise the next Save Goal action updates the previously saved
+    row instead of creating/upserting the newly selected quarter.
+  */
+  if (String(document.getElementById('goalIdInput')?.value || '').trim()) {
+    setValue('goalIdInput', '');
+  }
+
   if (!fiscalYear || fiscalYear < 2020) return;
 
   const dates = getFiscalQuarterDates(fiscalYear, fiscalQuarter);
@@ -1730,6 +1740,25 @@ function clearGoalForm() {
   setMessage('adminMessage', 'info', 'Form cleared.');
 }
 
+function resetGoalFormToNewEntryMode(fiscalYear, fiscalQuarter, updatedBy) {
+  const quarterLabel = normalizeFiscalQuarter(fiscalQuarter);
+  const dates = getFiscalQuarterDates(fiscalYear, quarterLabel);
+
+  setValue('goalIdInput', '');
+  setValue('fiscalYearInput', fiscalYear || '');
+  setValue('fiscalQuarterInput', quarterLabel);
+  setValue('quarterStartDateInput', dates.start);
+  setValue('quarterEndDateInput', dates.end);
+  setValue('quotedQuarterlyGoalInput', '');
+  setValue('revenueQuarterlyGoalInput', '');
+  setValue('goalNotesInput', '');
+  setValue('goalActiveInput', 'true');
+  setValue('updatedByInput', updatedBy || getDefaultUpdatedBy());
+
+  setText('summarySelectedQuarter', fiscalYear ? `FY${fiscalYear} ${quarterLabel}` : '—');
+  setText('summarySelectedDates', dates.start && dates.end ? `${formatShortDate(dates.start)} – ${formatShortDate(dates.end)}` : 'Select a goal to edit');
+}
+
 async function saveQuarterlyGoal() {
   const goalId = String(document.getElementById('goalIdInput')?.value || '').trim() || null;
   const fiscalYear = Number(document.getElementById('fiscalYearInput')?.value || 0);
@@ -1827,15 +1856,23 @@ async function saveQuarterlyGoal() {
   }
 
   const savedRow = Array.isArray(data) ? data[0] : data;
+  const savedFiscalYear = savedRow?.fiscal_year || fiscalYear;
+  const savedFiscalQuarter = fiscalQuarterLabel(savedRow?.fiscal_quarter || fiscalQuarter);
 
+  /*
+    Refresh the page data immediately after every save so the in-memory goals
+    list matches Supabase before the user enters the next quarter.
+  */
   await loadQuarterlyGoals(false);
 
-  if (savedRow && savedRow.id) {
-    editQuarterlyGoal(savedRow.id);
-    setMessage('adminMessage', 'success', `Quarterly goal saved successfully for FY${savedRow.fiscal_year} ${fiscalQuarterLabel(savedRow.fiscal_quarter)}.`);
-  } else {
-    setMessage('adminMessage', 'success', `Quarterly goal saved successfully for FY${fiscalYear} ${fiscalQuarter}.`);
-  }
+  /*
+    Keep the saved row visible in the refreshed table, but reset the form into
+    new-entry mode. This prevents the next quarter save from reusing the saved
+    row id and overwriting the prior quarter.
+  */
+  resetGoalFormToNewEntryMode(savedFiscalYear, savedFiscalQuarter, updatedBy);
+
+  setMessage('adminMessage', 'success', `Quarterly goal saved successfully for FY${savedFiscalYear} ${savedFiscalQuarter}. Goals were refreshed from the database and the form is ready for the next quarter.`);
 }
 
 function exportGoalsCsv() {
