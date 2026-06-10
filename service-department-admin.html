@@ -1,1 +1,2001 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Service Department Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Molinari Service Admin">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --danger: #b42318;
+      --warning: #dd6b20;
+      --success: #027a48;
+      --sidebar-width: 230px;
+      --sidebar-collapsed-width: 66px;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      margin: 0;
+      padding: 0;
+      color: var(--text);
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      min-height: 100vh;
+      transition: grid-template-columns 0.2s ease;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 70px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+      flex: 0 0 auto;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+      white-space: nowrap;
+      transition: opacity 0.15s ease, width 0.15s ease;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .sidebar-toggle-wrap {
+      padding: 12px 12px 4px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(26,163,176,0.34);
+      border-color: rgba(255,255,255,0.42);
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      width: 17px;
+      height: 2px;
+      border-radius: 999px;
+      background: white;
+    }
+
+    .side-nav {
+      padding: 8px 10px 14px;
+    }
+
+    .side-nav a,
+    .side-nav button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 4px;
+      white-space: nowrap;
+      min-height: 44px;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font-family: Arial, sans-serif;
+      text-align: left;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover,
+    .side-nav button:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+    }
+
+    .nav-section {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.72);
+      font-weight: 800;
+      padding: 14px 12px 4px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .nav-icon {
+      width: 20px;
+      min-width: 20px;
+      text-align: center;
+      opacity: 0.95;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .nav-label {
+      transition: opacity 0.15s ease, width 0.15s ease;
+      overflow: hidden;
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      padding: 10px;
+      margin-top: auto;
+    }
+
+    .app-shell.sidebar-collapsed .brand {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .app-shell.sidebar-collapsed .brand-text,
+    .app-shell.sidebar-collapsed .nav-label,
+    .app-shell.sidebar-collapsed .nav-section {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav,
+    .app-shell.sidebar-collapsed .sidebar-footer {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav a,
+    .app-shell.sidebar-collapsed .side-nav button {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+      gap: 0;
+    }
+
+    .main {
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .header-bar {
+      background: var(--header);
+      color: white;
+      padding: 18px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .header-subtitle {
+      font-size: 13px;
+      opacity: 0.9;
+      font-weight: 600;
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 20px;
+      max-width: 1450px;
+      margin: 30px auto;
+      padding: 0 20px;
+      align-items: flex-start;
+    }
+
+    .card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 18px;
+      color: var(--header);
+      font-size: 22px;
+    }
+
+    h3 {
+      margin: 0 0 12px;
+      color: var(--header);
+      font-size: 17px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
+    select,
+    input,
+    textarea {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    select:focus,
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(26,163,176,0.15);
+    }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    button {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 14px;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+      font-family: Arial, sans-serif;
+    }
+
+    button:hover { opacity: 0.92; }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .admin-btn {
+      background: var(--header);
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .secondary-btn {
+      background: var(--nav-dark);
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .warning-btn {
+      background: var(--warning);
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .danger-btn {
+      background: var(--danger);
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      margin-bottom: 8px;
+    }
+
+    .button-row button {
+      width: auto;
+      min-width: 160px;
+      margin: 0;
+    }
+
+    .status-note,
+    .warning-note,
+    .danger-note {
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .status-note {
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: var(--header);
+    }
+
+    .warning-note {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+    }
+
+    .danger-note {
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: var(--danger);
+    }
+
+    .message {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      display: none;
+      white-space: pre-wrap;
+    }
+
+    .message.success {
+      display: block;
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: var(--header);
+    }
+
+    .message.error {
+      display: block;
+      background: #fef3f2;
+      border: 1px solid #fecdca;
+      color: var(--danger);
+    }
+
+    .message.info {
+      display: block;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .access-layout {
+      max-width: 680px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .access-card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .access-actions .nav-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      color: white;
+      background: var(--nav-dark);
+    }
+
+    .access-actions .logout-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      background: var(--danger);
+      color: white;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+    }
+
+    .section-header h2 {
+      margin: 0 0 4px;
+      color: var(--header);
+      font-size: 22px;
+    }
+
+    .section-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .section-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .section-actions button {
+      width: auto;
+      min-width: 140px;
+      margin: 0;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .summary-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .summary-card .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+
+    .summary-card .value {
+      font-size: 23px;
+      font-weight: 800;
+      color: var(--header);
+      word-break: break-word;
+    }
+
+    .summary-card .sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .admin-section-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 16px;
+      margin-bottom: 18px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .goal-form-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    .goal-form-grid .half {
+      grid-column: span 2;
+    }
+
+    .goal-form-grid .full {
+      grid-column: 1 / -1;
+    }
+
+    .field-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      margin-top: -8px;
+      margin-bottom: 12px;
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: minmax(160px, 0.7fr) minmax(170px, 0.8fr) minmax(220px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    .filter-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 10px 0 0;
+    }
+
+    .filter-actions button {
+      width: auto;
+      min-width: 150px;
+      margin: 0;
+      padding: 10px 13px;
+      font-size: 13px;
+    }
+
+    .table-wrap {
+      width: 100%;
+      max-width: 100%;
+      max-height: 760px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 12px;
+      margin-bottom: 12px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1250px;
+      border-collapse: collapse;
+      background: white;
+      table-layout: auto;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #f8fafc;
+      color: var(--header);
+      text-align: left;
+      padding: 10px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px;
+      font-size: 13px;
+      vertical-align: top;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    .wrap-cell {
+      white-space: normal !important;
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    .muted-small {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge.green {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge.blue {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .badge.orange {
+      background: #ffedd5;
+      color: #9a3412;
+    }
+
+    .badge.red {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .badge.gray {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .row-action-btn {
+      border: none;
+      border-radius: 9px;
+      padding: 9px 11px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      line-height: 1;
+      min-height: 34px;
+      width: auto;
+      margin: 0;
+    }
+
+    .row-action-primary {
+      background: var(--header);
+      color: #ffffff;
+    }
+
+    .row-action-secondary {
+      background: #eef4f7;
+      color: var(--header);
+      border: 1px solid var(--border);
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 1000px) {
+      .summary-grid,
+      .goal-form-grid,
+      .filter-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .goal-form-grid .half,
+      .goal-form-grid .full {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell,
+      .app-shell.sidebar-collapsed {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .brand {
+        min-height: auto;
+      }
+
+      .sidebar-toggle-wrap {
+        display: none;
+      }
+
+      .app-shell.sidebar-collapsed .brand {
+        justify-content: flex-start;
+        padding: 18px 18px 16px;
+      }
+
+      .app-shell.sidebar-collapsed .brand-text {
+        opacity: 1;
+        width: auto;
+      }
+
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        padding: 14px 10px;
+      }
+
+      .app-shell.sidebar-collapsed .side-nav a,
+      .app-shell.sidebar-collapsed .side-nav button,
+      .side-nav a,
+      .side-nav button {
+        justify-content: flex-start;
+        padding: 12px 12px;
+        gap: 10px;
+      }
+
+      .app-shell.sidebar-collapsed .nav-label,
+      .app-shell.sidebar-collapsed .nav-section {
+        opacity: 1;
+        width: auto;
+      }
+    }
+
+    @media (max-width: 650px) {
+      .header-bar {
+        padding: 16px 18px;
+        text-align: center;
+        justify-content: center;
+      }
+
+      .header-title {
+        width: 100%;
+        text-align: center;
+      }
+
+      .main-layout {
+        margin: 18px auto;
+        padding: 0 12px;
+        gap: 16px;
+      }
+
+      .card {
+        padding: 20px;
+        border-radius: 12px;
+      }
+
+      h2 {
+        font-size: 20px;
+      }
+
+      select,
+      input,
+      textarea {
+        font-size: 16px;
+        padding: 13px;
+      }
+
+      button {
+        width: 100%;
+        padding: 14px;
+        font-size: 15px;
+      }
+
+      .button-row {
+        display: block;
+      }
+
+      .button-row button {
+        width: 100%;
+        margin-bottom: 10px;
+      }
+
+      .section-header {
+        display: block;
+      }
+
+      .section-actions {
+        justify-content: flex-start;
+        margin-top: 12px;
+      }
+
+      .section-actions button {
+        width: 100%;
+      }
+
+      th,
+      td {
+        font-size: 12px;
+        padding: 8px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<div class="app-shell" id="appShell">
+  <aside class="sidebar" aria-label="Inventory navigation">
+    <div class="brand">
+      <div class="brand-mark">MP</div>
+      <div class="brand-text">
+        <strong>MOLINARI</strong>
+        <span>INVENTORY</span>
+      </div>
+    </div>
+
+    <div class="sidebar-toggle-wrap">
+      <button class="sidebar-toggle" id="inventorySidebarToggle" type="button" title="Collapse" aria-label="Collapse sidebar" aria-expanded="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+
+    <nav class="side-nav" aria-label="Inventory navigation">
+      <div class="nav-section">Inventory Pages</div>
+
+      <a href="warehouse.html" title="Warehouse">
+        <span class="nav-icon">▣</span>
+        <span class="nav-label">Warehouse</span>
+      </a>
+
+      <a href="service.html" title="Service Parts Lookup">
+        <span class="nav-icon">⌕</span>
+        <span class="nav-label">Service Parts Lookup</span>
+      </a>
+
+      <a href="accounting.html" title="Accounting">
+        <span class="nav-icon">$</span>
+        <span class="nav-label">Accounting</span>
+      </a>
+
+      <a href="admin.html" title="Inventory Administration">
+        <span class="nav-icon">⚙</span>
+        <span class="nav-label">Inventory Administration</span>
+      </a>
+
+      <a href="users.html" title="User Access">
+        <span class="nav-icon">◇</span>
+        <span class="nav-label">User Access</span>
+      </a>
+
+      <a href="https://warehousemp.github.io/inventory-dashboard/inspection-requests-office.html" title="Inspection Requests">
+        <span class="nav-icon">✓</span>
+        <span class="nav-label">Inspection Requests</span>
+      </a>
+
+      <a href="client-services.html" title="Client Services">
+        <span class="nav-icon">◇</span>
+        <span class="nav-label">Client Services</span>
+      </a>
+
+      <a class="active" href="service-department-admin.html" title="Service Department Admin">
+        <span class="nav-icon">⚙</span>
+        <span class="nav-label">Service Department Admin</span>
+      </a>
+
+      <a href="client-marketing-sync.html" title="Client Marketing Sync">
+        <span class="nav-icon">⇄</span>
+        <span class="nav-label">Client Marketing Sync</span>
+      </a>
+
+      <div class="nav-section">Other Systems</div>
+
+      <a href="projects-command.html" title="Projects Command Center">
+        <span class="nav-icon">◆</span>
+        <span class="nav-label">Projects Command Center</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <nav class="side-nav" aria-label="Inventory utility navigation">
+        <a href="index.html" title="Main Menu">
+          <span class="nav-icon">↩</span>
+          <span class="nav-label">Main Menu</span>
+        </a>
+
+        <a href="login.html" title="Login">
+          <span class="nav-icon">◇</span>
+          <span class="nav-label">Login</span>
+        </a>
+
+        <button type="button" onclick="logoutUser()" title="Logout">
+          <span class="nav-icon">⇥</span>
+          <span class="nav-label">Logout</span>
+        </button>
+      </nav>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <div>
+        <div class="header-title">Molinari Pools – Service Department Admin</div>
+        <div class="header-subtitle">Client Services quarterly goal administration</div>
+      </div>
+    </div>
+
+    <div id="accessGate" class="access-layout">
+      <div class="access-card">
+        <h2>Service Department Admin Access Required</h2>
+        <div id="accessMessage" class="warning-note">Checking access...</div>
+        <div class="access-actions">
+          <a class="nav-action-btn" href="login.html">GO TO LOGIN</a>
+          <a class="nav-action-btn" href="index.html">BACK TO MAIN MENU</a>
+          <button class="logout-action-btn" onclick="logoutUser()">LOGOUT</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="pageContent" class="main-layout hidden">
+      <div class="card">
+        <div class="section-header">
+          <div>
+            <h2>Service Department Admin</h2>
+            <p>Manage fiscal-quarter quoted and revenue goals used by the Client Services Dashboard.</p>
+          </div>
+
+          <div class="section-actions">
+            <button class="secondary-btn" type="button" onclick="window.location.href='client-services.html'">Back to Dashboard</button>
+            <button class="admin-btn" id="refreshGoalsTopBtn" type="button" onclick="loadQuarterlyGoals(true)">Refresh Goals</button>
+          </div>
+        </div>
+
+        <div class="status-note">
+          Molinari fiscal year runs July 1 through June 30. Fiscal Q1 is July–September, Q2 is October–December, Q3 is January–March, and Q4 is April–June.
+        </div>
+
+        <div id="adminMessage" class="message"></div>
+
+        <section class="summary-grid" aria-label="Service department goal summary">
+          <div class="summary-card">
+            <div class="label">Total Goal Rows</div>
+            <div class="value" id="summaryTotalGoals">0</div>
+            <div class="sub">Loaded from quarterly goals table</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="label">Active Goals</div>
+            <div class="value" id="summaryActiveGoals">0</div>
+            <div class="sub">Currently active rows</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="label">Selected FY / Quarter</div>
+            <div class="value" id="summarySelectedQuarter">—</div>
+            <div class="sub" id="summarySelectedDates">Select a goal to edit</div>
+          </div>
+
+          <div class="summary-card">
+            <div class="label">Last Updated</div>
+            <div class="value" id="summaryLastUpdated">—</div>
+            <div class="sub">Most recently updated goal row</div>
+          </div>
+        </section>
+
+        <section class="admin-section-card">
+          <h3>Quarterly Goal Setup</h3>
+
+          <div class="warning-note">
+            Saving an active goal will make other active goals for the same fiscal year and fiscal quarter inactive through the save RPC.
+          </div>
+
+          <input id="goalIdInput" type="hidden">
+
+          <div class="goal-form-grid">
+            <div>
+              <label for="fiscalYearInput">Fiscal Year</label>
+              <input id="fiscalYearInput" type="number" min="2020" max="2100" step="1" placeholder="Example: 2027" onchange="handleFiscalQuarterChange()">
+            </div>
+
+            <div>
+              <label for="fiscalQuarterInput">Fiscal Quarter</label>
+              <select id="fiscalQuarterInput" onchange="handleFiscalQuarterChange()">
+                <option value="Q1">Q1 - July / August / September</option>
+                <option value="Q2">Q2 - October / November / December</option>
+                <option value="Q3">Q3 - January / February / March</option>
+                <option value="Q4">Q4 - April / May / June</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="quarterStartDateInput">Quarter Start Date</label>
+              <input id="quarterStartDateInput" type="date">
+            </div>
+
+            <div>
+              <label for="quarterEndDateInput">Quarter End Date</label>
+              <input id="quarterEndDateInput" type="date">
+            </div>
+
+            <div class="half">
+              <label for="quotedQuarterlyGoalInput">Quoted Quarterly Goal</label>
+              <input id="quotedQuarterlyGoalInput" type="number" min="0" step="0.01" placeholder="Example: 576000.00">
+              <div class="field-note">Used for Total Quoted goal pacing on the Client Services Dashboard.</div>
+            </div>
+
+            <div class="half">
+              <label for="revenueQuarterlyGoalInput">Revenue Quarterly Goal</label>
+              <input id="revenueQuarterlyGoalInput" type="number" min="0" step="0.01" placeholder="Example: 368640.00">
+              <div class="field-note">Used for Total Revenue goal pacing on the Client Services Dashboard.</div>
+            </div>
+
+            <div class="half">
+              <label for="goalActiveInput">Goal Status</label>
+              <select id="goalActiveInput">
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+            </div>
+
+            <div class="half">
+              <label for="updatedByInput">Updated By</label>
+              <input id="updatedByInput" type="text" placeholder="Admin name">
+            </div>
+
+            <div class="full">
+              <label for="goalNotesInput">Notes</label>
+              <textarea id="goalNotesInput" placeholder="Optional notes about this quarterly goal or change."></textarea>
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button class="admin-btn" id="saveGoalBtn" type="button" onclick="saveQuarterlyGoal()">Save Goal</button>
+            <button class="secondary-btn" type="button" onclick="clearGoalForm()">Clear Form</button>
+            <button class="warning-btn" type="button" onclick="fillCurrentFiscalQuarter()">Use Current Fiscal Quarter</button>
+          </div>
+
+          <div class="footer-note">
+            Save uses RPC: public.upsert_client_services_quarterly_goal().
+          </div>
+        </section>
+
+        <section class="admin-section-card">
+          <h3>Current Quarterly Goals</h3>
+
+          <div class="filter-grid">
+            <div>
+              <label for="goalFiscalYearFilter">Fiscal Year</label>
+              <select id="goalFiscalYearFilter" onchange="filterQuarterlyGoals()">
+                <option value="">All Fiscal Years</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="goalStatusFilter">Status</label>
+              <select id="goalStatusFilter" onchange="filterQuarterlyGoals()">
+                <option value="active">Active Only</option>
+                <option value="all">Active + Inactive</option>
+                <option value="inactive">Inactive Only</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="goalSearchInput">Search</label>
+              <input id="goalSearchInput" type="search" placeholder="Search FY, quarter, notes, updated by..." oninput="filterQuarterlyGoals()">
+            </div>
+
+            <div>
+              <label>&nbsp;</label>
+              <button class="admin-btn" id="refreshGoalsBtn" type="button" onclick="loadQuarterlyGoals(true)">Refresh Goals</button>
+            </div>
+          </div>
+
+          <div class="filter-actions">
+            <button class="secondary-btn" type="button" onclick="clearGoalFilters()">Clear Filters</button>
+            <button class="secondary-btn" type="button" onclick="exportGoalsCsv()">Export CSV</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fiscal Year</th>
+                  <th>Quarter</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  <th>Quoted Goal</th>
+                  <th>Revenue Goal</th>
+                  <th>Status</th>
+                  <th>Notes</th>
+                  <th>Created</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="goalsTableBody">
+                <tr><td colspan="11">Loading quarterly goals...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="footer-note" id="goalResultCount">0 quarterly goals loaded.</div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
+const GOALS_TABLE = 'client_services_quarterly_goals';
+const GOALS_UPSERT_RPC = 'upsert_client_services_quarterly_goal';
+const UPDATED_BY_STORAGE_KEY = 'serviceDepartmentAdminUpdatedBy';
+
+let currentProfile = null;
+let currentSession = null;
+let allQuarterlyGoals = [];
+let filteredQuarterlyGoals = [];
+
+window.addEventListener('load', async () => {
+  initializeSidebar();
+
+  const hasAccess = await enforceServiceDepartmentAdminAccess();
+  if (!hasAccess) return;
+
+  initializeDefaultFormValues();
+  await loadQuarterlyGoals(false);
+});
+
+function initializeSidebar() {
+  const appShell = document.getElementById('appShell');
+  const toggleButton = document.getElementById('inventorySidebarToggle');
+
+  if (!appShell || !toggleButton) return;
+
+  function applySidebarState(collapsed) {
+    appShell.classList.toggle('sidebar-collapsed', collapsed);
+    toggleButton.title = collapsed ? 'Expand' : 'Collapse';
+    toggleButton.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    toggleButton.setAttribute('aria-expanded', String(!collapsed));
+  }
+
+  let savedState = false;
+
+  try {
+    savedState = localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true';
+  } catch (error) {
+    savedState = false;
+  }
+
+  applySidebarState(savedState);
+
+  toggleButton.addEventListener('click', () => {
+    const collapsed = !appShell.classList.contains('sidebar-collapsed');
+    applySidebarState(collapsed);
+
+    try {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(collapsed));
+    } catch (error) {}
+  });
+}
+
+function showAccessGate(message, type = 'warning') {
+  const gate = document.getElementById('accessGate');
+  const content = document.getElementById('pageContent');
+  const messageBox = document.getElementById('accessMessage');
+
+  if (gate) gate.classList.remove('hidden');
+  if (content) content.classList.add('hidden');
+
+  if (messageBox) {
+    messageBox.className = type === 'success' ? 'status-note' : type === 'danger' ? 'danger-note' : 'warning-note';
+    messageBox.textContent = message;
+  }
+}
+
+function showPageContent(profile, email) {
+  const gate = document.getElementById('accessGate');
+  const content = document.getElementById('pageContent');
+
+  if (gate) gate.classList.add('hidden');
+  if (content) content.classList.remove('hidden');
+
+  console.log('Service Department Admin access granted:', {
+    full_name: profile?.full_name || '',
+    email: email || '',
+    role: profile?.role || ''
+  });
+}
+
+async function enforceServiceDepartmentAdminAccess() {
+  showAccessGate('Checking access...', 'warning');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session || !session.user) {
+    showAccessGate('You must be logged in to access the Service Department Admin page.', 'danger');
+    return false;
+  }
+
+  currentSession = session;
+
+  const { data: profileData, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showAccessGate('Login found, but user profile could not be loaded: ' + profileError.message, 'danger');
+    return false;
+  }
+
+  if (!profileData || profileData.active !== true) {
+    showAccessGate('This user profile is inactive or unavailable. Contact an admin.', 'danger');
+    return false;
+  }
+
+  const allowedRoles = ['SYSTEM_ADMIN', 'ADMIN', 'CLIENT_SERVICES'];
+
+  if (!allowedRoles.includes(profileData.role)) {
+    showAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page requires SYSTEM_ADMIN, ADMIN, or CLIENT_SERVICES access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentProfile = profileData;
+  showPageContent(profileData, session.user.email);
+  return true;
+}
+
+async function logoutUser() {
+  await client.auth.signOut();
+  currentProfile = null;
+  currentSession = null;
+  window.location.href = 'login.html';
+}
+
+function initializeDefaultFormValues() {
+  let savedUpdatedBy = '';
+
+  try {
+    savedUpdatedBy = localStorage.getItem(UPDATED_BY_STORAGE_KEY) || '';
+  } catch (error) {
+    savedUpdatedBy = '';
+  }
+
+  setValue('updatedByInput', savedUpdatedBy || currentProfile?.full_name || '');
+  fillCurrentFiscalQuarter();
+}
+
+function fillCurrentFiscalQuarter() {
+  const today = new Date();
+  const fy = getFiscalYear(today);
+  const quarter = getFiscalQuarter(today);
+  const dates = getFiscalQuarterDates(fy, quarter);
+
+  setValue('goalIdInput', '');
+  setValue('fiscalYearInput', fy);
+  setValue('fiscalQuarterInput', quarter);
+  setValue('quarterStartDateInput', dates.start);
+  setValue('quarterEndDateInput', dates.end);
+  setValue('goalActiveInput', 'true');
+
+  setText('summarySelectedQuarter', `FY${fy} ${quarter}`);
+  setText('summarySelectedDates', `${formatShortDate(dates.start)} – ${formatShortDate(dates.end)}`);
+}
+
+function handleFiscalQuarterChange() {
+  const fiscalYear = Number(document.getElementById('fiscalYearInput')?.value || 0);
+  const fiscalQuarter = document.getElementById('fiscalQuarterInput')?.value || 'Q1';
+
+  if (!fiscalYear || fiscalYear < 2020) return;
+
+  const dates = getFiscalQuarterDates(fiscalYear, fiscalQuarter);
+
+  setValue('quarterStartDateInput', dates.start);
+  setValue('quarterEndDateInput', dates.end);
+
+  setText('summarySelectedQuarter', `FY${fiscalYear} ${fiscalQuarter}`);
+  setText('summarySelectedDates', `${formatShortDate(dates.start)} – ${formatShortDate(dates.end)}`);
+}
+
+function getFiscalYear(date) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+
+  if (month >= 6) return year + 1;
+  return year;
+}
+
+function getFiscalQuarter(date) {
+  const month = date.getMonth();
+
+  if (month >= 6 && month <= 8) return 'Q1';
+  if (month >= 9 && month <= 11) return 'Q2';
+  if (month >= 0 && month <= 2) return 'Q3';
+  return 'Q4';
+}
+
+function getFiscalQuarterDates(fiscalYear, fiscalQuarter) {
+  const fy = Number(fiscalYear);
+
+  if (!fy || Number.isNaN(fy)) {
+    return { start: '', end: '' };
+  }
+
+  if (fiscalQuarter === 'Q1') {
+    return { start: `${fy - 1}-07-01`, end: `${fy - 1}-09-30` };
+  }
+
+  if (fiscalQuarter === 'Q2') {
+    return { start: `${fy - 1}-10-01`, end: `${fy - 1}-12-31` };
+  }
+
+  if (fiscalQuarter === 'Q3') {
+    return { start: `${fy}-01-01`, end: `${fy}-03-31` };
+  }
+
+  if (fiscalQuarter === 'Q4') {
+    return { start: `${fy}-04-01`, end: `${fy}-06-30` };
+  }
+
+  return { start: '', end: '' };
+}
+
+async function loadQuarterlyGoals(showSuccessMessage = true) {
+  setMessage('adminMessage', 'info', 'Loading quarterly goals...');
+
+  setButtonLoading('refreshGoalsTopBtn', true, 'Refreshing...');
+  setButtonLoading('refreshGoalsBtn', true, 'Refreshing...');
+
+  const { data, error } = await client
+    .from(GOALS_TABLE)
+    .select('*')
+    .order('fiscal_year', { ascending: false })
+    .order('fiscal_quarter', { ascending: true })
+    .order('active', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  setButtonLoading('refreshGoalsTopBtn', false, 'Refresh Goals');
+  setButtonLoading('refreshGoalsBtn', false, 'Refresh Goals');
+
+  if (error) {
+    allQuarterlyGoals = [];
+    filteredQuarterlyGoals = [];
+    renderQuarterlyGoals([]);
+    renderGoalSummary();
+    setMessage('adminMessage', 'error', 'Unable to load quarterly goals: ' + error.message);
+    return;
+  }
+
+  allQuarterlyGoals = Array.isArray(data) ? data : [];
+  updateFiscalYearFilterOptions();
+  filterQuarterlyGoals(false);
+  renderGoalSummary();
+
+  if (showSuccessMessage) {
+    setMessage('adminMessage', 'success', `${allQuarterlyGoals.length.toLocaleString()} quarterly goal row(s) loaded.`);
+  } else {
+    clearMessage('adminMessage');
+  }
+}
+
+function updateFiscalYearFilterOptions() {
+  const filter = document.getElementById('goalFiscalYearFilter');
+  if (!filter) return;
+
+  const currentValue = filter.value;
+  const fiscalYears = [...new Set((allQuarterlyGoals || [])
+    .map(row => row.fiscal_year)
+    .filter(value => value !== null && value !== undefined && value !== '')
+  )].sort((a, b) => Number(b) - Number(a));
+
+  filter.innerHTML = '<option value="">All Fiscal Years</option>';
+
+  fiscalYears.forEach(fy => {
+    const option = document.createElement('option');
+    option.value = String(fy);
+    option.textContent = `FY${fy}`;
+    filter.appendChild(option);
+  });
+
+  if (currentValue && fiscalYears.map(String).includes(String(currentValue))) {
+    filter.value = currentValue;
+  }
+}
+
+function filterQuarterlyGoals(showMessage = true) {
+  const fiscalYearFilter = String(document.getElementById('goalFiscalYearFilter')?.value || '').trim();
+  const statusFilter = String(document.getElementById('goalStatusFilter')?.value || 'active').trim();
+  const searchTerm = String(document.getElementById('goalSearchInput')?.value || '').trim().toLowerCase();
+
+  filteredQuarterlyGoals = (allQuarterlyGoals || []).filter(row => {
+    if (fiscalYearFilter && String(row.fiscal_year) !== fiscalYearFilter) return false;
+
+    if (statusFilter === 'active' && row.active !== true) return false;
+    if (statusFilter === 'inactive' && row.active === true) return false;
+
+    if (searchTerm) {
+      const haystack = [
+        row.id,
+        row.fiscal_year,
+        row.fiscal_quarter,
+        row.quarter_start_date,
+        row.quarter_end_date,
+        row.quoted_quarterly_goal,
+        row.revenue_quarterly_goal,
+        row.notes,
+        row.created_by,
+        row.updated_by,
+        row.created_at,
+        row.updated_at,
+        row.active ? 'active' : 'inactive'
+      ].map(value => String(value || '').toLowerCase()).join(' ');
+
+      if (!haystack.includes(searchTerm)) return false;
+    }
+
+    return true;
+  });
+
+  renderQuarterlyGoals(filteredQuarterlyGoals);
+
+  if (showMessage) {
+    setMessage('adminMessage', 'success', `${filteredQuarterlyGoals.length.toLocaleString()} quarterly goal row(s) shown.`);
+  }
+}
+
+function clearGoalFilters() {
+  setValue('goalFiscalYearFilter', '');
+  setValue('goalStatusFilter', 'active');
+  setValue('goalSearchInput', '');
+  filterQuarterlyGoals();
+}
+
+function renderQuarterlyGoals(rows) {
+  const tbody = document.getElementById('goalsTableBody');
+  const resultCount = document.getElementById('goalResultCount');
+
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (resultCount) {
+    resultCount.textContent = `${rows.length} quarterly goal row${rows.length === 1 ? '' : 's'} shown.`;
+  }
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="11">No quarterly goals match the current filters.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    const statusHtml = row.active === true
+      ? '<span class="badge green">Active</span>'
+      : '<span class="badge gray">Inactive</span>';
+
+    tr.innerHTML = `
+      <td><strong>FY${escapeHTML(row.fiscal_year)}</strong></td>
+      <td>${renderQuarterBadge(row.fiscal_quarter)}</td>
+      <td>${escapeHTML(formatShortDate(row.quarter_start_date))}</td>
+      <td>${escapeHTML(formatShortDate(row.quarter_end_date))}</td>
+      <td><strong>${formatCurrency(row.quoted_quarterly_goal)}</strong></td>
+      <td><strong>${formatCurrency(row.revenue_quarterly_goal)}</strong></td>
+      <td>${statusHtml}</td>
+      <td class="wrap-cell">${escapeHTML(truncateText(row.notes, 140) || '—')}</td>
+      <td class="wrap-cell">
+        <strong>${escapeHTML(formatDateTime(row.created_at) || '—')}</strong>
+        <span class="muted-small">By: ${escapeHTML(row.created_by || '—')}</span>
+      </td>
+      <td class="wrap-cell">
+        <strong>${escapeHTML(formatDateTime(row.updated_at) || '—')}</strong>
+        <span class="muted-small">By: ${escapeHTML(row.updated_by || '—')}</span>
+      </td>
+      <td>
+        <div class="row-actions">
+          <button class="row-action-btn row-action-primary" type="button" onclick="editQuarterlyGoal('${escapeHTML(row.id)}')">Edit</button>
+          <button class="row-action-btn row-action-secondary" type="button" onclick="copyQuarterlyGoal('${escapeHTML(row.id)}')">Copy</button>
+        </div>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function renderQuarterBadge(quarter) {
+  const q = String(quarter || '').toUpperCase();
+
+  if (q === 'Q1') return '<span class="badge blue">Q1</span>';
+  if (q === 'Q2') return '<span class="badge orange">Q2</span>';
+  if (q === 'Q3') return '<span class="badge green">Q3</span>';
+  if (q === 'Q4') return '<span class="badge red">Q4</span>';
+
+  return `<span class="badge gray">${escapeHTML(q || '—')}</span>`;
+}
+
+function renderGoalSummary() {
+  const total = allQuarterlyGoals.length;
+  const active = allQuarterlyGoals.filter(row => row.active === true).length;
+  const sortedByUpdated = [...allQuarterlyGoals].sort((a, b) => dateValue(b.updated_at || b.created_at) - dateValue(a.updated_at || a.created_at));
+  const lastUpdated = sortedByUpdated.length ? sortedByUpdated[0] : null;
+
+  setText('summaryTotalGoals', total);
+  setText('summaryActiveGoals', active);
+  setText('summaryLastUpdated', lastUpdated ? formatShortDateTime(lastUpdated.updated_at || lastUpdated.created_at) : '—');
+}
+
+function editQuarterlyGoal(goalId) {
+  const row = (allQuarterlyGoals || []).find(item => String(item.id) === String(goalId));
+  if (!row) return;
+
+  setValue('goalIdInput', row.id || '');
+  setValue('fiscalYearInput', row.fiscal_year || '');
+  setValue('fiscalQuarterInput', String(row.fiscal_quarter || 'Q1').toUpperCase());
+  setValue('quarterStartDateInput', row.quarter_start_date || '');
+  setValue('quarterEndDateInput', row.quarter_end_date || '');
+  setValue('quotedQuarterlyGoalInput', normalizeMoneyForInput(row.quoted_quarterly_goal));
+  setValue('revenueQuarterlyGoalInput', normalizeMoneyForInput(row.revenue_quarterly_goal));
+  setValue('goalActiveInput', row.active === true ? 'true' : 'false');
+  setValue('updatedByInput', getDefaultUpdatedBy());
+  setValue('goalNotesInput', row.notes || '');
+
+  setText('summarySelectedQuarter', `FY${row.fiscal_year || '—'} ${row.fiscal_quarter || '—'}`);
+  setText('summarySelectedDates', `${formatShortDate(row.quarter_start_date)} – ${formatShortDate(row.quarter_end_date)}`);
+
+  setMessage('adminMessage', 'info', `Editing FY${row.fiscal_year} ${row.fiscal_quarter}. Make changes and click Save Goal.`);
+  scrollToForm();
+}
+
+function copyQuarterlyGoal(goalId) {
+  const row = (allQuarterlyGoals || []).find(item => String(item.id) === String(goalId));
+  if (!row) return;
+
+  setValue('goalIdInput', '');
+  setValue('fiscalYearInput', row.fiscal_year || '');
+  setValue('fiscalQuarterInput', String(row.fiscal_quarter || 'Q1').toUpperCase());
+  setValue('quarterStartDateInput', row.quarter_start_date || '');
+  setValue('quarterEndDateInput', row.quarter_end_date || '');
+  setValue('quotedQuarterlyGoalInput', normalizeMoneyForInput(row.quoted_quarterly_goal));
+  setValue('revenueQuarterlyGoalInput', normalizeMoneyForInput(row.revenue_quarterly_goal));
+  setValue('goalActiveInput', 'false');
+  setValue('updatedByInput', getDefaultUpdatedBy());
+  setValue('goalNotesInput', row.notes || '');
+
+  setText('summarySelectedQuarter', `FY${row.fiscal_year || '—'} ${row.fiscal_quarter || '—'}`);
+  setText('summarySelectedDates', `${formatShortDate(row.quarter_start_date)} – ${formatShortDate(row.quarter_end_date)}`);
+
+  setMessage('adminMessage', 'info', `Copied FY${row.fiscal_year} ${row.fiscal_quarter} into the form as a new inactive row. Adjust fiscal year/quarter and activate before saving if needed.`);
+  scrollToForm();
+}
+
+function clearGoalForm() {
+  setValue('goalIdInput', '');
+  setValue('quotedQuarterlyGoalInput', '');
+  setValue('revenueQuarterlyGoalInput', '');
+  setValue('goalNotesInput', '');
+  setValue('goalActiveInput', 'true');
+  setValue('updatedByInput', getDefaultUpdatedBy());
+  fillCurrentFiscalQuarter();
+  setMessage('adminMessage', 'info', 'Form cleared.');
+}
+
+async function saveQuarterlyGoal() {
+  const goalId = String(document.getElementById('goalIdInput')?.value || '').trim() || null;
+  const fiscalYear = Number(document.getElementById('fiscalYearInput')?.value || 0);
+  const fiscalQuarter = String(document.getElementById('fiscalQuarterInput')?.value || '').trim().toUpperCase();
+  const quarterStartDate = String(document.getElementById('quarterStartDateInput')?.value || '').trim();
+  const quarterEndDate = String(document.getElementById('quarterEndDateInput')?.value || '').trim();
+  const quotedGoal = parseMoneyInput('quotedQuarterlyGoalInput');
+  const revenueGoal = parseMoneyInput('revenueQuarterlyGoalInput');
+  const active = String(document.getElementById('goalActiveInput')?.value || 'true') === 'true';
+  const updatedBy = String(document.getElementById('updatedByInput')?.value || '').trim();
+  const notes = String(document.getElementById('goalNotesInput')?.value || '').trim() || null;
+
+  if (!fiscalYear || fiscalYear < 2020) {
+    setMessage('adminMessage', 'error', 'Fiscal Year is required.');
+    focusElement('fiscalYearInput');
+    return;
+  }
+
+  if (!['Q1', 'Q2', 'Q3', 'Q4'].includes(fiscalQuarter)) {
+    setMessage('adminMessage', 'error', 'Fiscal Quarter must be Q1, Q2, Q3, or Q4.');
+    focusElement('fiscalQuarterInput');
+    return;
+  }
+
+  if (!quarterStartDate || !quarterEndDate) {
+    setMessage('adminMessage', 'error', 'Quarter Start Date and Quarter End Date are required.');
+    return;
+  }
+
+  if (quarterEndDate < quarterStartDate) {
+    setMessage('adminMessage', 'error', 'Quarter End Date cannot be before Quarter Start Date.');
+    focusElement('quarterEndDateInput');
+    return;
+  }
+
+  if (!Number.isFinite(quotedGoal) || quotedGoal < 0) {
+    setMessage('adminMessage', 'error', 'Quoted Quarterly Goal must be zero or greater.');
+    focusElement('quotedQuarterlyGoalInput');
+    return;
+  }
+
+  if (!Number.isFinite(revenueGoal) || revenueGoal < 0) {
+    setMessage('adminMessage', 'error', 'Revenue Quarterly Goal must be zero or greater.');
+    focusElement('revenueQuarterlyGoalInput');
+    return;
+  }
+
+  if (!updatedBy) {
+    setMessage('adminMessage', 'error', 'Updated By is required.');
+    focusElement('updatedByInput');
+    return;
+  }
+
+  try {
+    localStorage.setItem(UPDATED_BY_STORAGE_KEY, updatedBy);
+  } catch (error) {}
+
+  const activeConflict = active && allQuarterlyGoals.some(row => {
+    return row.active === true &&
+      String(row.fiscal_year) === String(fiscalYear) &&
+      String(row.fiscal_quarter).toUpperCase() === fiscalQuarter &&
+      String(row.id) !== String(goalId || '');
+  });
+
+  if (activeConflict) {
+    const proceed = window.confirm(`There is already an active goal for FY${fiscalYear} ${fiscalQuarter}.\n\nSaving this goal as active will make the other active FY${fiscalYear} ${fiscalQuarter} row inactive.\n\nContinue?`);
+    if (!proceed) return;
+  }
+
+  const payload = {
+    p_goal_id: goalId,
+    p_fiscal_year: fiscalYear,
+    p_fiscal_quarter: fiscalQuarter,
+    p_quarter_start_date: quarterStartDate,
+    p_quarter_end_date: quarterEndDate,
+    p_quoted_quarterly_goal: quotedGoal,
+    p_revenue_quarterly_goal: revenueGoal,
+    p_notes: notes,
+    p_active: active,
+    p_updated_by: updatedBy
+  };
+
+  const saveBtn = document.getElementById('saveGoalBtn');
+  setButtonLoading('saveGoalBtn', true, 'Saving...');
+  setMessage('adminMessage', 'info', 'Saving quarterly goal...');
+
+  const { data, error } = await client.rpc(GOALS_UPSERT_RPC, payload);
+
+  setButtonLoading('saveGoalBtn', false, 'Save Goal');
+
+  if (error) {
+    setMessage('adminMessage', 'error', 'Unable to save quarterly goal: ' + error.message);
+    return;
+  }
+
+  const savedRow = Array.isArray(data) ? data[0] : data;
+
+  setMessage('adminMessage', 'success', `Quarterly goal saved successfully${savedRow?.fiscal_year ? ` for FY${savedRow.fiscal_year} ${savedRow.fiscal_quarter}` : ''}.`);
+  await loadQuarterlyGoals(false);
+
+  if (savedRow && savedRow.id) {
+    editQuarterlyGoal(savedRow.id);
+    setMessage('adminMessage', 'success', `Quarterly goal saved successfully for FY${savedRow.fiscal_year} ${savedRow.fiscal_quarter}.`);
+  }
+}
+
+function exportGoalsCsv() {
+  if (!filteredQuarterlyGoals.length) {
+    setMessage('adminMessage', 'error', 'There are no quarterly goals to export.');
+    return;
+  }
+
+  const columns = [
+    ['id', 'Goal ID'],
+    ['fiscal_year', 'Fiscal Year'],
+    ['fiscal_quarter', 'Fiscal Quarter'],
+    ['quarter_start_date', 'Quarter Start Date'],
+    ['quarter_end_date', 'Quarter End Date'],
+    ['quoted_quarterly_goal', 'Quoted Quarterly Goal'],
+    ['revenue_quarterly_goal', 'Revenue Quarterly Goal'],
+    ['notes', 'Notes'],
+    ['active', 'Active'],
+    ['created_at', 'Created At'],
+    ['created_by', 'Created By'],
+    ['updated_at', 'Updated At'],
+    ['updated_by', 'Updated By']
+  ];
+
+  const header = columns.map(col => csvEscape(col[1])).join(',');
+  const rows = filteredQuarterlyGoals.map(row => columns.map(([key]) => csvEscape(row[key])).join(','));
+  const csv = [header, ...rows].join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = `service-department-quarterly-goals-${getLocalDateISO()}.csv`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+  setMessage('adminMessage', 'success', 'Quarterly goals CSV export created.');
+}
+
+function getDefaultUpdatedBy() {
+  let savedUpdatedBy = '';
+
+  try {
+    savedUpdatedBy = localStorage.getItem(UPDATED_BY_STORAGE_KEY) || '';
+  } catch (error) {
+    savedUpdatedBy = '';
+  }
+
+  return savedUpdatedBy || currentProfile?.full_name || '';
+}
+
+function scrollToForm() {
+  const formSection = document.querySelector('.admin-section-card');
+  if (formSection) {
+    formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function setMessage(elementId, type, message) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+
+  el.className = `message ${type}`;
+  el.textContent = message;
+}
+
+function clearMessage(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+
+  el.className = 'message';
+  el.textContent = '';
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = value ?? '';
+}
+
+function setValue(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.value = value ?? '';
+}
+
+function focusElement(id) {
+  const element = document.getElementById(id);
+  if (element) element.focus();
+}
+
+function setButtonLoading(id, isLoading, text) {
+  const button = document.getElementById(id);
+  if (!button) return;
+
+  button.disabled = isLoading;
+  if (text) button.textContent = text;
+}
+
+function parseMoneyInput(id, defaultValue = 0) {
+  const raw = document.getElementById(id)?.value;
+  const number = Number(raw);
+
+  return Number.isFinite(number) ? number : defaultValue;
+}
+
+function normalizeMoneyForInput(value) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return '0.00';
+
+  return number.toFixed(2);
+}
+
+function formatCurrency(value) {
+  const number = Number(value || 0);
+
+  return number.toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD'
+  });
+}
+
+function formatShortDate(value) {
+  if (!value) return '—';
+
+  const date = new Date(String(value).slice(0, 10) + 'T00:00:00');
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
+function formatDateTime(value) {
+  if (!value) return '';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString();
+}
+
+function formatShortDateTime(value) {
+  if (!value) return '—';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+}
+
+function dateValue(value) {
+  const time = new Date(value || 0).getTime();
+
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function truncateText(value, maxLength) {
+  const text = String(value || '').trim();
+
+  if (text.length <= maxLength) return text;
+
+  return text.slice(0, maxLength - 1) + '…';
+}
+
+function getLocalDateISO(date = new Date()) {
+  const copy = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+
+  return copy.toISOString().slice(0, 10);
+}
+
+function csvEscape(value) {
+  const text = value === null || value === undefined ? '' : String(value);
+
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) return '';
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+</body>
+</html>
