@@ -2714,22 +2714,43 @@ function renderRevenueGoalCard({
   const safeWeeklyActual = Number(weeklyActual || 0);
   const safeExpectedByToday = Number(expectedByToday || 0);
   const safeWeekGoal = Number(weekGoal || 0);
+  const safeDailyGoal = Number(dailyGoal || 0);
 
-  const periodPercent = safeGoal > 0 ? (safeActual / safeGoal) * 100 : 0;
-  const weeklyPacePercent = safeExpectedByToday > 0 ? (safeWeeklyActual / safeExpectedByToday) * 100 : 0;
+  const weeklyPacePercent = safeExpectedByToday > 0
+    ? (safeWeeklyActual / safeExpectedByToday) * 100
+    : 0;
 
-  const onTrack = safeExpectedByToday > 0 ? safeWeeklyActual >= safeExpectedByToday : safeWeeklyActual >= safeWeekGoal && safeWeekGoal > 0;
-  const statusClass = onTrack ? 'goal-met' : weeklyPacePercent >= 80 ? 'goal-near' : 'goal-below';
-  const statusLabel = onTrack ? 'On track this week' : weeklyPacePercent >= 80 ? 'Near weekly pace' : 'Below weekly pace';
+  const onTrack = safeExpectedByToday > 0
+    ? safeWeeklyActual >= safeExpectedByToday
+    : safeWeekGoal > 0 && safeWeeklyActual >= safeWeekGoal;
 
-  const goalDayLabel = goalDays === 1 ? '1 goal day' : `${goalDays} goal days`;
-  const weekDayLabel = weekBusinessDays === 1 ? '1 business day this week' : `${weekBusinessDays || 0} business days this week`;
-  const elapsedDayLabel = elapsedWeekBusinessDays === 1 ? '1 elapsed goal day' : `${elapsedWeekBusinessDays || 0} elapsed goal days`;
+  const statusClass = onTrack
+    ? 'goal-met'
+    : weeklyPacePercent >= 80
+      ? 'goal-near'
+      : 'goal-below';
 
-  const dailyGoalText = safeGoal > 0 && dailyGoal ? `Daily: ${formatCurrency(dailyGoal)}` : 'Daily: —';
-  const weekGoalText = safeWeekGoal > 0 ? `Week goal: ${formatCurrency(safeWeekGoal)}` : 'Week goal: —';
-  const expectedText = safeExpectedByToday > 0 ? `Expected by today: ${formatCurrency(safeExpectedByToday)}` : 'Expected by today: —';
-  const weeklyPaceText = safeExpectedByToday > 0 ? `Weekly pace: ${weeklyPacePercent.toFixed(1)}%` : 'Weekly pace: —';
+  const statusLabel = onTrack
+    ? 'On track this week'
+    : weeklyPacePercent >= 80
+      ? 'Near weekly pace'
+      : 'Below weekly pace';
+
+  const dailyGoalText = safeDailyGoal > 0
+    ? `Daily: ${formatCurrency(safeDailyGoal)}`
+    : 'Daily: —';
+
+  const weekGoalText = safeWeekGoal > 0
+    ? `Week goal: ${formatCurrency(safeWeekGoal)}`
+    : 'Week goal: —';
+
+  const expectedText = safeExpectedByToday > 0
+    ? `Expected by today: ${formatCurrency(safeExpectedByToday)}`
+    : 'Expected by today: —';
+
+  const weeklyPaceText = safeExpectedByToday > 0
+    ? `Weekly pace: ${weeklyPacePercent.toFixed(1)}%`
+    : 'Weekly pace: —';
 
   const card = document.getElementById(cardId);
   const valueEl = document.getElementById(valueId);
@@ -2749,7 +2770,7 @@ function renderRevenueGoalCard({
   if (noteEl) {
     noteEl.classList.remove('goal-below', 'goal-near', 'goal-met');
     noteEl.classList.add(statusClass);
-    noteEl.textContent = `${periodPercent.toFixed(1)}% of selected-period goal | ${goalDayLabel} | ${dailyGoalText} | ${weekGoalText} | ${expectedText} | ${weeklyPaceText} | ${statusLabel} (${elapsedDayLabel}; ${weekDayLabel})`;
+    noteEl.textContent = `${dailyGoalText} | ${weekGoalText} | ${expectedText} | ${weeklyPaceText} | ${statusLabel}`;
   }
 }
 
