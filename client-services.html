@@ -1817,7 +1817,7 @@ const REVENUE_VIEW = 'client_services_revenue_transaction_reporting_view';
 const REVENUE_ADD_RPC = 'add_client_services_revenue_transaction';
 const REVENUE_VOID_RPC = 'void_client_services_revenue_transaction';
 const REVENUE_SUMMARY_RPC = 'get_client_services_revenue_transaction_summary';
-const REVENUE_GOAL_TARGETS_RPC = 'get_client_services_revenue_goal_targets';
+const REVENUE_GOAL_PACING_RPC = 'get_client_services_goal_pacing';
 const REVENUE_ENTERED_BY_STORAGE_KEY = 'clientServicesRevenueEnteredBy';
 
 let currentProfile = null;
@@ -2596,35 +2596,63 @@ async function loadRevenueSummary(startDate, endDate) {
       p_start_date: startDate,
       p_end_date: endDate
     }),
-    client.rpc(REVENUE_GOAL_TARGETS_RPC, {
-      p_start_date: startDate,
-      p_end_date: endDate
+    client.rpc(REVENUE_GOAL_PACING_RPC, {
+      p_as_of_date: getLocalDateISO(),
+      p_period_start_date: startDate,
+      p_period_end_date: endDate
     })
   ]);
 
   if (summaryResponse.error) {
-    renderRevenueSummary(null, null, startDate, endDate);
+    renderRevenueSummary(null, null, null, startDate, endDate);
     setMessage('revenueMessage', 'error', 'Unable to load revenue summary: ' + summaryResponse.error.message);
     return;
   }
 
   if (goalResponse.error) {
     const row = Array.isArray(summaryResponse.data) ? summaryResponse.data[0] : summaryResponse.data;
-    renderRevenueSummary(row, null, startDate, endDate);
-    setMessage('revenueMessage', 'error', 'Unable to load revenue goal targets: ' + goalResponse.error.message);
+    renderRevenueSummary(row, null, null, startDate, endDate);
+    setMessage('revenueMessage', 'error', 'Unable to load revenue goal pacing: ' + goalResponse.error.message);
     return;
   }
 
   const summaryRow = Array.isArray(summaryResponse.data) ? summaryResponse.data[0] : summaryResponse.data;
   const goalRow = Array.isArray(goalResponse.data) ? goalResponse.data[0] : goalResponse.data;
-  renderRevenueSummary(summaryRow, goalRow, startDate, endDate);
+
+  let weeklySummaryRow = null;
+
+  if (goalRow?.week_start_date && goalRow?.week_end_date) {
+    const selectedIsCurrentWeek =
+      String(startDate) === String(goalRow.week_start_date) &&
+      String(endDate) === String(goalRow.week_end_date);
+
+    if (selectedIsCurrentWeek) {
+      weeklySummaryRow = summaryRow;
+    } else {
+      const weeklySummaryResponse = await client.rpc(REVENUE_SUMMARY_RPC, {
+        p_start_date: goalRow.week_start_date,
+        p_end_date: goalRow.week_end_date
+      });
+
+      if (weeklySummaryResponse.error) {
+        renderRevenueSummary(summaryRow, goalRow, null, startDate, endDate);
+        setMessage('revenueMessage', 'error', 'Unable to load current-week revenue pace: ' + weeklySummaryResponse.error.message);
+        return;
+      }
+
+      weeklySummaryRow = Array.isArray(weeklySummaryResponse.data) ? weeklySummaryResponse.data[0] : weeklySummaryResponse.data;
+    }
+  }
+
+  renderRevenueSummary(summaryRow, goalRow, weeklySummaryRow, startDate, endDate);
 }
 
-function renderRevenueSummary(row, goalRow, startDate, endDate) {
+function renderRevenueSummary(row, goalRow, weeklyRow, startDate, endDate) {
   const summary = row || {};
   const goals = goalRow || {};
+  const weeklySummary = weeklyRow || {};
   const transactionCount = Number(summary.transaction_count || 0);
-  const goalDays = Number(goals.goal_business_days || 0);
+  const goalDays = Number(goals.period_business_days || 0);
 
   setText('revenueSummaryPeriod', `${formatShortDate(startDate)} – ${formatShortDate(endDate)}`);
   setText('revenueSummaryTransactions', `${transactionCount} active transaction${transactionCount === 1 ? '' : 's'}`);
@@ -2634,10 +2662,14 @@ function renderRevenueSummary(row, goalRow, startDate, endDate) {
     valueId: 'revenueSummaryQuoted',
     noteId: 'revenueSummaryQuotedGoalNote',
     actual: Number(summary.total_quoted || 0),
-    goal: Number(goals.quoted_goal || 0),
+    goal: Number(goals.quoted_period_goal || 0),
     goalDays,
     dailyGoal: Number(goals.quoted_daily_goal || 0),
-    weeklyPace: Number(goals.quoted_weekly_pace || 0)
+    weekGoal: Number(goals.quoted_week_goal || 0),
+    expectedByToday: Number(goals.quoted_expected_by_today || 0),
+    weeklyActual: Number(weeklySummary.total_quoted || 0),
+    weekBusinessDays: Number(goals.week_business_days || 0),
+    elapsedWeekBusinessDays: Number(goals.elapsed_week_business_days || 0)
   });
   setText('revenueSummaryQuotedBreakdown', `Service: ${formatCurrency(summary.total_service_quoted)} | CRM: ${formatCurrency(summary.total_crm_quoted)}`);
 
@@ -2646,10 +2678,14 @@ function renderRevenueSummary(row, goalRow, startDate, endDate) {
     valueId: 'revenueSummaryRevenue',
     noteId: 'revenueSummaryRevenueGoalNote',
     actual: Number(summary.total_revenue || 0),
-    goal: Number(goals.revenue_goal || 0),
+    goal: Number(goals.revenue_period_goal || 0),
     goalDays,
     dailyGoal: Number(goals.revenue_daily_goal || 0),
-    weeklyPace: Number(goals.revenue_weekly_pace || 0)
+    weekGoal: Number(goals.revenue_week_goal || 0),
+    expectedByToday: Number(goals.revenue_expected_by_today || 0),
+    weeklyActual: Number(weeklySummary.total_revenue || 0),
+    weekBusinessDays: Number(goals.week_business_days || 0),
+    elapsedWeekBusinessDays: Number(goals.elapsed_week_business_days || 0)
   });
   setText('revenueSummaryProjectWork', formatCurrency(summary.total_project_work));
   setText('revenueSummaryRepairTech', formatCurrency(summary.total_repair_tech_revenue));
@@ -2659,15 +2695,41 @@ function renderRevenueSummary(row, goalRow, startDate, endDate) {
   setText('revenueSummaryLastEntry', `Last transaction: ${summary.last_transaction_date ? formatShortDate(summary.last_transaction_date) : '—'}`);
 }
 
-function renderRevenueGoalCard({ cardId, valueId, noteId, actual, goal, goalDays, dailyGoal, weeklyPace }) {
+function renderRevenueGoalCard({
+  cardId,
+  valueId,
+  noteId,
+  actual,
+  goal,
+  goalDays,
+  dailyGoal,
+  weekGoal,
+  expectedByToday,
+  weeklyActual,
+  weekBusinessDays,
+  elapsedWeekBusinessDays
+}) {
   const safeActual = Number(actual || 0);
   const safeGoal = Number(goal || 0);
-  const percent = safeGoal > 0 ? (safeActual / safeGoal) * 100 : 0;
-  const statusClass = safeActual >= safeGoal ? 'goal-met' : percent >= 80 ? 'goal-near' : 'goal-below';
-  const statusLabel = safeActual >= safeGoal ? 'Goal met' : percent >= 80 ? 'Close to goal' : 'Below goal';
+  const safeWeeklyActual = Number(weeklyActual || 0);
+  const safeExpectedByToday = Number(expectedByToday || 0);
+  const safeWeekGoal = Number(weekGoal || 0);
+
+  const periodPercent = safeGoal > 0 ? (safeActual / safeGoal) * 100 : 0;
+  const weeklyPacePercent = safeExpectedByToday > 0 ? (safeWeeklyActual / safeExpectedByToday) * 100 : 0;
+
+  const onTrack = safeExpectedByToday > 0 ? safeWeeklyActual >= safeExpectedByToday : safeWeeklyActual >= safeWeekGoal && safeWeekGoal > 0;
+  const statusClass = onTrack ? 'goal-met' : weeklyPacePercent >= 80 ? 'goal-near' : 'goal-below';
+  const statusLabel = onTrack ? 'On track this week' : weeklyPacePercent >= 80 ? 'Near weekly pace' : 'Below weekly pace';
+
   const goalDayLabel = goalDays === 1 ? '1 goal day' : `${goalDays} goal days`;
-  const dailyGoalText = safeGoal > 0 && dailyGoal ? ` | Daily: ${formatCurrency(dailyGoal)}` : '';
-  const weeklyPaceText = safeGoal > 0 && weeklyPace ? ` | Weekly pace: ${formatCurrency(weeklyPace)}` : '';
+  const weekDayLabel = weekBusinessDays === 1 ? '1 business day this week' : `${weekBusinessDays || 0} business days this week`;
+  const elapsedDayLabel = elapsedWeekBusinessDays === 1 ? '1 elapsed goal day' : `${elapsedWeekBusinessDays || 0} elapsed goal days`;
+
+  const dailyGoalText = safeGoal > 0 && dailyGoal ? `Daily: ${formatCurrency(dailyGoal)}` : 'Daily: —';
+  const weekGoalText = safeWeekGoal > 0 ? `Week goal: ${formatCurrency(safeWeekGoal)}` : 'Week goal: —';
+  const expectedText = safeExpectedByToday > 0 ? `Expected by today: ${formatCurrency(safeExpectedByToday)}` : 'Expected by today: —';
+  const weeklyPaceText = safeExpectedByToday > 0 ? `Weekly pace: ${weeklyPacePercent.toFixed(1)}%` : 'Weekly pace: —';
 
   const card = document.getElementById(cardId);
   const valueEl = document.getElementById(valueId);
@@ -2687,10 +2749,9 @@ function renderRevenueGoalCard({ cardId, valueId, noteId, actual, goal, goalDays
   if (noteEl) {
     noteEl.classList.remove('goal-below', 'goal-near', 'goal-met');
     noteEl.classList.add(statusClass);
-    noteEl.textContent = `${percent.toFixed(1)}% of goal | ${goalDayLabel}${dailyGoalText}${weeklyPaceText} | ${statusLabel}`;
+    noteEl.textContent = `${periodPercent.toFixed(1)}% of selected-period goal | ${goalDayLabel} | ${dailyGoalText} | ${weekGoalText} | ${expectedText} | ${weeklyPaceText} | ${statusLabel} (${elapsedDayLabel}; ${weekDayLabel})`;
   }
 }
-
 
 async function loadRevenueEntries(startDate, endDate) {
   const tbody = document.getElementById('revenueReportingTbody');
