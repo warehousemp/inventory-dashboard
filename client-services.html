@@ -2783,7 +2783,10 @@ function renderRevenueSummary(row, goalRow, weeklyRow, startDate, endDate) {
     expectedByToday: Number(goals.quoted_expected_by_today || 0),
     weeklyActual: Number(weeklySummary.total_quoted || 0),
     weekBusinessDays: Number(goals.week_business_days || 0),
-    elapsedWeekBusinessDays: Number(goals.elapsed_week_business_days || 0)
+    elapsedWeekBusinessDays: Number(goals.elapsed_week_business_days || 0),
+    startDate,
+    endDate,
+    selectedPeriodKey: document.getElementById('revenuePeriodFilter')?.value || 'today'
   });
   setText('revenueSummaryQuotedBreakdown', `Service: ${formatCurrency(summary.total_service_quoted)} | CRM: ${formatCurrency(summary.total_crm_quoted)}`);
 
@@ -2799,7 +2802,10 @@ function renderRevenueSummary(row, goalRow, weeklyRow, startDate, endDate) {
     expectedByToday: Number(goals.revenue_expected_by_today || 0),
     weeklyActual: Number(weeklySummary.total_revenue || 0),
     weekBusinessDays: Number(goals.week_business_days || 0),
-    elapsedWeekBusinessDays: Number(goals.elapsed_week_business_days || 0)
+    elapsedWeekBusinessDays: Number(goals.elapsed_week_business_days || 0),
+    startDate,
+    endDate,
+    selectedPeriodKey: document.getElementById('revenuePeriodFilter')?.value || 'today'
   });
   setText('revenueSummaryProjectWork', formatCurrency(summary.total_project_work));
   setText('revenueSummaryRepairTech', formatCurrency(summary.total_repair_tech_revenue));
@@ -2821,7 +2827,10 @@ function renderRevenueGoalCard({
   expectedByToday,
   weeklyActual,
   weekBusinessDays,
-  elapsedWeekBusinessDays
+  elapsedWeekBusinessDays,
+  startDate,
+  endDate,
+  selectedPeriodKey
 }) {
   const safeActual = Number(actual || 0);
   const safeGoal = Number(goal || 0);
@@ -2830,29 +2839,70 @@ function renderRevenueGoalCard({
   const safeWeekGoal = Number(weekGoal || 0);
   const safeDailyGoal = Number(dailyGoal || 0);
 
-  const weeklyPacePercent = safeExpectedByToday > 0
-    ? (safeWeeklyActual / safeExpectedByToday) * 100
+  const normalizedStartDate = String(startDate || '').slice(0, 10);
+  const normalizedEndDate = String(endDate || '').slice(0, 10);
+  const isSingleDayPeriod = normalizedStartDate && normalizedStartDate === normalizedEndDate;
+  const isWeekPeriod = selectedPeriodKey === 'this_week' || selectedPeriodKey === 'last_week';
+
+  const periodPercent = safeGoal > 0
+    ? (safeActual / safeGoal) * 100
     : 0;
 
-  const onTrack = safeExpectedByToday > 0
-    ? safeWeeklyActual >= safeExpectedByToday
-    : safeWeekGoal > 0 && safeWeeklyActual >= safeWeekGoal;
+  const weeklyPacePercent = safeExpectedByToday > 0
+    ? (safeWeeklyActual / safeExpectedByToday) * 100
+    : safeWeekGoal > 0
+      ? (safeWeeklyActual / safeWeekGoal) * 100
+      : 0;
+
+  let statusPercent = periodPercent;
+  let onTrack = safeGoal > 0 ? safeActual >= safeGoal : false;
+  let nearTrack = statusPercent >= 80;
+  let statusLabel = onTrack ? 'Goal met' : nearTrack ? 'Near goal' : 'Below goal';
+
+  if (isSingleDayPeriod) {
+    statusPercent = periodPercent;
+    onTrack = safeGoal > 0 ? safeActual >= safeGoal : false;
+    nearTrack = statusPercent >= 80;
+    statusLabel = onTrack
+      ? 'Goal met today'
+      : nearTrack
+        ? 'Near daily goal'
+        : 'Below daily goal';
+  } else if (isWeekPeriod) {
+    statusPercent = weeklyPacePercent;
+    onTrack = safeExpectedByToday > 0
+      ? safeWeeklyActual >= safeExpectedByToday
+      : safeWeekGoal > 0 && safeWeeklyActual >= safeWeekGoal;
+    nearTrack = statusPercent >= 80;
+    statusLabel = onTrack
+      ? 'On track this week'
+      : nearTrack
+        ? 'Near weekly pace'
+        : 'Below weekly pace';
+  } else {
+    statusPercent = periodPercent;
+    onTrack = safeGoal > 0 ? safeActual >= safeGoal : false;
+    nearTrack = statusPercent >= 80;
+    statusLabel = onTrack
+      ? 'Goal met for selected period'
+      : nearTrack
+        ? 'Near selected-period goal'
+        : 'Below selected-period goal';
+  }
 
   const statusClass = onTrack
     ? 'goal-met'
-    : weeklyPacePercent >= 80
+    : nearTrack
       ? 'goal-near'
       : 'goal-below';
-
-  const statusLabel = onTrack
-    ? 'On track this week'
-    : weeklyPacePercent >= 80
-      ? 'Near weekly pace'
-      : 'Below weekly pace';
 
   const dailyGoalText = safeDailyGoal > 0
     ? `Daily: ${formatCurrency(safeDailyGoal)}`
     : 'Daily: —';
+
+  const periodPaceText = safeGoal > 0
+    ? `Period pace: ${periodPercent.toFixed(1)}%`
+    : 'Period pace: —';
 
   const weekGoalText = safeWeekGoal > 0
     ? `Week goal: ${formatCurrency(safeWeekGoal)}`
@@ -2862,9 +2912,19 @@ function renderRevenueGoalCard({
     ? `Expected by today: ${formatCurrency(safeExpectedByToday)}`
     : 'Expected by today: —';
 
-  const weeklyPaceText = safeExpectedByToday > 0
+  const weeklyPaceText = safeExpectedByToday > 0 || safeWeekGoal > 0
     ? `Weekly pace: ${weeklyPacePercent.toFixed(1)}%`
     : 'Weekly pace: —';
+
+  let noteText = '';
+
+  if (isSingleDayPeriod) {
+    noteText = `${dailyGoalText} | ${periodPaceText} | ${weekGoalText} | ${expectedText} | ${weeklyPaceText} | ${statusLabel}`;
+  } else if (isWeekPeriod) {
+    noteText = `${dailyGoalText} | ${weekGoalText} | ${expectedText} | ${weeklyPaceText} | ${statusLabel}`;
+  } else {
+    noteText = `${dailyGoalText} | ${periodPaceText} | ${weekGoalText} | ${expectedText} | ${weeklyPaceText} | ${statusLabel}`;
+  }
 
   const card = document.getElementById(cardId);
   const valueEl = document.getElementById(valueId);
@@ -2884,7 +2944,7 @@ function renderRevenueGoalCard({
   if (noteEl) {
     noteEl.classList.remove('goal-below', 'goal-near', 'goal-met');
     noteEl.classList.add(statusClass);
-    noteEl.textContent = `${dailyGoalText} | ${weekGoalText} | ${expectedText} | ${weeklyPaceText} | ${statusLabel}`;
+    noteEl.textContent = noteText;
   }
 }
 
