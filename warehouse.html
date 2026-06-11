@@ -1594,7 +1594,7 @@
         <h3>RECEIVE INVENTORY</h3>
 
         <div class="inventory-workflow-note">
-          Use this section when inventory is received into the Main Warehouse.
+          Use this section when inventory is received. Regular, Bulk / Batch, and Emergency orders receive into Main Warehouse. Warranty Replacement receives into WARRANTY.
         </div>
 
         <label>Part Number:</label>
@@ -3893,6 +3893,8 @@ async function receive() {
   const orderTypeValue = document.getElementById('receiveOrderType')?.value || 'REGULAR';
   const vendorOrderValue = document.getElementById('receiveVendorOrder')?.value.trim() || '';
   const batchPreview = getBatchCodePreview(vendorValue, vendorOrderValue);
+  const receiveLocationId = orderTypeValue === 'WARRANTY' ? WARRANTY_LOCATION_ID : MAIN_WAREHOUSE_ID;
+  const receiveLocationName = getLocationNameById(receiveLocationId);
 
   if (!matchedPart) {
     output.textContent = 'Select a valid active part number before receiving inventory.';
@@ -3938,7 +3940,7 @@ async function receive() {
   const { data, error } = await client.rpc('receive_inventory_order_tracking', {
     p_part_number: document.getElementById('receivePart').value,
     p_quantity: quantityValue,
-    p_location_id: MAIN_WAREHOUSE_ID,
+    p_location_id: receiveLocationId,
     p_serial_number: serialValue || null,
     p_unit_cost: Number(unitCostValue),
     p_vendor_name: vendorValue || null,
@@ -3960,6 +3962,7 @@ async function receive() {
     `Part Number: ${result.part_number || matchedPart.part_number}\n` +
     `Quantity Received: ${formatNumber(result.quantity_received || quantityValue)}\n` +
     `Unit Cost: ${formatCurrency(result.unit_cost || unitCostValue)}\n` +
+    `Receive Location: ${receiveLocationName}\n` +
     `Order Type: ${result.purchase_order_type || orderTypeValue}` +
     (vendorValue ? `\nVendor: ${vendorValue}` : '') +
     (poValue ? `\nInternal PO #: ${poValue}` : '') +
