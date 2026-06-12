@@ -1221,6 +1221,9 @@
     const OFFICE_RPC = "update_pool_spa_inspection_request_office_status";
     const SIDEBAR_STORAGE_KEY = "inventorySidebarCollapsed";
     const OFFICE_NAME_STORAGE_KEY = "inspectionOfficeUpdatedBy";
+    const PAGE_ACCESS_RPC = "current_user_can_access_page";
+    const PAGE_ACCESS_NAME = "inspection-requests-office";
+
 
     let allRequests = [];
     let filteredRequests = [];
@@ -1289,8 +1292,16 @@
       const { data } = await supabaseClient.auth.getSession();
 
       if (data && data.session) {
-        showOfficeApp(data.session.user);
-        await loadRequests();
+        const canAccess = await verifyPageAccess();
+
+        if (canAccess) {
+          showOfficeApp(data.session.user);
+          await loadRequests();
+        } else {
+          await supabaseClient.auth.signOut();
+          showAuth();
+          showAlert(authAlert, "Access denied. This page is restricted to Service, Admin, and System Admin users.", "error");
+        }
       } else {
         showAuth();
       }
@@ -1390,8 +1401,34 @@
         return;
       }
 
+      const canAccess = await verifyPageAccess();
+
+      if (!canAccess) {
+        await supabaseClient.auth.signOut();
+        showAuth();
+        showAlert(authAlert, "Access denied. This page is restricted to Service, Admin, and System Admin users.", "error");
+        return;
+      }
+
       showOfficeApp(data.user);
       await loadRequests();
+    }
+
+    async function verifyPageAccess() {
+      const { data, error } = await supabaseClient.rpc(PAGE_ACCESS_RPC, {
+        p_page: PAGE_ACCESS_NAME
+      });
+
+      if (error) {
+        showAlert(
+          authAlert,
+          "Unable to verify page access. Confirm public.current_user_can_access_page(p_page text) exists and grants access for inspection-requests-office. " + error.message,
+          "error"
+        );
+        return false;
+      }
+
+      return data === true;
     }
 
     async function handleLogout() {
