@@ -667,6 +667,52 @@
       margin: 70px auto;
     }
 
+
+    .access-panel {
+      max-width: 560px;
+      margin: 70px auto;
+    }
+
+    .access-panel .card-body {
+      padding: 22px;
+    }
+
+    .access-panel h2 {
+      margin: 0 0 16px;
+      color: var(--header-navy);
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .access-message {
+      background: var(--danger-bg);
+      color: #b00020;
+      border: 1px solid #fecdca;
+      border-radius: 8px;
+      padding: 13px 14px;
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 16px;
+    }
+
+    .access-message p {
+      margin: 0 0 8px;
+    }
+
+    .access-message p:last-child {
+      margin-bottom: 0;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .access-actions .btn {
+      min-width: 140px;
+    }
+
     .hidden {
       display: none !important;
     }
@@ -990,6 +1036,25 @@
           </div>
         </div>
 
+        <div id="accessCard" class="card auth-panel access-panel hidden">
+          <div class="card-body">
+            <h2>Inspection Requests Access Required</h2>
+
+            <div id="accessDeniedMessage" class="access-message">
+              <p><strong>Access denied.</strong></p>
+              <p>Logged in as: <span id="accessDeniedEmail">Unknown</span></p>
+              <p>Role: <span id="accessDeniedRole">Unknown</span></p>
+              <p><strong>This page requires SYSTEM_ADMIN, ADMIN, or SERVICE access.</strong></p>
+            </div>
+
+            <div class="access-actions">
+              <button class="btn btn-dark" id="accessGoLoginBtn" type="button">GO TO LOGIN</button>
+              <button class="btn btn-dark" id="accessMainMenuBtn" type="button">BACK TO MAIN MENU</button>
+              <button class="btn btn-danger" id="accessLogoutBtn" type="button">LOGOUT</button>
+            </div>
+          </div>
+        </div>
+
         <div id="officeApp" class="hidden">
           <div id="pageAlert" class="alert"></div>
 
@@ -1221,9 +1286,6 @@
     const OFFICE_RPC = "update_pool_spa_inspection_request_office_status";
     const SIDEBAR_STORAGE_KEY = "inventorySidebarCollapsed";
     const OFFICE_NAME_STORAGE_KEY = "inspectionOfficeUpdatedBy";
-    const PAGE_ACCESS_RPC = "current_user_can_access_page";
-    const PAGE_ACCESS_NAME = "inspection-requests-office";
-
 
     let allRequests = [];
     let filteredRequests = [];
@@ -1233,9 +1295,15 @@
     const sidebarToggle = document.getElementById("inventorySidebarToggle");
 
     const authCard = document.getElementById("authCard");
+    const accessCard = document.getElementById("accessCard");
     const officeApp = document.getElementById("officeApp");
     const authAlert = document.getElementById("authAlert");
     const pageAlert = document.getElementById("pageAlert");
+    const accessDeniedEmail = document.getElementById("accessDeniedEmail");
+    const accessDeniedRole = document.getElementById("accessDeniedRole");
+    const accessGoLoginBtn = document.getElementById("accessGoLoginBtn");
+    const accessMainMenuBtn = document.getElementById("accessMainMenuBtn");
+    const accessLogoutBtn = document.getElementById("accessLogoutBtn");
 
     const emailInput = document.getElementById("emailInput");
     const passwordInput = document.getElementById("passwordInput");
@@ -1292,16 +1360,8 @@
       const { data } = await supabaseClient.auth.getSession();
 
       if (data && data.session) {
-        const canAccess = await verifyPageAccess();
-
-        if (canAccess) {
-          showOfficeApp(data.session.user);
-          await loadRequests();
-        } else {
-          await supabaseClient.auth.signOut();
-          showAuth();
-          showAlert(authAlert, "Access denied. This page is restricted to Service, Admin, and System Admin users.", "error");
-        }
+        showOfficeApp(data.session.user);
+        await loadRequests();
       } else {
         showAuth();
       }
@@ -1339,6 +1399,24 @@
       if (sidebarLogoutBtn) {
         sidebarLogoutBtn.addEventListener("click", handleLogout);
       }
+
+      if (accessGoLoginBtn) {
+        accessGoLoginBtn.addEventListener("click", async () => {
+          await supabaseClient.auth.signOut();
+          showAuth();
+        });
+      }
+
+      if (accessMainMenuBtn) {
+        accessMainMenuBtn.addEventListener("click", () => {
+          window.location.href = "index.html";
+        });
+      }
+
+      if (accessLogoutBtn) {
+        accessLogoutBtn.addEventListener("click", handleLogout);
+      }
+
       refreshBtn.addEventListener("click", loadRequests);
       exportCsvBtn.addEventListener("click", exportCsv);
 
@@ -1401,34 +1479,8 @@
         return;
       }
 
-      const canAccess = await verifyPageAccess();
-
-      if (!canAccess) {
-        await supabaseClient.auth.signOut();
-        showAuth();
-        showAlert(authAlert, "Access denied. This page is restricted to Service, Admin, and System Admin users.", "error");
-        return;
-      }
-
       showOfficeApp(data.user);
       await loadRequests();
-    }
-
-    async function verifyPageAccess() {
-      const { data, error } = await supabaseClient.rpc(PAGE_ACCESS_RPC, {
-        p_page: PAGE_ACCESS_NAME
-      });
-
-      if (error) {
-        showAlert(
-          authAlert,
-          "Unable to verify page access. Confirm public.current_user_can_access_page(p_page text) exists and grants access for inspection-requests-office. " + error.message,
-          "error"
-        );
-        return false;
-      }
-
-      return data === true;
     }
 
     async function handleLogout() {
@@ -1440,6 +1492,7 @@
 
     function showAuth() {
       authCard.classList.remove("hidden");
+      accessCard.classList.add("hidden");
       officeApp.classList.add("hidden");
       logoutBtn.classList.add("hidden");
       refreshBtn.classList.add("hidden");
@@ -1447,8 +1500,25 @@
       authUserLabel.textContent = "";
     }
 
+    function showAccessDenied(user, profile) {
+      authCard.classList.add("hidden");
+      accessCard.classList.remove("hidden");
+      officeApp.classList.add("hidden");
+      logoutBtn.classList.add("hidden");
+      refreshBtn.classList.add("hidden");
+      exportCsvBtn.classList.add("hidden");
+
+      const email = user && user.email ? user.email : "Unknown";
+      const role = profile && profile.role ? profile.role : "Unknown";
+
+      accessDeniedEmail.textContent = email;
+      accessDeniedRole.textContent = role;
+      authUserLabel.textContent = email;
+    }
+
     function showOfficeApp(user) {
       authCard.classList.add("hidden");
+      accessCard.classList.add("hidden");
       officeApp.classList.remove("hidden");
       logoutBtn.classList.remove("hidden");
       refreshBtn.classList.remove("hidden");
