@@ -300,6 +300,74 @@
       font-weight: bold;
     }
 
+    .access-status.is-gate {
+      max-width: 575px;
+      margin: 28px auto 0 auto;
+      padding: 0 20px;
+    }
+
+    .access-gate-card {
+      background: #ffffff;
+      border: 1px solid #d9e2ec;
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      padding: 24px;
+    }
+
+    .access-gate-card h2 {
+      margin: 0 0 16px;
+      color: #0b3c5d;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .access-gate-alert {
+      background: #fef3f2;
+      color: #b42318;
+      border: 1px solid #fecdca;
+      border-radius: 9px;
+      padding: 12px 14px;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      margin-bottom: 16px;
+    }
+
+    .access-gate-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .access-gate-actions a,
+    .access-gate-actions button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      min-width: 144px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 0;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1;
+      margin: 0;
+    }
+
+    .access-gate-actions a,
+    .access-gate-actions button.access-gate-primary {
+      background: #0b3c5d;
+      color: #ffffff;
+    }
+
+    .access-gate-actions button.access-gate-danger {
+      background: #bb1d1d;
+      color: #ffffff;
+    }
+
     .main-layout {
       display: none;
       grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr);
@@ -1119,9 +1187,14 @@ function hideAccountingMainLayout() {
 
 function showAccountingAccessMessage(message, type) {
   const messageElement = document.getElementById('accountingAccessMessage');
+  const accessStatus = messageElement ? messageElement.closest('.access-status') : null;
 
   if (!messageElement) {
     return;
+  }
+
+  if (accessStatus) {
+    accessStatus.classList.remove('is-gate');
   }
 
   messageElement.className = `access-message ${type || 'info'}`;
@@ -1130,19 +1203,26 @@ function showAccountingAccessMessage(message, type) {
 
 function showAccountingAccessGate(message, type, showLoginLink = false) {
   const messageElement = document.getElementById('accountingAccessMessage');
+  const accessStatus = messageElement ? messageElement.closest('.access-status') : null;
 
   if (!messageElement) {
     return;
   }
 
-  messageElement.className = `access-message ${type || 'danger'}`;
-
-  if (showLoginLink) {
-    messageElement.innerHTML =
-      `${escapeHTML(message)}<br><a class="login-link" href="login.html">Go to Login</a>`;
-  } else {
-    messageElement.textContent = message;
+  if (accessStatus) {
+    accessStatus.classList.add('is-gate');
   }
+
+  messageElement.className = 'access-gate-card';
+  messageElement.innerHTML = `
+    <h2>Accounting Access Required</h2>
+    <div class="access-gate-alert">${escapeHTML(message)}</div>
+    <div class="access-gate-actions">
+      <a href="login.html">GO TO LOGIN</a>
+      <a href="index.html">BACK TO MAIN MENU</a>
+      <button type="button" class="access-gate-danger" onclick="logoutUser()">LOGOUT</button>
+    </div>
+  `;
 
   hideAccountingMainLayout();
 }
