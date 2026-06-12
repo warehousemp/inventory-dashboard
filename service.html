@@ -474,6 +474,91 @@
       line-height: 1.4;
     }
 
+
+    .hidden {
+      display: none !important;
+    }
+
+    .access-layout {
+      max-width: 680px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .access-card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+    }
+
+    .status-note {
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #0b3c5d;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+    }
+
+    .warning-note {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+    }
+
+    .danger-note {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .access-actions .nav-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      color: white;
+      background: var(--header);
+    }
+
+    .access-actions .logout-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      background: #b91c1c;
+      color: white;
+    }
+
     @media (max-width: 820px) {
       .app-shell,
       .app-shell.sidebar-collapsed {
@@ -684,7 +769,23 @@
     <div class="header-title">Molinari Pools – Service Team</div>
   </div>
 
-  <div class="page-wrapper">
+  <div id="serviceAccessGate" class="access-layout">
+    <div class="access-card">
+      <h2>Service Access Required</h2>
+
+      <div id="serviceAccessMessage" class="warning-note">
+        Checking service access...
+      </div>
+
+      <div class="access-actions">
+        <a class="nav-action-btn" href="login.html">GO TO LOGIN</a>
+        <a class="nav-action-btn" href="index.html">BACK TO MAIN MENU</a>
+        <button class="logout-action-btn" onclick="serviceLogout()">LOGOUT</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="serviceContent" class="page-wrapper hidden">
 
     <div class="card">
 
@@ -768,8 +869,34 @@ let partsData = [];
 let categoryBrowseRows = [];
 let categoryBrowseField = 'category';
 
+let currentServiceProfile = null;
+let currentServiceSession = null;
+
+const SERVICE_ALLOWED_ROLES = [
+  'SYSTEM_ADMIN',
+  'ADMIN',
+  'WAREHOUSE',
+  'ACCOUNTING',
+  'SERVICE',
+  'READ_ONLY',
+  'SALES',
+  'TECHS'
+];
+
+
 document.addEventListener('DOMContentLoaded', () => {
   initializeInventorySidebar();
+});
+
+window.addEventListener('load', async () => {
+  const hasAccess = await enforceServiceAccess();
+
+  if (!hasAccess) {
+    return;
+  }
+
+  await loadParts();
+  await loadServiceCategories();
 });
 
 function initializeInventorySidebar() {
@@ -812,8 +939,111 @@ function initializeInventorySidebar() {
   });
 }
 
+function showServiceAccessGate(message, type = 'warning') {
+  const gate = document.getElementById('serviceAccessGate');
+  const content = document.getElementById('serviceContent');
+  const messageBox = document.getElementById('serviceAccessMessage');
+
+  if (gate) {
+    gate.classList.remove('hidden');
+  }
+
+  if (content) {
+    content.classList.add('hidden');
+  }
+
+  if (messageBox) {
+    messageBox.className =
+      type === 'success' ? 'status-note' :
+      type === 'danger' ? 'danger-note' :
+      'warning-note';
+
+    messageBox.textContent = message;
+  }
+}
+
+function showServiceContent(profile, email) {
+  const gate = document.getElementById('serviceAccessGate');
+  const content = document.getElementById('serviceContent');
+
+  if (gate) {
+    gate.classList.add('hidden');
+  }
+
+  if (content) {
+    content.classList.remove('hidden');
+  }
+
+  console.log('Service access granted:', {
+    full_name: profile?.full_name || '',
+    email: email || '',
+    role: profile?.role || ''
+  });
+}
+
+async function enforceServiceAccess() {
+  showServiceAccessGate('Checking service access...', 'warning');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showServiceAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session || !session.user) {
+    showServiceAccessGate(
+      'You must be logged in with an approved role to access the Service Parts Lookup page.',
+      'danger'
+    );
+    return false;
+  }
+
+  currentServiceSession = session;
+
+  const { data: profileData, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showServiceAccessGate(
+      'Login found, but user profile could not be loaded: ' + profileError.message,
+      'danger'
+    );
+    return false;
+  }
+
+  if (!profileData || profileData.active !== true) {
+    showServiceAccessGate(
+      'This user profile is inactive or unavailable. Contact an admin.',
+      'danger'
+    );
+    return false;
+  }
+
+  if (!SERVICE_ALLOWED_ROLES.includes(profileData.role)) {
+    showServiceAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page allows SYSTEM_ADMIN, ADMIN, WAREHOUSE, ACCOUNTING, SERVICE, READ_ONLY, SALES, or TECHS access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentServiceProfile = profileData;
+
+  showServiceContent(profileData, session.user.email);
+
+  return true;
+}
+
 async function serviceLogout() {
   await client.auth.signOut();
+  currentServiceProfile = null;
+  currentServiceSession = null;
   window.location.href = 'login.html';
 }
 
@@ -1196,8 +1426,6 @@ function formatCurrency(value) {
   });
 }
 
-loadParts();
-loadServiceCategories();
 </script>
 
 </body>
