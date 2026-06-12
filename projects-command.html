@@ -12,6 +12,8 @@
 
   <meta name="theme-color" content="#0b3c5d">
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
   <style>
     :root {
       --nav: #062f4f;
@@ -533,6 +535,108 @@
       padding: 18px;
     }
 
+
+    .hidden {
+      display: none !important;
+    }
+
+    .access-layout {
+      max-width: 680px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .access-card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+    }
+
+    .access-card h2 {
+      margin: 0 0 16px;
+      color: var(--header);
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    .status-note {
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #0b3c5d;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+      font-weight: 700;
+    }
+
+    .access-warning-note {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+      font-weight: 700;
+    }
+
+    .danger-note {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+      font-weight: 700;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .access-actions .nav-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      color: white;
+      background: var(--header);
+    }
+
+    .access-actions .logout-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+      padding: 12px 18px;
+      background: #b91c1c;
+      color: white;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
     @media (max-width: 1100px) {
       .quick-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -629,7 +733,23 @@
 </head>
 
 <body>
-  <div class="app-shell" id="appShell">
+  <div id="projectsAccessGate" class="access-layout">
+    <div class="access-card">
+      <h2>Projects Access Required</h2>
+
+      <div id="projectsAccessMessage" class="access-warning-note">
+        Checking projects access...
+      </div>
+
+      <div class="access-actions">
+        <a class="nav-action-btn" href="login.html">GO TO LOGIN</a>
+        <a class="nav-action-btn" href="index.html">BACK TO MAIN MENU</a>
+        <button class="logout-action-btn" onclick="projectsLogout()">LOGOUT</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-shell hidden" id="appShell">
 
     <aside class="sidebar">
       <div class="brand">
@@ -1001,6 +1121,131 @@
   </div>
 
   <script>
+    const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentProjectsProfile = null;
+    let currentProjectsSession = null;
+
+    const PROJECTS_ALLOWED_ROLES = [
+      "SYSTEM_ADMIN",
+      "ADMIN",
+      "PROJECTS"
+    ];
+
+    function showProjectsAccessGate(message, type = "warning") {
+      const gate = document.getElementById("projectsAccessGate");
+      const appShell = document.getElementById("appShell");
+      const messageBox = document.getElementById("projectsAccessMessage");
+
+      if (gate) {
+        gate.classList.remove("hidden");
+      }
+
+      if (appShell) {
+        appShell.classList.add("hidden");
+      }
+
+      if (messageBox) {
+        messageBox.className =
+          type === "success" ? "status-note" :
+          type === "danger" ? "danger-note" :
+          "access-warning-note";
+
+        messageBox.textContent = message;
+      }
+    }
+
+    function showProjectsContent(profile, email) {
+      const gate = document.getElementById("projectsAccessGate");
+      const appShell = document.getElementById("appShell");
+
+      if (gate) {
+        gate.classList.add("hidden");
+      }
+
+      if (appShell) {
+        appShell.classList.remove("hidden");
+      }
+
+      console.log("Projects access granted:", {
+        full_name: profile?.full_name || "",
+        email: email || "",
+        role: profile?.role || ""
+      });
+    }
+
+    async function enforceProjectsAccess() {
+      showProjectsAccessGate("Checking projects access...", "warning");
+
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+      if (sessionError) {
+        showProjectsAccessGate("Unable to verify login session: " + sessionError.message, "danger");
+        return false;
+      }
+
+      const session = sessionData?.session;
+
+      if (!session || !session.user) {
+        showProjectsAccessGate(
+          "You must be logged in with an approved Projects role to access the Projects Command Center.",
+          "danger"
+        );
+        return false;
+      }
+
+      currentProjectsSession = session;
+
+      const { data: profileData, error: profileError } = await client
+        .from("user_profiles")
+        .select("id, full_name, role, active")
+        .eq("id", session.user.id)
+        .single();
+
+      if (profileError) {
+        showProjectsAccessGate(
+          "Login found, but user profile could not be loaded: " + profileError.message,
+          "danger"
+        );
+        return false;
+      }
+
+      if (!profileData || profileData.active !== true) {
+        showProjectsAccessGate(
+          "This user profile is inactive or unavailable. Contact an admin.",
+          "danger"
+        );
+        return false;
+      }
+
+      if (!PROJECTS_ALLOWED_ROLES.includes(profileData.role)) {
+        showProjectsAccessGate(
+          `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page allows SYSTEM_ADMIN, ADMIN, or PROJECTS access.`,
+          "danger"
+        );
+        return false;
+      }
+
+      currentProjectsProfile = profileData;
+      showProjectsContent(profileData, session.user.email);
+
+      return true;
+    }
+
+    async function projectsLogout() {
+      await client.auth.signOut();
+      currentProjectsProfile = null;
+      currentProjectsSession = null;
+      window.location.href = "login.html";
+    }
+
+    window.addEventListener("load", async function () {
+      await enforceProjectsAccess();
+    });
+
     (function () {
       const STORAGE_KEY = "projectsSidebarCollapsed";
       const appShell = document.getElementById("appShell");
