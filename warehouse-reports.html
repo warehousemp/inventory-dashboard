@@ -1,0 +1,2884 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Warehouse Reports - Inventory System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Molinari Inventory">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f8fb;
+      margin: 0;
+      padding: 0;
+      color: #1f2933;
+    }
+
+    .header-bar {
+      background: #0b3c5d;
+      color: white;
+      padding: 18px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .nav-link {
+      color: white;
+      text-decoration: none;
+      background: rgba(255,255,255,0.16);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .nav-link:hover {
+      background: rgba(255,255,255,0.24);
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: minmax(420px, 1.1fr) minmax(360px, 0.9fr) minmax(360px, 0.9fr);
+      gap: 20px;
+      width: 100%;
+      max-width: min(1550px, 100%);
+      margin: 30px auto;
+      padding: 0 20px;
+      align-items: flex-start;
+      min-width: 0;
+    }
+
+    .wide-card {
+      grid-column: 1 / -1;
+      min-width: 0;
+    }
+
+    .card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      color: #0b3c5d;
+      font-size: 22px;
+    }
+
+    h3 {
+      color: #0b3c5d;
+      margin-top: 28px;
+      margin-bottom: 14px;
+      font-size: 18px;
+      border-top: 1px solid #e6edf3;
+      padding-top: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    textarea {
+      min-height: 74px;
+      resize: vertical;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #1aa3b0;
+      box-shadow: 0 0 0 3px rgba(26,163,176,0.15);
+    }
+
+    button {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-right: 10px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .issue-btn {
+      background: #1aa3b0;
+      color: white;
+    }
+
+    .receive-btn {
+      background: #0b3c5d;
+      color: white;
+    }
+
+    .transfer-btn {
+      background: #64748b;
+      color: white;
+    }
+
+    .adjustment-btn {
+      background: #d97706;
+      color: white;
+      width: 100%;
+      margin-top: 8px;
+      margin-right: 0;
+    }
+
+    .report-btn {
+      background: #0b3c5d;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .create-btn {
+      background: #0b3c5d;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .category-btn {
+      background: #805ad5;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .cycle-btn {
+      background: #0b3c5d;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .export-btn {
+      background: #0b3c5d;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .save-btn {
+      background: #1aa3b0;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .danger-btn {
+      background: #b91c1c;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .refresh-btn {
+      background: #64748b;
+      color: white;
+      width: auto;
+      padding: 7px 12px;
+      font-size: 12px;
+      border-radius: 7px;
+      margin-top: -6px;
+      margin-bottom: 16px;
+      margin-right: 0;
+      display: inline-block;
+    }
+
+    .small-btn {
+      width: auto;
+      margin: 0;
+      padding: 8px 12px;
+      font-size: 13px;
+      border-radius: 7px;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .button-row button {
+      flex: 1;
+      min-width: 120px;
+      margin-right: 0;
+    }
+
+    .help-text {
+      margin-top: -8px;
+      margin-bottom: 15px;
+      font-size: 12px;
+      color: #667085;
+      line-height: 1.4;
+    }
+
+    .part-description-display {
+      margin-top: -8px;
+      margin-bottom: 15px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #d7e3ee;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.4;
+      min-height: 39px;
+    }
+
+    .part-description-label {
+      font-weight: bold;
+      color: #0b3c5d;
+    }
+
+    .status-note {
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #0b3c5d;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .warning-note {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .danger-note {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    pre {
+      background: #f0f4f8;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 13px;
+      white-space: pre-wrap;
+      max-height: 700px;
+      overflow-y: auto;
+      border: 1px solid #e2e8f0;
+      line-height: 1.45;
+    }
+
+    .workflow-output {
+      margin-top: 10px;
+      margin-bottom: 0;
+      min-height: 48px;
+      max-height: 180px;
+      background: #f0f4f8;
+      border: 1px solid #d7e3ee;
+      color: #1f2933;
+    }
+
+    #serialContainer {
+      display: none;
+    }
+
+
+    .warehouse-section-tabs {
+      grid-column: 1 / -1;
+      background: white;
+      border: 1px solid #d9e2ec;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    }
+
+    .warehouse-section-tabbar {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      align-items: stretch;
+      background: #ffffff;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .warehouse-section-tab {
+      appearance: none;
+      background: #ffffff;
+      color: #001f36;
+      border: 0;
+      border-right: 1px solid #d9e2ec;
+      border-bottom: 3px solid transparent;
+      border-radius: 0;
+      padding: 13px 8px;
+      margin: 0;
+      min-height: 46px;
+      min-width: 0;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      line-height: 1.15;
+      text-align: center;
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: anywhere;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .warehouse-section-tab:last-child {
+      border-right: 0;
+    }
+
+    .warehouse-section-tab:hover {
+      background: #f4f8fb;
+      opacity: 1;
+    }
+
+    .warehouse-section-tab.active {
+      border-bottom-color: #1aa3b0;
+      color: #001f36;
+      background: #ffffff;
+    }
+
+    .warehouse-tab-pane {
+      grid-column: 1 / -1;
+      display: none;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .warehouse-tab-pane.active {
+      display: block;
+    }
+
+    .warehouse-tab-pane > .card {
+      margin: 0;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+
+    @media (max-width: 1180px) {
+      .warehouse-section-tabbar {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .warehouse-section-tab:nth-child(4n) {
+        border-right: 0;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .warehouse-section-tabbar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .warehouse-section-tab:nth-child(2n) {
+        border-right: 0;
+      }
+    }
+
+
+    .section-divider {
+      height: 1px;
+      background: #e6edf3;
+      margin: 24px 0;
+    }
+
+    .count-table-wrapper {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 16px;
+      max-height: 650px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1050px;
+      background: white;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px;
+      text-align: left;
+      font-size: 13px;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f0f4f8;
+      color: #0b3c5d;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    .count-input,
+    .line-note-input {
+      margin-bottom: 0;
+      font-size: 13px;
+      padding: 9px;
+    }
+
+    .count-input {
+      width: 110px;
+    }
+
+    .line-note-input {
+      width: 190px;
+    }
+
+    .variance-positive {
+      color: #0b3c5d;
+      font-weight: bold;
+    }
+
+    .variance-negative {
+      color: #b91c1c;
+      font-weight: bold;
+    }
+
+    .variance-zero {
+      color: #475569;
+      font-weight: bold;
+    }
+
+    .session-id-box {
+      background: #f0f4f8;
+      border: 1px solid #e2e8f0;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      word-break: break-all;
+      margin-bottom: 15px;
+      white-space: pre-wrap;
+    }
+
+    .selected-row td {
+      background: #ecfdf3 !important;
+    }
+
+    .needs-category-table {
+      table-layout: fixed;
+      min-width: 1150px;
+    }
+
+    .needs-category-table th,
+    .needs-category-table td {
+      white-space: normal;
+      vertical-align: top;
+    }
+
+    .needs-category-table th:nth-child(1),
+    .needs-category-table td:nth-child(1) {
+      width: 145px;
+    }
+
+    .needs-category-table th:nth-child(2),
+    .needs-category-table td:nth-child(2) {
+      width: 170px;
+      word-break: break-word;
+    }
+
+    .needs-category-table th:nth-child(3),
+    .needs-category-table td:nth-child(3) {
+      width: 330px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .needs-category-table th:nth-child(4),
+    .needs-category-table td:nth-child(4) {
+      width: 170px;
+    }
+
+    .needs-category-table th:nth-child(5),
+    .needs-category-table td:nth-child(5) {
+      width: 130px;
+    }
+
+    .needs-category-table th:nth-child(6),
+    .needs-category-table td:nth-child(6),
+    .needs-category-table th:nth-child(7),
+    .needs-category-table td:nth-child(7),
+    .needs-category-table th:nth-child(8),
+    .needs-category-table td:nth-child(8) {
+      width: 115px;
+    }
+
+    .needs-category-table th:nth-child(9),
+    .needs-category-table td:nth-child(9) {
+      width: 145px;
+    }
+
+    .needs-category-select {
+      width: 150px;
+      min-width: 150px;
+      margin-bottom: 0;
+      padding: 8px;
+      font-size: 13px;
+    }
+
+
+
+    .transaction-log-table {
+      table-layout: fixed;
+      min-width: 2250px;
+    }
+
+    .transaction-log-table th,
+    .transaction-log-table td {
+      white-space: normal;
+      vertical-align: top;
+    }
+
+    .transaction-log-table th:nth-child(1),
+    .transaction-log-table td:nth-child(1) { width: 160px; }
+    .transaction-log-table th:nth-child(2),
+    .transaction-log-table td:nth-child(2) { width: 155px; }
+    .transaction-log-table th:nth-child(3),
+    .transaction-log-table td:nth-child(3) { width: 160px; }
+    .transaction-log-table th:nth-child(4),
+    .transaction-log-table td:nth-child(4) { width: 145px; }
+    .transaction-log-table th:nth-child(5),
+    .transaction-log-table td:nth-child(5) { width: 330px; word-break: break-word; line-height: 1.35; }
+    .transaction-log-table th:nth-child(6),
+    .transaction-log-table td:nth-child(6) { width: 170px; word-break: break-word; line-height: 1.35; }
+    .transaction-log-table th:nth-child(7),
+    .transaction-log-table td:nth-child(7),
+    .transaction-log-table th:nth-child(8),
+    .transaction-log-table td:nth-child(8),
+    .transaction-log-table th:nth-child(9),
+    .transaction-log-table td:nth-child(9) { width: 110px; }
+    .transaction-log-table th:nth-child(10),
+    .transaction-log-table td:nth-child(10) { width: 150px; }
+    .transaction-log-table th:nth-child(11),
+    .transaction-log-table td:nth-child(11),
+    .transaction-log-table th:nth-child(12),
+    .transaction-log-table td:nth-child(12),
+    .transaction-log-table th:nth-child(13),
+    .transaction-log-table td:nth-child(13),
+    .transaction-log-table th:nth-child(14),
+    .transaction-log-table td:nth-child(14),
+    .transaction-log-table th:nth-child(15),
+    .transaction-log-table td:nth-child(15),
+    .transaction-log-table th:nth-child(16),
+    .transaction-log-table td:nth-child(16) { width: 145px; }
+    .transaction-log-table th:nth-child(17),
+    .transaction-log-table td:nth-child(17) { width: 280px; word-break: break-word; line-height: 1.35; }
+
+
+    .dead-stock-table {
+      table-layout: fixed;
+      min-width: 1650px;
+    }
+
+    .dead-stock-table th,
+    .dead-stock-table td {
+      white-space: normal;
+      vertical-align: top;
+    }
+
+    .dead-stock-table th:nth-child(1),
+    .dead-stock-table td:nth-child(1) {
+      width: 240px;
+    }
+
+    .dead-stock-table th:nth-child(2),
+    .dead-stock-table td:nth-child(2) {
+      width: 145px;
+    }
+
+    .dead-stock-table th:nth-child(3),
+    .dead-stock-table td:nth-child(3) {
+      width: 330px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .dead-stock-table th:nth-child(4),
+    .dead-stock-table td:nth-child(4) {
+      width: 145px;
+    }
+
+    .dead-stock-table th:nth-child(5),
+    .dead-stock-table td:nth-child(5) {
+      width: 135px;
+    }
+
+    .dead-stock-table th:nth-child(6),
+    .dead-stock-table td:nth-child(6),
+    .dead-stock-table th:nth-child(7),
+    .dead-stock-table td:nth-child(7),
+    .dead-stock-table th:nth-child(8),
+    .dead-stock-table td:nth-child(8) {
+      width: 115px;
+    }
+
+    .dead-stock-table th:nth-child(9),
+    .dead-stock-table td:nth-child(9),
+    .dead-stock-table th:nth-child(10),
+    .dead-stock-table td:nth-child(10),
+    .dead-stock-table th:nth-child(11),
+    .dead-stock-table td:nth-child(11) {
+      width: 130px;
+    }
+
+    .dead-stock-table th:nth-child(12),
+    .dead-stock-table td:nth-child(12),
+    .dead-stock-table th:nth-child(13),
+    .dead-stock-table td:nth-child(13),
+    .dead-stock-table th:nth-child(14),
+    .dead-stock-table td:nth-child(14),
+    .dead-stock-table th:nth-child(15),
+    .dead-stock-table td:nth-child(15),
+    .dead-stock-table th:nth-child(16),
+    .dead-stock-table td:nth-child(16) {
+      width: 145px;
+    }
+
+    .dead-stock-action-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .dead-stock-action-label {
+      font-size: 11px;
+      font-weight: bold;
+      color: #475569;
+      margin-bottom: 3px;
+      line-height: 1.2;
+    }
+
+    .dead-stock-action-select,
+    .dead-stock-action-input,
+    .dead-stock-action-textarea {
+      width: 180px;
+      min-width: 180px;
+      margin-bottom: 0;
+      padding: 8px;
+      font-size: 13px;
+    }
+
+    .dead-stock-action-textarea {
+      min-height: 58px;
+      resize: vertical;
+    }
+
+    .dead-stock-save-btn {
+      background: #1aa3b0;
+      color: white;
+      width: 180px;
+      min-width: 180px;
+      margin-top: 2px;
+      margin-bottom: 0;
+      margin-right: 0;
+      padding: 9px 10px;
+      font-size: 12px;
+      border-radius: 7px;
+    }
+
+
+    .inventory-workflow-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(280px, 1fr));
+      gap: 18px;
+      align-items: flex-start;
+    }
+
+    .inventory-workflow-panel {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 18px;
+      background: #f8fafc;
+    }
+
+    .inventory-workflow-panel h3 {
+      border-top: none;
+      margin-top: 0;
+      padding-top: 0;
+      margin-bottom: 14px;
+      font-size: 18px;
+    }
+
+    .inventory-workflow-panel.issue-panel h3 {
+      color: #1aa3b0;
+    }
+
+    .inventory-workflow-panel.receive-panel h3 {
+      color: #0b3c5d;
+    }
+
+    .inventory-workflow-panel.transfer-panel h3 {
+      color: #64748b;
+    }
+
+    .inventory-workflow-panel.adjustment-panel {
+      grid-column: 1 / -1;
+    }
+
+    .inventory-workflow-panel.adjustment-panel h3 {
+      color: #d97706;
+    }
+
+    .inventory-workflow-note {
+      font-size: 12px;
+      color: #667085;
+      line-height: 1.4;
+      margin-top: -6px;
+      margin-bottom: 14px;
+    }
+
+    .inventory-workflow-panel .issue-btn,
+    .inventory-workflow-panel .receive-btn,
+    .inventory-workflow-panel .transfer-btn {
+      width: 100%;
+      margin-top: 8px;
+      margin-right: 0;
+    }
+
+    .cycle-panel {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .cycle-panel summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 16px 18px;
+      background: #f0f4f8;
+      color: #0b3c5d;
+      font-weight: bold;
+      font-size: 16px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .cycle-panel summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .cycle-panel summary::after {
+      content: '+';
+      float: right;
+      font-size: 20px;
+      line-height: 16px;
+    }
+
+    .cycle-panel[open] summary::after {
+      content: '−';
+    }
+
+    .cycle-panel > h3,
+    .cycle-panel > .warning-note,
+    .cycle-panel > .button-row,
+    .cycle-panel > .session-id-box,
+    .cycle-panel > .count-table-wrapper,
+    .cycle-panel > label,
+    .cycle-panel > input,
+    .cycle-panel > textarea,
+    .cycle-panel > pre,
+    .cycle-panel > .help-text,
+    .cycle-panel > button {
+      margin-left: 18px;
+      margin-right: 18px;
+    }
+
+    .cycle-panel > h3:first-of-type {
+      border-top: none;
+      margin-top: 8px;
+      padding-top: 12px;
+    }
+
+
+    .batch-preview-box {
+      margin-top: -8px;
+      margin-bottom: 15px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #d7e3ee;
+      background: #eef8fa;
+      color: #0b3c5d;
+      font-size: 13px;
+      line-height: 1.4;
+      font-weight: bold;
+    }
+
+    .fifo-warning-box {
+      margin-top: -4px;
+      margin-bottom: 15px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid #fed7aa;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .uag-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .uag-summary-card {
+      border: 1px solid #d9e2ec;
+      border-radius: 10px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+
+    .uag-summary-card .summary-label {
+      font-size: 12px;
+      color: #667085;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 6px;
+    }
+
+    .uag-summary-card .summary-value {
+      font-size: 20px;
+      color: #0b3c5d;
+      font-weight: 800;
+    }
+
+    .uag-batch-table,
+    .uag-line-table {
+      table-layout: fixed;
+      min-width: 1500px;
+    }
+
+    .uag-batch-table th,
+    .uag-batch-table td,
+    .uag-line-table th,
+    .uag-line-table td {
+      white-space: normal;
+      vertical-align: top;
+    }
+
+    .uag-batch-table th:nth-child(1),
+    .uag-batch-table td:nth-child(1) { width: 230px; }
+    .uag-batch-table th:nth-child(2),
+    .uag-batch-table td:nth-child(2) { width: 170px; }
+    .uag-batch-table th:nth-child(3),
+    .uag-batch-table td:nth-child(3) { width: 135px; }
+    .uag-batch-table th:nth-child(4),
+    .uag-batch-table td:nth-child(4),
+    .uag-batch-table th:nth-child(5),
+    .uag-batch-table td:nth-child(5),
+    .uag-batch-table th:nth-child(6),
+    .uag-batch-table td:nth-child(6),
+    .uag-batch-table th:nth-child(7),
+    .uag-batch-table td:nth-child(7),
+    .uag-batch-table th:nth-child(8),
+    .uag-batch-table td:nth-child(8),
+    .uag-batch-table th:nth-child(9),
+    .uag-batch-table td:nth-child(9),
+    .uag-batch-table th:nth-child(10),
+    .uag-batch-table td:nth-child(10) { width: 135px; }
+
+    .uag-line-table th:nth-child(1),
+    .uag-line-table td:nth-child(1) { width: 230px; }
+    .uag-line-table th:nth-child(2),
+    .uag-line-table td:nth-child(2) { width: 140px; }
+    .uag-line-table th:nth-child(3),
+    .uag-line-table td:nth-child(3) { width: 330px; word-break: break-word; line-height: 1.35; }
+    .uag-line-table th:nth-child(4),
+    .uag-line-table td:nth-child(4) { width: 130px; }
+    .uag-line-table th:nth-child(5),
+    .uag-line-table td:nth-child(5),
+    .uag-line-table th:nth-child(6),
+    .uag-line-table td:nth-child(6),
+    .uag-line-table th:nth-child(7),
+    .uag-line-table td:nth-child(7),
+    .uag-line-table th:nth-child(8),
+    .uag-line-table td:nth-child(8),
+    .uag-line-table th:nth-child(9),
+    .uag-line-table td:nth-child(9),
+    .uag-line-table th:nth-child(10),
+    .uag-line-table td:nth-child(10),
+    .uag-line-table th:nth-child(11),
+    .uag-line-table td:nth-child(11),
+    .uag-line-table th:nth-child(12),
+    .uag-line-table td:nth-child(12) { width: 125px; }
+
+
+
+    .hidden {
+      display: none !important;
+    }
+
+    .access-layout {
+      max-width: 680px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .access-card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .access-actions .nav-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      color: white;
+      background: #0b3c5d;
+    }
+
+    .access-actions .logout-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      background: #b91c1c;
+      color: white;
+    }
+
+
+    @media (max-width: 1250px) {
+      .main-layout {
+        grid-template-columns: repeat(2, minmax(340px, 1fr));
+      }
+
+      .inventory-workflow-grid {
+        grid-template-columns: repeat(2, minmax(300px, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+
+
+
+      .header-bar {
+        padding: 16px 18px;
+        font-size: 18px;
+        text-align: center;
+        justify-content: center;
+      }
+
+      .header-title {
+        width: 100%;
+        text-align: center;
+      }
+
+      .nav-link {
+        width: 100%;
+        text-align: center;
+      }
+
+      .main-layout {
+        grid-template-columns: 1fr;
+        margin: 18px auto;
+        padding: 0 12px;
+        gap: 16px;
+      }
+
+      .wide-card {
+        grid-column: auto;
+      }
+
+      .card {
+        padding: 20px;
+        border-radius: 12px;
+      }
+
+      h2 {
+        font-size: 20px;
+      }
+
+      h3 {
+        font-size: 17px;
+      }
+
+      input,
+      select,
+      textarea {
+        font-size: 16px;
+        padding: 13px;
+      }
+
+      button {
+        width: 100%;
+        margin-right: 0;
+        padding: 14px;
+        font-size: 15px;
+      }
+
+      .refresh-btn {
+        width: auto;
+        padding: 7px 12px;
+        font-size: 12px;
+        margin-bottom: 16px;
+      }
+
+      .button-row {
+        flex-direction: column;
+        gap: 0;
+      }
+
+
+
+      .warehouse-section-tabbar {
+        grid-template-columns: 1fr;
+      }
+
+      .warehouse-section-tab {
+        border-right: 0;
+        border-bottom: 1px solid #d9e2ec;
+        white-space: normal;
+      }
+
+      .warehouse-section-tab.active {
+        border-bottom: 3px solid #1aa3b0;
+      }
+
+
+      .inventory-workflow-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .inventory-workflow-panel {
+        padding: 16px;
+      }
+
+      pre {
+        font-size: 12px;
+        max-height: 420px;
+      }
+
+      th,
+      td {
+        font-size: 12px;
+        padding: 8px;
+      }
+    }
+
+    /* Standard Molinari Operations Sidebar */
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --sidebar-width: 230px;
+      --sidebar-collapsed-width: 66px;
+    }
+
+    html,
+    body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      min-height: 100vh;
+      transition: grid-template-columns 0.2s ease;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: hidden;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      transition: width 0.2s ease;
+      z-index: 1000;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 70px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+      flex: 0 0 auto;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+      white-space: nowrap;
+      transition: opacity 0.15s ease, width 0.15s ease;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .sidebar-toggle-wrap {
+      padding: 12px 12px 4px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(26,163,176,0.34);
+      border-color: rgba(255,255,255,0.42);
+      opacity: 1;
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      width: 17px;
+      height: 2px;
+      border-radius: 999px;
+      background: white;
+    }
+
+    .side-nav {
+      padding: 8px 10px 14px;
+    }
+
+    .side-nav a,
+    .side-nav button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 4px;
+      white-space: nowrap;
+      min-height: 44px;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font-family: Arial, sans-serif;
+      text-align: left;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover,
+    .side-nav button:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+      opacity: 1;
+    }
+
+    .nav-section {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.72);
+      font-weight: 800;
+      padding: 14px 12px 4px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .nav-icon {
+      width: 20px;
+      min-width: 20px;
+      text-align: center;
+      opacity: 0.95;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .nav-label {
+      transition: opacity 0.15s ease, width 0.15s ease;
+      overflow: hidden;
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      padding: 10px;
+      margin-top: auto;
+    }
+
+    .app-shell.sidebar-collapsed .brand {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .app-shell.sidebar-collapsed .brand-text,
+    .app-shell.sidebar-collapsed .nav-label,
+    .app-shell.sidebar-collapsed .nav-section {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav,
+    .app-shell.sidebar-collapsed .sidebar-footer {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav a,
+    .app-shell.sidebar-collapsed .side-nav button {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+      gap: 0;
+    }
+
+    .inventory-page-shell {
+      margin-left: 0 !important;
+      min-width: 0;
+      max-width: 100%;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    @media (max-width: 820px) {
+      .app-shell,
+      .app-shell.sidebar-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .brand {
+        min-height: auto;
+      }
+
+      .sidebar-toggle-wrap {
+        display: none;
+      }
+
+      .app-shell.sidebar-collapsed .brand {
+        justify-content: flex-start;
+        padding: 18px 18px 16px;
+      }
+
+      .app-shell.sidebar-collapsed .brand-text {
+        opacity: 1;
+        width: auto;
+      }
+
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        padding: 14px 10px;
+      }
+
+      .app-shell.sidebar-collapsed .side-nav a,
+      .app-shell.sidebar-collapsed .side-nav button,
+      .side-nav a,
+      .side-nav button {
+        justify-content: flex-start;
+        padding: 12px 12px;
+        gap: 10px;
+      }
+
+      .app-shell.sidebar-collapsed .nav-label {
+        opacity: 1;
+        width: auto;
+      }
+
+      .inventory-page-shell {
+        margin-left: 0 !important;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
+        grid-template-columns: 1fr;
+      }
+    }
+
+  </style>
+</head>
+
+<body>
+
+<div class="app-shell" id="appShell">
+
+<aside class="sidebar" aria-label="Inventory navigation">
+  <div class="brand">
+    <div class="brand-mark">MP</div>
+    <div class="brand-text">
+      <strong>MOLINARI</strong>
+      <span>INVENTORY</span>
+    </div>
+  </div>
+
+  <div class="sidebar-toggle-wrap">
+    <button class="sidebar-toggle" id="inventorySidebarToggle" type="button" title="Collapse" aria-label="Collapse sidebar" aria-expanded="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+  </div>
+
+  <nav class="side-nav" aria-label="Inventory navigation">
+    <div class="nav-section">Warehouse</div>
+
+    <a href="warehouse.html" title="Warehouse Operations">
+      <span class="nav-icon">▣</span>
+      <span class="nav-label">Warehouse Operations</span>
+    </a>
+
+    <a class="active" href="warehouse-reports.html" title="Warehouse Reports">
+      <span class="nav-icon">▤</span>
+      <span class="nav-label">Warehouse Reports</span>
+    </a>
+
+    <a href="warehouse-management.html" title="Warehouse Management">
+      <span class="nav-icon">⚙</span>
+      <span class="nav-label">Warehouse Management</span>
+    </a>
+
+    <div class="nav-section">Inventory Pages</div>
+
+    <a href="service.html" title="Service Parts Lookup">
+      <span class="nav-icon">⌕</span>
+      <span class="nav-label">Service Parts Lookup</span>
+    </a>
+
+    <a href="accounting.html" title="Accounting">
+      <span class="nav-icon">$</span>
+      <span class="nav-label">Accounting</span>
+    </a>
+
+    <a href="admin.html" title="Inventory Administration">
+      <span class="nav-icon">⚙</span>
+      <span class="nav-label">Inventory Administration</span>
+    </a>
+
+    <a href="users.html" title="User Access">
+      <span class="nav-icon">◇</span>
+      <span class="nav-label">User Access</span>
+    </a>
+
+    <a href="inspection-requests-office.html" title="Inspection Requests">
+      <span class="nav-icon">✓</span>
+      <span class="nav-label">Inspection Requests</span>
+    </a>
+
+    <div class="nav-section">Other Systems</div>
+
+    <a href="projects-command.html" title="Projects Command Center">
+      <span class="nav-icon">◆</span>
+      <span class="nav-label">Projects Command Center</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <nav class="side-nav" aria-label="Inventory utility navigation">
+      <a href="index.html" title="Main Menu">
+        <span class="nav-icon">↩</span>
+        <span class="nav-label">Main Menu</span>
+      </a>
+
+      <button type="button" onclick="warehouseLogout()" title="Logout">
+        <span class="nav-icon">⇥</span>
+        <span class="nav-label">Logout</span>
+      </button>
+    </nav>
+  </div>
+</aside>
+
+<div class="inventory-page-shell">
+
+<div class="header-bar">
+  <div class="header-title">Molinari Pools – Warehouse Reports</div>
+</div>
+
+<div id="warehouseAccessGate" class="access-layout">
+  <div class="access-card">
+    <h2>Warehouse Reports Access Required</h2>
+
+    <div id="warehouseAccessMessage" class="warning-note">
+      Checking warehouse reports access...
+    </div>
+
+    <div class="access-actions">
+      <a class="nav-action-btn" href="login.html">GO TO LOGIN</a>
+      <a class="nav-action-btn" href="index.html">BACK TO MAIN MENU</a>
+      <button class="logout-action-btn" onclick="warehouseLogout()">LOGOUT</button>
+    </div>
+  </div>
+</div>
+
+<div id="warehouseContent" class="main-layout hidden">
+<div id="warehouseReportsTab" class="warehouse-tab-pane active">
+    <div class="card wide-card">
+
+    <h2>Warehouse Reports</h2>
+    <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+    <datalist id="partsList"></datalist>
+
+    <details class="cycle-panel" open>
+      <summary>Reorder Dashboard</summary>
+      <pre id="reorder"></pre>
+    </details>
+
+    <details class="cycle-panel">
+      <summary>UAG Bulk Batch Usage / Valuation</summary>
+
+      <h3>UAG Bulk Inventory Valuation</h3>
+
+      <div class="status-note">
+        This report tracks UAG orders received as Bulk / Batch Orders. Regular UAG purchases are not included in this report.
+      </div>
+
+      <div class="inventory-workflow-grid">
+        <div class="inventory-workflow-panel">
+          <h3>Filters</h3>
+
+          <label>Batch Code:</label>
+          <select id="uagBatchFilter">
+            <option value="ALL">All UAG Bulk Batches</option>
+          </select>
+
+          <label>Show Lines:</label>
+          <select id="uagLineFilter">
+            <option value="ALL">All Lines</option>
+            <option value="OPEN">Remaining Inventory Only</option>
+            <option value="NO_MOVEMENT">No Issue Activity</option>
+            <option value="FULLY_ISSUED">Fully Issued</option>
+          </select>
+        </div>
+
+        <div class="inventory-workflow-panel">
+          <h3>Actions</h3>
+          <div class="button-row">
+            <button class="report-btn" onclick="loadUagBulkBatchReport()">RUN UAG BATCH REPORT</button>
+            <button class="export-btn" onclick="exportUagBulkBatchCSV()">EXPORT UAG BATCH CSV</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="uagBatchSummaryCards" class="uag-summary-grid">
+        <div class="uag-summary-card">
+          <div class="summary-label">Original Value</div>
+          <div class="summary-value">$0.00</div>
+        </div>
+        <div class="uag-summary-card">
+          <div class="summary-label">Issued Value</div>
+          <div class="summary-value">$0.00</div>
+        </div>
+        <div class="uag-summary-card">
+          <div class="summary-label">Remaining Value</div>
+          <div class="summary-value">$0.00</div>
+        </div>
+        <div class="uag-summary-card">
+          <div class="summary-label">Usage %</div>
+          <div class="summary-value">0%</div>
+        </div>
+      </div>
+
+      <div id="uagBatchSummary" class="session-id-box">
+        Click RUN UAG BATCH REPORT to load UAG bulk valuation.
+      </div>
+
+      <h3>Batch Summary</h3>
+      <div class="count-table-wrapper">
+        <table class="uag-batch-table">
+          <thead>
+            <tr>
+              <th>Batch Code</th>
+              <th>UAG Order #</th>
+              <th>Received Date</th>
+              <th>Unique Parts</th>
+              <th>Qty Started</th>
+              <th>Qty Issued</th>
+              <th>Qty Remaining</th>
+              <th>Original Value</th>
+              <th>Issued Value</th>
+              <th>Remaining Value</th>
+              <th>Usage %</th>
+            </tr>
+          </thead>
+          <tbody id="uagBatchSummaryTableBody">
+            <tr><td colspan="11">No UAG batch report loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Line Usage Detail</h3>
+      <div class="count-table-wrapper">
+        <table class="uag-line-table">
+          <thead>
+            <tr>
+              <th>Batch Code</th>
+              <th>Part Number</th>
+              <th>Description</th>
+              <th>Serialized</th>
+              <th>Started With</th>
+              <th>Issued</th>
+              <th>Remaining</th>
+              <th>Unit Cost</th>
+              <th>Original Value</th>
+              <th>Issued Value</th>
+              <th>Remaining Value</th>
+              <th>Usage %</th>
+              <th>Last Issued</th>
+              <th>No Activity</th>
+            </tr>
+          </thead>
+          <tbody id="uagBatchLineTableBody">
+            <tr><td colspan="14">No UAG batch report loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <h3>Warehouse Transaction Log</h3>
+
+    <div class="warning-note">
+      Read-only transaction history for Warehouse review. This section does not allow editing, deleting, or reversing transactions.
+    </div>
+
+    <div class="inventory-workflow-grid">
+      <div class="inventory-workflow-panel">
+        <h3>Filters</h3>
+
+        <label>Start Date:</label>
+        <input id="transactionStartDate" type="date">
+
+        <label>End Date:</label>
+        <input id="transactionEndDate" type="date">
+
+        <label>Part Number:</label>
+        <input id="transactionPartNumber" list="partsList" placeholder="Optional part number filter" autocomplete="off">
+      </div>
+
+      <div class="inventory-workflow-panel">
+        <h3>Transaction Type</h3>
+
+        <label>Type:</label>
+        <select id="transactionTypeFilter">
+          <option value="ALL">All Transaction Types</option>
+          <option value="RECEIVE">Received Inventory</option>
+          <option value="ISSUED">Issued Inventory</option>
+          <option value="ALL_TRANSFERS">Inventory Transfers</option>
+          <option value="ADJUSTMENT">Manual Adjustment</option>
+          <option value="CYCLE_COUNT_ADJUSTMENT">Cycle Count Adjustment</option>
+          <option value="ALL_ADJUSTMENTS">All Adjustments</option>
+          <option value="TRANSACTION_REVERSALS">Transaction Reversals</option>
+          <option value="OTHER_ACTIVITY">Other Activity</option>
+        </select>
+
+        <div class="button-row">
+          <button class="report-btn" onclick="loadTransactionLogReport()">RUN TRANSACTION REPORT</button>
+          <button class="export-btn" onclick="exportTransactionLogCSV()">EXPORT TRANSACTION CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="transactionLogSummary" class="session-id-box">
+      Select filters and click RUN TRANSACTION REPORT.
+    </div>
+
+    <div class="count-table-wrapper">
+      <table class="transaction-log-table">
+        <thead>
+          <tr>
+            <th>Date / Time</th>
+            <th>Transaction Type</th>
+            <th>Transaction Label</th>
+            <th>Class Code</th>
+            <th>Part Number</th>
+            <th>Description</th>
+            <th>Serial Number</th>
+            <th>Quantity</th>
+            <th>Unit Cost</th>
+            <th>Total Value</th>
+            <th>Location</th>
+            <th>Vendor</th>
+            <th>PO #</th>
+            <th>Issued To</th>
+            <th>Work Order</th>
+            <th>Client</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="transactionLogTableBody">
+          <tr>
+            <td colspan="17">No transaction report loaded.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+
+    </div>
+  </div>
+
+  
+</div>
+
+</div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const INVENTORY_SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
+
+let partsData = [];
+let transactionLogData = [];
+let uagBulkSummaryData = [];
+let uagBulkLineData = [];
+let currentWarehouseProfile = null;
+let currentWarehouseSession = null;
+
+const TRANSACTION_REVERSAL_TYPES = [
+  'RECEIVE_REVERSAL',
+  'ISSUE_REVERSAL',
+  'ISSUED_REVERSAL',
+  'ADJUSTMENT_REVERSAL',
+  'CYCLE_COUNT_ADJUSTMENT_REVERSAL'
+];
+
+const TRANSFER_TRANSACTION_TYPES = [
+  'TRANSFER_OUT',
+  'TRANSFER_IN'
+];
+
+const KNOWN_TRANSACTION_TYPES = [
+  'RECEIVE',
+  'ISSUED',
+  'ADJUSTMENT',
+  'CYCLE_COUNT_ADJUSTMENT',
+  ...TRANSFER_TRANSACTION_TYPES,
+  ...TRANSACTION_REVERSAL_TYPES
+];
+
+function initializeInventorySidebar() {
+  const appShell = document.getElementById('appShell');
+  const toggleButton = document.getElementById('inventorySidebarToggle');
+
+  if (!appShell || !toggleButton) {
+    return;
+  }
+
+  function applySidebarState(collapsed) {
+    appShell.classList.toggle('sidebar-collapsed', collapsed);
+    toggleButton.title = collapsed ? 'Expand' : 'Collapse';
+    toggleButton.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    toggleButton.setAttribute('aria-expanded', String(!collapsed));
+  }
+
+  function getSavedState() {
+    try {
+      return localStorage.getItem(INVENTORY_SIDEBAR_STORAGE_KEY) === 'true';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function saveState(collapsed) {
+    try {
+      localStorage.setItem(INVENTORY_SIDEBAR_STORAGE_KEY, String(collapsed));
+    } catch (error) {
+      // Ignore localStorage errors so navigation remains usable.
+    }
+  }
+
+  applySidebarState(getSavedState());
+
+  toggleButton.addEventListener('click', () => {
+    const collapsed = !appShell.classList.contains('sidebar-collapsed');
+    applySidebarState(collapsed);
+    saveState(collapsed);
+  });
+}
+
+initializeInventorySidebar();
+
+window.addEventListener('load', async () => {
+  const hasAccess = await enforceWarehouseAccess();
+
+  if (!hasAccess) {
+    return;
+  }
+
+  await loadParts();
+  await loadReorder();
+});
+
+function showWarehouseAccessGate(message, type = 'warning') {
+  const gate = document.getElementById('warehouseAccessGate');
+  const content = document.getElementById('warehouseContent');
+  const messageBox = document.getElementById('warehouseAccessMessage');
+
+  if (gate) {
+    gate.classList.remove('hidden');
+  }
+
+  if (content) {
+    content.classList.add('hidden');
+  }
+
+  if (messageBox) {
+    messageBox.className =
+      type === 'success' ? 'status-note' :
+      type === 'danger' ? 'danger-note' :
+      'warning-note';
+
+    messageBox.textContent = message;
+  }
+}
+
+function showWarehouseContent(profile, email) {
+  const gate = document.getElementById('warehouseAccessGate');
+  const content = document.getElementById('warehouseContent');
+
+  if (gate) {
+    gate.classList.add('hidden');
+  }
+
+  if (content) {
+    content.classList.remove('hidden');
+  }
+
+  console.log('Warehouse reports access granted:', {
+    full_name: profile?.full_name || '',
+    email: email || '',
+    role: profile?.role || ''
+  });
+}
+
+async function enforceWarehouseAccess() {
+  showWarehouseAccessGate('Checking warehouse reports access...', 'warning');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showWarehouseAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session || !session.user) {
+    showWarehouseAccessGate(
+      'You must be logged in as an ADMIN or WAREHOUSE user to access this page.',
+      'danger'
+    );
+    return false;
+  }
+
+  currentWarehouseSession = session;
+
+  const { data: profileData, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showWarehouseAccessGate(
+      'Login found, but user profile could not be loaded: ' + profileError.message,
+      'danger'
+    );
+    return false;
+  }
+
+  if (!profileData || profileData.active !== true) {
+    showWarehouseAccessGate(
+      'This user profile is inactive or unavailable. Contact an admin.',
+      'danger'
+    );
+    return false;
+  }
+
+  const allowedRoles = ['SYSTEM_ADMIN', 'ADMIN', 'WAREHOUSE'];
+
+  if (!allowedRoles.includes(profileData.role)) {
+    showWarehouseAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page requires SYSTEM_ADMIN, ADMIN, or WAREHOUSE access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentWarehouseProfile = profileData;
+  showWarehouseContent(profileData, session.user.email);
+  return true;
+}
+
+async function warehouseLogout() {
+  await client.auth.signOut();
+  currentWarehouseProfile = null;
+  currentWarehouseSession = null;
+  window.location.href = 'login.html';
+}
+
+async function loadParts() {
+  let allParts = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    const { data, error } = await client
+      .rpc('get_parts_dropdown')
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      console.error('Parts dropdown load error:', error);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allParts = allParts.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  partsData = allParts;
+
+  const datalist = document.getElementById('partsList');
+  if (datalist) {
+    datalist.innerHTML = '';
+
+    partsData.forEach(part => {
+      const option = document.createElement('option');
+      option.value = part.part_number;
+      datalist.appendChild(option);
+    });
+  }
+
+  console.log('Parts loaded into report dropdown:', partsData.length);
+}
+
+async function fetchTransactionLogRows() {
+  const startDate = document.getElementById('transactionStartDate').value;
+  const endDate = document.getElementById('transactionEndDate').value;
+  const partNumber = document.getElementById('transactionPartNumber').value.trim();
+  const transactionType = document.getElementById('transactionTypeFilter').value;
+
+  let allRows = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    let query = client
+      .from('inventory_transaction_log_view')
+      .select('*');
+
+    if (startDate) {
+      query = query.gte('created_at', `${startDate}T00:00:00`);
+    }
+
+    if (endDate) {
+      query = query.lte('created_at', `${endDate}T23:59:59`);
+    }
+
+    if (partNumber) {
+      query = query.ilike('part_number', `%${partNumber}%`);
+    }
+
+    if (transactionType === 'ALL_ADJUSTMENTS') {
+      query = query.in('transaction_type', ['ADJUSTMENT', 'CYCLE_COUNT_ADJUSTMENT']);
+    } else if (transactionType === 'ALL_TRANSFERS') {
+      query = query.in('transaction_type', TRANSFER_TRANSACTION_TYPES);
+    } else if (transactionType === 'TRANSACTION_REVERSALS') {
+      query = query.in('transaction_type', TRANSACTION_REVERSAL_TYPES);
+    } else if (transactionType && transactionType !== 'ALL' && transactionType !== 'OTHER_ACTIVITY') {
+      query = query.eq('transaction_type', transactionType);
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allRows = allRows.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  if (transactionType === 'OTHER_ACTIVITY') {
+    allRows = allRows.filter(row => {
+      const rowType = String(row.transaction_type || '').toUpperCase();
+      return !KNOWN_TRANSACTION_TYPES.includes(rowType);
+    });
+  }
+
+  return allRows.map(row => ({
+    ...row,
+    transaction_label: getTransactionDisplayType(row)
+  }));
+}
+
+async function loadTransactionLogReport() {
+  const summary = document.getElementById('transactionLogSummary');
+  const tableBody = document.getElementById('transactionLogTableBody');
+
+  summary.textContent = 'Loading transaction log...';
+  tableBody.innerHTML = '<tr><td colspan="17">Loading transaction log...</td></tr>';
+
+  try {
+    transactionLogData = await fetchTransactionLogRows();
+  } catch (error) {
+    transactionLogData = [];
+    summary.textContent = error.message;
+    tableBody.innerHTML = `<tr><td colspan="17">${escapeHTML(error.message)}</td></tr>`;
+    return;
+  }
+
+  renderTransactionLogTable();
+  updateTransactionLogSummary();
+}
+
+function renderTransactionLogTable() {
+  const tableBody = document.getElementById('transactionLogTableBody');
+  tableBody.innerHTML = '';
+
+  if (!transactionLogData || transactionLogData.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="17">No transactions found for the selected filters.</td></tr>';
+    return;
+  }
+
+  transactionLogData.forEach(row => {
+    const tr = document.createElement('tr');
+    const transactionDate = getFirstValue(row, ['created_at', 'transaction_date', 'transaction_at']);
+    const unitCost = getFirstValue(row, ['unit_cost', 'transaction_unit_cost']);
+    const quantity = Number(getFirstValue(row, ['quantity', 'transaction_quantity']) || 0);
+    const totalValue = getTransactionTotalValue(row, quantity, unitCost);
+
+    tr.innerHTML = `
+      <td>${formatDateTime(transactionDate)}</td>
+      <td>${escapeHTML(row.transaction_type || '')}</td>
+      <td>${escapeHTML(row.transaction_label || getTransactionDisplayType(row))}</td>
+      <td>${escapeHTML(row.job_type || '')}</td>
+      <td>${escapeHTML(row.part_number || '')}</td>
+      <td>${escapeHTML(row.description || row.part_description || '')}</td>
+      <td>${escapeHTML(row.serial_number || '')}</td>
+      <td>${formatNumber(quantity)}</td>
+      <td>${formatCurrency(unitCost)}</td>
+      <td>${formatCurrency(totalValue)}</td>
+      <td>${escapeHTML(row.location_name || '')}</td>
+      <td>${escapeHTML(row.vendor_name || '')}</td>
+      <td>${escapeHTML(row.po_number || '')}</td>
+      <td>${escapeHTML(row.issued_to || '')}</td>
+      <td>${escapeHTML(row.work_order || row.job_name || '')}</td>
+      <td>${escapeHTML(row.client_name || '')}</td>
+      <td>${escapeHTML(row.notes || '')}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function updateTransactionLogSummary() {
+  const summary = document.getElementById('transactionLogSummary');
+
+  if (!transactionLogData || transactionLogData.length === 0) {
+    summary.textContent = 'No transactions found for the selected filters.';
+    return;
+  }
+
+  const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
+
+  let receiveCount = 0;
+  let issueCount = 0;
+  let adjustmentCount = 0;
+  let transferCount = 0;
+  let reversalCount = 0;
+  let totalQuantity = 0;
+  let totalValue = 0;
+
+  transactionLogData.forEach(row => {
+    const type = String(row.transaction_type || '').toUpperCase();
+    const quantity = Number(getFirstValue(row, ['quantity', 'transaction_quantity']) || 0);
+    const unitCost = getFirstValue(row, ['unit_cost', 'transaction_unit_cost']);
+
+    totalQuantity += quantity;
+    totalValue += Number(getTransactionTotalValue(row, quantity, unitCost) || 0);
+
+    if (type === 'RECEIVE') {
+      receiveCount++;
+    } else if (type === 'ISSUED') {
+      issueCount++;
+    } else if (type === 'ADJUSTMENT' || type === 'CYCLE_COUNT_ADJUSTMENT') {
+      adjustmentCount++;
+    } else if (TRANSFER_TRANSACTION_TYPES.includes(type)) {
+      transferCount++;
+    } else if (TRANSACTION_REVERSAL_TYPES.includes(type)) {
+      reversalCount++;
+    }
+  });
+
+  summary.textContent =
+    `Report Type: ${getTransactionTypeLabel(selectedTransactionType)}\n` +
+    `Transactions Returned: ${formatNumber(transactionLogData.length)}\n` +
+    `Receive Count: ${formatNumber(receiveCount)}\n` +
+    `Issue Count: ${formatNumber(issueCount)}\n` +
+    `Transfer Count: ${formatNumber(transferCount)}\n` +
+    `Adjustment Count: ${formatNumber(adjustmentCount)}\n` +
+    `Reversal Count: ${formatNumber(reversalCount)}\n` +
+    `Net Quantity: ${formatNumber(totalQuantity)}\n` +
+    `Net Transaction Value: ${formatCurrency(totalValue)}`;
+}
+
+async function exportTransactionLogCSV() {
+  if (!transactionLogData || transactionLogData.length === 0) {
+    try {
+      transactionLogData = await fetchTransactionLogRows();
+    } catch (error) {
+      document.getElementById('transactionLogSummary').textContent = error.message;
+      return;
+    }
+  }
+
+  if (!transactionLogData || transactionLogData.length === 0) {
+    document.getElementById('transactionLogSummary').textContent = 'No transactions available to export for the selected filters.';
+    return;
+  }
+
+  const startDate = document.getElementById('transactionStartDate').value || 'all_dates';
+  const endDate = document.getElementById('transactionEndDate').value || 'all_dates';
+  const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
+
+  let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,CLASS CODE,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PO NUMBER,CLIENT NAME,WORK ORDER,ISSUED TO,NOTES,ID\n';
+
+  transactionLogData.forEach(row => {
+    const transactionDate = getFirstValue(row, ['created_at', 'transaction_date', 'transaction_at']);
+    const unitCost = getFirstValue(row, ['unit_cost', 'transaction_unit_cost']);
+    const quantity = Number(getFirstValue(row, ['quantity', 'transaction_quantity']) || 0);
+    const totalValue = getTransactionTotalValue(row, quantity, unitCost);
+
+    csv +=
+      `"${cleanCSV(formatDateTime(transactionDate))}",` +
+      `"${cleanCSV(row.transaction_type)}",` +
+      `"${cleanCSV(row.transaction_label || getTransactionDisplayType(row))}",` +
+      `"${cleanCSV(row.job_type)}",` +
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description || row.part_description)}",` +
+      `"${cleanCSV(row.serial_number)}",` +
+      `"${cleanCSV(quantity)}",` +
+      `"${cleanCSV(unitCost)}",` +
+      `"${cleanCSV(totalValue)}",` +
+      `"${cleanCSV(row.location_name)}",` +
+      `"${cleanCSV(row.vendor_name)}",` +
+      `"${cleanCSV(row.po_number)}",` +
+      `"${cleanCSV(row.client_name)}",` +
+      `"${cleanCSV(row.work_order || row.job_name)}",` +
+      `"${cleanCSV(row.issued_to)}",` +
+      `"${cleanCSV(row.notes)}",` +
+      `"${cleanCSV(row.id)}"\n`;
+  });
+
+  const filenamePrefix = getReportFilenamePrefix(selectedTransactionType);
+  downloadCSV(csv, `${filenamePrefix}_${cleanFilename(startDate)}_to_${cleanFilename(endDate)}.csv`);
+}
+
+function getFirstValue(row, keys) {
+  for (const key of keys) {
+    if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+      return row[key];
+    }
+  }
+
+  return null;
+}
+
+function getTransactionTotalValue(row, quantity, unitCost) {
+  const existingValue = getFirstValue(row, ['total_value', 'transaction_value', 'inventory_value']);
+
+  if (existingValue !== null) {
+    return Number(existingValue || 0);
+  }
+
+  return Number(quantity || 0) * Number(unitCost || 0);
+}
+
+function getTransactionTypeLabel(transactionType) {
+  const normalizedType = String(transactionType || '').toUpperCase();
+
+  if (normalizedType === 'RECEIVE') {
+    return 'Received Inventory';
+  }
+
+  if (normalizedType === 'ISSUED') {
+    return 'Issued Inventory';
+  }
+
+  if (normalizedType === 'TRANSFER_OUT') {
+    return 'Inventory Transfer Out';
+  }
+
+  if (normalizedType === 'TRANSFER_IN') {
+    return 'Inventory Transfer In';
+  }
+
+  if (normalizedType === 'ALL_TRANSFERS') {
+    return 'Inventory Transfers';
+  }
+
+  if (normalizedType === 'ADJUSTMENT') {
+    return 'Manual Adjustment';
+  }
+
+  if (normalizedType === 'CYCLE_COUNT_ADJUSTMENT') {
+    return 'Cycle Count Adjustment';
+  }
+
+  if (normalizedType === 'ALL_ADJUSTMENTS') {
+    return 'All Adjustments';
+  }
+
+  if (normalizedType === 'TRANSACTION_REVERSALS') {
+    return 'Transaction Reversals';
+  }
+
+  if (normalizedType === 'OTHER_ACTIVITY') {
+    return 'Other Activity';
+  }
+
+  if (TRANSACTION_REVERSAL_TYPES.includes(normalizedType)) {
+    return 'Transaction Reversal';
+  }
+
+  if (normalizedType === 'ALL' || normalizedType === 'ALL_TRANSACTIONS') {
+    return 'All Transaction Types';
+  }
+
+  return transactionType || 'Unknown Transaction Type';
+}
+
+function getTransactionDisplayType(row) {
+  const rawType = row.transaction_type || row.type || '';
+  return getTransactionTypeLabel(rawType);
+}
+
+function getReportFilenamePrefix(reportType) {
+  if (reportType === 'ALL') {
+    return 'warehouse_transaction_report_all';
+  }
+
+  if (reportType === 'RECEIVE') {
+    return 'warehouse_transaction_report_received_inventory';
+  }
+
+  if (reportType === 'ISSUED') {
+    return 'warehouse_transaction_report_issued_inventory';
+  }
+
+  if (reportType === 'ALL_TRANSFERS') {
+    return 'warehouse_transaction_report_inventory_transfers';
+  }
+
+  if (reportType === 'ADJUSTMENT') {
+    return 'warehouse_transaction_report_manual_adjustments';
+  }
+
+  if (reportType === 'CYCLE_COUNT_ADJUSTMENT') {
+    return 'warehouse_transaction_report_cycle_count_adjustments';
+  }
+
+  if (reportType === 'ALL_ADJUSTMENTS') {
+    return 'warehouse_transaction_report_all_adjustments';
+  }
+
+  if (reportType === 'TRANSACTION_REVERSALS') {
+    return 'warehouse_transaction_report_transaction_reversals';
+  }
+
+  if (reportType === 'OTHER_ACTIVITY') {
+    return 'warehouse_transaction_report_other_activity';
+  }
+
+  return 'warehouse_transaction_report';
+}
+
+
+
+async function fetchUagBulkBatchData() {
+  const selectedBatch = document.getElementById('uagBatchFilter')?.value || 'ALL';
+  const selectedLineFilter = document.getElementById('uagLineFilter')?.value || 'ALL';
+
+  let summaryQuery = client
+    .from('uag_bulk_inventory_valuation_view')
+    .select('*')
+    .order('received_date', { ascending: false })
+    .order('batch_code', { ascending: true });
+
+  let lineQuery = client
+    .from('purchase_batch_line_usage_view')
+    .select('*')
+    .eq('vendor_name', 'UAG')
+    .eq('purchase_order_type', 'BULK_BATCH')
+    .order('batch_code', { ascending: true })
+    .order('part_number', { ascending: true });
+
+  if (selectedBatch !== 'ALL') {
+    summaryQuery = summaryQuery.eq('batch_code', selectedBatch);
+    lineQuery = lineQuery.eq('batch_code', selectedBatch);
+  }
+
+  if (selectedLineFilter === 'OPEN') {
+    lineQuery = lineQuery.gt('quantity_remaining', 0);
+  } else if (selectedLineFilter === 'NO_MOVEMENT') {
+    lineQuery = lineQuery.eq('has_no_issue_activity', true);
+  } else if (selectedLineFilter === 'FULLY_ISSUED') {
+    lineQuery = lineQuery.eq('quantity_remaining', 0);
+  }
+
+  const [{ data: summaryData, error: summaryError }, { data: lineData, error: lineError }] = await Promise.all([
+    summaryQuery,
+    lineQuery
+  ]);
+
+  if (summaryError) {
+    throw summaryError;
+  }
+
+  if (lineError) {
+    throw lineError;
+  }
+
+  uagBulkSummaryData = summaryData || [];
+  uagBulkLineData = lineData || [];
+}
+
+function populateUagBatchFilter() {
+  const select = document.getElementById('uagBatchFilter');
+
+  if (!select) {
+    return;
+  }
+
+  const currentValue = select.value || 'ALL';
+  const existingBatchCodes = new Set(
+    uagBulkSummaryData
+      .map(row => row.batch_code)
+      .filter(Boolean)
+  );
+
+  select.innerHTML = '<option value="ALL">All UAG Bulk Batches</option>';
+
+  existingBatchCodes.forEach(batchCode => {
+    const option = document.createElement('option');
+    option.value = batchCode;
+    option.textContent = batchCode;
+    select.appendChild(option);
+  });
+
+  if ([...existingBatchCodes].includes(currentValue)) {
+    select.value = currentValue;
+  } else {
+    select.value = 'ALL';
+  }
+}
+
+async function loadUagBulkBatchReport() {
+  const summary = document.getElementById('uagBatchSummary');
+  const summaryBody = document.getElementById('uagBatchSummaryTableBody');
+  const lineBody = document.getElementById('uagBatchLineTableBody');
+
+  if (summary) {
+    summary.textContent = 'Loading UAG bulk batch report...';
+  }
+
+  if (summaryBody) {
+    summaryBody.innerHTML = '<tr><td colspan="11">Loading UAG batch summary...</td></tr>';
+  }
+
+  if (lineBody) {
+    lineBody.innerHTML = '<tr><td colspan="14">Loading UAG batch lines...</td></tr>';
+  }
+
+  try {
+    await fetchUagBulkBatchData();
+  } catch (error) {
+    uagBulkSummaryData = [];
+    uagBulkLineData = [];
+
+    if (summary) {
+      summary.textContent = error.message;
+    }
+
+    if (summaryBody) {
+      summaryBody.innerHTML = `<tr><td colspan="11">${escapeHTML(error.message)}</td></tr>`;
+    }
+
+    if (lineBody) {
+      lineBody.innerHTML = `<tr><td colspan="14">${escapeHTML(error.message)}</td></tr>`;
+    }
+
+    return;
+  }
+
+  populateUagBatchFilter();
+  renderUagBulkBatchReport();
+}
+
+function renderUagBulkBatchReport() {
+  renderUagSummaryCards();
+  renderUagBatchSummaryTable();
+  renderUagBatchLineTable();
+  updateUagBatchSummaryText();
+}
+
+function renderUagSummaryCards() {
+  const container = document.getElementById('uagBatchSummaryCards');
+
+  if (!container) {
+    return;
+  }
+
+  let originalValue = 0;
+  let issuedValue = 0;
+  let remainingValue = 0;
+  let startedQty = 0;
+  let issuedQty = 0;
+
+  uagBulkSummaryData.forEach(row => {
+    originalValue += Number(row.original_inventory_value || 0);
+    issuedValue += Number(row.issued_inventory_value || 0);
+    remainingValue += Number(row.remaining_inventory_value || 0);
+    startedQty += Number(row.total_quantity_received || 0);
+    issuedQty += Number(row.total_quantity_issued || 0);
+  });
+
+  const usagePercent = originalValue > 0 ? (issuedValue / originalValue) * 100 : 0;
+
+  container.innerHTML = `
+    <div class="uag-summary-card">
+      <div class="summary-label">Original Value</div>
+      <div class="summary-value">${formatCurrency(originalValue)}</div>
+    </div>
+    <div class="uag-summary-card">
+      <div class="summary-label">Issued Value</div>
+      <div class="summary-value">${formatCurrency(issuedValue)}</div>
+    </div>
+    <div class="uag-summary-card">
+      <div class="summary-label">Remaining Value</div>
+      <div class="summary-value">${formatCurrency(remainingValue)}</div>
+    </div>
+    <div class="uag-summary-card">
+      <div class="summary-label">Usage %</div>
+      <div class="summary-value">${formatNumber(usagePercent)}%</div>
+    </div>
+  `;
+}
+
+function renderUagBatchSummaryTable() {
+  const tableBody = document.getElementById('uagBatchSummaryTableBody');
+
+  if (!tableBody) {
+    return;
+  }
+
+  tableBody.innerHTML = '';
+
+  if (!uagBulkSummaryData || uagBulkSummaryData.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="11">No UAG bulk batches found.</td></tr>';
+    return;
+  }
+
+  uagBulkSummaryData.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(row.batch_code || '')}</td>
+      <td>${escapeHTML(row.vendor_order_number || '')}</td>
+      <td>${formatDateOnly(row.received_date)}</td>
+      <td>${formatNumber(row.unique_part_count)}</td>
+      <td>${formatNumber(row.total_quantity_received)}</td>
+      <td>${formatNumber(row.total_quantity_issued)}</td>
+      <td>${formatNumber(row.total_quantity_remaining)}</td>
+      <td>${formatCurrency(row.original_inventory_value)}</td>
+      <td>${formatCurrency(row.issued_inventory_value)}</td>
+      <td>${formatCurrency(row.remaining_inventory_value)}</td>
+      <td>${formatNumber(row.value_usage_percent)}%</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function renderUagBatchLineTable() {
+  const tableBody = document.getElementById('uagBatchLineTableBody');
+
+  if (!tableBody) {
+    return;
+  }
+
+  tableBody.innerHTML = '';
+
+  if (!uagBulkLineData || uagBulkLineData.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="14">No UAG batch line details found for the selected filters.</td></tr>';
+    return;
+  }
+
+  uagBulkLineData.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(row.batch_code || '')}</td>
+      <td>${escapeHTML(row.part_number || '')}</td>
+      <td>${escapeHTML(row.description || '')}</td>
+      <td>${row.is_serialized === true ? 'Yes' : 'No'}</td>
+      <td>${formatNumber(row.quantity_started_with)}</td>
+      <td>${formatNumber(row.quantity_issued)}</td>
+      <td>${formatNumber(row.quantity_remaining)}</td>
+      <td>${formatCurrency(row.unit_cost)}</td>
+      <td>${formatCurrency(row.original_value)}</td>
+      <td>${formatCurrency(row.issued_value)}</td>
+      <td>${formatCurrency(row.remaining_value)}</td>
+      <td>${formatNumber(row.value_usage_percent)}%</td>
+      <td>${formatDateTime(row.last_issued_at)}</td>
+      <td>${row.has_no_issue_activity === true ? 'Yes' : 'No'}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function updateUagBatchSummaryText() {
+  const summary = document.getElementById('uagBatchSummary');
+
+  if (!summary) {
+    return;
+  }
+
+  if (!uagBulkSummaryData || uagBulkSummaryData.length === 0) {
+    summary.textContent = 'No UAG bulk batches found for the selected filters.';
+    return;
+  }
+
+  let originalValue = 0;
+  let issuedValue = 0;
+  let remainingValue = 0;
+  let totalStarted = 0;
+  let totalIssued = 0;
+  let totalRemaining = 0;
+
+  uagBulkSummaryData.forEach(row => {
+    originalValue += Number(row.original_inventory_value || 0);
+    issuedValue += Number(row.issued_inventory_value || 0);
+    remainingValue += Number(row.remaining_inventory_value || 0);
+    totalStarted += Number(row.total_quantity_received || 0);
+    totalIssued += Number(row.total_quantity_issued || 0);
+    totalRemaining += Number(row.total_quantity_remaining || 0);
+  });
+
+  summary.textContent =
+    `UAG Bulk Batches Returned: ${formatNumber(uagBulkSummaryData.length)}\n` +
+    `Line Items Returned: ${formatNumber(uagBulkLineData.length)}\n` +
+    `Quantity Started With: ${formatNumber(totalStarted)}\n` +
+    `Quantity Issued/Sold: ${formatNumber(totalIssued)}\n` +
+    `Quantity Remaining: ${formatNumber(totalRemaining)}\n` +
+    `Original Inventory Value: ${formatCurrency(originalValue)}\n` +
+    `Issued Inventory Value: ${formatCurrency(issuedValue)}\n` +
+    `Remaining Bulk UAG Inventory Value: ${formatCurrency(remainingValue)}`;
+}
+
+async function exportUagBulkBatchCSV() {
+  if (!uagBulkSummaryData || uagBulkSummaryData.length === 0) {
+    try {
+      await fetchUagBulkBatchData();
+    } catch (error) {
+      document.getElementById('uagBatchSummary').textContent = error.message;
+      return;
+    }
+  }
+
+  if (!uagBulkSummaryData || uagBulkSummaryData.length === 0) {
+    document.getElementById('uagBatchSummary').textContent = 'No UAG bulk batch data available to export.';
+    return;
+  }
+
+  let csv = 'Section,Batch Code,UAG Order Number,Part Number,Description,Serialized,Started With,Issued,Remaining,Unit Cost,Original Value,Issued Value,Remaining Value,Usage Percent,Last Issued,No Issue Activity\n';
+
+  uagBulkSummaryData.forEach(row => {
+    csv +=
+      `"Batch Summary",` +
+      `"${cleanCSV(row.batch_code)}",` +
+      `"${cleanCSV(row.vendor_order_number)}",` +
+      `"",` +
+      `"",` +
+      `"",` +
+      `"${cleanCSV(row.total_quantity_received)}",` +
+      `"${cleanCSV(row.total_quantity_issued)}",` +
+      `"${cleanCSV(row.total_quantity_remaining)}",` +
+      `"",` +
+      `"${cleanCSV(row.original_inventory_value)}",` +
+      `"${cleanCSV(row.issued_inventory_value)}",` +
+      `"${cleanCSV(row.remaining_inventory_value)}",` +
+      `"${cleanCSV(row.value_usage_percent)}",` +
+      `"",` +
+      `""\n`;
+  });
+
+  uagBulkLineData.forEach(row => {
+    csv +=
+      `"Line Detail",` +
+      `"${cleanCSV(row.batch_code)}",` +
+      `"${cleanCSV(row.vendor_order_number)}",` +
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description)}",` +
+      `"${cleanCSV(row.is_serialized === true ? 'Yes' : 'No')}",` +
+      `"${cleanCSV(row.quantity_started_with)}",` +
+      `"${cleanCSV(row.quantity_issued)}",` +
+      `"${cleanCSV(row.quantity_remaining)}",` +
+      `"${cleanCSV(row.unit_cost)}",` +
+      `"${cleanCSV(row.original_value)}",` +
+      `"${cleanCSV(row.issued_value)}",` +
+      `"${cleanCSV(row.remaining_value)}",` +
+      `"${cleanCSV(row.value_usage_percent)}",` +
+      `"${cleanCSV(row.last_issued_at)}",` +
+      `"${cleanCSV(row.has_no_issue_activity === true ? 'Yes' : 'No')}"\n`;
+  });
+
+  const selectedBatch = document.getElementById('uagBatchFilter')?.value || 'ALL';
+  downloadCSV(csv, `uag_bulk_batch_usage_${cleanFilename(selectedBatch)}.csv`);
+}
+
+
+
+async function loadReorder() {
+  const { data, error } = await client
+    .from('inventory_reorder_warehouse')
+    .select('*')
+    .order('reorder_qty', { ascending: false });
+
+  if (error) {
+    document.getElementById('reorder').textContent = error.message;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    document.getElementById('reorder').textContent =
+      'No items need reordering';
+    return;
+  }
+
+  let output = 'PART | ON HAND | REORDER\n';
+  output += '---------------------------------\n';
+
+  data.forEach(row => {
+    output += `${row.part_number} | ${row.qty_on_hand} | ${row.reorder_qty}\n`;
+  });
+
+  document.getElementById('reorder').textContent = output;
+}
+
+
+
+function getVarianceClass(value) {
+  const number = Number(value || 0);
+
+  if (number > 0) {
+    return 'variance-positive';
+  }
+
+  if (number < 0) {
+    return 'variance-negative';
+  }
+
+  return 'variance-zero';
+}
+
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  });
+}
+
+function formatNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+
+  const number = Number(value);
+
+  if (Number.isNaN(number)) {
+    return value;
+  }
+
+  return number.toLocaleString('en-US', {
+    maximumFractionDigits: 2
+  });
+}
+
+function formatDateOnly(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString();
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
+function cleanCSV(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).replace(/"/g, '""');
+}
+
+function cleanFilename(value) {
+  return String(value || 'export')
+    .replace(/[^a-z0-9_\-]+/gi, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeJS(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"');
+}
+
+function refreshPage() {
+  window.location.reload();
+}
+
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>
