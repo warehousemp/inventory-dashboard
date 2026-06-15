@@ -1,0 +1,5832 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<title>Warehouse Management - Inventory System</title>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="apple-touch-icon.png" rel="apple-touch-icon"/>
+<link href="favicon.png" rel="icon" type="image/png"/>
+<link href="manifest.json" rel="manifest"/>
+<meta content="yes" name="apple-mobile-web-app-capable"/>
+<meta content="Molinari Inventory" name="apple-mobile-web-app-title"/>
+<meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
+<meta content="#0b3c5d" name="theme-color"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f8fb;
+      margin: 0;
+      padding: 0;
+      color: #1f2933;
+    }
+
+    .header-bar {
+      background: #0b3c5d;
+      color: white;
+      padding: 18px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .nav-link {
+      color: white;
+      text-decoration: none;
+      background: rgba(255,255,255,0.16);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .nav-link:hover {
+      background: rgba(255,255,255,0.24);
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: minmax(420px, 1.1fr) minmax(360px, 0.9fr) minmax(360px, 0.9fr);
+      gap: 20px;
+      width: 100%;
+      max-width: min(1550px, 100%);
+      margin: 30px auto;
+      padding: 0 20px;
+      align-items: flex-start;
+      min-width: 0;
+    }
+
+    .wide-card {
+      grid-column: 1 / -1;
+      min-width: 0;
+    }
+
+    .card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      color: #0b3c5d;
+      font-size: 22px;
+    }
+
+    h3 {
+      color: #0b3c5d;
+      margin-top: 28px;
+      margin-bottom: 14px;
+      font-size: 18px;
+      border-top: 1px solid #e6edf3;
+      padding-top: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    textarea {
+      min-height: 74px;
+      resize: vertical;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #1aa3b0;
+      box-shadow: 0 0 0 3px rgba(26,163,176,0.15);
+    }
+
+    button {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-right: 10px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .issue-btn {
+      background: #1aa3b0;
+      color: white;
+    }
+
+    .receive-btn {
+      background: #0b3c5d;
+      color: white;
+    }
+
+    .transfer-btn {
+      background: #64748b;
+      color: white;
+    }
+
+    .adjustment-btn {
+      background: #d97706;
+      color: white;
+      width: 100%;
+      margin-top: 8px;
+      margin-right: 0;
+    }
+
+    .report-btn {
+      background: #0b3c5d;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .create-btn {
+      background: #0b3c5d;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .category-btn {
+      background: #805ad5;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .cycle-btn {
+      background: #0b3c5d;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .export-btn {
+      background: #0b3c5d;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .save-btn {
+      background: #1aa3b0;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .danger-btn {
+      background: #b91c1c;
+      color: white;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .refresh-btn {
+      background: #64748b;
+      color: white;
+      width: auto;
+      padding: 7px 12px;
+      font-size: 12px;
+      border-radius: 7px;
+      margin-top: -6px;
+      margin-bottom: 16px;
+      margin-right: 0;
+      display: inline-block;
+    }
+
+    .small-btn {
+      width: auto;
+      margin: 0;
+      padding: 8px 12px;
+      font-size: 13px;
+      border-radius: 7px;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .button-row button {
+      flex: 1;
+      min-width: 120px;
+      margin-right: 0;
+    }
+
+    .help-text {
+      margin-top: -8px;
+      margin-bottom: 15px;
+      font-size: 12px;
+      color: #667085;
+      line-height: 1.4;
+    }
+
+    .part-description-display {
+      margin-top: -8px;
+      margin-bottom: 15px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #d7e3ee;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.4;
+      min-height: 39px;
+    }
+
+    .part-description-label {
+      font-weight: bold;
+      color: #0b3c5d;
+    }
+
+    .status-note {
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #0b3c5d;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .warning-note {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .danger-note {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    pre {
+      background: #f0f4f8;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 13px;
+      white-space: pre-wrap;
+      max-height: 700px;
+      overflow-y: auto;
+      border: 1px solid #e2e8f0;
+      line-height: 1.45;
+    }
+
+    .workflow-output {
+      margin-top: 10px;
+      margin-bottom: 0;
+      min-height: 48px;
+      max-height: 180px;
+      background: #f0f4f8;
+      border: 1px solid #d7e3ee;
+      color: #1f2933;
+    }
+
+    #serialContainer {
+      display: none;
+    }
+
+
+    .warehouse-section-tabs {
+      grid-column: 1 / -1;
+      background: white;
+      border: 1px solid #d9e2ec;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    }
+
+    .warehouse-section-tabbar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      align-items: stretch;
+      background: #ffffff;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .warehouse-section-tab {
+      appearance: none;
+      background: #ffffff;
+      color: #001f36;
+      border: 0;
+      border-right: 1px solid #d9e2ec;
+      border-bottom: 3px solid transparent;
+      border-radius: 0;
+      padding: 13px 8px;
+      margin: 0;
+      min-height: 46px;
+      min-width: 0;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      line-height: 1.15;
+      text-align: center;
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: anywhere;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .warehouse-section-tab:last-child {
+      border-right: 0;
+    }
+
+    .warehouse-section-tab:hover {
+      background: #f4f8fb;
+      opacity: 1;
+    }
+
+    .warehouse-section-tab.active {
+      border-bottom-color: #1aa3b0;
+      color: #001f36;
+      background: #ffffff;
+    }
+
+    .warehouse-tab-pane {
+      grid-column: 1 / -1;
+      display: none;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .warehouse-tab-pane.active {
+      display: block;
+    }
+
+    .warehouse-tab-pane > .card {
+      margin: 0;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+
+    @media (max-width: 1180px) {
+      .warehouse-section-tabbar {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .warehouse-section-tab:nth-child(4n) {
+        border-right: 0;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .warehouse-section-tabbar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .warehouse-section-tab:nth-child(2n) {
+        border-right: 0;
+      }
+    }
+
+
+    .section-divider {
+      height: 1px;
+      background: #e6edf3;
+      margin: 24px 0;
+    }
+
+    .count-table-wrapper {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 16px;
+      max-height: 650px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1050px;
+      background: white;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px;
+      text-align: left;
+      font-size: 13px;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f0f4f8;
+      color: #0b3c5d;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr:hover td {
+      background: #f8fafc;
+    }
+
+    .count-input,
+    .line-note-input {
+      margin-bottom: 0;
+      font-size: 13px;
+      padding: 9px;
+    }
+
+    .count-input {
+      width: 110px;
+    }
+
+    .line-note-input {
+      width: 190px;
+    }
+
+    .variance-positive {
+      color: #0b3c5d;
+      font-weight: bold;
+    }
+
+    .variance-negative {
+      color: #b91c1c;
+      font-weight: bold;
+    }
+
+    .variance-zero {
+      color: #475569;
+      font-weight: bold;
+    }
+
+    .session-id-box {
+      background: #f0f4f8;
+      border: 1px solid #e2e8f0;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      word-break: break-all;
+      margin-bottom: 15px;
+      white-space: pre-wrap;
+    }
+
+    .selected-row td {
+      background: #ecfdf3 !important;
+    }
+
+    .needs-category-table {
+      table-layout: fixed;
+      min-width: 1150px;
+    }
+
+    .needs-category-table th,
+    .needs-category-table td {
+      white-space: normal;
+      vertical-align: top;
+    }
+
+    .needs-category-table th:nth-child(1),
+    .needs-category-table td:nth-child(1) {
+      width: 145px;
+    }
+
+    .needs-category-table th:nth-child(2),
+    .needs-category-table td:nth-child(2) {
+      width: 170px;
+      word-break: break-word;
+    }
+
+    .needs-category-table th:nth-child(3),
+    .needs-category-table td:nth-child(3) {
+      width: 330px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .needs-category-table th:nth-child(4),
+    .needs-category-table td:nth-child(4) {
+      width: 170px;
+    }
+
+    .needs-category-table th:nth-child(5),
+    .needs-category-table td:nth-child(5) {
+      width: 130px;
+    }
+
+    .needs-category-table th:nth-child(6),
+    .needs-category-table td:nth-child(6),
+    .needs-category-table th:nth-child(7),
+    .needs-category-table td:nth-child(7),
+    .needs-category-table th:nth-child(8),
+    .needs-category-table td:nth-child(8) {
+      width: 115px;
+    }
+
+    .needs-category-table th:nth-child(9),
+    .needs-category-table td:nth-child(9) {
+      width: 145px;
+    }
+
+    .needs-category-select {
+      width: 150px;
+      min-width: 150px;
+      margin-bottom: 0;
+      padding: 8px;
+      font-size: 13px;
+    }
+
+
+
+    .transaction-log-table {
+      table-layout: fixed;
+      min-width: 2250px;
+    }
+
+    .transaction-log-table th,
+    .transaction-log-table td {
+      white-space: normal;
+      vertical-align: top;
+    }
+
+    .transaction-log-table th:nth-child(1),
+    .transaction-log-table td:nth-child(1) { width: 160px; }
+    .transaction-log-table th:nth-child(2),
+    .transaction-log-table td:nth-child(2) { width: 155px; }
+    .transaction-log-table th:nth-child(3),
+    .transaction-log-table td:nth-child(3) { width: 160px; }
+    .transaction-log-table th:nth-child(4),
+    .transaction-log-table td:nth-child(4) { width: 145px; }
+    .transaction-log-table th:nth-child(5),
+    .transaction-log-table td:nth-child(5) { width: 330px; word-break: break-word; line-height: 1.35; }
+    .transaction-log-table th:nth-child(6),
+    .transaction-log-table td:nth-child(6) { width: 170px; word-break: break-word; line-height: 1.35; }
+    .transaction-log-table th:nth-child(7),
+    .transaction-log-table td:nth-child(7),
+    .transaction-log-table th:nth-child(8),
+    .transaction-log-table td:nth-child(8),
+    .transaction-log-table th:nth-child(9),
+    .transaction-log-table td:nth-child(9) { width: 110px; }
+    .transaction-log-table th:nth-child(10),
+    .transaction-log-table td:nth-child(10) { width: 150px; }
+    .transaction-log-table th:nth-child(11),
+    .transaction-log-table td:nth-child(11),
+    .transaction-log-table th:nth-child(12),
+    .transaction-log-table td:nth-child(12),
+    .transaction-log-table th:nth-child(13),
+    .transaction-log-table td:nth-child(13),
+    .transaction-log-table th:nth-child(14),
+    .transaction-log-table td:nth-child(14),
+    .transaction-log-table th:nth-child(15),
+    .transaction-log-table td:nth-child(15),
+    .transaction-log-table th:nth-child(16),
+    .transaction-log-table td:nth-child(16) { width: 145px; }
+    .transaction-log-table th:nth-child(17),
+    .transaction-log-table td:nth-child(17) { width: 280px; word-break: break-word; line-height: 1.35; }
+
+
+    .dead-stock-table {
+      table-layout: fixed;
+      min-width: 1650px;
+    }
+
+    .dead-stock-table th,
+    .dead-stock-table td {
+      white-space: normal;
+      vertical-align: top;
+    }
+
+    .dead-stock-table th:nth-child(1),
+    .dead-stock-table td:nth-child(1) {
+      width: 240px;
+    }
+
+    .dead-stock-table th:nth-child(2),
+    .dead-stock-table td:nth-child(2) {
+      width: 145px;
+    }
+
+    .dead-stock-table th:nth-child(3),
+    .dead-stock-table td:nth-child(3) {
+      width: 330px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .dead-stock-table th:nth-child(4),
+    .dead-stock-table td:nth-child(4) {
+      width: 145px;
+    }
+
+    .dead-stock-table th:nth-child(5),
+    .dead-stock-table td:nth-child(5) {
+      width: 135px;
+    }
+
+    .dead-stock-table th:nth-child(6),
+    .dead-stock-table td:nth-child(6),
+    .dead-stock-table th:nth-child(7),
+    .dead-stock-table td:nth-child(7),
+    .dead-stock-table th:nth-child(8),
+    .dead-stock-table td:nth-child(8) {
+      width: 115px;
+    }
+
+    .dead-stock-table th:nth-child(9),
+    .dead-stock-table td:nth-child(9),
+    .dead-stock-table th:nth-child(10),
+    .dead-stock-table td:nth-child(10),
+    .dead-stock-table th:nth-child(11),
+    .dead-stock-table td:nth-child(11) {
+      width: 130px;
+    }
+
+    .dead-stock-table th:nth-child(12),
+    .dead-stock-table td:nth-child(12),
+    .dead-stock-table th:nth-child(13),
+    .dead-stock-table td:nth-child(13),
+    .dead-stock-table th:nth-child(14),
+    .dead-stock-table td:nth-child(14),
+    .dead-stock-table th:nth-child(15),
+    .dead-stock-table td:nth-child(15),
+    .dead-stock-table th:nth-child(16),
+    .dead-stock-table td:nth-child(16) {
+      width: 145px;
+    }
+
+    .dead-stock-action-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .dead-stock-action-label {
+      font-size: 11px;
+      font-weight: bold;
+      color: #475569;
+      margin-bottom: 3px;
+      line-height: 1.2;
+    }
+
+    .dead-stock-action-select,
+    .dead-stock-action-input,
+    .dead-stock-action-textarea {
+      width: 180px;
+      min-width: 180px;
+      margin-bottom: 0;
+      padding: 8px;
+      font-size: 13px;
+    }
+
+    .dead-stock-action-textarea {
+      min-height: 58px;
+      resize: vertical;
+    }
+
+    .dead-stock-save-btn {
+      background: #1aa3b0;
+      color: white;
+      width: 180px;
+      min-width: 180px;
+      margin-top: 2px;
+      margin-bottom: 0;
+      margin-right: 0;
+      padding: 9px 10px;
+      font-size: 12px;
+      border-radius: 7px;
+    }
+
+
+    .inventory-workflow-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(280px, 1fr));
+      gap: 18px;
+      align-items: flex-start;
+    }
+
+    .inventory-workflow-panel {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 18px;
+      background: #f8fafc;
+    }
+
+    .inventory-workflow-panel h3 {
+      border-top: none;
+      margin-top: 0;
+      padding-top: 0;
+      margin-bottom: 14px;
+      font-size: 18px;
+    }
+
+    .inventory-workflow-panel.issue-panel h3 {
+      color: #1aa3b0;
+    }
+
+    .inventory-workflow-panel.receive-panel h3 {
+      color: #0b3c5d;
+    }
+
+    .inventory-workflow-panel.transfer-panel h3 {
+      color: #64748b;
+    }
+
+    .inventory-workflow-panel.adjustment-panel {
+      grid-column: 1 / -1;
+    }
+
+    .inventory-workflow-panel.adjustment-panel h3 {
+      color: #d97706;
+    }
+
+    .inventory-workflow-note {
+      font-size: 12px;
+      color: #667085;
+      line-height: 1.4;
+      margin-top: -6px;
+      margin-bottom: 14px;
+    }
+
+    .inventory-workflow-panel .issue-btn,
+    .inventory-workflow-panel .receive-btn,
+    .inventory-workflow-panel .transfer-btn {
+      width: 100%;
+      margin-top: 8px;
+      margin-right: 0;
+    }
+
+    .cycle-panel {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .cycle-panel summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 16px 18px;
+      background: #f0f4f8;
+      color: #0b3c5d;
+      font-weight: bold;
+      font-size: 16px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .cycle-panel summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .cycle-panel summary::after {
+      content: '+';
+      float: right;
+      font-size: 20px;
+      line-height: 16px;
+    }
+
+    .cycle-panel[open] summary::after {
+      content: '−';
+    }
+
+    .cycle-panel > h3,
+    .cycle-panel > .warning-note,
+    .cycle-panel > .button-row,
+    .cycle-panel > .session-id-box,
+    .cycle-panel > .count-table-wrapper,
+    .cycle-panel > label,
+    .cycle-panel > input,
+    .cycle-panel > textarea,
+    .cycle-panel > pre,
+    .cycle-panel > .help-text,
+    .cycle-panel > button {
+      margin-left: 18px;
+      margin-right: 18px;
+    }
+
+    .cycle-panel > h3:first-of-type {
+      border-top: none;
+      margin-top: 8px;
+      padding-top: 12px;
+    }
+
+
+    .batch-preview-box {
+      margin-top: -8px;
+      margin-bottom: 15px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #d7e3ee;
+      background: #eef8fa;
+      color: #0b3c5d;
+      font-size: 13px;
+      line-height: 1.4;
+      font-weight: bold;
+    }
+
+    .fifo-warning-box {
+      margin-top: -4px;
+      margin-bottom: 15px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid #fed7aa;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .uag-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .uag-summary-card {
+      border: 1px solid #d9e2ec;
+      border-radius: 10px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+
+    .uag-summary-card .summary-label {
+      font-size: 12px;
+      color: #667085;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 6px;
+    }
+
+    .uag-summary-card .summary-value {
+      font-size: 20px;
+      color: #0b3c5d;
+      font-weight: 800;
+    }
+
+    .uag-batch-table,
+    .uag-line-table {
+      table-layout: fixed;
+      min-width: 1500px;
+    }
+
+    .uag-batch-table th,
+    .uag-batch-table td,
+    .uag-line-table th,
+    .uag-line-table td {
+      white-space: normal;
+      vertical-align: top;
+    }
+
+    .uag-batch-table th:nth-child(1),
+    .uag-batch-table td:nth-child(1) { width: 230px; }
+    .uag-batch-table th:nth-child(2),
+    .uag-batch-table td:nth-child(2) { width: 170px; }
+    .uag-batch-table th:nth-child(3),
+    .uag-batch-table td:nth-child(3) { width: 135px; }
+    .uag-batch-table th:nth-child(4),
+    .uag-batch-table td:nth-child(4),
+    .uag-batch-table th:nth-child(5),
+    .uag-batch-table td:nth-child(5),
+    .uag-batch-table th:nth-child(6),
+    .uag-batch-table td:nth-child(6),
+    .uag-batch-table th:nth-child(7),
+    .uag-batch-table td:nth-child(7),
+    .uag-batch-table th:nth-child(8),
+    .uag-batch-table td:nth-child(8),
+    .uag-batch-table th:nth-child(9),
+    .uag-batch-table td:nth-child(9),
+    .uag-batch-table th:nth-child(10),
+    .uag-batch-table td:nth-child(10) { width: 135px; }
+
+    .uag-line-table th:nth-child(1),
+    .uag-line-table td:nth-child(1) { width: 230px; }
+    .uag-line-table th:nth-child(2),
+    .uag-line-table td:nth-child(2) { width: 140px; }
+    .uag-line-table th:nth-child(3),
+    .uag-line-table td:nth-child(3) { width: 330px; word-break: break-word; line-height: 1.35; }
+    .uag-line-table th:nth-child(4),
+    .uag-line-table td:nth-child(4) { width: 130px; }
+    .uag-line-table th:nth-child(5),
+    .uag-line-table td:nth-child(5),
+    .uag-line-table th:nth-child(6),
+    .uag-line-table td:nth-child(6),
+    .uag-line-table th:nth-child(7),
+    .uag-line-table td:nth-child(7),
+    .uag-line-table th:nth-child(8),
+    .uag-line-table td:nth-child(8),
+    .uag-line-table th:nth-child(9),
+    .uag-line-table td:nth-child(9),
+    .uag-line-table th:nth-child(10),
+    .uag-line-table td:nth-child(10),
+    .uag-line-table th:nth-child(11),
+    .uag-line-table td:nth-child(11),
+    .uag-line-table th:nth-child(12),
+    .uag-line-table td:nth-child(12) { width: 125px; }
+
+
+
+    .hidden {
+      display: none !important;
+    }
+
+    .access-layout {
+      max-width: 680px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .access-card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .access-actions .nav-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      color: white;
+      background: #0b3c5d;
+    }
+
+    .access-actions .logout-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      background: #b91c1c;
+      color: white;
+    }
+
+
+    @media (max-width: 1250px) {
+      .main-layout {
+        grid-template-columns: repeat(2, minmax(340px, 1fr));
+      }
+
+      .inventory-workflow-grid {
+        grid-template-columns: repeat(2, minmax(300px, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+
+
+
+      .header-bar {
+        padding: 16px 18px;
+        font-size: 18px;
+        text-align: center;
+        justify-content: center;
+      }
+
+      .header-title {
+        width: 100%;
+        text-align: center;
+      }
+
+      .nav-link {
+        width: 100%;
+        text-align: center;
+      }
+
+      .main-layout {
+        grid-template-columns: 1fr;
+        margin: 18px auto;
+        padding: 0 12px;
+        gap: 16px;
+      }
+
+      .wide-card {
+        grid-column: auto;
+      }
+
+      .card {
+        padding: 20px;
+        border-radius: 12px;
+      }
+
+      h2 {
+        font-size: 20px;
+      }
+
+      h3 {
+        font-size: 17px;
+      }
+
+      input,
+      select,
+      textarea {
+        font-size: 16px;
+        padding: 13px;
+      }
+
+      button {
+        width: 100%;
+        margin-right: 0;
+        padding: 14px;
+        font-size: 15px;
+      }
+
+      .refresh-btn {
+        width: auto;
+        padding: 7px 12px;
+        font-size: 12px;
+        margin-bottom: 16px;
+      }
+
+      .button-row {
+        flex-direction: column;
+        gap: 0;
+      }
+
+
+
+      .warehouse-section-tabbar {
+        grid-template-columns: 1fr;
+      }
+
+      .warehouse-section-tab {
+        border-right: 0;
+        border-bottom: 1px solid #d9e2ec;
+        white-space: normal;
+      }
+
+      .warehouse-section-tab.active {
+        border-bottom: 3px solid #1aa3b0;
+      }
+
+
+      .inventory-workflow-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .inventory-workflow-panel {
+        padding: 16px;
+      }
+
+      pre {
+        font-size: 12px;
+        max-height: 420px;
+      }
+
+      th,
+      td {
+        font-size: 12px;
+        padding: 8px;
+      }
+    }
+
+    /* Standard Molinari Operations Sidebar */
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --sidebar-width: 230px;
+      --sidebar-collapsed-width: 66px;
+    }
+
+    html,
+    body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      min-height: 100vh;
+      transition: grid-template-columns 0.2s ease;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: hidden;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      transition: width 0.2s ease;
+      z-index: 1000;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 70px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+      flex: 0 0 auto;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+      white-space: nowrap;
+      transition: opacity 0.15s ease, width 0.15s ease;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .sidebar-toggle-wrap {
+      padding: 12px 12px 4px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(26,163,176,0.34);
+      border-color: rgba(255,255,255,0.42);
+      opacity: 1;
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      width: 17px;
+      height: 2px;
+      border-radius: 999px;
+      background: white;
+    }
+
+    .side-nav {
+      padding: 8px 10px 14px;
+    }
+
+    .side-nav a,
+    .side-nav button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 4px;
+      white-space: nowrap;
+      min-height: 44px;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font-family: Arial, sans-serif;
+      text-align: left;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover,
+    .side-nav button:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+      opacity: 1;
+    }
+
+    .nav-section {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.72);
+      font-weight: 800;
+      padding: 14px 12px 4px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .nav-icon {
+      width: 20px;
+      min-width: 20px;
+      text-align: center;
+      opacity: 0.95;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .nav-label {
+      transition: opacity 0.15s ease, width 0.15s ease;
+      overflow: hidden;
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      padding: 10px;
+      margin-top: auto;
+    }
+
+    .app-shell.sidebar-collapsed .brand {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .app-shell.sidebar-collapsed .brand-text,
+    .app-shell.sidebar-collapsed .nav-label,
+    .app-shell.sidebar-collapsed .nav-section {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav,
+    .app-shell.sidebar-collapsed .sidebar-footer {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav a,
+    .app-shell.sidebar-collapsed .side-nav button {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+      gap: 0;
+    }
+
+    .inventory-page-shell {
+      margin-left: 0 !important;
+      min-width: 0;
+      max-width: 100%;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    @media (max-width: 820px) {
+      .app-shell,
+      .app-shell.sidebar-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .brand {
+        min-height: auto;
+      }
+
+      .sidebar-toggle-wrap {
+        display: none;
+      }
+
+      .app-shell.sidebar-collapsed .brand {
+        justify-content: flex-start;
+        padding: 18px 18px 16px;
+      }
+
+      .app-shell.sidebar-collapsed .brand-text {
+        opacity: 1;
+        width: auto;
+      }
+
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        padding: 14px 10px;
+      }
+
+      .app-shell.sidebar-collapsed .side-nav a,
+      .app-shell.sidebar-collapsed .side-nav button,
+      .side-nav a,
+      .side-nav button {
+        justify-content: flex-start;
+        padding: 12px 12px;
+        gap: 10px;
+      }
+
+      .app-shell.sidebar-collapsed .nav-label {
+        opacity: 1;
+        width: auto;
+      }
+
+      .inventory-page-shell {
+        margin-left: 0 !important;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
+        grid-template-columns: 1fr;
+      }
+    }
+
+  </style>
+</head>
+<body>
+<div class="app-shell" id="appShell">
+<aside aria-label="Inventory navigation" class="sidebar">
+<div class="brand">
+<div class="brand-mark">MP</div>
+<div class="brand-text">
+<strong>MOLINARI</strong>
+<span>INVENTORY</span>
+</div>
+</div>
+<div class="sidebar-toggle-wrap">
+<button aria-expanded="true" aria-label="Collapse sidebar" class="sidebar-toggle" id="inventorySidebarToggle" title="Collapse" type="button">
+<span></span>
+<span></span>
+<span></span>
+</button>
+</div>
+<nav aria-label="Inventory navigation" class="side-nav">
+<div class="nav-section">Inventory Pages</div>
+<a href="warehouse.html" title="Warehouse Operations">
+<span class="nav-icon">▣</span>
+<span class="nav-label">Warehouse Operations</span>
+</a>
+<a href="warehouse-reports.html" title="Warehouse Reports">
+<span class="nav-icon">▤</span>
+<span class="nav-label">Warehouse Reports</span>
+</a>
+<a class="active" href="warehouse-management.html" title="Warehouse Management">
+<span class="nav-icon">⚙</span>
+<span class="nav-label">Warehouse Management</span>
+</a>
+<a href="service.html" title="Service Parts Lookup">
+<span class="nav-icon">⌕</span>
+<span class="nav-label">Service Parts Lookup</span>
+</a>
+<a href="accounting.html" title="Accounting">
+<span class="nav-icon">$</span>
+<span class="nav-label">Accounting</span>
+</a>
+<a href="admin.html" title="Inventory Administration">
+<span class="nav-icon">⚙</span>
+<span class="nav-label">Inventory Administration</span>
+</a>
+<a href="users.html" title="User Access">
+<span class="nav-icon">◇</span>
+<span class="nav-label">User Access</span>
+</a>
+<a href="inspection-requests-office.html" title="Inspection Requests">
+<span class="nav-icon">✓</span>
+<span class="nav-label">Inspection Requests</span>
+</a>
+<div class="nav-section">Other Systems</div>
+<a href="projects-command.html" title="Projects Command Center">
+<span class="nav-icon">◆</span>
+<span class="nav-label">Projects Command Center</span>
+</a>
+</nav>
+<div class="sidebar-footer">
+<nav aria-label="Inventory utility navigation" class="side-nav">
+<a href="index.html" title="Main Menu">
+<span class="nav-icon">↩</span>
+<span class="nav-label">Main Menu</span>
+</a>
+<button onclick="warehouseLogout()" title="Logout" type="button">
+<span class="nav-icon">⇥</span>
+<span class="nav-label">Logout</span>
+</button>
+</nav>
+</div>
+</aside>
+<div class="inventory-page-shell">
+<div class="header-bar">
+<div class="header-title">Molinari Pools – Warehouse Management</div>
+</div>
+<div class="access-layout" id="warehouseAccessGate">
+<div class="access-card">
+<h2>Warehouse Management Access Required</h2>
+<div class="warning-note" id="warehouseAccessMessage">Checking warehouse management access...</div>
+<div class="access-actions">
+<a class="nav-action-btn" href="login.html">GO TO LOGIN</a>
+<a class="nav-action-btn" href="index.html">BACK TO MAIN MENU</a>
+<button class="logout-action-btn" onclick="warehouseLogout()">LOGOUT</button>
+</div>
+</div>
+</div>
+<div class="main-layout hidden" id="warehouseContent">
+<div aria-label="Warehouse sections" class="warehouse-section-tabs wide-card" role="tablist">
+<div class="warehouse-section-tabbar">
+<button class="warehouse-section-tab active" data-warehouse-tab-button="warehousePartsTab" onclick="showWarehouseSection('warehousePartsTab')" type="button">PARTS MANAGEMENT</button>
+<button class="warehouse-section-tab" data-warehouse-tab-button="warehouseCycleCountsTab" onclick="showWarehouseSection('warehouseCycleCountsTab')" type="button">CYCLE COUNTS</button>
+<button class="warehouse-section-tab" data-warehouse-tab-button="warehouseDeadStockTab" onclick="showWarehouseSection('warehouseDeadStockTab')" type="button">DEAD STOCK</button>
+<button class="warehouse-section-tab" data-warehouse-tab-button="warehouseNeedsCategoryTab" onclick="showWarehouseSection('warehouseNeedsCategoryTab')" type="button">NEEDS CATEGORY</button>
+</div>
+</div>
+
+
+
+<div class="warehouse-tab-pane active" id="warehousePartsTab">
+<div class="card wide-card">
+<h2>Parts Management</h2>
+<button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+<label>New Part Number:</label>
+<input autocomplete="off" id="newPartNumber" placeholder="Enter new part number"/>
+<label>Description:</label>
+<input autocomplete="off" id="newPartDescription" placeholder="Enter part description"/>
+<label>Unit Cost:</label>
+<input id="newPartUnitCost" step="0.01" type="number" value="0"/>
+<label>Reorder Point:</label>
+<input id="newPartReorderPoint" step="1" type="number" value="0"/>
+<label>Category:</label>
+<select id="newPartCategory">
+<option value="">Loading categories...</option>
+</select>
+<label>Serialized Item?</label>
+<select id="newPartSerialized">
+<option value="false">No</option>
+<option value="true">Yes</option>
+</select>
+<button class="create-btn" onclick="createPart()">CREATE PART</button>
+<pre id="createPartResult">Create new inventory parts here...</pre>
+<h3>Change Existing Part Category</h3>
+<div class="warning-note">
+      Use this section to correct or update the category for an existing active part.
+      UNASSIGNED is not allowed.
+    </div>
+<label>Existing Part Number:</label>
+<input autocomplete="off" id="changeCategoryPartNumber" list="partsList" placeholder="Start typing existing part number..."/>
+<label>New Category:</label>
+<select id="changePartCategory">
+<option value="">Loading categories...</option>
+</select>
+<button class="category-btn" onclick="changePartCategory()">CHANGE PART CATEGORY</button>
+<pre id="changeCategoryResult">Change an existing part category here...</pre>
+<h3>Change Part Serialization Requirement</h3>
+<div class="warning-note">
+      Use this section to correct whether an existing active part requires serial-number tracking.
+      If a part is changed from No to Yes and stock already exists, existing on-hand quantity must still be serialized.
+    </div>
+<label>Part Number:</label>
+<input autocomplete="off" id="changeSerializationPartNumber" list="partsList" placeholder="Start typing existing part number..."/>
+<div class="part-description-display" id="changeSerializationPartDescription">Part description will appear here after a part number is selected.</div>
+<label>Serialized?</label>
+<select id="changePartSerialized">
+<option value="">Select Yes or No...</option>
+<option value="true">Yes</option>
+<option value="false">No</option>
+</select>
+<label>Updated By:</label>
+<input autocomplete="off" id="serializationUpdatedBy" placeholder="Warehouse team member name"/>
+<label>Reason:</label>
+<textarea id="serializationReason" placeholder="Explain why the serialization requirement is being changed"></textarea>
+<button class="category-btn" onclick="changePartSerializationStatus()">UPDATE SERIALIZATION STATUS</button>
+<pre id="changeSerializationResult">Change an existing part serialization requirement here...</pre>
+</div>
+</div>
+
+<div class="warehouse-tab-pane" id="warehouseCycleCountsTab">
+<div class="card wide-card">
+<h2>Cycle Count Management</h2>
+<button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+<div class="status-note">
+      This section supports count-sheet export, cycle count session creation, counted quantity entry,
+      variance review, and submission for Admin review.
+    </div>
+<details class="cycle-panel">
+<summary>Recounts Returned by Admin</summary>
+<h3>Recount Required Queue</h3>
+<div class="warning-note">
+      These are cycle counts returned by Admin for recount. Open a session, correct the counted quantities,
+      save the recount, and mark it READY_FOR_REVIEW again. This does not post inventory adjustments.
+    </div>
+<div class="button-row">
+<button class="cycle-btn" onclick="loadRecountRequiredQueue()">LOAD RECOUNT REQUIRED QUEUE</button>
+</div>
+<div class="session-id-box" id="recountQueueStatus">
+      Click LOAD RECOUNT REQUIRED QUEUE to check for recounts.
+    </div>
+<div class="count-table-wrapper">
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Count Name</th>
+<th>Category</th>
+<th>Status</th>
+<th>Verified Status</th>
+<th>Recommended Action</th>
+<th>Started By</th>
+<th>Started At</th>
+<th>Reviewed By</th>
+<th>Reviewed At</th>
+<th>Line Count</th>
+<th>Counted Lines</th>
+<th>Variance Qty</th>
+<th>Variance Value</th>
+</tr>
+</thead>
+<tbody id="recountQueueTableBody">
+<tr>
+<td colspan="13">No dead stock report loaded.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</details>
+<details class="cycle-panel" open="">
+<summary>Start New Cycle Count</summary>
+<h3>Step 1: Export Count Sheet</h3>
+<label>Cycle Count Category:</label>
+<select id="cycleCountCategory">
+<option value="">Loading categories...</option>
+</select>
+<div class="help-text">
+      Select a category, load the count sheet, then export it for physical counting.
+      The CSV includes a blank Counted Quantity column.
+    </div>
+<div class="button-row">
+<button class="cycle-btn" onclick="loadCycleCountSheet()">LOAD COUNT SHEET</button>
+<button class="export-btn" onclick="exportCycleCountSheetCSV()">EXPORT COUNT SHEET CSV</button>
+</div>
+<pre id="cycleCountSheetReport">Select a category and load count sheet...</pre>
+<h3>Step 2: Create Count Session</h3>
+<div class="warning-note">
+      Creating a cycle count session creates count records for the selected category.
+      This does not change inventory quantities.
+    </div>
+<label>Count Name:</label>
+<input autocomplete="off" id="cycleCountName" placeholder="Example: PUMPS Cycle Count - May 2026"/>
+<label>Started By / Counted By:</label>
+<input autocomplete="off" id="cycleCountStartedBy" placeholder="Enter warehouse team member name"/>
+<label>Session Notes:</label>
+<textarea id="cycleCountNotes" placeholder="Optional notes for this count session"></textarea>
+<button class="cycle-btn" onclick="createCycleCountSession()">CREATE CYCLE COUNT SESSION</button>
+<div class="session-id-box" id="activeCycleCountIdBox">
+      Active Cycle Count ID: None
+    </div>
+<pre id="cycleCountSessionResult">Create a cycle count session after selecting a category, or open a recount from the Recount Required Queue...</pre>
+</details>
+<details class="cycle-panel">
+<summary>Continue / Enter Counts</summary>
+<h3>Step 3: Enter Counts and Review Variances</h3>
+<div class="warning-note">
+      Enter counted quantities, then save. Saving counts records the physical count and calculates variance.
+      It does not post adjustments to inventory yet.
+    </div>
+<div class="button-row">
+<button class="cycle-btn" onclick="loadActiveCycleCountLines()">RELOAD ACTIVE COUNT LINES</button>
+<button class="save-btn" onclick="saveAllCycleCountLines()">SAVE ENTERED COUNTS</button>
+<button class="export-btn" onclick="exportActiveCycleCountLinesCSV()">EXPORT COUNT REVIEW CSV</button>
+</div>
+<div class="session-id-box" id="cycleCountLinesSummary">
+      No active count lines loaded.
+    </div>
+<div class="count-table-wrapper">
+<table>
+<thead>
+<tr>
+<th>Part Number</th>
+<th>Description</th>
+<th>System Qty</th>
+<th>Counted Qty</th>
+<th>Variance</th>
+<th>Variance Value</th>
+<th>Notes</th>
+<th>Counted By</th>
+<th>Counted At</th>
+</tr>
+</thead>
+<tbody id="cycleCountLinesTableBody">
+<tr>
+<td colspan="9">Create, load, or open a cycle count session to enter counts.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<pre id="cycleCountSaveResult">Count save status will appear here...</pre>
+<h3>Step 4: Submit for Review</h3>
+<div class="warning-note">
+      Mark Ready for Review submits the completed count for Admin review.
+      This does not update stock balances and does not create inventory transactions.
+    </div>
+<button class="cycle-btn" onclick="markActiveCycleCountReadyForReview()">MARK READY FOR REVIEW</button>
+<pre id="cycleCountPostResult">Ready-for-review status will appear here...</pre>
+</details>
+</div>
+</div>
+<div class="warehouse-tab-pane" id="warehouseDeadStockTab">
+<div class="card wide-card">
+<h2>Dead Stock / No-Movement Reporting</h2>
+<button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+<div class="warning-note">
+      This report shows on-hand inventory from stock balances and compares it to issue history.
+      Since the inventory transaction ledger currently has limited history, items with no matching issue history
+      will display as No Issue History Yet.
+    </div>
+<label>Dead Stock Filter:</label>
+<select id="deadStockFilter">
+<option value="all_candidates">All Dead Stock Candidates</option>
+<option selected="" value="no_issue">No Issue History Yet</option>
+<option value="days90">90+ Days No Movement</option>
+<option value="days180">180+ Days No Movement</option>
+<option value="days365">365+ Days No Movement</option>
+</select>
+<div class="button-row">
+<button class="report-btn" onclick="loadDeadStockReport()">RUN DEAD STOCK REPORT</button>
+<button class="export-btn" onclick="exportDeadStockCSV()">EXPORT DEAD STOCK CSV</button>
+</div>
+<div class="session-id-box" id="deadStockSummary">
+      Select a filter and run the Dead Stock report.
+    </div>
+<div class="count-table-wrapper">
+<table class="dead-stock-table">
+<thead>
+<tr>
+<th>Action</th>
+<th>Part Number</th>
+<th>Description</th>
+<th>Category</th>
+<th>Location</th>
+<th>Qty On Hand</th>
+<th>Unit Cost</th>
+<th>Inventory Value</th>
+<th>Last Issued</th>
+<th>Days Since Issued</th>
+<th>Last Received</th>
+<th>Status</th>
+<th>Verified Status</th>
+<th>Recommended Action</th>
+<th>Verified By</th>
+<th>Verified At</th>
+</tr>
+</thead>
+<tbody id="deadStockTableBody">
+<tr>
+<td colspan="16">No dead stock report loaded.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="warehouse-tab-pane" id="warehouseNeedsCategoryTab">
+<div class="card wide-card">
+<h2>Needs Category Queue</h2>
+<button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+<div class="warning-note">
+      This report shows active parts with NULL or blank categories. Select the correct category directly on each row,
+      then click UPDATE CATEGORY. The row will disappear from this queue after the category is saved.
+    </div>
+<div class="button-row">
+<button class="report-btn" onclick="loadNeedsCategoryReport()">RUN NEEDS CATEGORY REPORT</button>
+<button class="export-btn" onclick="exportNeedsCategoryCSV()">EXPORT NEEDS CATEGORY CSV</button>
+</div>
+<div class="session-id-box" id="needsCategorySummary">
+      Click RUN NEEDS CATEGORY REPORT to load uncategorized active parts.
+    </div>
+<div class="count-table-wrapper">
+<table class="needs-category-table">
+<thead>
+<tr>
+<th>Action</th>
+<th>Part Number</th>
+<th>Description</th>
+<th>New Category</th>
+<th>Location</th>
+<th>Qty On Hand</th>
+<th>Unit Cost</th>
+<th>Inventory Value</th>
+<th>Updated At</th>
+</tr>
+</thead>
+<tbody id="needsCategoryTableBody">
+<tr>
+<td colspan="9">No Needs Category report loaded.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+const INVENTORY_SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
+
+function initializeInventorySidebar() {
+  const appShell = document.getElementById('appShell');
+  const toggleButton = document.getElementById('inventorySidebarToggle');
+
+  if (!appShell || !toggleButton) {
+    return;
+  }
+
+  function applySidebarState(collapsed) {
+    appShell.classList.toggle('sidebar-collapsed', collapsed);
+    toggleButton.title = collapsed ? 'Expand' : 'Collapse';
+    toggleButton.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    toggleButton.setAttribute('aria-expanded', String(!collapsed));
+  }
+
+  function getSavedState() {
+    try {
+      return localStorage.getItem(INVENTORY_SIDEBAR_STORAGE_KEY) === 'true';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function saveState(collapsed) {
+    try {
+      localStorage.setItem(INVENTORY_SIDEBAR_STORAGE_KEY, String(collapsed));
+    } catch (error) {
+      // Ignore localStorage errors so navigation remains usable.
+    }
+  }
+
+  applySidebarState(getSavedState());
+
+  toggleButton.addEventListener('click', () => {
+    const collapsed = !appShell.classList.contains('sidebar-collapsed');
+    applySidebarState(collapsed);
+    saveState(collapsed);
+  });
+}
+
+initializeInventorySidebar();
+
+
+function showWarehouseSection(sectionId) {
+  const panes = document.querySelectorAll('.warehouse-tab-pane');
+  const buttons = document.querySelectorAll('[data-warehouse-tab-button]');
+
+  panes.forEach(pane => {
+    pane.classList.toggle('active', pane.id === sectionId);
+  });
+
+  buttons.forEach(button => {
+    button.classList.toggle('active', button.getAttribute('data-warehouse-tab-button') === sectionId);
+  });
+}
+
+const MAIN_WAREHOUSE_ID = "da67a9d7-b093-4e2d-b4fc-a8e05450e1e5";
+const WARRANTY_LOCATION_ID = "4d249b0c-5bd9-4dba-8b2f-d9eb24c4b2f1";
+const EXCLUDED_OPERATIONAL_LOCATION_NAMES = [
+  "Issued / Job Use",
+  "Adjustment Holding"
+];
+
+
+let partsData = [];
+let cycleCountSheetData = [];
+let activeCycleCountId = null;
+let activeCycleCountLines = [];
+let recountRequiredQueueData = [];
+let deadStockReportData = [];
+let needsCategoryReportData = [];
+let transactionLogData = [];
+let categoryData = [];
+let inventoryLocationData = [];
+let issueAvailableSerialRows = [];
+let uagBulkSummaryData = [];
+let uagBulkLineData = [];
+
+let currentWarehouseProfile = null;
+let currentWarehouseSession = null;
+
+const DEAD_STOCK_VERIFIED_STATUS_OPTIONS = [
+  'VERIFIED_DEAD_STOCK',
+  'NOT_DEAD_STOCK',
+  'REVIEW_LATER'
+];
+
+const DEAD_STOCK_RECOMMENDED_ACTION_OPTIONS = [
+  'REVIEW_LATER',
+  'DISPOSE',
+  'RETURN_TO_VENDOR',
+  'KEEP_IN_STOCK'
+];
+
+const TRANSACTION_REVERSAL_TYPES = [
+  'RECEIVE_REVERSAL',
+  'ISSUE_REVERSAL',
+  'ISSUED_REVERSAL',
+  'ADJUSTMENT_REVERSAL',
+  'CYCLE_COUNT_ADJUSTMENT_REVERSAL'
+];
+
+const TRANSFER_TRANSACTION_TYPES = [
+  'TRANSFER_OUT',
+  'TRANSFER_IN'
+];
+
+const KNOWN_TRANSACTION_TYPES = [
+  'RECEIVE',
+  'ISSUED',
+  'ADJUSTMENT',
+  'CYCLE_COUNT_ADJUSTMENT',
+  ...TRANSFER_TRANSACTION_TYPES,
+  ...TRANSACTION_REVERSAL_TYPES
+];
+
+window.addEventListener('load', async () => {
+  const hasAccess = await enforceWarehouseAccess();
+
+  if (!hasAccess) {
+    return;
+  }
+
+  await loadCategoryDropdowns();
+  await loadParts();
+  await loadCycleCountCategories();
+  await loadRecountRequiredQueue();
+});
+
+function showWarehouseAccessGate(message, type = 'warning') {
+  const gate = document.getElementById('warehouseAccessGate');
+  const content = document.getElementById('warehouseContent');
+  const messageBox = document.getElementById('warehouseAccessMessage');
+
+  if (gate) {
+    gate.classList.remove('hidden');
+  }
+
+  if (content) {
+    content.classList.add('hidden');
+  }
+
+  if (messageBox) {
+    messageBox.className =
+      type === 'success' ? 'status-note' :
+      type === 'danger' ? 'danger-note' :
+      'warning-note';
+
+    messageBox.textContent = message;
+  }
+}
+
+function showWarehouseContent(profile, email) {
+  const gate = document.getElementById('warehouseAccessGate');
+  const content = document.getElementById('warehouseContent');
+
+  if (gate) {
+    gate.classList.add('hidden');
+  }
+
+  if (content) {
+    content.classList.remove('hidden');
+  }
+
+  console.log('Warehouse management access granted:', {
+    full_name: profile?.full_name || '',
+    email: email || '',
+    role: profile?.role || ''
+  });
+}
+
+async function enforceWarehouseAccess() {
+  showWarehouseAccessGate('Checking warehouse management access...', 'warning');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showWarehouseAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session || !session.user) {
+    showWarehouseAccessGate(
+      'You must be logged in as an ADMIN or WAREHOUSE user to access Warehouse Management.',
+      'danger'
+    );
+    return false;
+  }
+
+  currentWarehouseSession = session;
+
+  const { data: profileData, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showWarehouseAccessGate(
+      'Login found, but user profile could not be loaded: ' + profileError.message,
+      'danger'
+    );
+    return false;
+  }
+
+  if (!profileData || profileData.active !== true) {
+    showWarehouseAccessGate(
+      'This user profile is inactive or unavailable. Contact an admin.',
+      'danger'
+    );
+    return false;
+  }
+
+  const allowedRoles = ['SYSTEM_ADMIN', 'ADMIN', 'WAREHOUSE'];
+
+  if (!allowedRoles.includes(profileData.role)) {
+    showWarehouseAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nWarehouse Management requires SYSTEM_ADMIN, ADMIN, or WAREHOUSE access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentWarehouseProfile = profileData;
+
+  showWarehouseContent(profileData, session.user.email);
+
+  return true;
+}
+
+async function warehouseLogout() {
+  await client.auth.signOut();
+  currentWarehouseProfile = null;
+  currentWarehouseSession = null;
+  window.location.href = 'login.html';
+}
+
+async function loadCategoryDropdowns() {
+  const selects = [
+    document.getElementById('newPartCategory'),
+    document.getElementById('changePartCategory')
+  ];
+
+  selects.forEach(select => {
+    if (select) {
+      select.innerHTML = '<option value="">Loading categories...</option>';
+    }
+  });
+
+  const { data, error } = await client
+    .from('inventory_part_categories')
+    .select('category_name')
+    .eq('active', true)
+    .order('category_name', { ascending: true });
+
+  if (error) {
+    selects.forEach(select => {
+      if (select) {
+        select.innerHTML = '<option value="">Category load error</option>';
+      }
+    });
+    console.error('Category dropdown load error:', error);
+    return;
+  }
+
+  categoryData = data || [];
+
+  selects.forEach(select => {
+    if (!select) {
+      return;
+    }
+
+    const placeholder = select.id === 'changePartCategory'
+      ? 'Select new category...'
+      : 'Select category...';
+
+    select.innerHTML = `<option value="">${placeholder}</option>`;
+
+    categoryData.forEach(row => {
+      const option = document.createElement('option');
+      option.value = row.category_name;
+      option.textContent = row.category_name;
+      select.appendChild(option);
+    });
+  });
+
+  console.log('Active inventory categories loaded:', categoryData.length);
+}
+
+async function loadInventoryLocationDropdowns() {
+  const transferSelects = [
+    document.getElementById('transferFromLocation'),
+    document.getElementById('transferToLocation')
+  ];
+
+  const issueSelect = document.getElementById('issueSourceLocation');
+  const allSelects = [...transferSelects, issueSelect].filter(Boolean);
+
+  allSelects.forEach(select => {
+    select.innerHTML = '<option value="">Loading locations...</option>';
+  });
+
+  const { data, error } = await client
+    .from('inventory_locations')
+    .select('id, location_name, active')
+    .eq('active', true)
+    .order('location_name', { ascending: true });
+
+  if (error) {
+    allSelects.forEach(select => {
+      select.innerHTML = '<option value="">Location load error</option>';
+    });
+    console.error('Inventory location load error:', error);
+    return;
+  }
+
+  inventoryLocationData = data || [];
+
+  const operationalLocations = inventoryLocationData.filter(location =>
+    !EXCLUDED_OPERATIONAL_LOCATION_NAMES.includes(location.location_name)
+  );
+
+  transferSelects.forEach(select => {
+    if (!select) {
+      return;
+    }
+
+    const placeholder = select.id === 'transferFromLocation'
+      ? 'Select source location...'
+      : 'Select destination location...';
+
+    select.innerHTML = `<option value="">${placeholder}</option>`;
+
+    operationalLocations.forEach(location => {
+      const option = document.createElement('option');
+      option.value = location.id;
+      option.textContent = location.location_name;
+      select.appendChild(option);
+    });
+  });
+
+  if (issueSelect) {
+    issueSelect.innerHTML = '<option value="">Select issue source location...</option>';
+
+    operationalLocations.forEach(location => {
+      const option = document.createElement('option');
+      option.value = location.id;
+      option.textContent = location.location_name;
+      issueSelect.appendChild(option);
+    });
+  }
+
+  const fromSelect = document.getElementById('transferFromLocation');
+  const issueSourceSelect = document.getElementById('issueSourceLocation');
+  const transferByElement = document.getElementById('transferBy');
+
+  if (fromSelect && operationalLocations.some(location => String(location.id) === MAIN_WAREHOUSE_ID)) {
+    fromSelect.value = MAIN_WAREHOUSE_ID;
+  }
+
+  if (issueSourceSelect && operationalLocations.some(location => String(location.id) === MAIN_WAREHOUSE_ID)) {
+    issueSourceSelect.value = MAIN_WAREHOUSE_ID;
+  }
+
+  if (transferByElement && currentWarehouseProfile?.full_name && !transferByElement.value.trim()) {
+    transferByElement.value = currentWarehouseProfile.full_name;
+  }
+
+  await checkTransferSerialized();
+
+  console.log('Active operational inventory locations loaded:', operationalLocations.length);
+}
+
+async function loadParts() {
+  let allParts = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    const { data, error } = await client
+      .rpc('get_parts_dropdown')
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      console.error('Parts dropdown load error:', error);
+      alert('Parts dropdown load error: ' + error.message);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allParts = allParts.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  partsData = allParts;
+
+  const datalist = document.getElementById('partsList');
+  datalist.innerHTML = '';
+
+  partsData.forEach(part => {
+    const option = document.createElement('option');
+    option.value = part.part_number;
+    datalist.appendChild(option);
+  });
+
+  updateReceivePartDescription();
+  updateTransferPartDescription();
+  updateIssuePartDescription();
+  updateAdjustmentPartDescription();
+  updateChangeSerializationPartDescription();
+
+  console.log('Parts loaded into dropdown:', partsData.length);
+}
+
+function getMatchedPart(inputId) {
+  const input = document.getElementById(inputId);
+
+  if (!input) {
+    return null;
+  }
+
+  const enteredPart = input.value.trim().toUpperCase();
+
+  return partsData.find(
+    p => p.part_number.toUpperCase() === enteredPart
+  );
+}
+
+function updatePartDescription(inputId, descriptionId) {
+  const descriptionElement = document.getElementById(descriptionId);
+
+  if (!descriptionElement) {
+    return;
+  }
+
+  const input = document.getElementById(inputId);
+  const enteredPart = input ? input.value.trim() : '';
+
+  if (!enteredPart) {
+    descriptionElement.innerHTML = 'Part description will appear here after a part number is selected.';
+    return;
+  }
+
+  const matchedPart = getMatchedPart(inputId);
+
+  if (!matchedPart) {
+    descriptionElement.innerHTML = '<span class="part-description-label">Description:</span> No matching active part found yet.';
+    return;
+  }
+
+  descriptionElement.innerHTML =
+    `<span class="part-description-label">Description:</span> ${escapeHTML(matchedPart.description || 'No description on file')}`;
+}
+
+function updateReceivePartDescription() {
+  updatePartDescription('receivePart', 'receivePartDescription');
+}
+
+function updateTransferPartDescription() {
+  updatePartDescription('transferPart', 'transferPartDescription');
+}
+
+function updateIssuePartDescription() {
+  updatePartDescription('issuePart', 'issuePartDescription');
+}
+
+function updateAdjustmentPartDescription() {
+  updatePartDescription('adjustmentPart', 'adjustmentPartDescription');
+}
+
+function updateChangeSerializationPartDescription() {
+  updatePartDescription('changeSerializationPartNumber', 'changeSerializationPartDescription');
+}
+
+async function checkIssueSerialized() {
+  updateIssuePartDescription();
+
+  const matchedPart = getMatchedPart('issuePart');
+  const isSerialized = matchedPart?.is_serialized === true;
+  const serialContainer = document.getElementById('issueSerialContainer');
+  const serialSelect = document.getElementById('issueSerial');
+  const serialHelp = document.getElementById('issueSerialHelp');
+  const quantityInput = document.getElementById('issueQty');
+
+  if (serialContainer) {
+    serialContainer.style.display = isSerialized ? 'block' : 'none';
+  }
+
+  if (quantityInput) {
+    if (isSerialized) {
+      quantityInput.value = '1';
+      quantityInput.readOnly = true;
+      quantityInput.title = 'Serialized items must be issued one serial number at a time.';
+    } else {
+      quantityInput.readOnly = false;
+      quantityInput.title = '';
+    }
+  }
+
+  if (!isSerialized) {
+    if (serialSelect) {
+      serialSelect.innerHTML = '<option value="">Select available serial number...</option>';
+      serialSelect.value = '';
+      serialSelect.disabled = false;
+    }
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Select an on-hand serial number for the selected serialized part.';
+    }
+
+    return;
+  }
+
+  await loadAvailableIssueSerials(matchedPart);
+}
+
+async function getPartIdForMatchedPart(matchedPart, fallbackInputId = null) {
+  if (!matchedPart && fallbackInputId) {
+    matchedPart = getMatchedPart(fallbackInputId);
+  }
+
+  if (!matchedPart) {
+    return null;
+  }
+
+  if (matchedPart.part_id) {
+    return matchedPart.part_id;
+  }
+
+  if (matchedPart.id) {
+    return matchedPart.id;
+  }
+
+  const partNumber = matchedPart.part_number || (fallbackInputId ? document.getElementById(fallbackInputId)?.value.trim() : '');
+
+  if (!partNumber) {
+    return null;
+  }
+
+  const { data, error } = await client
+    .from('parts')
+    .select('id')
+    .eq('part_number', partNumber)
+    .eq('active', true)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.id || null;
+}
+
+async function loadAvailableIssueSerials(matchedPart) {
+  const serialSelect = document.getElementById('issueSerial');
+  const serialHelp = document.getElementById('issueSerialHelp');
+
+  issueAvailableSerialRows = [];
+  updateIssueFifoWarningFromSelection();
+
+  if (!serialSelect) {
+    return;
+  }
+
+  serialSelect.innerHTML = '<option value="">Loading available serial numbers...</option>';
+  serialSelect.disabled = true;
+
+  if (!matchedPart || !matchedPart.part_number) {
+    serialSelect.innerHTML = '<option value="">Select available serial number...</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Select an exact serialized part number first.';
+    }
+
+    return;
+  }
+
+  const sourceLocationId = document.getElementById('issueSourceLocation')?.value || MAIN_WAREHOUSE_ID;
+  const sourceLocationName = getLocationNameById(sourceLocationId);
+
+  if (!sourceLocationId) {
+    serialSelect.innerHTML = '<option value="">Select issue source location first...</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Select an Issue From Location before choosing a serial number.';
+    }
+
+    return;
+  }
+
+  let partId = null;
+
+  try {
+    partId = await getPartIdForMatchedPart(matchedPart, 'issuePart');
+  } catch (error) {
+    serialSelect.innerHTML = '<option value="">Serial number load error</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Unable to look up part ID: ' + error.message;
+    }
+
+    return;
+  }
+
+  if (!partId) {
+    serialSelect.innerHTML = '<option value="">Serial number load error</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Unable to determine the selected part ID.';
+    }
+
+    return;
+  }
+
+  const { data, error } = await client
+    .from('serialized_inventory')
+    .select('id, serial_number_raw, serial_number_normalized, status, current_location_id, is_batch_tracked, batch_code, purchase_order_type, vendor_name, vendor_order_number, received_at, created_at')
+    .eq('part_id', partId)
+    .eq('status', 'on_hand')
+    .eq('current_location_id', sourceLocationId);
+
+  if (error) {
+    serialSelect.innerHTML = '<option value="">Serial number load error</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = error.message;
+    }
+
+    return;
+  }
+
+  const rows = (data || []).sort((a, b) => {
+    const aBatch = a.is_batch_tracked === true ? 1 : 0;
+    const bBatch = b.is_batch_tracked === true ? 1 : 0;
+
+    if (aBatch !== bBatch) {
+      return aBatch - bBatch;
+    }
+
+    const aDate = new Date(a.received_at || a.created_at || 0).getTime();
+    const bDate = new Date(b.received_at || b.created_at || 0).getTime();
+
+    if (aDate !== bDate) {
+      return aDate - bDate;
+    }
+
+    return String(a.serial_number_raw || '').localeCompare(String(b.serial_number_raw || ''));
+  });
+
+  issueAvailableSerialRows = rows;
+
+  serialSelect.innerHTML = '<option value="">Select available serial number...</option>';
+
+  rows.forEach(row => {
+    const serialNumber = row.serial_number_raw || '';
+
+    if (!serialNumber) {
+      return;
+    }
+
+    const sourceLabel = row.is_batch_tracked === true
+      ? `${row.batch_code || 'Tracked Batch'} — Bulk Batch`
+      : 'Existing / Non-Batch Stock';
+
+    const receivedLabel = row.received_at || row.created_at
+      ? ` — Received ${formatDateOnly(row.received_at || row.created_at)}`
+      : '';
+
+    const option = document.createElement('option');
+    option.value = serialNumber;
+    option.textContent = `${serialNumber} — ${sourceLabel}${receivedLabel}`;
+    option.dataset.isBatchTracked = String(row.is_batch_tracked === true);
+    option.dataset.batchCode = row.batch_code || '';
+    serialSelect.appendChild(option);
+  });
+
+  serialSelect.disabled = rows.length === 0;
+
+  if (serialHelp) {
+    const batchCount = rows.filter(row => row.is_batch_tracked === true).length;
+    const nonBatchCount = rows.length - batchCount;
+
+    serialHelp.textContent = rows.length === 0
+      ? `No on-hand serial numbers are available in ${sourceLocationName} for this part.`
+      : `${rows.length} on-hand serial number(s) available in ${sourceLocationName}. Non-batch: ${nonBatchCount}. Tracked batch: ${batchCount}.`;
+  }
+
+  updateIssueFifoWarningFromSelection();
+}
+
+function getSelectedIssueSerialRow() {
+  const serialValue = document.getElementById('issueSerial')?.value.trim() || '';
+
+  if (!serialValue) {
+    return null;
+  }
+
+  return issueAvailableSerialRows.find(row =>
+    String(row.serial_number_raw || '').trim().toUpperCase() === serialValue.toUpperCase()
+    || String(row.serial_number_normalized || '').trim().toUpperCase() === serialValue.toUpperCase()
+  ) || null;
+}
+
+function getIssueOlderNonBatchSerialCount(selectedRow) {
+  if (!selectedRow || selectedRow.is_batch_tracked !== true) {
+    return 0;
+  }
+
+  return issueAvailableSerialRows.filter(row =>
+    row.id !== selectedRow.id
+    && row.status === 'on_hand'
+    && row.is_batch_tracked !== true
+  ).length;
+}
+
+function updateIssueFifoWarningFromSelection() {
+  const fifoWarning = document.getElementById('issueFifoWarning');
+  const fifoOverrideContainer = document.getElementById('issueFifoOverrideContainer');
+  const selectedRow = getSelectedIssueSerialRow();
+  const olderNonBatchCount = getIssueOlderNonBatchSerialCount(selectedRow);
+
+  if (!fifoWarning || !fifoOverrideContainer) {
+    return;
+  }
+
+  if (selectedRow && selectedRow.is_batch_tracked === true && olderNonBatchCount > 0) {
+    fifoWarning.style.display = 'block';
+    fifoOverrideContainer.style.display = 'block';
+    fifoWarning.textContent =
+      `FIFO Warning: This serial number belongs to tracked batch ${selectedRow.batch_code || 'UNKNOWN'}, ` +
+      `but ${olderNonBatchCount} non-batch serialized unit(s) are still on hand for this part/location. ` +
+      `Issue older non-batch stock first when possible. Override reason is required to continue.`;
+    return;
+  }
+
+  fifoWarning.style.display = 'none';
+  fifoWarning.textContent = '';
+  fifoOverrideContainer.style.display = 'none';
+
+  const fifoOverrideReason = document.getElementById('issueFifoOverrideReason');
+  if (fifoOverrideReason) {
+    fifoOverrideReason.value = '';
+  }
+}
+
+async function checkTransferSerialized() {
+  updateTransferPartDescription();
+
+  const matchedPart = getMatchedPart('transferPart');
+  const isSerialized = matchedPart?.is_serialized === true;
+  const fromLocationId = document.getElementById('transferFromLocation')?.value || '';
+  const toLocationId = document.getElementById('transferToLocation')?.value || '';
+  const warrantyInvolved = isWarrantyTransfer(fromLocationId, toLocationId);
+
+  const serialContainer = document.getElementById('transferSerialContainer');
+  const serialSelect = document.getElementById('transferSerial');
+  const serialHelp = document.getElementById('transferSerialHelp');
+  const quantityInput = document.getElementById('transferQty');
+
+  const shouldShowSerial = isSerialized && warrantyInvolved;
+
+  if (serialContainer) {
+    serialContainer.style.display = shouldShowSerial ? 'block' : 'none';
+  }
+
+  if (quantityInput) {
+    if (shouldShowSerial) {
+      quantityInput.value = '1';
+      quantityInput.readOnly = true;
+      quantityInput.title = 'Serialized warranty transfers must be moved one serial number at a time.';
+    } else {
+      quantityInput.readOnly = false;
+      quantityInput.title = '';
+    }
+  }
+
+  if (!isSerialized) {
+    if (serialSelect) {
+      serialSelect.innerHTML = '<option value="">Select available serial number...</option>';
+      serialSelect.value = '';
+      serialSelect.disabled = false;
+    }
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Serial number is required only when transferring a serialized part to or from WARRANTY.';
+    }
+
+    return;
+  }
+
+  if (!warrantyInvolved) {
+    if (serialSelect) {
+      serialSelect.innerHTML = '<option value="">Serial transfers require WARRANTY...</option>';
+      serialSelect.value = '';
+      serialSelect.disabled = true;
+    }
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Serialized parts are blocked from normal transfers. Select WARRANTY as the From or To Location to move a serialized warranty item.';
+    }
+
+    return;
+  }
+
+  await loadAvailableTransferSerials(matchedPart);
+}
+
+async function loadAvailableTransferSerials(matchedPart) {
+  const serialSelect = document.getElementById('transferSerial');
+  const serialHelp = document.getElementById('transferSerialHelp');
+
+  if (!serialSelect) {
+    return;
+  }
+
+  serialSelect.innerHTML = '<option value="">Loading available serial numbers...</option>';
+  serialSelect.disabled = true;
+
+  if (!matchedPart || !matchedPart.part_number) {
+    serialSelect.innerHTML = '<option value="">Select available serial number...</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Select an exact serialized part number first.';
+    }
+
+    return;
+  }
+
+  const fromLocationId = document.getElementById('transferFromLocation')?.value || '';
+  const toLocationId = document.getElementById('transferToLocation')?.value || '';
+
+  if (!fromLocationId) {
+    serialSelect.innerHTML = '<option value="">Select source location first...</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Select a From Location before choosing a serial number.';
+    }
+
+    return;
+  }
+
+  if (!toLocationId) {
+    serialSelect.innerHTML = '<option value="">Select destination location first...</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Select a To Location before choosing a serial number.';
+    }
+
+    return;
+  }
+
+  if (!isWarrantyTransfer(fromLocationId, toLocationId)) {
+    serialSelect.innerHTML = '<option value="">Serial transfers require WARRANTY...</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Serialized parts are blocked from normal transfers. WARRANTY must be either the From or To Location.';
+    }
+
+    return;
+  }
+
+  const sourceLocationName = getLocationNameById(fromLocationId);
+
+  const { data, error } = await client
+    .from('v_serialized_inventory_current')
+    .select('serial_number_raw, status, current_location')
+    .eq('part_number', matchedPart.part_number)
+    .eq('status', 'on_hand')
+    .eq('current_location', sourceLocationName)
+    .order('serial_number_raw', { ascending: true });
+
+  if (error) {
+    serialSelect.innerHTML = '<option value="">Serial number load error</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = error.message;
+    }
+
+    return;
+  }
+
+  const rows = data || [];
+
+  serialSelect.innerHTML = '<option value="">Select available serial number...</option>';
+
+  rows.forEach(row => {
+    const serialNumber = row.serial_number_raw || '';
+
+    if (!serialNumber) {
+      return;
+    }
+
+    const option = document.createElement('option');
+    option.value = serialNumber;
+    option.textContent = serialNumber;
+    serialSelect.appendChild(option);
+  });
+
+  serialSelect.disabled = rows.length === 0;
+
+  if (serialHelp) {
+    serialHelp.textContent = rows.length === 0
+      ? `No on-hand serial numbers are available in ${sourceLocationName} for this part.`
+      : `${rows.length} on-hand serial number(s) available in ${sourceLocationName}.`;
+  }
+}
+
+function isWarrantyTransfer(fromLocationId, toLocationId) {
+  return String(fromLocationId || '') === WARRANTY_LOCATION_ID ||
+    String(toLocationId || '') === WARRANTY_LOCATION_ID;
+}
+
+function getCurrentUserDisplayName() {
+  return currentWarehouseProfile?.full_name || currentWarehouseSession?.user?.email || 'Warehouse User';
+}
+
+function getBatchPrefixFromVendor(vendorName) {
+  return String(vendorName || '')
+    .trim()
+    .replace(/[^A-Za-z0-9]+/g, '')
+    .toUpperCase();
+}
+
+function getBatchCodePreview(vendorName, vendorOrderNumber) {
+  const prefix = getBatchPrefixFromVendor(vendorName);
+  const orderNumber = String(vendorOrderNumber || '').trim().replace(/\s+/g, '').toUpperCase();
+
+  if (!prefix || !orderNumber) {
+    return '';
+  }
+
+  return `${prefix}-${orderNumber}`;
+}
+
+function updateReceiveBatchFields() {
+  const vendorValue = document.getElementById('receiveVendor')?.value.trim() || '';
+  const orderType = document.getElementById('receiveOrderType')?.value || 'REGULAR';
+  const vendorOrderValue = document.getElementById('receiveVendorOrder')?.value.trim() || '';
+  const vendorOrderContainer = document.getElementById('receiveVendorOrderContainer');
+  const vendorOrderLabel = document.getElementById('receiveVendorOrderLabel');
+  const batchPreviewContainer = document.getElementById('receiveBatchPreviewContainer');
+  const batchPreview = document.getElementById('receiveBatchPreview');
+  const isBulkBatch = orderType === 'BULK_BATCH';
+  const isUag = vendorValue.toUpperCase() === 'UAG';
+
+  if (vendorOrderContainer) {
+    vendorOrderContainer.style.display = isBulkBatch || vendorValue ? 'block' : 'none';
+  }
+
+  if (vendorOrderLabel) {
+    vendorOrderLabel.textContent = isUag ? 'UAG Order #:' : 'Vendor Order #:';
+  }
+
+  if (batchPreviewContainer) {
+    batchPreviewContainer.style.display = isBulkBatch ? 'block' : 'none';
+  }
+
+  if (batchPreview) {
+    const preview = getBatchCodePreview(vendorValue, vendorOrderValue);
+    batchPreview.textContent = isBulkBatch
+      ? (preview || 'Enter Vendor and Vendor Order # to generate batch code.')
+      : 'Batch tracking applies only to Bulk / Batch Orders.';
+  }
+}
+
+function checkReceiveSerialized() {
+  updateReceivePartDescription();
+
+  const matchedPart = getMatchedPart('receivePart');
+  const isSerialized = matchedPart?.is_serialized === true;
+  const serialContainer = document.getElementById('receiveSerialContainer');
+
+  if (serialContainer) {
+    serialContainer.style.display = isSerialized ? 'block' : 'none';
+  }
+
+  updateReceiveBatchFields();
+
+  /*
+    Do not auto-fill Price Paid from the existing part master cost.
+    Receiving must capture the actual current price paid for this receipt.
+  */
+}
+
+const issuePartElement = document.getElementById('issuePart');
+if (issuePartElement) {
+  issuePartElement.addEventListener('input', checkIssueSerialized);
+}
+
+const issueSerialElement = document.getElementById('issueSerial');
+if (issueSerialElement) {
+  issueSerialElement.addEventListener('change', updateIssueFifoWarningFromSelection);
+}
+
+const issueSourceLocationElement = document.getElementById('issueSourceLocation');
+if (issueSourceLocationElement) {
+  issueSourceLocationElement.addEventListener('change', checkIssueSerialized);
+}
+const receivePartElement = document.getElementById('receivePart');
+if (receivePartElement) {
+  receivePartElement.addEventListener('input', checkReceiveSerialized);
+}
+
+const receiveVendorElement = document.getElementById('receiveVendor');
+if (receiveVendorElement) {
+  receiveVendorElement.addEventListener('input', updateReceiveBatchFields);
+}
+
+const receiveOrderTypeElement = document.getElementById('receiveOrderType');
+if (receiveOrderTypeElement) {
+  receiveOrderTypeElement.addEventListener('change', updateReceiveBatchFields);
+}
+
+const receiveVendorOrderElement = document.getElementById('receiveVendorOrder');
+if (receiveVendorOrderElement) {
+  receiveVendorOrderElement.addEventListener('input', updateReceiveBatchFields);
+}
+
+const transferPartElement = document.getElementById('transferPart');
+if (transferPartElement) {
+  transferPartElement.addEventListener('input', checkTransferSerialized);
+}
+
+const transferFromLocationElement = document.getElementById('transferFromLocation');
+if (transferFromLocationElement) {
+  transferFromLocationElement.addEventListener('change', checkTransferSerialized);
+}
+
+const transferToLocationElement = document.getElementById('transferToLocation');
+if (transferToLocationElement) {
+  transferToLocationElement.addEventListener('change', checkTransferSerialized);
+}
+const adjustmentPartElement = document.getElementById('adjustmentPart');
+if (adjustmentPartElement) {
+  adjustmentPartElement.addEventListener('input', updateAdjustmentPartDescription);
+}
+const changeSerializationPartNumberElement = document.getElementById('changeSerializationPartNumber');
+if (changeSerializationPartNumberElement) {
+  changeSerializationPartNumberElement.addEventListener('input', updateChangeSerializationPartDescription);
+}
+
+function resetIssueFields() {
+  document.getElementById('issuePart').value = '';
+  document.getElementById('issueSerial').value = '';
+  document.getElementById('issueQty').value = '1';
+
+  const issueJobTypeElement = document.getElementById('issueJobType');
+  if (issueJobTypeElement) {
+    issueJobTypeElement.value = '';
+  }
+
+  document.getElementById('issueTech').value = '';
+  document.getElementById('issueJob').value = '';
+  document.getElementById('issueClient').value = '';
+
+  const issueSourceLocationElement = document.getElementById('issueSourceLocation');
+  if (issueSourceLocationElement) {
+    issueSourceLocationElement.value = MAIN_WAREHOUSE_ID;
+  }
+
+  const quantityInput = document.getElementById('issueQty');
+  if (quantityInput) {
+    quantityInput.readOnly = false;
+    quantityInput.title = '';
+  }
+
+  const serialContainer = document.getElementById('issueSerialContainer');
+  if (serialContainer) {
+    serialContainer.style.display = 'none';
+  }
+
+  const serialSelect = document.getElementById('issueSerial');
+  if (serialSelect) {
+    serialSelect.innerHTML = '<option value="">Select available serial number...</option>';
+    serialSelect.disabled = false;
+  }
+
+  const serialHelp = document.getElementById('issueSerialHelp');
+  if (serialHelp) {
+    serialHelp.textContent = 'Select an on-hand serial number for the selected serialized part.';
+  }
+
+  const fifoWarning = document.getElementById('issueFifoWarning');
+  if (fifoWarning) {
+    fifoWarning.style.display = 'none';
+    fifoWarning.textContent = '';
+  }
+
+  const fifoOverrideContainer = document.getElementById('issueFifoOverrideContainer');
+  if (fifoOverrideContainer) {
+    fifoOverrideContainer.style.display = 'none';
+  }
+
+  const fifoOverrideReason = document.getElementById('issueFifoOverrideReason');
+  if (fifoOverrideReason) {
+    fifoOverrideReason.value = '';
+  }
+
+  issueAvailableSerialRows = [];
+
+  updateIssuePartDescription();
+}
+
+function resetReceiveFields() {
+  document.getElementById('receivePart').value = '';
+  document.getElementById('receiveSerial').value = '';
+  document.getElementById('receiveQty').value = '1';
+  document.getElementById('receiveUnitCost').value = '';
+  document.getElementById('receiveVendor').value = '';
+  document.getElementById('receivePO').value = '';
+
+  const orderTypeElement = document.getElementById('receiveOrderType');
+  if (orderTypeElement) {
+    orderTypeElement.value = 'REGULAR';
+  }
+
+  const vendorOrderElement = document.getElementById('receiveVendorOrder');
+  if (vendorOrderElement) {
+    vendorOrderElement.value = '';
+  }
+
+  updateReceiveBatchFields();
+
+  const serialContainer = document.getElementById('receiveSerialContainer');
+  if (serialContainer) {
+    serialContainer.style.display = 'none';
+  }
+
+  updateReceivePartDescription();
+}
+
+function resetTransferFields() {
+  document.getElementById('transferPart').value = '';
+  document.getElementById('transferQty').value = '1';
+  document.getElementById('transferNotes').value = '';
+
+  const fromLocationElement = document.getElementById('transferFromLocation');
+  const toLocationElement = document.getElementById('transferToLocation');
+  const transferByElement = document.getElementById('transferBy');
+
+  if (fromLocationElement) {
+    fromLocationElement.value = MAIN_WAREHOUSE_ID;
+  }
+
+  if (toLocationElement) {
+    toLocationElement.value = '';
+  }
+
+  if (transferByElement && currentWarehouseProfile?.full_name) {
+    transferByElement.value = currentWarehouseProfile.full_name;
+  }
+
+  const quantityInput = document.getElementById('transferQty');
+  if (quantityInput) {
+    quantityInput.readOnly = false;
+    quantityInput.title = '';
+  }
+
+  const serialContainer = document.getElementById('transferSerialContainer');
+  if (serialContainer) {
+    serialContainer.style.display = 'none';
+  }
+
+  const serialSelect = document.getElementById('transferSerial');
+  if (serialSelect) {
+    serialSelect.innerHTML = '<option value="">Select available serial number...</option>';
+    serialSelect.value = '';
+    serialSelect.disabled = false;
+  }
+
+  const serialHelp = document.getElementById('transferSerialHelp');
+  if (serialHelp) {
+    serialHelp.textContent = 'Serial number is required only when transferring a serialized part to or from WARRANTY.';
+  }
+
+  updateTransferPartDescription();
+}
+
+function resetAdjustmentFields() {
+  document.getElementById('adjustmentPart').value = '';
+  document.getElementById('adjustmentQty').value = '1';
+  document.getElementById('adjustedBy').value = '';
+  document.getElementById('adjustmentReason').value = '';
+  document.getElementById('adjustmentNotes').value = '';
+
+  updateAdjustmentPartDescription();
+}
+
+function resetSerializationFields() {
+  document.getElementById('changeSerializationPartNumber').value = '';
+  document.getElementById('changePartSerialized').value = '';
+  document.getElementById('serializationUpdatedBy').value = '';
+  document.getElementById('serializationReason').value = '';
+
+  updateChangeSerializationPartDescription();
+}
+
+async function getPartIdForTransfer(matchedPart) {
+  if (!matchedPart) {
+    return null;
+  }
+
+  if (matchedPart.part_id) {
+    return matchedPart.part_id;
+  }
+
+  if (matchedPart.id) {
+    return matchedPart.id;
+  }
+
+  const partNumber = matchedPart.part_number || document.getElementById('transferPart').value.trim();
+
+  if (!partNumber) {
+    return null;
+  }
+
+  const { data, error } = await client
+    .from('parts')
+    .select('id')
+    .eq('part_number', partNumber)
+    .eq('active', true)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.id || null;
+}
+
+async function transferInventory() {
+  /*
+    Do not call checkTransferSerialized() here.
+    That function reloads the available-serial dropdown, which clears the user's selected serial number.
+    The selected serial must be read exactly as-is when the Transfer button is clicked.
+  */
+  updateTransferPartDescription();
+
+  const matchedPart = getMatchedPart('transferPart');
+  const fromLocationId = document.getElementById('transferFromLocation').value;
+  const toLocationId = document.getElementById('transferToLocation').value;
+  const transferQtyElement = document.getElementById('transferQty');
+  const transferredBy = document.getElementById('transferBy').value.trim();
+  const notes = document.getElementById('transferNotes').value.trim();
+  const serialElement = document.getElementById('transferSerial');
+  const serialValue = serialElement ? serialElement.value.trim() : '';
+  const output = document.getElementById('transferOutput');
+
+  if (!matchedPart) {
+    output.textContent = 'Select a valid active part number before transferring inventory.';
+    return;
+  }
+
+  if (!fromLocationId) {
+    output.textContent = 'From Location is required.';
+    return;
+  }
+
+  if (!toLocationId) {
+    output.textContent = 'To Location is required.';
+    return;
+  }
+
+  if (fromLocationId === toLocationId) {
+    output.textContent = 'From Location and To Location cannot be the same.';
+    return;
+  }
+
+  const isSerialized = matchedPart.is_serialized === true;
+  const warrantyInvolved = isWarrantyTransfer(fromLocationId, toLocationId);
+  const quantity = isSerialized && warrantyInvolved
+    ? 1
+    : Number(transferQtyElement.value);
+
+  if (isSerialized && !warrantyInvolved) {
+    output.textContent =
+      'Serialized parts are blocked from normal transfers. To transfer a serialized part, WARRANTY must be either the From Location or the To Location.';
+    return;
+  }
+
+  if (isSerialized && warrantyInvolved && serialValue === '') {
+    output.textContent =
+      'Select a serial number before transferring a serialized part to or from WARRANTY.';
+    return;
+  }
+
+  if (!quantity || quantity <= 0) {
+    output.textContent = 'Transfer quantity must be greater than zero.';
+    return;
+  }
+
+  if (!transferredBy) {
+    output.textContent = 'Transferred By is required.';
+    return;
+  }
+
+  output.textContent = 'Transferring inventory...';
+
+  let partId = null;
+
+  try {
+    partId = await getPartIdForTransfer(matchedPart);
+  } catch (error) {
+    output.textContent = 'Unable to look up part ID for transfer: ' + error.message;
+    return;
+  }
+
+  if (!partId) {
+    output.textContent = 'Unable to determine the selected part ID for transfer.';
+    return;
+  }
+
+  const { data, error } = await client.rpc('transfer_inventory', {
+    p_part_id: partId,
+    p_from_location_id: fromLocationId,
+    p_to_location_id: toLocationId,
+    p_quantity: quantity,
+    p_transferred_by: transferredBy,
+    p_notes: notes || null,
+    p_serial_number: serialValue || null
+  });
+
+  if (error) {
+    output.textContent = error.message;
+    return;
+  }
+
+  const result = data || {};
+  const fromLocationName = result.from_location_name || getLocationNameById(fromLocationId);
+  const toLocationName = result.to_location_name || getLocationNameById(toLocationId);
+  const serialLine = serialValue ? `\nSerial Number: ${serialValue}` : '';
+
+  output.textContent =
+    `Transfer completed successfully.\n\n` +
+    `Part Number: ${matchedPart.part_number}\n` +
+    `Description: ${matchedPart.description || ''}\n` +
+    `From: ${fromLocationName}\n` +
+    `To: ${toLocationName}\n` +
+    `Quantity Transferred: ${formatNumber(quantity)}` +
+    serialLine;
+
+  resetTransferFields();
+  await loadReorder();
+
+  if (isSerialized) {
+    await loadSerializedInventory();
+  }
+}
+
+function getLocationNameById(locationId) {
+  const location = inventoryLocationData.find(row => String(row.id) === String(locationId));
+  return location?.location_name || locationId || '';
+}
+
+async function issue() {
+  /*
+    Do not call checkIssueSerialized() here.
+    That function reloads the available-serial dropdown, which clears the user's selected serial number.
+    The selected serial must be read exactly as-is when the Issue button is clicked.
+  */
+  updateIssuePartDescription();
+
+  const matchedPart = getMatchedPart('issuePart');
+  const output = document.getElementById('issueOutput');
+
+  if (!matchedPart) {
+    output.textContent = 'Select a valid active part number before issuing inventory.';
+    return;
+  }
+
+  const isSerialized = matchedPart.is_serialized === true;
+  const serialElement = document.getElementById('issueSerial');
+  const serialValue = serialElement ? serialElement.value.trim() : '';
+  const jobTypeElement = document.getElementById('issueJobType');
+  const jobTypeValue = jobTypeElement ? jobTypeElement.value.trim().toUpperCase() : '';
+  const sourceLocationElement = document.getElementById('issueSourceLocation');
+  const sourceLocationId = sourceLocationElement ? sourceLocationElement.value : '';
+  const sourceLocationName = getLocationNameById(sourceLocationId);
+  const quantityValue = isSerialized ? 1 : Number(document.getElementById('issueQty').value);
+  const fifoOverrideReason = document.getElementById('issueFifoOverrideReason')?.value.trim() || '';
+
+  if (!sourceLocationId) {
+    output.textContent = 'Select an Issue From Location before issuing inventory.';
+    return;
+  }
+
+  if (!['PROJECT', 'REPAIR'].includes(jobTypeValue)) {
+    output.textContent = 'Select Project or Repair before issuing inventory.';
+    return;
+  }
+
+  if (!quantityValue || quantityValue <= 0) {
+    output.textContent = 'Issue quantity must be greater than zero.';
+    return;
+  }
+
+  if (isSerialized && serialValue === '') {
+    output.textContent = 'Select a serial number before issuing a serialized part.';
+    return;
+  }
+
+  const selectedSerialRow = isSerialized ? getSelectedIssueSerialRow() : null;
+  const olderNonBatchCount = getIssueOlderNonBatchSerialCount(selectedSerialRow);
+
+  if (selectedSerialRow && selectedSerialRow.is_batch_tracked === true && olderNonBatchCount > 0 && !fifoOverrideReason) {
+    output.textContent =
+      `FIFO warning: selected serial belongs to batch ${selectedSerialRow.batch_code || 'UNKNOWN'}, ` +
+      `but ${olderNonBatchCount} non-batch serialized unit(s) are still on hand at ${sourceLocationName}. ` +
+      `Enter a FIFO Override Reason to continue.`;
+    updateIssueFifoWarningFromSelection();
+    return;
+  }
+
+  output.textContent = 'Issuing inventory...';
+
+  const { data, error } = await client.rpc('issue_inventory_order_tracking', {
+    p_part_number: document.getElementById('issuePart').value,
+    p_quantity: quantityValue,
+    p_issued_to: document.getElementById('issueTech').value,
+    p_work_order: document.getElementById('issueJob').value,
+    p_client_name: document.getElementById('issueClient').value,
+    p_job_type: jobTypeValue,
+    p_serial_number: serialValue || null,
+    p_source_location_id: sourceLocationId,
+    p_fifo_override_reason: fifoOverrideReason || null,
+    p_created_by: getCurrentUserDisplayName()
+  });
+
+  if (error) {
+    output.textContent = error.message;
+    return;
+  }
+
+  const result = data || {};
+  const lotLines = Array.isArray(result.lot_movements) && result.lot_movements.length > 0
+    ? '\n\nTracked Lot Movement(s):\n' + result.lot_movements.map(movement =>
+        `${movement.batch_code || 'Batch'}: issued ${formatNumber(movement.quantity_issued_from_lot)}`
+      ).join('\n')
+    : '';
+
+  const fifoLine = result.fifo_warning_triggered
+    ? `\nFIFO Override: YES\nOlder Non-Batch Qty at Issue: ${formatNumber(result.older_available_quantity_at_issue)}`
+    : '';
+
+  output.textContent =
+    `Issued successfully.\n` +
+    `Source Location: ${sourceLocationName}\n` +
+    `Part Number: ${matchedPart.part_number}\n` +
+    `Quantity Issued: ${formatNumber(quantityValue)}` +
+    (serialValue ? `\nSerial Number: ${serialValue}` : '') +
+    (result.selected_serial_batch_code ? `\nBatch Code: ${result.selected_serial_batch_code}` : '') +
+    fifoLine +
+    lotLines;
+
+  resetIssueFields();
+  await loadReorder();
+
+  if (isSerialized) {
+    await loadSerializedInventory();
+  }
+}
+
+async function receive() {
+  checkReceiveSerialized();
+
+  const output = document.getElementById('receiveOutput');
+  const matchedPart = getMatchedPart('receivePart');
+  const isSerialized = matchedPart?.is_serialized === true;
+  const serialValue = document.getElementById('receiveSerial').value.trim();
+  const quantityValue = Number(document.getElementById('receiveQty').value);
+  const unitCostValue = document.getElementById('receiveUnitCost').value;
+  const vendorValue = document.getElementById('receiveVendor').value.trim();
+  const poValue = document.getElementById('receivePO').value.trim();
+  const orderTypeValue = document.getElementById('receiveOrderType')?.value || 'REGULAR';
+  const vendorOrderValue = document.getElementById('receiveVendorOrder')?.value.trim() || '';
+  const batchPreview = getBatchCodePreview(vendorValue, vendorOrderValue);
+  const receiveLocationId = orderTypeValue === 'WARRANTY' ? WARRANTY_LOCATION_ID : MAIN_WAREHOUSE_ID;
+  const receiveLocationName = getLocationNameById(receiveLocationId);
+
+  if (!matchedPart) {
+    output.textContent = 'Select a valid active part number before receiving inventory.';
+    return;
+  }
+
+  if (!quantityValue || quantityValue <= 0) {
+    output.textContent = 'Receive quantity must be greater than zero.';
+    return;
+  }
+
+  if (isSerialized && quantityValue !== 1) {
+    output.textContent = 'Serialized parts must be received one serial number at a time.';
+    return;
+  }
+
+  if (isSerialized && serialValue === '') {
+    output.textContent = 'Serial number required for serialized parts.';
+    return;
+  }
+
+  if (unitCostValue === '' || Number(unitCostValue) < 0) {
+    output.textContent = 'Valid price paid is required when receiving inventory.';
+    return;
+  }
+
+  if (orderTypeValue === 'BULK_BATCH') {
+    if (!vendorValue) {
+      output.textContent = 'Vendor is required for Bulk / Batch Orders.';
+      return;
+    }
+
+    if (!vendorOrderValue) {
+      output.textContent = vendorValue.toUpperCase() === 'UAG'
+        ? 'UAG Order # is required for UAG Bulk / Batch Orders.'
+        : 'Vendor Order # is required for Bulk / Batch Orders.';
+      return;
+    }
+  }
+
+  output.textContent = 'Receiving inventory...';
+
+  const { data, error } = await client.rpc('receive_inventory_order_tracking', {
+    p_part_number: document.getElementById('receivePart').value,
+    p_quantity: quantityValue,
+    p_location_id: receiveLocationId,
+    p_serial_number: serialValue || null,
+    p_unit_cost: Number(unitCostValue),
+    p_vendor_name: vendorValue || null,
+    p_po_number: poValue || null,
+    p_vendor_order_number: vendorOrderValue || null,
+    p_purchase_order_type: orderTypeValue,
+    p_created_by: getCurrentUserDisplayName()
+  });
+
+  if (error) {
+    output.textContent = error.message;
+    return;
+  }
+
+  const result = data || {};
+
+  output.textContent =
+    `Received successfully.\n` +
+    `Part Number: ${result.part_number || matchedPart.part_number}\n` +
+    `Quantity Received: ${formatNumber(result.quantity_received || quantityValue)}\n` +
+    `Unit Cost: ${formatCurrency(result.unit_cost || unitCostValue)}\n` +
+    `Receive Location: ${receiveLocationName}\n` +
+    `Order Type: ${result.purchase_order_type || orderTypeValue}` +
+    (vendorValue ? `\nVendor: ${vendorValue}` : '') +
+    (poValue ? `\nInternal PO #: ${poValue}` : '') +
+    (vendorOrderValue ? `\nVendor Order #: ${vendorOrderValue}` : '') +
+    (result.is_batch_tracked && (result.batch_code || batchPreview) ? `\nBatch Code: ${result.batch_code || batchPreview}` : '') +
+    (result.is_batch_tracked ? `\nBatch Tracking: YES` : `\nBatch Tracking: NO`) +
+    (serialValue ? `\nSerial Number: ${serialValue}` : '');
+
+  resetReceiveFields();
+  await loadParts();
+  await loadReorder();
+
+  if (isSerialized) {
+    await loadSerializedInventory();
+  }
+}
+
+async function warehouseAdjustment() {
+  const partNumber = document.getElementById('adjustmentPart').value.trim();
+  const quantity = Number(document.getElementById('adjustmentQty').value);
+  const adjustedBy = document.getElementById('adjustedBy').value.trim();
+  const reason = document.getElementById('adjustmentReason').value;
+  const notes = document.getElementById('adjustmentNotes').value.trim();
+  const matchedPart = getMatchedPart('adjustmentPart');
+
+  if (!partNumber) {
+    document.getElementById('adjustmentOutput').textContent = 'Part number is required for warehouse adjustment.';
+    return;
+  }
+
+  if (!matchedPart) {
+    document.getElementById('adjustmentOutput').textContent = `Active part not found in dropdown: ${partNumber}`;
+    return;
+  }
+
+  if (matchedPart.is_serialized === true) {
+    document.getElementById('adjustmentOutput').textContent =
+      'Serialized parts are blocked from Warehouse Inventory Adjustment. Use Receive Inventory with a serial number so serialized tracking stays accurate.';
+    return;
+  }
+
+  if (!quantity || quantity <= 0) {
+    document.getElementById('adjustmentOutput').textContent =
+      'Adjustment quantity must be greater than zero. Only positive warehouse adjustments are currently allowed.';
+    return;
+  }
+
+  if (!adjustedBy) {
+    document.getElementById('adjustmentOutput').textContent = 'Adjusted By is required.';
+    return;
+  }
+
+  if (!reason) {
+    document.getElementById('adjustmentOutput').textContent = 'Adjustment Reason is required.';
+    return;
+  }
+
+  document.getElementById('adjustmentOutput').textContent = 'Saving warehouse inventory adjustment...';
+
+  const { data, error } = await client.rpc('warehouse_inventory_adjustment', {
+    p_part_number: partNumber,
+    p_location_id: MAIN_WAREHOUSE_ID,
+    p_quantity: quantity,
+    p_adjusted_by: adjustedBy,
+    p_adjustment_reason: reason,
+    p_notes: notes || null
+  });
+
+  if (error) {
+    document.getElementById('adjustmentOutput').textContent = error.message;
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+
+  if (result) {
+    document.getElementById('adjustmentOutput').textContent =
+      `Warehouse adjustment saved successfully.\n\n` +
+      `Part Number: ${result.part_number}\n` +
+      `Description: ${result.description || ''}\n` +
+      `Location: ${result.location_name || 'Main Warehouse'}\n` +
+      `Adjustment Quantity: ${formatNumber(result.adjustment_quantity)}\n` +
+      `New Quantity On Hand: ${formatNumber(result.new_quantity_on_hand)}\n` +
+      `Reason: ${result.adjustment_reason}\n` +
+      `Transaction ID: ${result.transaction_id}`;
+  } else {
+    document.getElementById('adjustmentOutput').textContent =
+      'Warehouse adjustment saved successfully, but no result was returned.';
+  }
+
+  resetAdjustmentFields();
+  await loadReorder();
+}
+
+
+async function fetchTransactionLogRows() {
+  const startDate = document.getElementById('transactionStartDate').value;
+  const endDate = document.getElementById('transactionEndDate').value;
+  const partNumber = document.getElementById('transactionPartNumber').value.trim();
+  const transactionType = document.getElementById('transactionTypeFilter').value;
+
+  let allRows = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    let query = client
+      .from('inventory_transaction_log_view')
+      .select('*');
+
+    if (startDate) {
+      query = query.gte('created_at', `${startDate}T00:00:00`);
+    }
+
+    if (endDate) {
+      query = query.lte('created_at', `${endDate}T23:59:59`);
+    }
+
+    if (partNumber) {
+      query = query.ilike('part_number', `%${partNumber}%`);
+    }
+
+    if (transactionType === 'ALL_ADJUSTMENTS') {
+      query = query.in('transaction_type', ['ADJUSTMENT', 'CYCLE_COUNT_ADJUSTMENT']);
+    } else if (transactionType === 'ALL_TRANSFERS') {
+      query = query.in('transaction_type', TRANSFER_TRANSACTION_TYPES);
+    } else if (transactionType === 'TRANSACTION_REVERSALS') {
+      query = query.in('transaction_type', TRANSACTION_REVERSAL_TYPES);
+    } else if (transactionType && transactionType !== 'ALL' && transactionType !== 'OTHER_ACTIVITY') {
+      query = query.eq('transaction_type', transactionType);
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allRows = allRows.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  if (transactionType === 'OTHER_ACTIVITY') {
+    allRows = allRows.filter(row => {
+      const rowType = String(row.transaction_type || '').toUpperCase();
+      return !KNOWN_TRANSACTION_TYPES.includes(rowType);
+    });
+  }
+
+  return allRows.map(row => ({
+    ...row,
+    transaction_label: getTransactionDisplayType(row)
+  }));
+}
+
+async function loadTransactionLogReport() {
+  const summary = document.getElementById('transactionLogSummary');
+  const tableBody = document.getElementById('transactionLogTableBody');
+
+  summary.textContent = 'Loading transaction log...';
+  tableBody.innerHTML = '<tr><td colspan="17">Loading transaction log...</td></tr>';
+
+  try {
+    transactionLogData = await fetchTransactionLogRows();
+  } catch (error) {
+    transactionLogData = [];
+    summary.textContent = error.message;
+    tableBody.innerHTML = `<tr><td colspan="17">${escapeHTML(error.message)}</td></tr>`;
+    return;
+  }
+
+  renderTransactionLogTable();
+  updateTransactionLogSummary();
+}
+
+function renderTransactionLogTable() {
+  const tableBody = document.getElementById('transactionLogTableBody');
+  tableBody.innerHTML = '';
+
+  if (!transactionLogData || transactionLogData.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="17">No transactions found for the selected filters.</td></tr>';
+    return;
+  }
+
+  transactionLogData.forEach(row => {
+    const tr = document.createElement('tr');
+    const transactionDate = getFirstValue(row, ['created_at', 'transaction_date', 'transaction_at']);
+    const unitCost = getFirstValue(row, ['unit_cost', 'transaction_unit_cost']);
+    const quantity = Number(getFirstValue(row, ['quantity', 'transaction_quantity']) || 0);
+    const totalValue = getTransactionTotalValue(row, quantity, unitCost);
+
+    tr.innerHTML = `
+      <td>${formatDateTime(transactionDate)}</td>
+      <td>${escapeHTML(row.transaction_type || '')}</td>
+      <td>${escapeHTML(row.transaction_label || getTransactionDisplayType(row))}</td>
+      <td>${escapeHTML(row.job_type || '')}</td>
+      <td>${escapeHTML(row.part_number || '')}</td>
+      <td>${escapeHTML(row.description || row.part_description || '')}</td>
+      <td>${escapeHTML(row.serial_number || '')}</td>
+      <td>${formatNumber(quantity)}</td>
+      <td>${formatCurrency(unitCost)}</td>
+      <td>${formatCurrency(totalValue)}</td>
+      <td>${escapeHTML(row.location_name || '')}</td>
+      <td>${escapeHTML(row.vendor_name || '')}</td>
+      <td>${escapeHTML(row.po_number || '')}</td>
+      <td>${escapeHTML(row.issued_to || '')}</td>
+      <td>${escapeHTML(row.work_order || row.job_name || '')}</td>
+      <td>${escapeHTML(row.client_name || '')}</td>
+      <td>${escapeHTML(row.notes || '')}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function updateTransactionLogSummary() {
+  const summary = document.getElementById('transactionLogSummary');
+
+  if (!transactionLogData || transactionLogData.length === 0) {
+    summary.textContent = 'No transactions found for the selected filters.';
+    return;
+  }
+
+  const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
+
+  let receiveCount = 0;
+  let issueCount = 0;
+  let adjustmentCount = 0;
+  let transferCount = 0;
+  let reversalCount = 0;
+  let totalQuantity = 0;
+  let totalValue = 0;
+
+  transactionLogData.forEach(row => {
+    const type = String(row.transaction_type || '').toUpperCase();
+    const quantity = Number(getFirstValue(row, ['quantity', 'transaction_quantity']) || 0);
+    const unitCost = getFirstValue(row, ['unit_cost', 'transaction_unit_cost']);
+
+    totalQuantity += quantity;
+    totalValue += Number(getTransactionTotalValue(row, quantity, unitCost) || 0);
+
+    if (type === 'RECEIVE') {
+      receiveCount++;
+    } else if (type === 'ISSUED') {
+      issueCount++;
+    } else if (type === 'ADJUSTMENT' || type === 'CYCLE_COUNT_ADJUSTMENT') {
+      adjustmentCount++;
+    } else if (TRANSFER_TRANSACTION_TYPES.includes(type)) {
+      transferCount++;
+    } else if (TRANSACTION_REVERSAL_TYPES.includes(type)) {
+      reversalCount++;
+    }
+  });
+
+  summary.textContent =
+    `Report Type: ${getTransactionTypeLabel(selectedTransactionType)}\n` +
+    `Transactions Returned: ${formatNumber(transactionLogData.length)}\n` +
+    `Receive Count: ${formatNumber(receiveCount)}\n` +
+    `Issue Count: ${formatNumber(issueCount)}\n` +
+    `Transfer Count: ${formatNumber(transferCount)}\n` +
+    `Adjustment Count: ${formatNumber(adjustmentCount)}\n` +
+    `Reversal Count: ${formatNumber(reversalCount)}\n` +
+    `Net Quantity: ${formatNumber(totalQuantity)}\n` +
+    `Net Transaction Value: ${formatCurrency(totalValue)}`;
+}
+
+async function exportTransactionLogCSV() {
+  if (!transactionLogData || transactionLogData.length === 0) {
+    try {
+      transactionLogData = await fetchTransactionLogRows();
+    } catch (error) {
+      document.getElementById('transactionLogSummary').textContent = error.message;
+      return;
+    }
+  }
+
+  if (!transactionLogData || transactionLogData.length === 0) {
+    document.getElementById('transactionLogSummary').textContent = 'No transactions available to export for the selected filters.';
+    return;
+  }
+
+  const startDate = document.getElementById('transactionStartDate').value || 'all_dates';
+  const endDate = document.getElementById('transactionEndDate').value || 'all_dates';
+  const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
+
+  let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,CLASS CODE,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PO NUMBER,CLIENT NAME,WORK ORDER,ISSUED TO,NOTES,ID\n';
+
+  transactionLogData.forEach(row => {
+    const transactionDate = getFirstValue(row, ['created_at', 'transaction_date', 'transaction_at']);
+    const unitCost = getFirstValue(row, ['unit_cost', 'transaction_unit_cost']);
+    const quantity = Number(getFirstValue(row, ['quantity', 'transaction_quantity']) || 0);
+    const totalValue = getTransactionTotalValue(row, quantity, unitCost);
+
+    csv +=
+      `"${cleanCSV(formatDateTime(transactionDate))}",` +
+      `"${cleanCSV(row.transaction_type)}",` +
+      `"${cleanCSV(row.transaction_label || getTransactionDisplayType(row))}",` +
+      `"${cleanCSV(row.job_type)}",` +
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description || row.part_description)}",` +
+      `"${cleanCSV(row.serial_number)}",` +
+      `"${cleanCSV(quantity)}",` +
+      `"${cleanCSV(unitCost)}",` +
+      `"${cleanCSV(totalValue)}",` +
+      `"${cleanCSV(row.location_name)}",` +
+      `"${cleanCSV(row.vendor_name)}",` +
+      `"${cleanCSV(row.po_number)}",` +
+      `"${cleanCSV(row.client_name)}",` +
+      `"${cleanCSV(row.work_order || row.job_name)}",` +
+      `"${cleanCSV(row.issued_to)}",` +
+      `"${cleanCSV(row.notes)}",` +
+      `"${cleanCSV(row.id)}"\n`;
+  });
+
+  const filenamePrefix = getReportFilenamePrefix(selectedTransactionType);
+  downloadCSV(csv, `${filenamePrefix}_${cleanFilename(startDate)}_to_${cleanFilename(endDate)}.csv`);
+}
+
+function getFirstValue(row, keys) {
+  for (const key of keys) {
+    if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+      return row[key];
+    }
+  }
+
+  return null;
+}
+
+function getTransactionTotalValue(row, quantity, unitCost) {
+  const existingValue = getFirstValue(row, ['total_value', 'transaction_value', 'inventory_value']);
+
+  if (existingValue !== null) {
+    return Number(existingValue || 0);
+  }
+
+  return Number(quantity || 0) * Number(unitCost || 0);
+}
+
+function getTransactionTypeLabel(transactionType) {
+  const normalizedType = String(transactionType || '').toUpperCase();
+
+  if (normalizedType === 'RECEIVE') {
+    return 'Received Inventory';
+  }
+
+  if (normalizedType === 'ISSUED') {
+    return 'Issued Inventory';
+  }
+
+  if (normalizedType === 'TRANSFER_OUT') {
+    return 'Inventory Transfer Out';
+  }
+
+  if (normalizedType === 'TRANSFER_IN') {
+    return 'Inventory Transfer In';
+  }
+
+  if (normalizedType === 'ALL_TRANSFERS') {
+    return 'Inventory Transfers';
+  }
+
+  if (normalizedType === 'ADJUSTMENT') {
+    return 'Manual Adjustment';
+  }
+
+  if (normalizedType === 'CYCLE_COUNT_ADJUSTMENT') {
+    return 'Cycle Count Adjustment';
+  }
+
+  if (normalizedType === 'ALL_ADJUSTMENTS') {
+    return 'All Adjustments';
+  }
+
+  if (normalizedType === 'TRANSACTION_REVERSALS') {
+    return 'Transaction Reversals';
+  }
+
+  if (normalizedType === 'OTHER_ACTIVITY') {
+    return 'Other Activity';
+  }
+
+  if (TRANSACTION_REVERSAL_TYPES.includes(normalizedType)) {
+    return 'Transaction Reversal';
+  }
+
+  if (normalizedType === 'ALL' || normalizedType === 'ALL_TRANSACTIONS') {
+    return 'All Transaction Types';
+  }
+
+  return transactionType || 'Unknown Transaction Type';
+}
+
+function getTransactionDisplayType(row) {
+  const rawType = row.transaction_type || row.type || '';
+  return getTransactionTypeLabel(rawType);
+}
+
+function getReportFilenamePrefix(reportType) {
+  if (reportType === 'ALL') {
+    return 'warehouse_transaction_report_all';
+  }
+
+  if (reportType === 'RECEIVE') {
+    return 'warehouse_transaction_report_received_inventory';
+  }
+
+  if (reportType === 'ISSUED') {
+    return 'warehouse_transaction_report_issued_inventory';
+  }
+
+  if (reportType === 'ALL_TRANSFERS') {
+    return 'warehouse_transaction_report_inventory_transfers';
+  }
+
+  if (reportType === 'ADJUSTMENT') {
+    return 'warehouse_transaction_report_manual_adjustments';
+  }
+
+  if (reportType === 'CYCLE_COUNT_ADJUSTMENT') {
+    return 'warehouse_transaction_report_cycle_count_adjustments';
+  }
+
+  if (reportType === 'ALL_ADJUSTMENTS') {
+    return 'warehouse_transaction_report_all_adjustments';
+  }
+
+  if (reportType === 'TRANSACTION_REVERSALS') {
+    return 'warehouse_transaction_report_transaction_reversals';
+  }
+
+  if (reportType === 'OTHER_ACTIVITY') {
+    return 'warehouse_transaction_report_other_activity';
+  }
+
+  return 'warehouse_transaction_report';
+}
+
+async function fetchUagBulkBatchData() {
+  const selectedBatch = document.getElementById('uagBatchFilter')?.value || 'ALL';
+  const selectedLineFilter = document.getElementById('uagLineFilter')?.value || 'ALL';
+
+  let summaryQuery = client
+    .from('uag_bulk_inventory_valuation_view')
+    .select('*')
+    .order('received_date', { ascending: false })
+    .order('batch_code', { ascending: true });
+
+  let lineQuery = client
+    .from('purchase_batch_line_usage_view')
+    .select('*')
+    .eq('vendor_name', 'UAG')
+    .eq('purchase_order_type', 'BULK_BATCH')
+    .order('batch_code', { ascending: true })
+    .order('part_number', { ascending: true });
+
+  if (selectedBatch !== 'ALL') {
+    summaryQuery = summaryQuery.eq('batch_code', selectedBatch);
+    lineQuery = lineQuery.eq('batch_code', selectedBatch);
+  }
+
+  if (selectedLineFilter === 'OPEN') {
+    lineQuery = lineQuery.gt('quantity_remaining', 0);
+  } else if (selectedLineFilter === 'NO_MOVEMENT') {
+    lineQuery = lineQuery.eq('has_no_issue_activity', true);
+  } else if (selectedLineFilter === 'FULLY_ISSUED') {
+    lineQuery = lineQuery.eq('quantity_remaining', 0);
+  }
+
+  const [{ data: summaryData, error: summaryError }, { data: lineData, error: lineError }] = await Promise.all([
+    summaryQuery,
+    lineQuery
+  ]);
+
+  if (summaryError) {
+    throw summaryError;
+  }
+
+  if (lineError) {
+    throw lineError;
+  }
+
+  uagBulkSummaryData = summaryData || [];
+  uagBulkLineData = lineData || [];
+}
+
+function populateUagBatchFilter() {
+  const select = document.getElementById('uagBatchFilter');
+
+  if (!select) {
+    return;
+  }
+
+  const currentValue = select.value || 'ALL';
+  const existingBatchCodes = new Set(
+    uagBulkSummaryData
+      .map(row => row.batch_code)
+      .filter(Boolean)
+  );
+
+  select.innerHTML = '<option value="ALL">All UAG Bulk Batches</option>';
+
+  existingBatchCodes.forEach(batchCode => {
+    const option = document.createElement('option');
+    option.value = batchCode;
+    option.textContent = batchCode;
+    select.appendChild(option);
+  });
+
+  if ([...existingBatchCodes].includes(currentValue)) {
+    select.value = currentValue;
+  } else {
+    select.value = 'ALL';
+  }
+}
+
+async function loadUagBulkBatchReport() {
+  const summary = document.getElementById('uagBatchSummary');
+  const summaryBody = document.getElementById('uagBatchSummaryTableBody');
+  const lineBody = document.getElementById('uagBatchLineTableBody');
+
+  if (summary) {
+    summary.textContent = 'Loading UAG bulk batch report...';
+  }
+
+  if (summaryBody) {
+    summaryBody.innerHTML = '<tr><td colspan="11">Loading UAG batch summary...</td></tr>';
+  }
+
+  if (lineBody) {
+    lineBody.innerHTML = '<tr><td colspan="14">Loading UAG batch lines...</td></tr>';
+  }
+
+  try {
+    await fetchUagBulkBatchData();
+  } catch (error) {
+    uagBulkSummaryData = [];
+    uagBulkLineData = [];
+
+    if (summary) {
+      summary.textContent = error.message;
+    }
+
+    if (summaryBody) {
+      summaryBody.innerHTML = `<tr><td colspan="11">${escapeHTML(error.message)}</td></tr>`;
+    }
+
+    if (lineBody) {
+      lineBody.innerHTML = `<tr><td colspan="14">${escapeHTML(error.message)}</td></tr>`;
+    }
+
+    return;
+  }
+
+  populateUagBatchFilter();
+  renderUagBulkBatchReport();
+}
+
+function renderUagBulkBatchReport() {
+  renderUagSummaryCards();
+  renderUagBatchSummaryTable();
+  renderUagBatchLineTable();
+  updateUagBatchSummaryText();
+}
+
+function renderUagSummaryCards() {
+  const container = document.getElementById('uagBatchSummaryCards');
+
+  if (!container) {
+    return;
+  }
+
+  let originalValue = 0;
+  let issuedValue = 0;
+  let remainingValue = 0;
+  let startedQty = 0;
+  let issuedQty = 0;
+
+  uagBulkSummaryData.forEach(row => {
+    originalValue += Number(row.original_inventory_value || 0);
+    issuedValue += Number(row.issued_inventory_value || 0);
+    remainingValue += Number(row.remaining_inventory_value || 0);
+    startedQty += Number(row.total_quantity_received || 0);
+    issuedQty += Number(row.total_quantity_issued || 0);
+  });
+
+  const usagePercent = originalValue > 0 ? (issuedValue / originalValue) * 100 : 0;
+
+  container.innerHTML = `
+    <div class="uag-summary-card">
+      <div class="summary-label">Original Value</div>
+      <div class="summary-value">${formatCurrency(originalValue)}</div>
+    </div>
+    <div class="uag-summary-card">
+      <div class="summary-label">Issued Value</div>
+      <div class="summary-value">${formatCurrency(issuedValue)}</div>
+    </div>
+    <div class="uag-summary-card">
+      <div class="summary-label">Remaining Value</div>
+      <div class="summary-value">${formatCurrency(remainingValue)}</div>
+    </div>
+    <div class="uag-summary-card">
+      <div class="summary-label">Usage %</div>
+      <div class="summary-value">${formatNumber(usagePercent)}%</div>
+    </div>
+  `;
+}
+
+function renderUagBatchSummaryTable() {
+  const tableBody = document.getElementById('uagBatchSummaryTableBody');
+
+  if (!tableBody) {
+    return;
+  }
+
+  tableBody.innerHTML = '';
+
+  if (!uagBulkSummaryData || uagBulkSummaryData.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="11">No UAG bulk batches found.</td></tr>';
+    return;
+  }
+
+  uagBulkSummaryData.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(row.batch_code || '')}</td>
+      <td>${escapeHTML(row.vendor_order_number || '')}</td>
+      <td>${formatDateOnly(row.received_date)}</td>
+      <td>${formatNumber(row.unique_part_count)}</td>
+      <td>${formatNumber(row.total_quantity_received)}</td>
+      <td>${formatNumber(row.total_quantity_issued)}</td>
+      <td>${formatNumber(row.total_quantity_remaining)}</td>
+      <td>${formatCurrency(row.original_inventory_value)}</td>
+      <td>${formatCurrency(row.issued_inventory_value)}</td>
+      <td>${formatCurrency(row.remaining_inventory_value)}</td>
+      <td>${formatNumber(row.value_usage_percent)}%</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function renderUagBatchLineTable() {
+  const tableBody = document.getElementById('uagBatchLineTableBody');
+
+  if (!tableBody) {
+    return;
+  }
+
+  tableBody.innerHTML = '';
+
+  if (!uagBulkLineData || uagBulkLineData.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="14">No UAG batch line details found for the selected filters.</td></tr>';
+    return;
+  }
+
+  uagBulkLineData.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(row.batch_code || '')}</td>
+      <td>${escapeHTML(row.part_number || '')}</td>
+      <td>${escapeHTML(row.description || '')}</td>
+      <td>${row.is_serialized === true ? 'Yes' : 'No'}</td>
+      <td>${formatNumber(row.quantity_started_with)}</td>
+      <td>${formatNumber(row.quantity_issued)}</td>
+      <td>${formatNumber(row.quantity_remaining)}</td>
+      <td>${formatCurrency(row.unit_cost)}</td>
+      <td>${formatCurrency(row.original_value)}</td>
+      <td>${formatCurrency(row.issued_value)}</td>
+      <td>${formatCurrency(row.remaining_value)}</td>
+      <td>${formatNumber(row.value_usage_percent)}%</td>
+      <td>${formatDateTime(row.last_issued_at)}</td>
+      <td>${row.has_no_issue_activity === true ? 'Yes' : 'No'}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function updateUagBatchSummaryText() {
+  const summary = document.getElementById('uagBatchSummary');
+
+  if (!summary) {
+    return;
+  }
+
+  if (!uagBulkSummaryData || uagBulkSummaryData.length === 0) {
+    summary.textContent = 'No UAG bulk batches found for the selected filters.';
+    return;
+  }
+
+  let originalValue = 0;
+  let issuedValue = 0;
+  let remainingValue = 0;
+  let totalStarted = 0;
+  let totalIssued = 0;
+  let totalRemaining = 0;
+
+  uagBulkSummaryData.forEach(row => {
+    originalValue += Number(row.original_inventory_value || 0);
+    issuedValue += Number(row.issued_inventory_value || 0);
+    remainingValue += Number(row.remaining_inventory_value || 0);
+    totalStarted += Number(row.total_quantity_received || 0);
+    totalIssued += Number(row.total_quantity_issued || 0);
+    totalRemaining += Number(row.total_quantity_remaining || 0);
+  });
+
+  summary.textContent =
+    `UAG Bulk Batches Returned: ${formatNumber(uagBulkSummaryData.length)}\n` +
+    `Line Items Returned: ${formatNumber(uagBulkLineData.length)}\n` +
+    `Quantity Started With: ${formatNumber(totalStarted)}\n` +
+    `Quantity Issued/Sold: ${formatNumber(totalIssued)}\n` +
+    `Quantity Remaining: ${formatNumber(totalRemaining)}\n` +
+    `Original Inventory Value: ${formatCurrency(originalValue)}\n` +
+    `Issued Inventory Value: ${formatCurrency(issuedValue)}\n` +
+    `Remaining Bulk UAG Inventory Value: ${formatCurrency(remainingValue)}`;
+}
+
+async function exportUagBulkBatchCSV() {
+  if (!uagBulkSummaryData || uagBulkSummaryData.length === 0) {
+    try {
+      await fetchUagBulkBatchData();
+    } catch (error) {
+      document.getElementById('uagBatchSummary').textContent = error.message;
+      return;
+    }
+  }
+
+  if (!uagBulkSummaryData || uagBulkSummaryData.length === 0) {
+    document.getElementById('uagBatchSummary').textContent = 'No UAG bulk batch data available to export.';
+    return;
+  }
+
+  let csv = 'Section,Batch Code,UAG Order Number,Part Number,Description,Serialized,Started With,Issued,Remaining,Unit Cost,Original Value,Issued Value,Remaining Value,Usage Percent,Last Issued,No Issue Activity\n';
+
+  uagBulkSummaryData.forEach(row => {
+    csv +=
+      `"Batch Summary",` +
+      `"${cleanCSV(row.batch_code)}",` +
+      `"${cleanCSV(row.vendor_order_number)}",` +
+      `"",` +
+      `"",` +
+      `"",` +
+      `"${cleanCSV(row.total_quantity_received)}",` +
+      `"${cleanCSV(row.total_quantity_issued)}",` +
+      `"${cleanCSV(row.total_quantity_remaining)}",` +
+      `"",` +
+      `"${cleanCSV(row.original_inventory_value)}",` +
+      `"${cleanCSV(row.issued_inventory_value)}",` +
+      `"${cleanCSV(row.remaining_inventory_value)}",` +
+      `"${cleanCSV(row.value_usage_percent)}",` +
+      `"",` +
+      `""\n`;
+  });
+
+  uagBulkLineData.forEach(row => {
+    csv +=
+      `"Line Detail",` +
+      `"${cleanCSV(row.batch_code)}",` +
+      `"${cleanCSV(row.vendor_order_number)}",` +
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description)}",` +
+      `"${cleanCSV(row.is_serialized === true ? 'Yes' : 'No')}",` +
+      `"${cleanCSV(row.quantity_started_with)}",` +
+      `"${cleanCSV(row.quantity_issued)}",` +
+      `"${cleanCSV(row.quantity_remaining)}",` +
+      `"${cleanCSV(row.unit_cost)}",` +
+      `"${cleanCSV(row.original_value)}",` +
+      `"${cleanCSV(row.issued_value)}",` +
+      `"${cleanCSV(row.remaining_value)}",` +
+      `"${cleanCSV(row.value_usage_percent)}",` +
+      `"${cleanCSV(row.last_issued_at)}",` +
+      `"${cleanCSV(row.has_no_issue_activity === true ? 'Yes' : 'No')}"\n`;
+  });
+
+  const selectedBatch = document.getElementById('uagBatchFilter')?.value || 'ALL';
+  downloadCSV(csv, `uag_bulk_batch_usage_${cleanFilename(selectedBatch)}.csv`);
+}
+
+async function loadReorder() {
+  const { data, error } = await client
+    .from('inventory_reorder_warehouse')
+    .select('*')
+    .order('reorder_qty', { ascending: false });
+
+  if (error) {
+    document.getElementById('reorder').textContent = error.message;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    document.getElementById('reorder').textContent =
+      'No items need reordering';
+    return;
+  }
+
+  let output = 'PART | ON HAND | REORDER\n';
+  output += '---------------------------------\n';
+
+  data.forEach(row => {
+    output += `${row.part_number} | ${row.qty_on_hand} | ${row.reorder_qty}\n`;
+  });
+
+  document.getElementById('reorder').textContent = output;
+}
+
+async function createPart() {
+  const partNumber = document.getElementById('newPartNumber').value.trim();
+  const description = document.getElementById('newPartDescription').value.trim();
+  const unitCost = Number(document.getElementById('newPartUnitCost').value || 0);
+  const reorderPoint = Number(document.getElementById('newPartReorderPoint').value || 0);
+  const category = document.getElementById('newPartCategory').value;
+  const isSerialized = document.getElementById('newPartSerialized').value === 'true';
+
+  if (!partNumber) {
+    document.getElementById('createPartResult').textContent =
+      'Part number is required.';
+    return;
+  }
+
+  if (!description) {
+    document.getElementById('createPartResult').textContent =
+      'Description is required.';
+    return;
+  }
+
+  if (unitCost < 0 || reorderPoint < 0) {
+    document.getElementById('createPartResult').textContent =
+      'Unit cost and reorder point cannot be negative.';
+    return;
+  }
+
+  if (!category) {
+    document.getElementById('createPartResult').textContent =
+      'Category is required.';
+    return;
+  }
+
+  document.getElementById('createPartResult').textContent =
+    'Creating part...';
+
+  const { error } = await client.rpc('create_inventory_part', {
+    p_part_number: partNumber,
+    p_description: description,
+    p_unit_cost: unitCost,
+    p_reorder_point: reorderPoint,
+    p_is_serialized: isSerialized,
+    p_category: category
+  });
+
+  if (error) {
+    document.getElementById('createPartResult').textContent = error.message;
+    return;
+  }
+
+  document.getElementById('createPartResult').textContent =
+    `Part created successfully.\nCategory: ${category}`;
+
+  document.getElementById('newPartNumber').value = '';
+  document.getElementById('newPartDescription').value = '';
+  document.getElementById('newPartUnitCost').value = '0';
+  document.getElementById('newPartReorderPoint').value = '0';
+  document.getElementById('newPartCategory').value = '';
+  document.getElementById('newPartSerialized').value = 'false';
+
+  await loadParts();
+  await loadCategoryDropdowns();
+  await loadCycleCountCategories();
+}
+
+async function changePartCategory() {
+  const partNumber = document.getElementById('changeCategoryPartNumber').value.trim();
+  const newCategory = document.getElementById('changePartCategory').value;
+
+  if (!partNumber) {
+    document.getElementById('changeCategoryResult').textContent =
+      'Part number is required.';
+    return;
+  }
+
+  if (!newCategory) {
+    document.getElementById('changeCategoryResult').textContent =
+      'New category is required.';
+    return;
+  }
+
+  document.getElementById('changeCategoryResult').textContent =
+    'Changing part category...';
+
+  const { data, error } = await client.rpc('update_inventory_part_category', {
+    p_part_number: partNumber,
+    p_category: newCategory
+  });
+
+  if (error) {
+    document.getElementById('changeCategoryResult').textContent = error.message;
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+
+  if (!result) {
+    document.getElementById('changeCategoryResult').textContent =
+      'Category update completed, but no result was returned.';
+  } else {
+    document.getElementById('changeCategoryResult').textContent =
+      `Part category updated successfully.\n\n` +
+      `Part Number: ${result.part_number}\n` +
+      `Description: ${result.description || ''}\n` +
+      `Old Category: ${result.old_category || 'NULL / BLANK'}\n` +
+      `New Category: ${result.new_category}`;
+  }
+
+  document.getElementById('changePartCategory').value = '';
+
+  await loadParts();
+  await loadCategoryDropdowns();
+  await loadCycleCountCategories();
+
+  if (needsCategoryReportData && needsCategoryReportData.length > 0) {
+    await loadNeedsCategoryReport();
+  }
+}
+
+async function changePartSerializationStatus() {
+  const partNumber = document.getElementById('changeSerializationPartNumber').value.trim();
+  const serializedValue = document.getElementById('changePartSerialized').value;
+  const updatedBy = document.getElementById('serializationUpdatedBy').value.trim();
+  const reason = document.getElementById('serializationReason').value.trim();
+  const matchedPart = getMatchedPart('changeSerializationPartNumber');
+
+  if (!partNumber) {
+    document.getElementById('changeSerializationResult').textContent =
+      'Part number is required.';
+    return;
+  }
+
+  if (!matchedPart) {
+    document.getElementById('changeSerializationResult').textContent =
+      `Active part not found in dropdown: ${partNumber}`;
+    return;
+  }
+
+  if (serializedValue !== 'true' && serializedValue !== 'false') {
+    document.getElementById('changeSerializationResult').textContent =
+      'Serialized selection is required. Choose Yes or No.';
+    return;
+  }
+
+  if (!updatedBy) {
+    document.getElementById('changeSerializationResult').textContent =
+      'Updated By is required.';
+    return;
+  }
+
+  document.getElementById('changeSerializationResult').textContent =
+    'Updating part serialization requirement...';
+
+  const { data, error } = await client.rpc('update_part_serialization_status', {
+    p_part_number: partNumber,
+    p_is_serialized: serializedValue === 'true',
+    p_updated_by: updatedBy,
+    p_reason: reason || null
+  });
+
+  if (error) {
+    document.getElementById('changeSerializationResult').textContent = error.message;
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+
+  if (!result) {
+    document.getElementById('changeSerializationResult').textContent =
+      'Serialization status update completed, but no result was returned.';
+  } else {
+    const warningMessage = result.warning_message
+      ? `\n\n${result.warning_message}`
+      : '';
+
+    document.getElementById('changeSerializationResult').textContent =
+      `Serialization status updated successfully.\n\n` +
+      `Part Number: ${result.part_number}\n` +
+      `Description: ${result.description || ''}\n` +
+      `Old Serialized Requirement: ${result.old_is_serialized === true ? 'Yes' : 'No'}\n` +
+      `New Serialized Requirement: ${result.new_is_serialized === true ? 'Yes' : 'No'}` +
+      warningMessage;
+  }
+
+  resetSerializationFields();
+  await loadParts();
+
+  if (document.getElementById('serializedReport')) {
+    await loadSerializedInventory();
+  }
+}
+
+async function loadSerializedInventory() {
+  document.getElementById('serializedReport').textContent =
+    'Loading on-hand serialized inventory...';
+
+  const { data, error } = await client
+    .from('v_serialized_inventory_current')
+    .select('*')
+    .eq('status', 'on_hand')
+    .order('part_number', { ascending: true })
+    .order('serial_number_raw', { ascending: true });
+
+  if (error) {
+    document.getElementById('serializedReport').textContent = error.message;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    document.getElementById('serializedReport').textContent =
+      'No on-hand serialized inventory found';
+    return;
+  }
+
+  let output = 'PART | SERIAL | STATUS\n';
+  output += '------------------------------------------------------------\n';
+
+  data.forEach(row => {
+    output += `${row.part_number} | ${row.serial_number_raw} | ${row.status}\n`;
+  });
+
+  document.getElementById('serializedReport').textContent = output;
+}
+
+async function exportSerializedInventoryCSV() {
+  const { data, error } = await client
+    .from('v_serialized_inventory_current')
+    .select('*')
+    .eq('status', 'on_hand')
+    .order('part_number', { ascending: true })
+    .order('serial_number_raw', { ascending: true });
+
+  if (error) {
+    document.getElementById('serializedReport').textContent = error.message;
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    document.getElementById('serializedReport').textContent =
+      'No on-hand serialized inventory found';
+    return;
+  }
+
+  let csv = 'Part Number,Serial Number,Status\n';
+
+  data.forEach(row => {
+    csv += `"${cleanCSV(row.part_number)}","${cleanCSV(row.serial_number_raw)}","${cleanCSV(row.status)}"\n`;
+  });
+
+  downloadCSV(csv, 'serialized_inventory_on_hand.csv');
+}
+
+async function fetchDeadStockRows(filterValue) {
+  let allRows = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    let query = client
+      .from('inventory_dead_stock_view')
+      .select('*');
+
+    if (filterValue === 'no_issue') {
+      query = query.eq('dead_stock_status', 'No Issue History Yet');
+    }
+
+    if (filterValue === 'days90') {
+      query = query.gte('days_since_last_issued', 90);
+    }
+
+    if (filterValue === 'days180') {
+      query = query.gte('days_since_last_issued', 180);
+    }
+
+    if (filterValue === 'days365') {
+      query = query.gte('days_since_last_issued', 365);
+    }
+
+    if (filterValue === 'all_candidates') {
+      query = query.neq('dead_stock_status', 'Recently Issued');
+    }
+
+    const { data, error } = await query
+      .order('inventory_value', { ascending: false })
+      .order('part_number', { ascending: true })
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allRows = allRows.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  return allRows;
+}
+
+async function loadDeadStockReport() {
+  const filterValue = document.getElementById('deadStockFilter').value;
+
+  document.getElementById('deadStockSummary').textContent =
+    'Loading dead stock report...';
+
+  const tableBody = document.getElementById('deadStockTableBody');
+  tableBody.innerHTML =
+    '<tr><td colspan="16">Loading dead stock report...</td></tr>';
+
+  try {
+    deadStockReportData = await fetchDeadStockRows(filterValue);
+  } catch (error) {
+    deadStockReportData = [];
+    document.getElementById('deadStockSummary').textContent = error.message;
+    tableBody.innerHTML =
+      `<tr><td colspan="16">${escapeHTML(error.message)}</td></tr>`;
+    return;
+  }
+
+  renderDeadStockTable();
+  updateDeadStockSummary();
+}
+
+function renderDeadStockTable() {
+  const tableBody = document.getElementById('deadStockTableBody');
+  tableBody.innerHTML = '';
+
+  if (!deadStockReportData || deadStockReportData.length === 0) {
+    tableBody.innerHTML =
+      '<tr><td colspan="16">No records found for this filter.</td></tr>';
+    return;
+  }
+
+  deadStockReportData.forEach(row => {
+    const tr = document.createElement('tr');
+    const rowKey = cleanFilename(row.part_number || 'part');
+
+    tr.innerHTML = `
+      <td>
+        <div class="dead-stock-action-stack">
+          <div>
+            <div class="dead-stock-action-label">Verified Status</div>
+            <select id="deadStockVerifiedStatus_${escapeHTML(rowKey)}" class="dead-stock-action-select">
+              ${getDeadStockVerifiedStatusOptionsHTML(row.verified_status)}
+            </select>
+          </div>
+          <div>
+            <div class="dead-stock-action-label">Recommended Action</div>
+            <select id="deadStockRecommendedAction_${escapeHTML(rowKey)}" class="dead-stock-action-select">
+              ${getDeadStockRecommendedActionOptionsHTML(row.recommended_action)}
+            </select>
+          </div>
+          <div>
+            <div class="dead-stock-action-label">Verified By</div>
+            <input
+              id="deadStockVerifiedBy_${escapeHTML(rowKey)}"
+              class="dead-stock-action-input"
+              value="${escapeHTML(row.verified_by || '')}"
+              placeholder="Name"
+              autocomplete="off"
+            >
+          </div>
+          <div>
+            <div class="dead-stock-action-label">Reason</div>
+            <input
+              id="deadStockReason_${escapeHTML(rowKey)}"
+              class="dead-stock-action-input"
+              value="${escapeHTML(row.verification_reason || '')}"
+              placeholder="Reason"
+              autocomplete="off"
+            >
+          </div>
+          <div>
+            <div class="dead-stock-action-label">Notes</div>
+            <textarea
+              id="deadStockNotes_${escapeHTML(rowKey)}"
+              class="dead-stock-action-textarea"
+              placeholder="Notes"
+            >${escapeHTML(row.verification_notes || '')}</textarea>
+          </div>
+          <div>
+            <button
+              type="button"
+              id="deadStockSaveButton_${escapeHTML(rowKey)}"
+              class="dead-stock-save-btn"
+              onclick="saveDeadStockVerification('${escapeJS(row.part_number)}', '${escapeJS(rowKey)}')"
+            >
+              SAVE VERIFICATION
+            </button>
+          </div>
+        </div>
+      </td>
+      <td>${escapeHTML(row.part_number || '')}</td>
+      <td>${escapeHTML(row.description || '')}</td>
+      <td>${escapeHTML(row.category || 'NULL / BLANK')}</td>
+      <td>${escapeHTML(row.location_name || '')}</td>
+      <td>${formatNumber(row.quantity_on_hand)}</td>
+      <td>${formatCurrency(row.unit_cost)}</td>
+      <td>${formatCurrency(row.inventory_value)}</td>
+      <td>${formatDateTime(row.last_issued_at)}</td>
+      <td>${formatNumber(row.days_since_last_issued)}</td>
+      <td>${formatDateTime(row.last_received_at)}</td>
+      <td>${escapeHTML(row.dead_stock_status || '')}</td>
+      <td id="deadStockVerifiedStatusDisplay_${escapeHTML(rowKey)}">${escapeHTML(row.verified_status || '')}</td>
+      <td id="deadStockRecommendedActionDisplay_${escapeHTML(rowKey)}">${escapeHTML(row.recommended_action || '')}</td>
+      <td id="deadStockVerifiedByDisplay_${escapeHTML(rowKey)}">${escapeHTML(row.verified_by || '')}</td>
+      <td id="deadStockVerifiedAtDisplay_${escapeHTML(rowKey)}">${formatDateTime(row.verified_at)}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function getDeadStockVerifiedStatusOptionsHTML(currentValue) {
+  let options = '<option value="">Select status...</option>';
+  const selectedValue = currentValue || '';
+
+  DEAD_STOCK_VERIFIED_STATUS_OPTIONS.forEach(status => {
+    const selected = status === selectedValue ? ' selected' : '';
+    options += `<option value="${escapeHTML(status)}"${selected}>${escapeHTML(status)}</option>`;
+  });
+
+  return options;
+}
+
+function getDeadStockRecommendedActionOptionsHTML(currentValue) {
+  let options = '<option value="">Select action...</option>';
+  const selectedValue = currentValue || '';
+
+  DEAD_STOCK_RECOMMENDED_ACTION_OPTIONS.forEach(action => {
+    const selected = action === selectedValue ? ' selected' : '';
+    options += `<option value="${escapeHTML(action)}"${selected}>${escapeHTML(action)}</option>`;
+  });
+
+  return options;
+}
+
+async function saveDeadStockVerification(partNumber, rowKey) {
+  const verifiedStatusElement = document.getElementById(`deadStockVerifiedStatus_${rowKey}`);
+  const recommendedActionElement = document.getElementById(`deadStockRecommendedAction_${rowKey}`);
+  const verifiedByElement = document.getElementById(`deadStockVerifiedBy_${rowKey}`);
+  const reasonElement = document.getElementById(`deadStockReason_${rowKey}`);
+  const notesElement = document.getElementById(`deadStockNotes_${rowKey}`);
+  const saveButton = document.getElementById(`deadStockSaveButton_${rowKey}`);
+
+  const verifiedStatus = verifiedStatusElement ? verifiedStatusElement.value.trim() : '';
+  const recommendedAction = recommendedActionElement ? recommendedActionElement.value.trim() : '';
+  const verifiedBy = verifiedByElement ? verifiedByElement.value.trim() : '';
+  const reason = reasonElement ? reasonElement.value.trim() : '';
+  const notes = notesElement ? notesElement.value.trim() : '';
+
+  if (!partNumber) {
+    document.getElementById('deadStockSummary').textContent =
+      'Unable to save verification because the part number is missing for this row.';
+    return;
+  }
+
+  if (!verifiedStatus) {
+    document.getElementById('deadStockSummary').textContent =
+      `Select a Verified Status before saving ${partNumber}.`;
+    return;
+  }
+
+  if (!verifiedBy) {
+    document.getElementById('deadStockSummary').textContent =
+      `Enter Verified By before saving ${partNumber}.`;
+    return;
+  }
+
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.textContent = 'SAVING...';
+  }
+
+  document.getElementById('deadStockSummary').textContent =
+    `Saving verification for ${partNumber}...`;
+
+  const { error } = await client.rpc('save_dead_stock_verification', {
+    p_part_number: partNumber,
+    p_verified_status: verifiedStatus,
+    p_verified_by: verifiedBy,
+    p_recommended_action: recommendedAction || null,
+    p_reason: reason || null,
+    p_notes: notes || null
+  });
+
+  if (error) {
+    document.getElementById('deadStockSummary').textContent =
+      `Save failed for ${partNumber}: ${error.message}`;
+
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.textContent = 'SAVE VERIFICATION';
+    }
+
+    return;
+  }
+
+  const savedAt = new Date().toISOString();
+
+  const matchingRow = deadStockReportData.find(row =>
+    String(row.part_number || '') === String(partNumber || '')
+  );
+
+  if (matchingRow) {
+    matchingRow.verified_status = verifiedStatus;
+    matchingRow.recommended_action = recommendedAction || null;
+    matchingRow.verified_by = verifiedBy;
+    matchingRow.verification_reason = reason || null;
+    matchingRow.verification_notes = notes || null;
+    matchingRow.verified_at = savedAt;
+  }
+
+  const verifiedStatusDisplay = document.getElementById(`deadStockVerifiedStatusDisplay_${rowKey}`);
+  const recommendedActionDisplay = document.getElementById(`deadStockRecommendedActionDisplay_${rowKey}`);
+  const verifiedByDisplay = document.getElementById(`deadStockVerifiedByDisplay_${rowKey}`);
+  const verifiedAtDisplay = document.getElementById(`deadStockVerifiedAtDisplay_${rowKey}`);
+
+  if (verifiedStatusDisplay) {
+    verifiedStatusDisplay.textContent = verifiedStatus;
+  }
+
+  if (recommendedActionDisplay) {
+    recommendedActionDisplay.textContent = recommendedAction;
+  }
+
+  if (verifiedByDisplay) {
+    verifiedByDisplay.textContent = verifiedBy;
+  }
+
+  if (verifiedAtDisplay) {
+    verifiedAtDisplay.textContent = formatDateTime(savedAt);
+  }
+
+  updateDeadStockSummary();
+
+  document.getElementById('deadStockSummary').textContent +=
+    `\n\nSaved verification for ${partNumber}.`;
+
+  if (saveButton) {
+    saveButton.disabled = false;
+    saveButton.textContent = 'SAVED';
+
+    setTimeout(() => {
+      saveButton.textContent = 'SAVE VERIFICATION';
+    }, 1500);
+  }
+}
+
+function updateDeadStockSummary() {
+  if (!deadStockReportData || deadStockReportData.length === 0) {
+    document.getElementById('deadStockSummary').textContent =
+      'No dead stock records found for the selected filter.';
+    return;
+  }
+
+  let totalQty = 0;
+  let totalValue = 0;
+  let noIssueCount = 0;
+  let blankCategoryCount = 0;
+
+  deadStockReportData.forEach(row => {
+    totalQty += Number(row.quantity_on_hand || 0);
+    totalValue += Number(row.inventory_value || 0);
+
+    if (row.dead_stock_status === 'No Issue History Yet') {
+      noIssueCount++;
+    }
+
+    if (!row.category || String(row.category).trim() === '') {
+      blankCategoryCount++;
+    }
+  });
+
+  const filterLabel = document.getElementById('deadStockFilter')
+    .selectedOptions[0]
+    .textContent;
+
+  document.getElementById('deadStockSummary').textContent =
+    `Filter: ${filterLabel}\n` +
+    `Parts Returned: ${deadStockReportData.length}\n` +
+    `Total Quantity On Hand: ${formatNumber(totalQty)}\n` +
+    `Total Inventory Value: ${formatCurrency(totalValue)}\n` +
+    `No Issue History Yet Count: ${formatNumber(noIssueCount)}\n` +
+    `NULL / BLANK Category Count: ${formatNumber(blankCategoryCount)}`;
+}
+
+async function exportDeadStockCSV() {
+  const filterValue = document.getElementById('deadStockFilter').value;
+  const filterLabel = document.getElementById('deadStockFilter')
+    .selectedOptions[0]
+    .textContent;
+
+  if (!deadStockReportData || deadStockReportData.length === 0) {
+    try {
+      deadStockReportData = await fetchDeadStockRows(filterValue);
+    } catch (error) {
+      document.getElementById('deadStockSummary').textContent = error.message;
+      return;
+    }
+  }
+
+  if (!deadStockReportData || deadStockReportData.length === 0) {
+    document.getElementById('deadStockSummary').textContent =
+      'No records available to export for this filter.';
+    return;
+  }
+
+  let csv =
+    'Part Number,Description,Category,Location,Quantity On Hand,Unit Cost,Inventory Value,Last Issued At,Days Since Last Issued,Last Received At,Dead Stock Status,Verified Status,Recommended Action,Verified By,Verified At\n';
+
+  deadStockReportData.forEach(row => {
+    csv +=
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description)}",` +
+      `"${cleanCSV(row.category)}",` +
+      `"${cleanCSV(row.location_name)}",` +
+      `"${cleanCSV(row.quantity_on_hand)}",` +
+      `"${cleanCSV(row.unit_cost)}",` +
+      `"${cleanCSV(row.inventory_value)}",` +
+      `"${cleanCSV(row.last_issued_at)}",` +
+      `"${cleanCSV(row.days_since_last_issued)}",` +
+      `"${cleanCSV(row.last_received_at)}",` +
+      `"${cleanCSV(row.dead_stock_status)}",` +
+      `"${cleanCSV(row.verified_status)}",` +
+      `"${cleanCSV(row.recommended_action)}",` +
+      `"${cleanCSV(row.verified_by)}",` +
+      `"${cleanCSV(row.verified_at)}"\n`;
+  });
+
+  const safeFilter = cleanFilename(filterLabel || 'dead_stock');
+
+  downloadCSV(csv, `dead_stock_report_${safeFilter}.csv`);
+}
+
+async function fetchNeedsCategoryRows() {
+  let allRows = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    const { data, error } = await client
+      .from('inventory_needs_category_view')
+      .select('*')
+      .order('inventory_value', { ascending: false })
+      .order('part_number', { ascending: true })
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allRows = allRows.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  return allRows;
+}
+
+async function loadNeedsCategoryReport() {
+  document.getElementById('needsCategorySummary').textContent =
+    'Loading Needs Category report...';
+
+  const tableBody = document.getElementById('needsCategoryTableBody');
+  tableBody.innerHTML =
+    '<tr><td colspan="9">Loading Needs Category report...</td></tr>';
+
+  try {
+    needsCategoryReportData = await fetchNeedsCategoryRows();
+  } catch (error) {
+    needsCategoryReportData = [];
+    document.getElementById('needsCategorySummary').textContent = error.message;
+    tableBody.innerHTML =
+      `<tr><td colspan="9">${escapeHTML(error.message)}</td></tr>`;
+    return;
+  }
+
+  renderNeedsCategoryTable();
+  updateNeedsCategorySummary();
+}
+
+function renderNeedsCategoryTable() {
+  const tableBody = document.getElementById('needsCategoryTableBody');
+  tableBody.innerHTML = '';
+
+  if (!needsCategoryReportData || needsCategoryReportData.length === 0) {
+    tableBody.innerHTML =
+      '<tr><td colspan="9">No active parts currently need category cleanup.</td></tr>';
+    return;
+  }
+
+  needsCategoryReportData.forEach(row => {
+    const tr = document.createElement('tr');
+    const rowKey = cleanFilename(row.part_number || 'part');
+
+    tr.innerHTML = `
+      <td>
+        <button class="category-btn small-btn" onclick="updateNeedsCategoryRow('${escapeJS(row.part_number)}', '${escapeJS(rowKey)}')">
+          UPDATE CATEGORY
+        </button>
+      </td>
+      <td>${escapeHTML(row.part_number || '')}</td>
+      <td>${escapeHTML(row.description || '')}</td>
+      <td>
+        <select id="needsCategorySelect_${escapeHTML(rowKey)}" class="needs-category-select">
+          ${getCategoryOptionsHTML()}
+        </select>
+      </td>
+      <td>${escapeHTML(row.location_name || '')}</td>
+      <td>${formatNumber(row.quantity_on_hand)}</td>
+      <td>${formatCurrency(row.unit_cost)}</td>
+      <td>${formatCurrency(row.inventory_value)}</td>
+      <td>${formatDateTime(row.updated_at)}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function getCategoryOptionsHTML() {
+  let options = '<option value="">Select category...</option>';
+
+  categoryData.forEach(row => {
+    options += `<option value="${escapeHTML(row.category_name)}">${escapeHTML(row.category_name)}</option>`;
+  });
+
+  return options;
+}
+
+async function updateNeedsCategoryRow(partNumber, rowKey) {
+  const select = document.getElementById(`needsCategorySelect_${rowKey}`);
+
+  if (!select || !select.value) {
+    document.getElementById('needsCategorySummary').textContent =
+      `Select a category before updating ${partNumber}.`;
+    return;
+  }
+
+  const newCategory = select.value;
+
+  document.getElementById('needsCategorySummary').textContent =
+    `Updating ${partNumber} to ${newCategory}...`;
+
+  const { data, error } = await client.rpc('update_inventory_part_category', {
+    p_part_number: partNumber,
+    p_category: newCategory
+  });
+
+  if (error) {
+    document.getElementById('needsCategorySummary').textContent = error.message;
+    return;
+  }
+
+  const result = data && data.length > 0 ? data[0] : null;
+
+  document.getElementById('changeCategoryResult').textContent = result
+    ? `Part category updated successfully.
+
+Part Number: ${result.part_number}
+Description: ${result.description || ''}
+Old Category: ${result.old_category || 'NULL / BLANK'}
+New Category: ${result.new_category}`
+    : `Category update completed for ${partNumber}.`;
+
+  await loadParts();
+  await loadCycleCountCategories();
+  await loadNeedsCategoryReport();
+}
+
+function updateNeedsCategorySummary() {
+  if (!needsCategoryReportData || needsCategoryReportData.length === 0) {
+    document.getElementById('needsCategorySummary').textContent =
+      'No active parts currently need category cleanup.';
+    return;
+  }
+
+  let totalQty = 0;
+  let totalValue = 0;
+  let noStockBalanceCount = 0;
+
+  needsCategoryReportData.forEach(row => {
+    totalQty += Number(row.quantity_on_hand || 0);
+    totalValue += Number(row.inventory_value || 0);
+
+    if (row.location_name === 'No Stock Balance' || Number(row.quantity_on_hand || 0) === 0) {
+      noStockBalanceCount++;
+    }
+  });
+
+  document.getElementById('needsCategorySummary').textContent =
+    `Active Parts Needing Category: ${formatNumber(needsCategoryReportData.length)}\n` +
+    `Total Quantity On Hand: ${formatNumber(totalQty)}\n` +
+    `Total Inventory Value: ${formatCurrency(totalValue)}\n` +
+    `Rows With No Stock Balance / Zero On Hand: ${formatNumber(noStockBalanceCount)}\n\n` +
+    `Select a category in the row and click UPDATE CATEGORY to clean up the part immediately.`;
+}
+
+function loadPartIntoCategoryTool(partNumber) {
+  document.getElementById('changeCategoryPartNumber').value = partNumber || '';
+  document.getElementById('changePartCategory').value = '';
+  document.getElementById('changeCategoryResult').textContent =
+    `Selected part for category update: ${partNumber}\nChoose a new category and click CHANGE PART CATEGORY.`;
+
+  const categoryInput = document.getElementById('changeCategoryPartNumber');
+
+  if (categoryInput) {
+    categoryInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    categoryInput.focus();
+  }
+}
+
+async function exportNeedsCategoryCSV() {
+  if (!needsCategoryReportData || needsCategoryReportData.length === 0) {
+    try {
+      needsCategoryReportData = await fetchNeedsCategoryRows();
+    } catch (error) {
+      document.getElementById('needsCategorySummary').textContent = error.message;
+      return;
+    }
+  }
+
+  if (!needsCategoryReportData || needsCategoryReportData.length === 0) {
+    document.getElementById('needsCategorySummary').textContent =
+      'No Needs Category records available to export.';
+    return;
+  }
+
+  let csv =
+    'Part Number,Description,Current Category,Location,Quantity On Hand,Unit Cost,Inventory Value,Active,Created At,Updated At\n';
+
+  needsCategoryReportData.forEach(row => {
+    csv +=
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description)}",` +
+      `"${cleanCSV(row.category)}",` +
+      `"${cleanCSV(row.location_name)}",` +
+      `"${cleanCSV(row.quantity_on_hand)}",` +
+      `"${cleanCSV(row.unit_cost)}",` +
+      `"${cleanCSV(row.inventory_value)}",` +
+      `"${cleanCSV(row.active)}",` +
+      `"${cleanCSV(row.created_at)}",` +
+      `"${cleanCSV(row.updated_at)}"\n`;
+  });
+
+  downloadCSV(csv, 'needs_category_queue.csv');
+}
+
+async function loadRecountRequiredQueue() {
+  document.getElementById('recountQueueStatus').textContent =
+    'Loading recount required queue...';
+
+  const { data, error } = await client
+    .from('inventory_cycle_count_session_summary')
+    .select('*')
+    .eq('status', 'RECOUNT_REQUIRED')
+    .order('reviewed_at', { ascending: false });
+
+  if (error) {
+    recountRequiredQueueData = [];
+    document.getElementById('recountQueueStatus').textContent = error.message;
+    renderRecountRequiredQueue();
+    return;
+  }
+
+  recountRequiredQueueData = data || [];
+  renderRecountRequiredQueue();
+
+  if (recountRequiredQueueData.length === 0) {
+    document.getElementById('recountQueueStatus').textContent =
+      'No cycle counts currently require recount.';
+    return;
+  }
+
+  document.getElementById('recountQueueStatus').textContent =
+    `${recountRequiredQueueData.length} cycle count(s) require recount. Open one to correct and resubmit.`;
+}
+
+function renderRecountRequiredQueue() {
+  const tbody = document.getElementById('recountQueueTableBody');
+  tbody.innerHTML = '';
+
+  if (!recountRequiredQueueData || recountRequiredQueueData.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="12">No RECOUNT_REQUIRED cycle counts found.</td></tr>';
+    return;
+  }
+
+  recountRequiredQueueData.forEach(row => {
+    const tr = document.createElement('tr');
+
+    if (String(activeCycleCountId) === String(row.cycle_count_id)) {
+      tr.classList.add('selected-row');
+    }
+
+    tr.innerHTML = `
+      <td>
+        <button class="cycle-btn small-btn" onclick="openRecountRequiredSession('${escapeJS(row.cycle_count_id)}')">
+          OPEN RECOUNT
+        </button>
+      </td>
+      <td>${escapeHTML(row.count_name || '')}</td>
+      <td>${escapeHTML(row.cycle_count_category || '')}</td>
+      <td>${escapeHTML(row.status || '')}</td>
+      <td>${escapeHTML(row.started_by || '')}</td>
+      <td>${formatDateTime(row.started_at)}</td>
+      <td>${escapeHTML(row.reviewed_by || '')}</td>
+      <td>${formatDateTime(row.reviewed_at)}</td>
+      <td>${formatNumber(row.line_count)}</td>
+      <td>${formatNumber(row.counted_line_count)}</td>
+      <td class="${getVarianceClass(row.total_variance_quantity)}">${formatNumber(row.total_variance_quantity)}</td>
+      <td class="${getVarianceClass(row.total_variance_value)}">${formatCurrency(row.total_variance_value)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+async function openRecountRequiredSession(cycleCountId) {
+  const session = recountRequiredQueueData.find(
+    row => String(row.cycle_count_id) === String(cycleCountId)
+  );
+
+  if (!session) {
+    document.getElementById('recountQueueStatus').textContent =
+      'Selected recount session was not found in the queue.';
+    return;
+  }
+
+  activeCycleCountId = session.cycle_count_id;
+
+  document.getElementById('activeCycleCountIdBox').textContent =
+    `Active Cycle Count ID: ${activeCycleCountId}\nStatus: RECOUNT_REQUIRED\nCount Name: ${session.count_name || ''}\nCategory: ${session.cycle_count_category || ''}`;
+
+  document.getElementById('cycleCountSessionResult').textContent =
+    `Recount session opened.\nCount Name: ${session.count_name || ''}\nCategory: ${session.cycle_count_category || ''}\nCycle Count ID: ${activeCycleCountId}\n\nEnter corrected counted quantities, save, then mark READY_FOR_REVIEW again.`;
+
+  if (!document.getElementById('cycleCountStartedBy').value.trim()) {
+    document.getElementById('cycleCountStartedBy').value = session.started_by || '';
+  }
+
+  document.getElementById('cycleCountPostResult').textContent =
+    'Recount opened. Save corrected counts before marking ready for review again.';
+
+  renderRecountRequiredQueue();
+  await loadActiveCycleCountLines();
+}
+
+async function loadCycleCountCategories() {
+  const categorySelect = document.getElementById('cycleCountCategory');
+
+  categorySelect.innerHTML = '<option value="">Loading categories...</option>';
+
+  const { data, error } = await client
+    .from('inventory_cycle_count_category_view')
+    .select('cycle_count_category')
+    .order('cycle_count_category', { ascending: true });
+
+  if (error) {
+    categorySelect.innerHTML = '<option value="">Category load error</option>';
+    document.getElementById('cycleCountSheetReport').textContent = error.message;
+    return;
+  }
+
+  const categories = [...new Set(
+    (data || [])
+      .map(row => row.cycle_count_category)
+      .filter(category => category !== null && category !== undefined && String(category).trim() !== '')
+  )];
+
+  categorySelect.innerHTML = '<option value="">Select category...</option>';
+
+  categories.forEach(category => {
+    const option = document.createElement('option');
+    option.value = category;
+    option.textContent = category;
+    categorySelect.appendChild(option);
+  });
+
+  console.log('Cycle count categories loaded:', categories.length);
+}
+
+async function loadCycleCountSheet() {
+  const selectedCategory = document.getElementById('cycleCountCategory').value;
+
+  if (!selectedCategory) {
+    document.getElementById('cycleCountSheetReport').textContent =
+      'Please select a cycle count category.';
+    cycleCountSheetData = [];
+    return;
+  }
+
+  document.getElementById('cycleCountSheetReport').textContent =
+    'Loading count sheet...';
+
+  const { data, error } = await client
+    .from('inventory_cycle_count_category_view')
+    .select('*')
+    .eq('cycle_count_category', selectedCategory)
+    .order('part_number', { ascending: true });
+
+  if (error) {
+    document.getElementById('cycleCountSheetReport').textContent = error.message;
+    cycleCountSheetData = [];
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    document.getElementById('cycleCountSheetReport').textContent =
+      'No parts found for this cycle count category.';
+    cycleCountSheetData = [];
+    return;
+  }
+
+  cycleCountSheetData = data;
+
+  let totalSystemQty = 0;
+  let totalSystemValue = 0;
+
+  data.forEach(row => {
+    totalSystemQty += Number(row.quantity_on_hand || 0);
+    totalSystemValue += Number(row.inventory_value || 0);
+  });
+
+  let output =
+    `CYCLE COUNT CATEGORY: ${selectedCategory}\n` +
+    `PART COUNT: ${data.length}\n` +
+    `TOTAL SYSTEM QTY: ${totalSystemQty}\n` +
+    `TOTAL SYSTEM VALUE: ${formatCurrency(totalSystemValue)}\n\n`;
+
+  output += 'PART NUMBER | DESCRIPTION | SYSTEM QTY | COUNTED QTY | VARIANCE | LOCATION\n';
+  output += '------------------------------------------------------------------------------------------\n';
+
+  data.forEach(row => {
+    output +=
+      `${row.part_number || ''} | ` +
+      `${row.description || ''} | ` +
+      `${row.quantity_on_hand ?? 0} | ` +
+      `_____ | ` +
+      `_____ | ` +
+      `${row.location_name || ''}\n`;
+  });
+
+  document.getElementById('cycleCountSheetReport').textContent = output;
+}
+
+async function exportCycleCountSheetCSV() {
+  const selectedCategory = document.getElementById('cycleCountCategory').value;
+
+  if (!cycleCountSheetData || cycleCountSheetData.length === 0) {
+    await loadCycleCountSheet();
+  }
+
+  if (!cycleCountSheetData || cycleCountSheetData.length === 0) {
+    document.getElementById('cycleCountSheetReport').textContent =
+      'Load a count sheet before exporting.';
+    return;
+  }
+
+  let csv =
+    'Part ID,Part Number,Description,Category,Cycle Count Category,System Quantity,Counted Quantity,Variance,Location,Unit Cost,Inventory Value\n';
+
+  cycleCountSheetData.forEach(row => {
+    csv +=
+      `"${cleanCSV(row.part_id)}",` +
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description)}",` +
+      `"${cleanCSV(row.category)}",` +
+      `"${cleanCSV(row.cycle_count_category)}",` +
+      `"${cleanCSV(row.quantity_on_hand ?? 0)}",` +
+      `"",` +
+      `"",` +
+      `"${cleanCSV(row.location_name)}",` +
+      `"${cleanCSV(row.unit_cost)}",` +
+      `"${cleanCSV(row.inventory_value)}"\n`;
+  });
+
+  const safeCategory = cleanFilename(selectedCategory || 'category');
+
+  downloadCSV(csv, `cycle_count_sheet_${safeCategory}.csv`);
+}
+
+async function createCycleCountSession() {
+  const selectedCategory = document.getElementById('cycleCountCategory').value;
+  const countName = document.getElementById('cycleCountName').value.trim();
+  const startedBy = document.getElementById('cycleCountStartedBy').value.trim();
+  const notes = document.getElementById('cycleCountNotes').value.trim();
+
+  if (!selectedCategory) {
+    document.getElementById('cycleCountSessionResult').textContent =
+      'Please select a cycle count category first.';
+    return;
+  }
+
+  if (!countName) {
+    document.getElementById('cycleCountSessionResult').textContent =
+      'Count name is required.';
+    return;
+  }
+
+  if (!startedBy) {
+    document.getElementById('cycleCountSessionResult').textContent =
+      'Started By is required.';
+    return;
+  }
+
+  document.getElementById('cycleCountSessionResult').textContent =
+    'Creating cycle count session...';
+
+  const { data, error } = await client.rpc('create_cycle_count_by_category', {
+    p_count_name: countName,
+    p_location_id: MAIN_WAREHOUSE_ID,
+    p_cycle_count_category: selectedCategory,
+    p_started_by: startedBy,
+    p_notes: notes || null
+  });
+
+  if (error) {
+    document.getElementById('cycleCountSessionResult').textContent = error.message;
+    return;
+  }
+
+  activeCycleCountId = data;
+
+  document.getElementById('activeCycleCountIdBox').textContent =
+    `Active Cycle Count ID: ${activeCycleCountId}`;
+
+  document.getElementById('cycleCountSessionResult').textContent =
+    `Cycle count session created successfully.\nCategory: ${selectedCategory}\nCycle Count ID: ${activeCycleCountId}`;
+
+  document.getElementById('cycleCountPostResult').textContent =
+    'Cycle count session created. Enter and save all counts before marking ready for review.';
+
+  renderRecountRequiredQueue();
+  await loadActiveCycleCountLines();
+}
+
+async function loadActiveCycleCountLines() {
+  if (!activeCycleCountId) {
+    document.getElementById('cycleCountSaveResult').textContent =
+      'No active cycle count session. Create a session first or open a recount.';
+    return;
+  }
+
+  document.getElementById('cycleCountSaveResult').textContent =
+    'Loading active cycle count lines...';
+
+  const { data, error } = await client
+    .from('inventory_cycle_count_lines')
+    .select('*')
+    .eq('cycle_count_id', activeCycleCountId)
+    .order('part_number', { ascending: true });
+
+  if (error) {
+    document.getElementById('cycleCountSaveResult').textContent = error.message;
+    activeCycleCountLines = [];
+    renderCycleCountLinesTable();
+    return;
+  }
+
+  activeCycleCountLines = data || [];
+
+  renderCycleCountLinesTable();
+  updateCycleCountLinesSummary();
+
+  document.getElementById('cycleCountSaveResult').textContent =
+    `Loaded ${activeCycleCountLines.length} count lines.`;
+}
+
+function renderCycleCountLinesTable() {
+  const tableBody = document.getElementById('cycleCountLinesTableBody');
+  tableBody.innerHTML = '';
+
+  if (!activeCycleCountLines || activeCycleCountLines.length === 0) {
+    tableBody.innerHTML =
+      '<tr><td colspan="9">No active count lines loaded.</td></tr>';
+    return;
+  }
+
+  activeCycleCountLines.forEach(line => {
+    const tr = document.createElement('tr');
+
+    const countedQtyValue =
+      line.counted_quantity === null || line.counted_quantity === undefined
+        ? ''
+        : line.counted_quantity;
+
+    const variance = line.variance_quantity;
+    const varianceClass =
+      Number(variance || 0) > 0
+        ? 'variance-positive'
+        : Number(variance || 0) < 0
+          ? 'variance-negative'
+          : 'variance-zero';
+
+    tr.innerHTML = `
+      <td>${escapeHTML(line.part_number || '')}</td>
+      <td>${escapeHTML(line.description || '')}</td>
+      <td>${formatNumber(line.system_quantity)}</td>
+      <td>
+        <input
+          class="count-input"
+          type="number"
+          step="1"
+          min="0"
+          id="counted_${line.id}"
+          value="${escapeHTML(countedQtyValue)}"
+          oninput="previewLineVariance('${line.id}')"
+        >
+      </td>
+      <td id="variance_${line.id}" class="${varianceClass}">
+        ${formatNumber(variance)}
+      </td>
+      <td id="variance_value_${line.id}">
+        ${formatCurrency(line.variance_value)}
+      </td>
+      <td>
+        <input
+          class="line-note-input"
+          id="notes_${line.id}"
+          value="${escapeHTML(line.notes || '')}"
+          placeholder="Optional"
+        >
+      </td>
+      <td>${escapeHTML(line.counted_by || '')}</td>
+      <td>${formatDateTime(line.counted_at)}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function previewLineVariance(lineId) {
+  const line = activeCycleCountLines.find(item => item.id === lineId);
+
+  if (!line) {
+    return;
+  }
+
+  const input = document.getElementById(`counted_${lineId}`);
+  const varianceCell = document.getElementById(`variance_${lineId}`);
+  const varianceValueCell = document.getElementById(`variance_value_${lineId}`);
+
+  if (!input || !varianceCell || !varianceValueCell) {
+    return;
+  }
+
+  if (input.value === '') {
+    varianceCell.textContent = formatNumber(line.variance_quantity);
+    varianceValueCell.textContent = formatCurrency(line.variance_value);
+    return;
+  }
+
+  const countedQuantity = Number(input.value);
+  const systemQuantity = Number(line.system_quantity || 0);
+  const unitCost = Number(line.unit_cost || 0);
+  const variance = countedQuantity - systemQuantity;
+  const varianceValue = variance * unitCost;
+
+  varianceCell.textContent = formatNumber(variance);
+  varianceValueCell.textContent = formatCurrency(varianceValue);
+
+  varianceCell.className =
+    variance > 0
+      ? 'variance-positive'
+      : variance < 0
+        ? 'variance-negative'
+        : 'variance-zero';
+}
+
+function updateCycleCountLinesSummary() {
+  if (!activeCycleCountLines || activeCycleCountLines.length === 0) {
+    document.getElementById('cycleCountLinesSummary').textContent =
+      'No active count lines loaded.';
+    return;
+  }
+
+  const totalLines = activeCycleCountLines.length;
+  const countedLines = activeCycleCountLines.filter(
+    line => line.counted_quantity !== null && line.counted_quantity !== undefined
+  ).length;
+
+  let totalSystemQty = 0;
+  let totalCountedQty = 0;
+  let totalVarianceQty = 0;
+  let totalVarianceValue = 0;
+
+  activeCycleCountLines.forEach(line => {
+    totalSystemQty += Number(line.system_quantity || 0);
+    totalCountedQty += Number(line.counted_quantity || 0);
+    totalVarianceQty += Number(line.variance_quantity || 0);
+    totalVarianceValue += Number(line.variance_value || 0);
+  });
+
+  document.getElementById('cycleCountLinesSummary').textContent =
+    `Active Cycle Count ID: ${activeCycleCountId}\n` +
+    `Lines: ${totalLines}\n` +
+    `Counted Lines: ${countedLines}\n` +
+    `Total System Qty: ${formatNumber(totalSystemQty)}\n` +
+    `Total Counted Qty: ${formatNumber(totalCountedQty)}\n` +
+    `Total Variance Qty: ${formatNumber(totalVarianceQty)}\n` +
+    `Total Variance Value: ${formatCurrency(totalVarianceValue)}`;
+}
+
+async function saveAllCycleCountLines() {
+  if (!activeCycleCountId || !activeCycleCountLines || activeCycleCountLines.length === 0) {
+    document.getElementById('cycleCountSaveResult').textContent =
+      'No active count lines loaded.';
+    return;
+  }
+
+  const countedBy = document.getElementById('cycleCountStartedBy').value.trim();
+
+  if (!countedBy) {
+    document.getElementById('cycleCountSaveResult').textContent =
+      'Counted By / Started By is required before saving counts.';
+    return;
+  }
+
+  let savedCount = 0;
+  let skippedCount = 0;
+  let errorMessages = [];
+
+  document.getElementById('cycleCountSaveResult').textContent =
+    'Saving entered counts...';
+
+  for (const line of activeCycleCountLines) {
+    const countedInput = document.getElementById(`counted_${line.id}`);
+    const notesInput = document.getElementById(`notes_${line.id}`);
+
+    if (!countedInput || countedInput.value === '') {
+      skippedCount++;
+      continue;
+    }
+
+    const countedQuantity = Number(countedInput.value);
+
+    if (Number.isNaN(countedQuantity) || countedQuantity < 0) {
+      errorMessages.push(`${line.part_number}: invalid counted quantity`);
+      continue;
+    }
+
+    const { error } = await client.rpc('save_cycle_count_line_count', {
+      p_line_id: line.id,
+      p_counted_quantity: countedQuantity,
+      p_counted_by: countedBy,
+      p_notes: notesInput ? notesInput.value.trim() || null : null
+    });
+
+    if (error) {
+      errorMessages.push(`${line.part_number}: ${error.message}`);
+    } else {
+      savedCount++;
+    }
+  }
+
+  await loadActiveCycleCountLines();
+
+  let result =
+    `Save complete.\nSaved lines: ${savedCount}\nSkipped blank lines: ${skippedCount}`;
+
+  if (errorMessages.length > 0) {
+    result += `\n\nErrors:\n${errorMessages.join('\n')}`;
+  }
+
+  document.getElementById('cycleCountSaveResult').textContent = result;
+}
+
+function exportActiveCycleCountLinesCSV() {
+  if (!activeCycleCountLines || activeCycleCountLines.length === 0) {
+    document.getElementById('cycleCountSaveResult').textContent =
+      'Load active count lines before exporting.';
+    return;
+  }
+
+  let csv =
+    'Cycle Count ID,Line ID,Part ID,Part Number,Description,System Quantity,Counted Quantity,Variance Quantity,Unit Cost,Variance Value,Counted By,Counted At,Notes\n';
+
+  activeCycleCountLines.forEach(line => {
+    csv +=
+      `"${cleanCSV(line.cycle_count_id)}",` +
+      `"${cleanCSV(line.id)}",` +
+      `"${cleanCSV(line.part_id)}",` +
+      `"${cleanCSV(line.part_number)}",` +
+      `"${cleanCSV(line.description)}",` +
+      `"${cleanCSV(line.system_quantity)}",` +
+      `"${cleanCSV(line.counted_quantity)}",` +
+      `"${cleanCSV(line.variance_quantity)}",` +
+      `"${cleanCSV(line.unit_cost)}",` +
+      `"${cleanCSV(line.variance_value)}",` +
+      `"${cleanCSV(line.counted_by)}",` +
+      `"${cleanCSV(line.counted_at)}",` +
+      `"${cleanCSV(line.notes)}"\n`;
+  });
+
+  downloadCSV(csv, `cycle_count_review_${cleanFilename(activeCycleCountId)}.csv`);
+}
+
+async function markActiveCycleCountReadyForReview() {
+  if (!activeCycleCountId) {
+    document.getElementById('cycleCountPostResult').textContent =
+      'No active cycle count session. Create a session first or open a recount.';
+    return;
+  }
+
+  if (!activeCycleCountLines || activeCycleCountLines.length === 0) {
+    document.getElementById('cycleCountPostResult').textContent =
+      'No count lines are loaded. Reload active count lines first.';
+    return;
+  }
+
+  const blankLines = [];
+
+  activeCycleCountLines.forEach(line => {
+    const countedInput = document.getElementById(`counted_${line.id}`);
+
+    if (!countedInput || countedInput.value === '') {
+      blankLines.push(line.part_number || line.id);
+    }
+  });
+
+  if (blankLines.length > 0) {
+    document.getElementById('cycleCountPostResult').textContent =
+      `Cannot mark ready for review. ${blankLines.length} line(s) still have no counted quantity.\n\n` +
+      `Blank lines:\n` +
+      blankLines.slice(0, 25).join('\n') +
+      (blankLines.length > 25 ? `\n...and ${blankLines.length - 25} more` : '') +
+      `\n\nEnter a counted quantity for every line, then click SAVE ENTERED COUNTS before marking ready.`;
+    return;
+  }
+
+  document.getElementById('cycleCountPostResult').textContent =
+    'Saving visible count entries before submitting for review...';
+
+  await saveAllCycleCountLines();
+
+  const incompleteLines = activeCycleCountLines.filter(
+    line => line.counted_quantity === null || line.counted_quantity === undefined
+  );
+
+  if (incompleteLines.length > 0) {
+    document.getElementById('cycleCountPostResult').textContent =
+      `Cannot mark ready for review. ${incompleteLines.length} line(s) are still not saved with counted quantity.\n\n` +
+      `Click SAVE ENTERED COUNTS again, then retry.`;
+    return;
+  }
+
+  document.getElementById('cycleCountPostResult').textContent =
+    'Submitting cycle count for review...';
+
+  const { error } = await client.rpc('mark_cycle_count_ready_for_review', {
+    p_cycle_count_id: activeCycleCountId,
+    p_reviewed_by: null
+  });
+
+  if (error) {
+    document.getElementById('cycleCountPostResult').textContent = error.message;
+    return;
+  }
+
+  document.getElementById('cycleCountPostResult').textContent =
+    `Cycle count marked READY_FOR_REVIEW.\nCycle Count ID: ${activeCycleCountId}\n\nThis count is now ready for Admin review. No inventory quantities have been changed.`;
+
+  await loadRecountRequiredQueue();
+}
+
+function getVarianceClass(value) {
+  const number = Number(value || 0);
+
+  if (number > 0) {
+    return 'variance-positive';
+  }
+
+  if (number < 0) {
+    return 'variance-negative';
+  }
+
+  return 'variance-zero';
+}
+
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  });
+}
+
+function formatNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+
+  const number = Number(value);
+
+  if (Number.isNaN(number)) {
+    return value;
+  }
+
+  return number.toLocaleString('en-US', {
+    maximumFractionDigits: 2
+  });
+}
+
+function formatDateOnly(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString();
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
+function cleanCSV(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).replace(/"/g, '""');
+}
+
+function cleanFilename(value) {
+  return String(value || 'export')
+    .replace(/[^a-z0-9_\-]+/gi, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+function escapeHTML(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeJS(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"');
+}
+
+function refreshPage() {
+  window.location.reload();
+}
+
+function downloadCSV(csv, filename) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+}
+
+</script>
+</div></body>
+</html>
