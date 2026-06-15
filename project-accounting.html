@@ -41,22 +41,32 @@
       box-sizing: border-box;
     }
 
+    html,
+    body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
     body {
       margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
     }
 
     .app-shell {
       display: grid;
-      grid-template-columns: var(--sidebar-width) 1fr;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
       min-height: 100vh;
       transition: grid-template-columns 0.2s ease;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: hidden;
     }
 
     .app-shell.sidebar-collapsed {
-      grid-template-columns: var(--sidebar-collapsed-width) 1fr;
+      grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
     }
 
     .sidebar {
@@ -67,8 +77,8 @@
       height: 100vh;
       overflow-y: auto;
       overflow-x: hidden;
-      display: flex;
-      flex-direction: column;
+      transition: width 0.2s ease;
+      z-index: 1000;
     }
 
     .brand {
@@ -131,7 +141,7 @@
       gap: 4px;
       cursor: pointer;
       padding: 0;
-      flex: 0 0 auto;
+      margin: 0;
       transition: background 0.15s ease, border-color 0.15s ease;
     }
 
@@ -146,7 +156,7 @@
       width: 17px;
       height: 2px;
       border-radius: 999px;
-      background: rgba(255,255,255,0.92);
+      background: white;
     }
 
     .side-nav {
@@ -171,7 +181,7 @@
       border: 0;
       background: transparent;
       cursor: pointer;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: Arial, sans-serif;
       text-align: left;
     }
 
@@ -181,10 +191,6 @@
       background: rgba(26,163,176,0.26);
       color: white;
       opacity: 1;
-    }
-
-    .side-nav-primary {
-      padding-bottom: 4px;
     }
 
     .nav-section {
@@ -198,53 +204,6 @@
       overflow: hidden;
     }
 
-    .nav-group {
-      margin: 0 0 4px;
-    }
-
-    .nav-group-toggle {
-      justify-content: space-between;
-    }
-
-    .nav-group-toggle-main {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
-    }
-
-    .nav-caret {
-      margin-left: auto;
-      opacity: 0.78;
-      transition: transform 0.15s ease, opacity 0.15s ease;
-    }
-
-    .nav-group.open .nav-caret {
-      transform: rotate(90deg);
-    }
-
-    .nav-group-links {
-      display: none;
-      padding-left: 10px;
-    }
-
-    .nav-group.open .nav-group-links {
-      display: block;
-    }
-
-    .nav-group-links a {
-      font-size: 13px;
-      min-height: 40px;
-      padding-top: 10px;
-      padding-bottom: 10px;
-    }
-
-    .sidebar-footer {
-      border-top: 1px solid rgba(255,255,255,0.12);
-      padding: 10px;
-      margin-top: auto;
-    }
-
     .nav-icon {
       width: 20px;
       min-width: 20px;
@@ -253,11 +212,18 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      font-size: 14px;
     }
 
     .nav-label {
       transition: opacity 0.15s ease, width 0.15s ease;
       overflow: hidden;
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      padding: 10px;
+      margin-top: auto;
     }
 
     .app-shell.sidebar-collapsed .brand {
@@ -267,8 +233,8 @@
     }
 
     .app-shell.sidebar-collapsed .brand-text,
-    .app-shell.sidebar-collapsed .nav-section,
-    .app-shell.sidebar-collapsed .nav-caret {
+    .app-shell.sidebar-collapsed .nav-label,
+    .app-shell.sidebar-collapsed .nav-section {
       opacity: 0;
       width: 0;
       overflow: hidden;
@@ -296,18 +262,93 @@
       gap: 0;
     }
 
-    .app-shell.sidebar-collapsed .nav-group-links {
-      padding-left: 0;
+    /* Standard Collapsible Sidebar Groups */
+    .main-menu-nav {
+      padding-top: 10px;
+      padding-bottom: 4px;
     }
 
-    .app-shell.sidebar-collapsed .nav-label {
-      opacity: 0;
-      width: 0;
-      overflow: hidden;
+    .grouped-side-nav {
+      padding-top: 4px;
+    }
+
+    .nav-group {
+      margin-bottom: 4px;
+    }
+
+    .nav-group-toggle {
+      position: relative;
+    }
+
+    .nav-group-toggle::after {
+      content: none !important;
+      display: none !important;
+    }
+
+    .nav-group-toggle .nav-group-symbol {
+      margin-left: auto;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
+      opacity: 0.9;
+    }
+
+    .nav-group.open .nav-group-toggle {
+      background: rgba(26,163,176,0.18);
+      color: white;
+    }
+
+    .nav-submenu {
+      display: none;
+      padding: 0 0 4px 0;
+    }
+
+    .nav-group.open .nav-submenu {
+      display: block;
+    }
+
+    .nav-submenu a {
+      padding-left: 34px;
+      min-height: 38px;
+      font-size: 13px;
+      margin-bottom: 2px;
+      border-radius: 8px;
+    }
+
+    .nav-submenu .nav-icon {
+      font-size: 12px;
+      opacity: 0.85;
+    }
+
+    .side-nav a.active,
+    .nav-submenu a.active {
+      background: rgba(26,163,176,0.34);
+      color: white;
+    }
+
+    .app-shell.sidebar-collapsed .nav-group-symbol {
+      display: none;
+    }
+
+    .app-shell.sidebar-collapsed .nav-submenu {
+      display: none !important;
+    }
+
+    .app-shell.sidebar-collapsed .nav-group.open .nav-group-toggle {
+      background: rgba(26,163,176,0.26);
+    }
+
+    .app-shell.sidebar-collapsed .main-menu-nav,
+    .app-shell.sidebar-collapsed .grouped-side-nav,
+    .app-shell.sidebar-collapsed .utility-side-nav {
+      padding-left: 8px;
+      padding-right: 8px;
     }
 
     .main {
       min-width: 0;
+      max-width: 100%;
+      overflow-x: hidden;
     }
 
     .topbar {
@@ -1109,7 +1150,7 @@
     @media (max-width: 820px) {
       .app-shell,
       .app-shell.sidebar-collapsed {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
 
       .sidebar {
@@ -1130,22 +1171,18 @@
         padding: 18px 18px 16px;
       }
 
-      .app-shell.sidebar-collapsed .brand-text,
-      .app-shell.sidebar-collapsed .nav-section,
-      .app-shell.sidebar-collapsed .nav-caret {
+      .app-shell.sidebar-collapsed .brand-text {
         opacity: 1;
         width: auto;
       }
 
-      .side-nav,
-      .app-shell.sidebar-collapsed .side-nav {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        padding: 14px 10px;
-      }
-
-      .sidebar-footer,
-      .app-shell.sidebar-collapsed .sidebar-footer {
+      .main-menu-nav,
+      .grouped-side-nav,
+      .utility-side-nav,
+      .app-shell.sidebar-collapsed .main-menu-nav,
+      .app-shell.sidebar-collapsed .grouped-side-nav,
+      .app-shell.sidebar-collapsed .utility-side-nav {
+        display: block;
         padding: 10px;
       }
 
@@ -1158,14 +1195,26 @@
         gap: 10px;
       }
 
-      .app-shell.sidebar-collapsed .nav-label {
+      .app-shell.sidebar-collapsed .nav-label,
+      .app-shell.sidebar-collapsed .nav-section {
         opacity: 1;
         width: auto;
       }
 
-      .nav-group-links,
-      .app-shell.sidebar-collapsed .nav-group-links {
-        padding-left: 0;
+      .nav-submenu a {
+        padding-left: 34px;
+      }
+
+      .app-shell.sidebar-collapsed .nav-group-symbol {
+        display: inline-block;
+      }
+
+      .app-shell.sidebar-collapsed .nav-submenu {
+        display: none;
+      }
+
+      .app-shell.sidebar-collapsed .nav-group.open .nav-submenu {
+        display: block;
       }
 
       .topbar {
@@ -1204,9 +1253,13 @@
         grid-template-columns: 1fr;
       }
 
-      .side-nav,
-      .app-shell.sidebar-collapsed .side-nav {
-        grid-template-columns: 1fr;
+      .main-menu-nav,
+      .grouped-side-nav,
+      .utility-side-nav,
+      .app-shell.sidebar-collapsed .main-menu-nav,
+      .app-shell.sidebar-collapsed .grouped-side-nav,
+      .app-shell.sidebar-collapsed .utility-side-nav {
+        display: block;
       }
     }
   </style>
@@ -1232,131 +1285,129 @@
         </button>
       </div>
 
-      <nav class="side-nav side-nav-primary" aria-label="Main navigation">
-        <a href="index.html" title="Main Menu">
+      <nav class="side-nav main-menu-nav" aria-label="Main navigation">
+        <a href="index.html" title="Main Menu" data-page="index.html">
           <span class="nav-icon">↩</span>
           <span class="nav-label">Main Menu</span>
         </a>
       </nav>
 
-      <nav class="side-nav" aria-label="Inventory grouped navigation">
-        <div class="nav-section">Pages</div>
+      <nav class="side-nav grouped-side-nav" aria-label="System navigation">
 
-        <div class="nav-group" data-sidebar-group="Admin">
+        <div class="nav-group">
           <button class="nav-group-toggle" type="button" aria-expanded="false">
-            <span class="nav-group-toggle-main">
-              <span class="nav-icon">⚙</span>
-              <span class="nav-label">Admin</span>
-            </span>
-            <span class="nav-caret">›</span>
+            <span class="nav-icon">⚙</span>
+            <span class="nav-label">Admin</span>
+            <span class="nav-group-symbol">+</span>
           </button>
-          <div class="nav-group-links">
-            <a href="users.html" title="System/Admin Tools">
+          <div class="nav-submenu">
+            <a href="users.html" title="System/Admin Tools" data-page="users.html">
               <span class="nav-icon">⚙</span>
               <span class="nav-label">System/Admin Tools</span>
             </a>
           </div>
         </div>
 
-        <div class="nav-group" data-sidebar-group="Accounting">
+        <div class="nav-group">
           <button class="nav-group-toggle" type="button" aria-expanded="false">
-            <span class="nav-group-toggle-main">
-              <span class="nav-icon">$</span>
-              <span class="nav-label">Accounting</span>
-            </span>
-            <span class="nav-caret">›</span>
+            <span class="nav-icon">$</span>
+            <span class="nav-label">Accounting</span>
+            <span class="nav-group-symbol">+</span>
           </button>
-          <div class="nav-group-links">
-            <a href="accounting.html" title="Accounting Warehouse">
+          <div class="nav-submenu">
+            <a href="accounting.html" title="Accounting Warehouse" data-page="accounting.html">
               <span class="nav-icon">$</span>
               <span class="nav-label">Accounting Warehouse</span>
             </a>
-            <a class="active" href="project-accounting.html" title="Accounting Projects">
+
+            <a class="active" href="project-accounting.html" title="Accounting Projects" data-page="project-accounting.html">
               <span class="nav-icon">$</span>
               <span class="nav-label">Accounting Projects</span>
             </a>
           </div>
         </div>
 
-        <div class="nav-group" data-sidebar-group="Projects">
+        <div class="nav-group">
           <button class="nav-group-toggle" type="button" aria-expanded="false">
-            <span class="nav-group-toggle-main">
-              <span class="nav-icon">◆</span>
-              <span class="nav-label">Projects</span>
-            </span>
-            <span class="nav-caret">›</span>
+            <span class="nav-icon">◆</span>
+            <span class="nav-label">Projects</span>
+            <span class="nav-group-symbol">+</span>
           </button>
-          <div class="nav-group-links">
-            <a href="projects-command.html" title="Projects Command Center">
+          <div class="nav-submenu">
+            <a href="projects-command.html" title="Projects Command Center" data-page="projects-command.html">
               <span class="nav-icon">◆</span>
               <span class="nav-label">Projects Command Center</span>
             </a>
           </div>
         </div>
 
-        <div class="nav-group" data-sidebar-group="Service">
+        <div class="nav-group">
           <button class="nav-group-toggle" type="button" aria-expanded="false">
-            <span class="nav-group-toggle-main">
-              <span class="nav-icon">✓</span>
-              <span class="nav-label">Service</span>
-            </span>
-            <span class="nav-caret">›</span>
+            <span class="nav-icon">✓</span>
+            <span class="nav-label">Service</span>
+            <span class="nav-group-symbol">+</span>
           </button>
-          <div class="nav-group-links">
-            <a href="service.html" title="Service Parts Lookup">
+          <div class="nav-submenu">
+            <a href="service.html" title="Service Parts Lookup" data-page="service.html">
               <span class="nav-icon">⌕</span>
               <span class="nav-label">Service Parts Lookup</span>
             </a>
-            <a href="client-services.html" title="Client Services Dashboard">
+
+            <a href="client-services.html" title="Client Services Dashboard" data-page="client-services.html">
               <span class="nav-icon">✓</span>
               <span class="nav-label">Client Services Dashboard</span>
             </a>
-            <a href="inspection-requests-office.html" title="Inspection Requests">
+
+            <a href="inspection-requests-office.html" title="Inspection Requests" data-page="inspection-requests-office.html">
               <span class="nav-icon">▣</span>
               <span class="nav-label">Inspection Requests</span>
             </a>
-            <a href="client-marketing-sync.html" title="Client Marketing Sync">
+
+            <a href="client-marketing-sync.html" title="Client Marketing Sync" data-page="client-marketing-sync.html">
               <span class="nav-icon">⇄</span>
               <span class="nav-label">Client Marketing Sync</span>
             </a>
-            <a href="service-department-admin.html" title="Service Admin">
+
+            <a href="service-department-admin.html" title="Service Admin" data-page="service-department-admin.html">
               <span class="nav-icon">⚙</span>
               <span class="nav-label">Service Admin</span>
             </a>
           </div>
         </div>
 
-        <div class="nav-group" data-sidebar-group="Warehouse">
+        <div class="nav-group">
           <button class="nav-group-toggle" type="button" aria-expanded="false">
-            <span class="nav-group-toggle-main">
-              <span class="nav-icon">▣</span>
-              <span class="nav-label">Warehouse</span>
-            </span>
-            <span class="nav-caret">›</span>
+            <span class="nav-icon">▣</span>
+            <span class="nav-label">Warehouse</span>
+            <span class="nav-group-symbol">+</span>
           </button>
-          <div class="nav-group-links">
-            <a href="warehouse.html" title="Warehouse Operations">
+          <div class="nav-submenu">
+            <a href="warehouse.html" title="Warehouse Operations" data-page="warehouse.html">
               <span class="nav-icon">▣</span>
               <span class="nav-label">Warehouse Operations</span>
             </a>
-            <a href="warehouse-management.html" title="Warehouse Management">
+
+            <a href="warehouse-management.html" title="Warehouse Management" data-page="warehouse-management.html">
               <span class="nav-icon">⚙</span>
               <span class="nav-label">Warehouse Management</span>
             </a>
-            <a href="warehouse-reports.html" title="Warehouse Reports">
+
+            <a href="warehouse-reports.html" title="Warehouse Reports" data-page="warehouse-reports.html">
               <span class="nav-icon">▤</span>
               <span class="nav-label">Warehouse Reports</span>
             </a>
-            <a href="admin.html" title="Warehouse Admin">
+
+            <a href="admin.html" title="Warehouse Admin" data-page="admin.html">
               <span class="nav-icon">⚙</span>
               <span class="nav-label">Warehouse Admin</span>
             </a>
           </div>
         </div>
+
       </nav>
 
       <div class="sidebar-footer">
-        <nav class="side-nav" aria-label="Inventory utility navigation">
+        <nav class="side-nav utility-side-nav" aria-label="Utility navigation">
           <button type="button" onclick="appLogout()" title="Logout">
             <span class="nav-icon">⇥</span>
             <span class="nav-label">Logout</span>
@@ -1791,26 +1842,32 @@
 
 <script>
 
-(function () {
-  const STORAGE_KEY = "inventorySidebarCollapsed";
-  const appShell = document.getElementById("appShell");
-  const toggle = document.getElementById("inventorySidebarToggle");
+const INVENTORY_SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
 
-  if (!appShell || !toggle) {
-    return;
-  }
+document.addEventListener('DOMContentLoaded', () => {
+  initializeInventorySidebar();
+});
+
+function initializeInventorySidebar() {
+  const appShell = document.getElementById('appShell');
+  const toggleButton = document.getElementById('inventorySidebarToggle');
+  const groupButtons = document.querySelectorAll('.nav-group-toggle');
+  const navLinks = document.querySelectorAll('.side-nav a[data-page]');
 
   function applySidebarState(collapsed) {
-    appShell.classList.toggle("sidebar-collapsed", collapsed);
+    if (!appShell || !toggleButton) {
+      return;
+    }
 
-    toggle.title = collapsed ? "Expand" : "Collapse";
-    toggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
-    toggle.setAttribute("aria-expanded", String(!collapsed));
+    appShell.classList.toggle('sidebar-collapsed', collapsed);
+    toggleButton.title = collapsed ? 'Expand' : 'Collapse';
+    toggleButton.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    toggleButton.setAttribute('aria-expanded', String(!collapsed));
   }
 
   function getSavedState() {
     try {
-      return localStorage.getItem(STORAGE_KEY) === "true";
+      return localStorage.getItem(INVENTORY_SIDEBAR_STORAGE_KEY) === 'true';
     } catch (error) {
       return false;
     }
@@ -1818,52 +1875,78 @@
 
   function saveState(collapsed) {
     try {
-      localStorage.setItem(STORAGE_KEY, String(collapsed));
+      localStorage.setItem(INVENTORY_SIDEBAR_STORAGE_KEY, String(collapsed));
     } catch (error) {
       // Ignore localStorage errors so navigation remains usable.
     }
   }
 
   function setGroupOpen(group, open) {
-    const toggleButton = group.querySelector(".nav-group-toggle");
+    const button = group.querySelector('.nav-group-toggle');
+    const symbol = group.querySelector('.nav-group-symbol');
 
-    group.classList.toggle("open", open);
+    group.classList.toggle('open', open);
 
-    if (toggleButton) {
-      toggleButton.setAttribute("aria-expanded", String(open));
+    if (button) {
+      button.setAttribute('aria-expanded', String(open));
+    }
+
+    if (symbol) {
+      symbol.textContent = open ? '−' : '+';
     }
   }
 
-  document.querySelectorAll(".nav-group").forEach(group => {
-    const toggleButton = group.querySelector(".nav-group-toggle");
+  function initializeGroupsCollapsed() {
+    document.querySelectorAll('.nav-group').forEach(group => {
+      setGroupOpen(group, false);
+    });
+  }
 
-    if (!toggleButton) {
-      return;
-    }
+  function markActivePage() {
+    const currentPage = window.location.pathname.split('/').pop() || 'index.html';
 
-    toggleButton.addEventListener("click", function () {
-      setGroupOpen(group, !group.classList.contains("open"));
+    navLinks.forEach(link => {
+      const page = link.getAttribute('data-page');
+      const isActive = page === currentPage;
+
+      link.classList.toggle('active', isActive);
+
+      if (isActive) {
+        const parentGroup = link.closest('.nav-group');
+
+        if (parentGroup) {
+          setGroupOpen(parentGroup, true);
+        }
+      }
+    });
+  }
+
+  initializeGroupsCollapsed();
+  markActivePage();
+
+  groupButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const group = button.closest('.nav-group');
+
+      if (!group) {
+        return;
+      }
+
+      const isOpen = group.classList.contains('open');
+      setGroupOpen(group, !isOpen);
     });
   });
 
-  const activeLink = document.querySelector(".nav-group-links a.active");
+  if (appShell && toggleButton) {
+    applySidebarState(getSavedState());
 
-  if (activeLink) {
-    const activeGroup = activeLink.closest(".nav-group");
-
-    if (activeGroup) {
-      setGroupOpen(activeGroup, true);
-    }
+    toggleButton.addEventListener('click', () => {
+      const collapsed = !appShell.classList.contains('sidebar-collapsed');
+      applySidebarState(collapsed);
+      saveState(collapsed);
+    });
   }
-
-  applySidebarState(getSavedState());
-
-  toggle.addEventListener("click", function () {
-    const collapsed = !appShell.classList.contains("sidebar-collapsed");
-    applySidebarState(collapsed);
-    saveState(collapsed);
-  });
-})();
+}
 
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
