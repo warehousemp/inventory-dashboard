@@ -541,6 +541,94 @@
       background: #ecfdf3 !important;
     }
 
+    .cycle-queue-table {
+      table-layout: fixed;
+      min-width: 1450px;
+    }
+
+    .cycle-queue-table th,
+    .cycle-queue-table td {
+      white-space: normal;
+      vertical-align: top;
+    }
+
+    .cycle-queue-table th:nth-child(1),
+    .cycle-queue-table td:nth-child(1) {
+      width: 175px;
+    }
+
+    .cycle-queue-table th:nth-child(2),
+    .cycle-queue-table td:nth-child(2) {
+      width: 260px;
+      word-break: break-word;
+      line-height: 1.35;
+    }
+
+    .cycle-queue-table th:nth-child(3),
+    .cycle-queue-table td:nth-child(3) {
+      width: 165px;
+    }
+
+    .cycle-queue-table th:nth-child(4),
+    .cycle-queue-table td:nth-child(4) {
+      width: 130px;
+    }
+
+    .cycle-queue-table th:nth-child(5),
+    .cycle-queue-table td:nth-child(5) {
+      width: 170px;
+      word-break: break-word;
+    }
+
+    .cycle-queue-table th:nth-child(6),
+    .cycle-queue-table td:nth-child(6) {
+      width: 170px;
+    }
+
+    .cycle-queue-table th:nth-child(7),
+    .cycle-queue-table td:nth-child(7),
+    .cycle-queue-table th:nth-child(8),
+    .cycle-queue-table td:nth-child(8),
+    .cycle-queue-table th:nth-child(9),
+    .cycle-queue-table td:nth-child(9) {
+      width: 125px;
+    }
+
+    .cycle-queue-table th:nth-child(10),
+    .cycle-queue-table td:nth-child(10) {
+      width: 250px;
+      word-break: break-word;
+      line-height: 1.35;
+    }
+
+    .cycle-queue-action-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cycle-queue-action-stack button {
+      margin-right: 0;
+      margin-bottom: 0;
+    }
+
+    .serialized-cycle-warning {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: bold;
+    }
+
+    .serialized-cycle-ok {
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     .needs-category-table {
       table-layout: fixed;
       min-width: 1150px;
@@ -1829,7 +1917,47 @@
 </thead>
 <tbody id="recountQueueTableBody">
 <tr>
-<td colspan="13">No dead stock report loaded.</td>
+<td colspan="14">No recount required queue loaded.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</details>
+<details class="cycle-panel" id="openCycleCountsPanel" open="">
+<summary>Open Cycle Counts</summary>
+<h3>Open Cycle Counts Queue</h3>
+<div class="warning-note">
+      These are existing OPEN cycle counts that can be resumed after a page reload.
+      Open a session to continue entering counts, export the count sheet again if needed, or void the count if it was created in error.
+    </div>
+<div class="danger-note" id="openCycleCountsSerializedWarning" style="display: none;">
+      One or more OPEN cycle counts contain serialized parts. Serialized cycle counts are not ready for posting under the current quantity-only workflow.
+    </div>
+<div class="button-row">
+<button class="cycle-btn" onclick="loadOpenCycleCountQueue()">LOAD OPEN CYCLE COUNTS</button>
+</div>
+<div class="session-id-box" id="openCycleCountsStatus">
+      Loading open cycle counts...
+    </div>
+<div class="count-table-wrapper">
+<table class="cycle-queue-table">
+<thead>
+<tr>
+<th>Action</th>
+<th>Count Name</th>
+<th>Category</th>
+<th>Status</th>
+<th>Started By</th>
+<th>Started At</th>
+<th>Line Count</th>
+<th>Counted Lines</th>
+<th>Uncounted Lines</th>
+<th>Serialized Warning</th>
+</tr>
+</thead>
+<tbody id="openCycleCountsTableBody">
+<tr>
+<td colspan="10">Loading open cycle counts...</td>
 </tr>
 </tbody>
 </table>
@@ -1868,7 +1996,7 @@
     </div>
 <pre id="cycleCountSessionResult">Create a cycle count session after selecting a category, or open a recount from the Recount Required Queue...</pre>
 </details>
-<details class="cycle-panel">
+<details class="cycle-panel" id="cycleCountEntryPanel">
 <summary>Continue / Enter Counts</summary>
 <h3>Step 3: Enter Counts and Review Variances</h3>
 <div class="warning-note">
@@ -2162,6 +2290,7 @@ let cycleCountSheetData = [];
 let activeCycleCountId = null;
 let activeCycleCountLines = [];
 let recountRequiredQueueData = [];
+let openCycleCountQueueData = [];
 let deadStockReportData = [];
 let needsCategoryReportData = [];
 let transactionLogData = [];
@@ -2220,6 +2349,7 @@ window.addEventListener('load', async () => {
   await loadParts();
   await loadCycleCountCategories();
   await loadRecountRequiredQueue();
+  await loadOpenCycleCountQueue();
 });
 
 function showWarehouseAccessGate(message, type = 'warning') {
@@ -5370,7 +5500,7 @@ function renderRecountRequiredQueue() {
 
   if (!recountRequiredQueueData || recountRequiredQueueData.length === 0) {
     tbody.innerHTML =
-      '<tr><td colspan="12">No RECOUNT_REQUIRED cycle counts found.</td></tr>';
+      '<tr><td colspan="14">No RECOUNT_REQUIRED cycle counts found.</td></tr>';
     return;
   }
 
@@ -5390,6 +5520,8 @@ function renderRecountRequiredQueue() {
       <td>${escapeHTML(row.count_name || '')}</td>
       <td>${escapeHTML(row.cycle_count_category || '')}</td>
       <td>${escapeHTML(row.status || '')}</td>
+      <td>${escapeHTML(row.verified_status || '')}</td>
+      <td>${escapeHTML(row.recommended_action || '')}</td>
       <td>${escapeHTML(row.started_by || '')}</td>
       <td>${formatDateTime(row.started_at)}</td>
       <td>${escapeHTML(row.reviewed_by || '')}</td>
@@ -5402,6 +5534,528 @@ function renderRecountRequiredQueue() {
 
     tbody.appendChild(tr);
   });
+}
+
+
+async function loadOpenCycleCountQueue() {
+  const statusBox = document.getElementById('openCycleCountsStatus');
+  const tableBody = document.getElementById('openCycleCountsTableBody');
+
+  if (statusBox) {
+    statusBox.textContent = 'Loading open cycle counts...';
+  }
+
+  if (tableBody) {
+    tableBody.innerHTML = '<tr><td colspan="10">Loading open cycle counts...</td></tr>';
+  }
+
+  const { data, error } = await client
+    .from('inventory_cycle_count_session_summary')
+    .select('*')
+    .eq('status', 'OPEN')
+    .order('started_at', { ascending: false });
+
+  if (error) {
+    openCycleCountQueueData = [];
+
+    if (statusBox) {
+      statusBox.textContent = error.message;
+    }
+
+    renderOpenCycleCountQueue();
+    return;
+  }
+
+  openCycleCountQueueData = data || [];
+
+  await attachSerializedWarningsToOpenCycleCounts();
+  renderOpenCycleCountQueue();
+
+  if (!statusBox) {
+    return;
+  }
+
+  if (openCycleCountQueueData.length === 0) {
+    statusBox.textContent = 'No OPEN cycle counts found.';
+    return;
+  }
+
+  const serializedCount = openCycleCountQueueData.filter(row => Number(row._serialized_part_count || 0) > 0).length;
+  const totalLineCount = openCycleCountQueueData.reduce((total, row) => total + Number(row.line_count || 0), 0);
+  const countedLineCount = openCycleCountQueueData.reduce((total, row) => total + Number(row.counted_line_count || 0), 0);
+  const uncountedLineCount = Math.max(0, totalLineCount - countedLineCount);
+
+  statusBox.textContent =
+    `${openCycleCountQueueData.length} OPEN cycle count(s) found.\n` +
+    `Total Lines: ${formatNumber(totalLineCount)}\n` +
+    `Counted Lines: ${formatNumber(countedLineCount)}\n` +
+    `Uncounted Lines: ${formatNumber(uncountedLineCount)}` +
+    (serializedCount > 0
+      ? `\n\nWARNING: ${serializedCount} open cycle count(s) contain serialized parts. Serialized cycle counts are not ready for posting under the current quantity-only workflow.`
+      : '');
+}
+
+async function attachSerializedWarningsToOpenCycleCounts() {
+  const warningBox = document.getElementById('openCycleCountsSerializedWarning');
+
+  if (!openCycleCountQueueData || openCycleCountQueueData.length === 0) {
+    if (warningBox) {
+      warningBox.style.display = 'none';
+    }
+
+    return;
+  }
+
+  const cycleCountIds = openCycleCountQueueData
+    .map(row => row.cycle_count_id)
+    .filter(Boolean);
+
+  const serializedByCycleCount = await fetchSerializedPartsByCycleCount(cycleCountIds);
+
+  openCycleCountQueueData = openCycleCountQueueData.map(row => {
+    const serializedParts = serializedByCycleCount[String(row.cycle_count_id)] || [];
+
+    return {
+      ...row,
+      _serialized_part_count: serializedParts.length,
+      _serialized_part_numbers: serializedParts
+    };
+  });
+
+  const totalSerializedSessions = openCycleCountQueueData.filter(row => Number(row._serialized_part_count || 0) > 0).length;
+
+  if (warningBox) {
+    if (totalSerializedSessions > 0) {
+      warningBox.style.display = 'block';
+      warningBox.textContent =
+        `${totalSerializedSessions} OPEN cycle count(s) contain serialized parts. ` +
+        `Serialized cycle counts are not ready for posting under the current quantity-only workflow.`;
+    } else {
+      warningBox.style.display = 'none';
+    }
+  }
+}
+
+async function fetchSerializedPartsByCycleCount(cycleCountIds) {
+  const emptyResult = {};
+
+  if (!cycleCountIds || cycleCountIds.length === 0) {
+    return emptyResult;
+  }
+
+  const { data: lineData, error: lineError } = await client
+    .from('inventory_cycle_count_lines')
+    .select('cycle_count_id, part_id, part_number')
+    .in('cycle_count_id', cycleCountIds);
+
+  if (lineError) {
+    console.error('Serialized cycle count line lookup error:', lineError);
+    return emptyResult;
+  }
+
+  const lineRows = lineData || [];
+  const partIds = [...new Set(lineRows.map(row => row.part_id).filter(Boolean))];
+  const partNumbers = [...new Set(lineRows.map(row => row.part_number).filter(Boolean))];
+  const serializedLookup = new Map();
+
+  if (partIds.length > 0) {
+    const { data: partIdData, error: partIdError } = await client
+      .from('parts')
+      .select('id, part_number, is_serialized')
+      .in('id', partIds);
+
+    if (!partIdError) {
+      (partIdData || []).forEach(part => {
+        serializedLookup.set(String(part.id), part.is_serialized === true);
+        serializedLookup.set(String(part.part_number || '').toUpperCase(), part.is_serialized === true);
+      });
+    } else {
+      console.error('Serialized part ID lookup error:', partIdError);
+    }
+  }
+
+  if (partNumbers.length > 0) {
+    const missingPartNumbers = partNumbers.filter(partNumber =>
+      !serializedLookup.has(String(partNumber || '').toUpperCase())
+    );
+
+    if (missingPartNumbers.length > 0) {
+      const { data: partNumberData, error: partNumberError } = await client
+        .from('parts')
+        .select('part_number, is_serialized')
+        .in('part_number', missingPartNumbers);
+
+      if (!partNumberError) {
+        (partNumberData || []).forEach(part => {
+          serializedLookup.set(String(part.part_number || '').toUpperCase(), part.is_serialized === true);
+        });
+      } else {
+        console.error('Serialized part number lookup error:', partNumberError);
+      }
+    }
+  }
+
+  partsData.forEach(part => {
+    if (part?.part_number) {
+      serializedLookup.set(String(part.part_number || '').toUpperCase(), part.is_serialized === true);
+    }
+
+    if (part?.part_id) {
+      serializedLookup.set(String(part.part_id), part.is_serialized === true);
+    }
+
+    if (part?.id) {
+      serializedLookup.set(String(part.id), part.is_serialized === true);
+    }
+  });
+
+  const result = {};
+
+  lineRows.forEach(line => {
+    const cycleCountId = String(line.cycle_count_id || '');
+    const partNumber = String(line.part_number || '').trim();
+    const partIdKey = line.part_id ? String(line.part_id) : '';
+    const partNumberKey = partNumber.toUpperCase();
+    const isSerialized =
+      serializedLookup.get(partIdKey) === true ||
+      serializedLookup.get(partNumberKey) === true;
+
+    if (!cycleCountId || !isSerialized) {
+      return;
+    }
+
+    if (!result[cycleCountId]) {
+      result[cycleCountId] = [];
+    }
+
+    if (partNumber && !result[cycleCountId].includes(partNumber)) {
+      result[cycleCountId].push(partNumber);
+    }
+  });
+
+  return result;
+}
+
+function getSerializedPartNumbersFromLines(lines) {
+  if (!lines || lines.length === 0) {
+    return [];
+  }
+
+  const serializedPartNumbers = [];
+
+  lines.forEach(line => {
+    const partNumber = String(line.part_number || '').trim();
+
+    if (!partNumber) {
+      return;
+    }
+
+    const matchedPart = partsData.find(part =>
+      String(part.part_number || '').trim().toUpperCase() === partNumber.toUpperCase()
+    );
+
+    if (matchedPart?.is_serialized === true && !serializedPartNumbers.includes(partNumber)) {
+      serializedPartNumbers.push(partNumber);
+    }
+  });
+
+  return serializedPartNumbers;
+}
+
+function renderOpenCycleCountQueue() {
+  const tbody = document.getElementById('openCycleCountsTableBody');
+
+  if (!tbody) {
+    return;
+  }
+
+  tbody.innerHTML = '';
+
+  if (!openCycleCountQueueData || openCycleCountQueueData.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="10">No OPEN cycle counts found.</td></tr>';
+    return;
+  }
+
+  openCycleCountQueueData.forEach(row => {
+    const tr = document.createElement('tr');
+    const lineCount = Number(row.line_count || 0);
+    const countedLines = Number(row.counted_line_count || 0);
+    const uncountedLines = Math.max(0, lineCount - countedLines);
+    const serializedParts = row._serialized_part_numbers || [];
+    const serializedWarning = serializedParts.length > 0
+      ? `<div class="serialized-cycle-warning">Serialized parts detected (${formatNumber(serializedParts.length)}): ${escapeHTML(serializedParts.slice(0, 8).join(', '))}${serializedParts.length > 8 ? '...' : ''}<br>Not ready for posting under quantity-only workflow.</div>`
+      : '<div class="serialized-cycle-ok">No serialized parts detected.</div>';
+
+    if (String(activeCycleCountId) === String(row.cycle_count_id)) {
+      tr.classList.add('selected-row');
+    }
+
+    tr.innerHTML = `
+      <td>
+        <div class="cycle-queue-action-stack">
+          <button class="cycle-btn small-btn" onclick="openExistingCycleCountSession('${escapeJS(row.cycle_count_id)}')">
+            OPEN / CONTINUE
+          </button>
+          <button class="export-btn small-btn" onclick="exportOpenCycleCountSheetCSV('${escapeJS(row.cycle_count_id)}')">
+            EXPORT COUNT SHEET CSV
+          </button>
+          <button class="danger-btn small-btn" onclick="voidOpenCycleCount('${escapeJS(row.cycle_count_id)}')">
+            VOID COUNT
+          </button>
+        </div>
+      </td>
+      <td>${escapeHTML(row.count_name || '')}</td>
+      <td>${escapeHTML(row.cycle_count_category || '')}</td>
+      <td>${escapeHTML(row.status || '')}</td>
+      <td>${escapeHTML(row.started_by || '')}</td>
+      <td>${formatDateTime(row.started_at)}</td>
+      <td>${formatNumber(lineCount)}</td>
+      <td>${formatNumber(countedLines)}</td>
+      <td>${formatNumber(uncountedLines)}</td>
+      <td>${serializedWarning}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+async function openExistingCycleCountSession(cycleCountId) {
+  const session = openCycleCountQueueData.find(
+    row => String(row.cycle_count_id) === String(cycleCountId)
+  );
+
+  if (!session) {
+    document.getElementById('openCycleCountsStatus').textContent =
+      'Selected open cycle count was not found in the queue.';
+    return;
+  }
+
+  activeCycleCountId = session.cycle_count_id;
+
+  const serializedParts = session._serialized_part_numbers || [];
+  const serializedWarning = serializedParts.length > 0
+    ? `\n\nWARNING: This open cycle count contains serialized parts (${serializedParts.join(', ')}). Serialized cycle counts are not ready for posting under the current quantity-only workflow.`
+    : '';
+
+  document.getElementById('activeCycleCountIdBox').textContent =
+    `Active Cycle Count ID: ${activeCycleCountId}\nStatus: OPEN\nCount Name: ${session.count_name || ''}\nCategory: ${session.cycle_count_category || ''}` + serializedWarning;
+
+  document.getElementById('cycleCountSessionResult').textContent =
+    `Open cycle count loaded.\nCount Name: ${session.count_name || ''}\nCategory: ${session.cycle_count_category || ''}\nCycle Count ID: ${activeCycleCountId}\n\nContinue entering counted quantities in Step 3.` + serializedWarning;
+
+  if (!document.getElementById('cycleCountStartedBy').value.trim()) {
+    document.getElementById('cycleCountStartedBy').value = session.started_by || getCurrentUserDisplayName();
+  }
+
+  document.getElementById('cycleCountPostResult').textContent =
+    serializedParts.length > 0
+      ? 'Open count loaded. Warning: serialized cycle counts are not ready for posting under the current quantity-only workflow.'
+      : 'Open count loaded. Save counts before marking ready for review.';
+
+  const entryPanel = document.getElementById('cycleCountEntryPanel');
+
+  if (entryPanel) {
+    entryPanel.open = true;
+    entryPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  renderOpenCycleCountQueue();
+  renderRecountRequiredQueue();
+  await loadActiveCycleCountLines();
+}
+
+async function fetchCycleCountLinesForExport(cycleCountId) {
+  const { data, error } = await client
+    .from('inventory_cycle_count_lines')
+    .select('*')
+    .eq('cycle_count_id', cycleCountId)
+    .order('part_number', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+}
+
+async function exportOpenCycleCountSheetCSV(cycleCountId) {
+  const session = openCycleCountQueueData.find(
+    row => String(row.cycle_count_id) === String(cycleCountId)
+  );
+
+  const statusBox = document.getElementById('openCycleCountsStatus');
+
+  if (statusBox) {
+    statusBox.textContent = `Preparing count sheet CSV for ${session?.count_name || cycleCountId}...`;
+  }
+
+  let lines = [];
+
+  try {
+    lines = await fetchCycleCountLinesForExport(cycleCountId);
+  } catch (error) {
+    if (statusBox) {
+      statusBox.textContent = error.message;
+    }
+
+    return;
+  }
+
+  if (!lines || lines.length === 0) {
+    if (statusBox) {
+      statusBox.textContent = 'No count lines were found for the selected OPEN cycle count.';
+    }
+
+    return;
+  }
+
+  const serializedParts = session?._serialized_part_numbers || [];
+
+  let csv =
+    'Cycle Count ID,Count Name,Category,Line ID,Part ID,Part Number,Description,System Quantity,Counted Quantity,Existing Counted Quantity,Variance Quantity,Location,Unit Cost,Inventory Value,Notes,Serialized Warning\n';
+
+  lines.forEach(line => {
+    const existingCountedQuantity = line.counted_quantity === null || line.counted_quantity === undefined
+      ? ''
+      : line.counted_quantity;
+    const isSerializedLine = serializedParts.includes(line.part_number);
+
+    csv +=
+      `"${cleanCSV(cycleCountId)}",` +
+      `"${cleanCSV(session?.count_name || '')}",` +
+      `"${cleanCSV(session?.cycle_count_category || '')}",` +
+      `"${cleanCSV(line.id)}",` +
+      `"${cleanCSV(line.part_id)}",` +
+      `"${cleanCSV(line.part_number)}",` +
+      `"${cleanCSV(line.description)}",` +
+      `"${cleanCSV(line.system_quantity)}",` +
+      `"",` +
+      `"${cleanCSV(existingCountedQuantity)}",` +
+      `"${cleanCSV(line.variance_quantity)}",` +
+      `"${cleanCSV(line.location_name || '')}",` +
+      `"${cleanCSV(line.unit_cost)}",` +
+      `"${cleanCSV(line.inventory_value || '')}",` +
+      `"${cleanCSV(line.notes)}",` +
+      `"${cleanCSV(isSerializedLine ? 'SERIALIZED PART - NOT READY FOR POSTING UNDER QUANTITY-ONLY WORKFLOW' : '')}"\n`;
+  });
+
+  const safeName = cleanFilename(session?.count_name || cycleCountId || 'open_cycle_count');
+  downloadCSV(csv, `open_cycle_count_sheet_${safeName}.csv`);
+
+  if (statusBox) {
+    statusBox.textContent =
+      `Exported count sheet CSV for ${session?.count_name || cycleCountId}.` +
+      (serializedParts.length > 0
+        ? `\n\nWARNING: This count contains serialized parts and is not ready for posting under the current quantity-only workflow.`
+        : '');
+  }
+}
+
+async function callVoidCycleCountRpc(cycleCountId, voidedBy, reason) {
+  const attempts = [
+    {
+      p_cycle_count_id: cycleCountId,
+      p_voided_by: voidedBy,
+      p_void_reason: reason || null
+    },
+    {
+      p_cycle_count_id: cycleCountId,
+      p_voided_by: voidedBy,
+      p_reason: reason || null
+    },
+    {
+      p_cycle_count_id: cycleCountId,
+      p_voided_by: voidedBy
+    }
+  ];
+
+  let lastError = null;
+
+  for (const params of attempts) {
+    const { data, error } = await client.rpc('void_cycle_count', params);
+
+    if (!error) {
+      return data;
+    }
+
+    lastError = error;
+
+    if (!isRpcSignatureError(error)) {
+      throw error;
+    }
+  }
+
+  throw lastError || new Error('void_cycle_count RPC failed.');
+}
+
+function isRpcSignatureError(error) {
+  const message = String(error?.message || '').toLowerCase();
+
+  return message.includes('could not find the function') ||
+    (message.includes('function') && message.includes('does not exist')) ||
+    message.includes('schema cache');
+}
+
+async function voidOpenCycleCount(cycleCountId) {
+  const session = openCycleCountQueueData.find(
+    row => String(row.cycle_count_id) === String(cycleCountId)
+  );
+
+  if (!session) {
+    document.getElementById('openCycleCountsStatus').textContent =
+      'Selected open cycle count was not found in the queue.';
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Void this OPEN cycle count?\n\n${session.count_name || cycleCountId}\n\nThis will remove it from the open queue and cannot be resumed.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  const reason = window.prompt(
+    'Enter a reason for voiding this cycle count:',
+    'Voided from Warehouse Management open cycle count queue.'
+  );
+
+  if (reason === null) {
+    return;
+  }
+
+  const voidedBy = getCurrentUserDisplayName();
+
+  document.getElementById('openCycleCountsStatus').textContent =
+    `Voiding cycle count ${session.count_name || cycleCountId}...`;
+
+  try {
+    await callVoidCycleCountRpc(cycleCountId, voidedBy, reason.trim() || null);
+  } catch (error) {
+    document.getElementById('openCycleCountsStatus').textContent =
+      `Void failed: ${error.message}`;
+    return;
+  }
+
+  if (String(activeCycleCountId) === String(cycleCountId)) {
+    activeCycleCountId = null;
+    activeCycleCountLines = [];
+
+    document.getElementById('activeCycleCountIdBox').textContent =
+      'Active Cycle Count ID: None';
+    document.getElementById('cycleCountLinesSummary').textContent =
+      'No active count lines loaded.';
+    document.getElementById('cycleCountLinesTableBody').innerHTML =
+      '<tr><td colspan="9">Create, load, or open a cycle count session to enter counts.</td></tr>';
+    document.getElementById('cycleCountSaveResult').textContent =
+      'The active open cycle count was voided.';
+  }
+
+  document.getElementById('openCycleCountsStatus').textContent =
+    `Cycle count voided successfully.\nCount Name: ${session.count_name || ''}\nCycle Count ID: ${cycleCountId}`;
+
+  await loadOpenCycleCountQueue();
 }
 
 async function openRecountRequiredSession(cycleCountId) {
@@ -5430,7 +6084,15 @@ async function openRecountRequiredSession(cycleCountId) {
   document.getElementById('cycleCountPostResult').textContent =
     'Recount opened. Save corrected counts before marking ready for review again.';
 
+  const entryPanel = document.getElementById('cycleCountEntryPanel');
+
+  if (entryPanel) {
+    entryPanel.open = true;
+    entryPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   renderRecountRequiredQueue();
+  renderOpenCycleCountQueue();
   await loadActiveCycleCountLines();
 }
 
@@ -5621,6 +6283,7 @@ async function createCycleCountSession() {
 
   renderRecountRequiredQueue();
   await loadActiveCycleCountLines();
+  await loadOpenCycleCountQueue();
 }
 
 async function loadActiveCycleCountLines() {
@@ -5772,6 +6435,7 @@ function updateCycleCountLinesSummary() {
   let totalCountedQty = 0;
   let totalVarianceQty = 0;
   let totalVarianceValue = 0;
+  const serializedPartNumbers = getSerializedPartNumbersFromLines(activeCycleCountLines);
 
   activeCycleCountLines.forEach(line => {
     totalSystemQty += Number(line.system_quantity || 0);
@@ -5787,7 +6451,10 @@ function updateCycleCountLinesSummary() {
     `Total System Qty: ${formatNumber(totalSystemQty)}\n` +
     `Total Counted Qty: ${formatNumber(totalCountedQty)}\n` +
     `Total Variance Qty: ${formatNumber(totalVarianceQty)}\n` +
-    `Total Variance Value: ${formatCurrency(totalVarianceValue)}`;
+    `Total Variance Value: ${formatCurrency(totalVarianceValue)}` +
+    (serializedPartNumbers.length > 0
+      ? `\n\nWARNING: Serialized parts detected (${serializedPartNumbers.join(', ')}). Serialized cycle counts are not ready for posting under the current quantity-only workflow.`
+      : '');
 }
 
 async function saveAllCycleCountLines() {
@@ -5843,6 +6510,7 @@ async function saveAllCycleCountLines() {
   }
 
   await loadActiveCycleCountLines();
+  await loadOpenCycleCountQueue();
 
   let result =
     `Save complete.\nSaved lines: ${savedCount}\nSkipped blank lines: ${skippedCount}`;
@@ -5933,8 +6601,13 @@ async function markActiveCycleCountReadyForReview() {
     return;
   }
 
+  const serializedPartNumbers = getSerializedPartNumbersFromLines(activeCycleCountLines);
+  const serializedWarningText = serializedPartNumbers.length > 0
+    ? `\n\nWARNING: Serialized parts detected (${serializedPartNumbers.join(', ')}). Serialized cycle counts are not ready for posting under the current quantity-only workflow.`
+    : '';
+
   document.getElementById('cycleCountPostResult').textContent =
-    'Submitting cycle count for review...';
+    'Submitting cycle count for review...' + serializedWarningText;
 
   const { error } = await client.rpc('mark_cycle_count_ready_for_review', {
     p_cycle_count_id: activeCycleCountId,
@@ -5947,9 +6620,10 @@ async function markActiveCycleCountReadyForReview() {
   }
 
   document.getElementById('cycleCountPostResult').textContent =
-    `Cycle count marked READY_FOR_REVIEW.\nCycle Count ID: ${activeCycleCountId}\n\nThis count is now ready for Admin review. No inventory quantities have been changed.`;
+    `Cycle count marked READY_FOR_REVIEW.\nCycle Count ID: ${activeCycleCountId}\n\nThis count is now ready for Admin review. No inventory quantities have been changed.` + serializedWarningText;
 
   await loadRecountRequiredQueue();
+  await loadOpenCycleCountQueue();
 }
 
 function getVarianceClass(value) {
