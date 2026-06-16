@@ -6405,19 +6405,27 @@ async function fetchNonSerializedStockRowsForLocation(locationId) {
     return [];
   }
 
-  const { data: balanceRows, error: balanceError } = await client
-    .from('inventory_stock_balances')
-    .select('part_id, location_id, quantity_on_hand')
-    .eq('location_id', locationId)
-    .gt('quantity_on_hand', 0);
+  const location = inventoryLocationData.find(row => String(row.id) === String(locationId));
+  const locationName = location?.location_name || '';
 
-  if (balanceError) {
-    throw balanceError;
+  if (!locationName) {
+    return [];
   }
 
-  const balances = balanceRows || [];
+  const { data: stockRows, error: stockError } = await client
+    .from('inventory_cycle_count_category_view')
+    .select('part_id, part_number, description, category, cycle_count_category, quantity_on_hand, unit_cost, inventory_value, location_name')
+    .eq('location_name', locationName)
+    .gt('quantity_on_hand', 0)
+    .order('part_number', { ascending: true });
+
+  if (stockError) {
+    throw stockError;
+  }
+
+  const rows = stockRows || [];
   const partIds = [...new Set(
-    balances
+    rows
       .map(row => row.part_id)
       .filter(Boolean)
   )];
@@ -6448,17 +6456,28 @@ async function fetchNonSerializedStockRowsForLocation(locationId) {
 
   const partById = new Map(partRows.map(part => [String(part.id), part]));
 
-  return balances
-    .map(balance => {
-      const part = partById.get(String(balance.part_id));
+  return rows
+    .map(row => {
+      const part = partById.get(String(row.part_id));
 
       if (!part) {
         return null;
       }
 
       return {
-        ...balance,
-        part
+        part_id: row.part_id,
+        location_id: locationId,
+        location_name: locationName,
+        quantity_on_hand: row.quantity_on_hand,
+        unit_cost: row.unit_cost,
+        inventory_value: row.inventory_value,
+        part: {
+          ...part,
+          description: part.description || row.description || '',
+          category: part.category || row.category || '',
+          cycle_count_category: part.cycle_count_category || row.cycle_count_category || '',
+          unit_cost: part.unit_cost ?? row.unit_cost ?? 0
+        }
       };
     })
     .filter(Boolean)
