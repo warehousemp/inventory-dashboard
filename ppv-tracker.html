@@ -1,0 +1,2940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>PPV Tracker - Inventory System</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="google" content="notranslate">
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Molinari Inventory">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --success: #027a48;
+      --success-bg: #ecfdf3;
+      --warning: #9a3412;
+      --warning-bg: #fff7ed;
+      --danger: #b42318;
+      --danger-bg: #fef2f2;
+      --sidebar-width: 300px;
+      --sidebar-collapsed-width: 66px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      min-height: 100vh;
+      transition: grid-template-columns 0.2s ease;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: hidden;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      transition: width 0.2s ease;
+      z-index: 1000;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 70px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+      flex: 0 0 auto;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+      white-space: nowrap;
+      transition: opacity 0.15s ease, width 0.15s ease;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .sidebar-toggle-wrap {
+      padding: 12px 12px 4px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(26,163,176,0.34);
+      border-color: rgba(255,255,255,0.42);
+      opacity: 1;
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      width: 17px;
+      height: 2px;
+      border-radius: 999px;
+      background: white;
+    }
+
+    .side-nav {
+      padding: 8px 10px 14px;
+    }
+
+    .side-nav a,
+    .side-nav button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 4px;
+      white-space: nowrap;
+      min-height: 44px;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font-family: Arial, sans-serif;
+      text-align: left;
+    }
+
+    .side-nav a.active,
+    .side-nav a:hover,
+    .side-nav button:hover {
+      background: rgba(26,163,176,0.26);
+      color: white;
+      opacity: 1;
+    }
+
+    .nav-icon {
+      width: 20px;
+      min-width: 20px;
+      text-align: center;
+      opacity: 0.95;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .nav-label {
+      transition: opacity 0.15s ease, width 0.15s ease;
+      overflow: hidden;
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      padding: 10px;
+      margin-top: auto;
+    }
+
+    .app-shell.sidebar-collapsed .brand {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .app-shell.sidebar-collapsed .brand-text,
+    .app-shell.sidebar-collapsed .nav-label,
+    .app-shell.sidebar-collapsed .nav-section {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav,
+    .app-shell.sidebar-collapsed .sidebar-footer {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav a,
+    .app-shell.sidebar-collapsed .side-nav button {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+      gap: 0;
+    }
+
+    .main {
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .header-bar {
+      background: var(--header);
+      color: white;
+      padding: 18px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      box-shadow: 0 2px 12px rgba(15,23,42,0.18);
+    }
+
+    .header-title {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .header-subtitle {
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0.86;
+    }
+
+    .page-wrapper {
+      max-width: 1440px;
+      margin: 26px auto;
+      padding: 0 20px;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .card {
+      background: white;
+      padding: 22px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+      min-width: 0;
+    }
+
+    .card + .card {
+      margin-top: 18px;
+    }
+
+    .card-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    h2,
+    h3 {
+      margin-top: 0;
+      color: var(--header);
+    }
+
+    h2 {
+      margin-bottom: 16px;
+      font-size: 22px;
+    }
+
+    h3 {
+      margin-bottom: 10px;
+      font-size: 17px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 14px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    textarea {
+      min-height: 84px;
+      resize: vertical;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(26,163,176,0.15);
+    }
+
+    button {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 14px;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+      font-family: Arial, sans-serif;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+      transform: none;
+    }
+
+    .primary-btn {
+      background: var(--header);
+      color: white;
+    }
+
+    .accent-btn {
+      background: var(--accent);
+      color: white;
+    }
+
+    .secondary-btn {
+      background: #e2e8f0;
+      color: var(--text);
+    }
+
+    .success-btn {
+      background: #027a48;
+      color: white;
+    }
+
+    .warning-btn {
+      background: #c05621;
+      color: white;
+    }
+
+    .danger-btn {
+      background: #b91c1c;
+      color: white;
+    }
+
+    .small-btn {
+      padding: 7px 11px;
+      font-size: 12px;
+      border-radius: 7px;
+      width: auto;
+      margin-bottom: 0;
+    }
+
+    .full-width-btn {
+      width: 100%;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .button-row button {
+      margin-bottom: 0;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .metric-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+      min-height: 92px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .metric-value {
+      color: var(--header);
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .metric-help {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #d9e2ec;
+      padding-bottom: 8px;
+    }
+
+    .tab-btn {
+      background: #e2e8f0;
+      color: var(--text);
+      margin-bottom: 0;
+      padding: 10px 13px;
+      font-size: 13px;
+    }
+
+    .tab-btn.active {
+      background: var(--header);
+      color: white;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 12px;
+      background: white;
+      max-height: 620px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 920px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #edf2f7;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    td.wrap-cell {
+      white-space: normal;
+      min-width: 180px;
+    }
+
+    th {
+      background: #f0f4f8;
+      color: var(--header);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .status-message {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 10px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .status-message.error {
+      color: var(--danger);
+      font-weight: bold;
+    }
+
+    .status-message.success {
+      color: var(--success);
+      font-weight: bold;
+    }
+
+    .help-text {
+      margin-top: -8px;
+      margin-bottom: 15px;
+      font-size: 12px;
+      color: #667085;
+      line-height: 1.4;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .muted-text {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .divider {
+      border: 0;
+      border-top: 1px solid #e2e8f0;
+      margin: 18px 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      border: 1px solid transparent;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .badge-neutral {
+      background: #eef2f7;
+      color: #344054;
+      border-color: #d0d5dd;
+    }
+
+    .badge-success {
+      background: #ecfdf3;
+      color: #027a48;
+      border-color: #bbf7d0;
+    }
+
+    .badge-warning {
+      background: #fff7ed;
+      color: #9a3412;
+      border-color: #fed7aa;
+    }
+
+    .badge-danger {
+      background: #fef2f2;
+      color: #b42318;
+      border-color: #fecaca;
+    }
+
+    .access-layout {
+      max-width: 680px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .access-card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+    }
+
+    .status-note {
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #0b3c5d;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+    }
+
+    .warning-note {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+    }
+
+    .danger-note {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+      white-space: pre-wrap;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .access-actions .nav-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      color: white;
+      background: var(--header);
+    }
+
+    .access-actions .logout-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      background: #b91c1c;
+      color: white;
+    }
+
+    .manual-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .manual-form-grid .full-span {
+      grid-column: 1 / -1;
+    }
+
+    .print-sheet {
+      display: none;
+    }
+
+    /* Standard Collapsible Sidebar Groups */
+    .main-menu-nav {
+      padding-top: 10px;
+      padding-bottom: 4px;
+    }
+
+    .grouped-side-nav {
+      padding-top: 4px;
+    }
+
+    .nav-group {
+      margin-bottom: 4px;
+    }
+
+    .nav-group-toggle {
+      position: relative;
+    }
+
+    .nav-group-toggle .nav-group-symbol {
+      margin-left: auto;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
+      opacity: 0.9;
+    }
+
+    .nav-group.open .nav-group-toggle {
+      background: rgba(26,163,176,0.18);
+      color: white;
+    }
+
+    .nav-submenu {
+      display: none;
+      padding: 0 0 4px 0;
+    }
+
+    .nav-group.open .nav-submenu {
+      display: block;
+    }
+
+    .nav-submenu a {
+      padding-left: 34px;
+      min-height: 38px;
+      font-size: 13px;
+      margin-bottom: 2px;
+      border-radius: 8px;
+    }
+
+    .nav-submenu .nav-icon {
+      font-size: 12px;
+      opacity: 0.85;
+    }
+
+    .side-nav a.active,
+    .nav-submenu a.active {
+      background: rgba(26,163,176,0.34);
+      color: white;
+    }
+
+    .app-shell.sidebar-collapsed .nav-group-symbol {
+      display: none;
+    }
+
+    .app-shell.sidebar-collapsed .nav-submenu {
+      display: none !important;
+    }
+
+    .app-shell.sidebar-collapsed .nav-group.open .nav-group-toggle {
+      background: rgba(26,163,176,0.26);
+    }
+
+    .app-shell.sidebar-collapsed .main-menu-nav,
+    .app-shell.sidebar-collapsed .grouped-side-nav,
+    .app-shell.sidebar-collapsed .utility-side-nav {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+
+      .sidebar,
+      .header-bar,
+      .no-print,
+      .access-layout,
+      .page-wrapper {
+        display: none !important;
+      }
+
+      .app-shell,
+      .app-shell.sidebar-collapsed {
+        display: block;
+      }
+
+      .main {
+        overflow: visible;
+      }
+
+      .print-sheet {
+        display: block;
+        padding: 24px;
+        color: #111827;
+      }
+
+      .print-sheet h1 {
+        margin: 0 0 6px;
+        font-size: 22px;
+        color: #0b3c5d;
+      }
+
+      .print-sheet h2 {
+        font-size: 16px;
+        margin: 18px 0 8px;
+      }
+
+      .print-sheet table {
+        min-width: 0;
+        width: 100%;
+        font-size: 11px;
+      }
+
+      .print-sheet th,
+      .print-sheet td {
+        padding: 7px;
+        white-space: normal;
+        border: 1px solid #d0d5dd;
+      }
+
+      .signature-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 28px;
+        margin-top: 36px;
+      }
+
+      .signature-line {
+        border-top: 1px solid #111827;
+        padding-top: 8px;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 1120px) {
+      .content-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(2, minmax(150px, 1fr));
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell,
+      .app-shell.sidebar-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .brand {
+        min-height: auto;
+      }
+
+      .sidebar-toggle-wrap {
+        display: none;
+      }
+
+      .app-shell.sidebar-collapsed .brand {
+        justify-content: flex-start;
+        padding: 18px 18px 16px;
+      }
+
+      .app-shell.sidebar-collapsed .brand-text {
+        opacity: 1;
+        width: auto;
+      }
+
+      .main-menu-nav,
+      .grouped-side-nav,
+      .utility-side-nav,
+      .app-shell.sidebar-collapsed .main-menu-nav,
+      .app-shell.sidebar-collapsed .grouped-side-nav,
+      .app-shell.sidebar-collapsed .utility-side-nav {
+        display: block;
+        padding: 10px;
+      }
+
+      .app-shell.sidebar-collapsed .side-nav a,
+      .app-shell.sidebar-collapsed .side-nav button,
+      .side-nav a,
+      .side-nav button {
+        justify-content: flex-start;
+        padding: 12px 12px;
+        gap: 10px;
+      }
+
+      .app-shell.sidebar-collapsed .nav-label,
+      .app-shell.sidebar-collapsed .nav-section {
+        opacity: 1;
+        width: auto;
+      }
+
+      .nav-submenu a {
+        padding-left: 34px;
+      }
+
+      .app-shell.sidebar-collapsed .nav-group-symbol {
+        display: inline-block;
+      }
+
+      .app-shell.sidebar-collapsed .nav-submenu {
+        display: none;
+      }
+
+      .app-shell.sidebar-collapsed .nav-group.open .nav-submenu {
+        display: block;
+      }
+
+      .header-bar {
+        padding: 16px 18px;
+        text-align: center;
+        justify-content: center;
+      }
+
+      .header-title,
+      .header-subtitle {
+        width: 100%;
+        text-align: center;
+      }
+
+      .page-wrapper {
+        margin: 18px auto;
+        padding: 0 12px;
+      }
+
+      .card {
+        padding: 20px;
+        border-radius: 12px;
+      }
+
+      h2 {
+        font-size: 20px;
+      }
+
+      input,
+      select,
+      textarea {
+        font-size: 16px;
+        padding: 13px;
+      }
+
+      button {
+        width: 100%;
+        padding: 14px;
+        font-size: 15px;
+      }
+
+      .small-btn {
+        width: auto;
+        padding: 7px 11px;
+        font-size: 12px;
+      }
+
+      .button-row {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        font-size: 12px;
+        min-width: 760px;
+      }
+
+      .metric-grid,
+      .manual-form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell" id="appShell">
+
+    <aside class="sidebar" aria-label="Inventory navigation">
+      <div class="brand">
+        <div class="brand-mark">MP</div>
+        <div class="brand-text">
+          <strong>MOLINARI</strong>
+          <span>INVENTORY</span>
+        </div>
+      </div>
+
+      <div class="sidebar-toggle-wrap">
+        <button class="sidebar-toggle" id="inventorySidebarToggle" type="button" title="Collapse" aria-label="Collapse sidebar" aria-expanded="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+
+      <nav class="side-nav main-menu-nav" aria-label="Main navigation">
+        <a href="index.html" title="Main Menu" data-page="index.html">
+          <span class="nav-icon">↩</span>
+          <span class="nav-label">Main Menu</span>
+        </a>
+      </nav>
+
+      <nav class="side-nav grouped-side-nav" aria-label="System navigation">
+
+        <div class="nav-group">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-icon">⚙</span>
+            <span class="nav-label">Admin</span>
+            <span class="nav-group-symbol">+</span>
+          </button>
+          <div class="nav-submenu">
+            <a href="users.html" title="System/Admin Tools" data-page="users.html">
+              <span class="nav-icon">⚙</span>
+              <span class="nav-label">System/Admin Tools</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-icon">$</span>
+            <span class="nav-label">Accounting</span>
+            <span class="nav-group-symbol">+</span>
+          </button>
+          <div class="nav-submenu">
+            <a href="accounting.html" title="Accounting Warehouse" data-page="accounting.html">
+              <span class="nav-icon">$</span>
+              <span class="nav-label">Accounting Warehouse</span>
+            </a>
+
+            <a href="project-accounting.html" title="Accounting Projects" data-page="project-accounting.html">
+              <span class="nav-icon">$</span>
+              <span class="nav-label">Accounting Projects</span>
+            </a>
+
+            <a href="ppv-tracker.html" title="PPV Tracker" data-page="ppv-tracker.html">
+              <span class="nav-icon">$</span>
+              <span class="nav-label">PPV Tracker</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-icon">◆</span>
+            <span class="nav-label">Projects</span>
+            <span class="nav-group-symbol">+</span>
+          </button>
+          <div class="nav-submenu">
+            <a href="projects-command.html" title="Projects Command Center" data-page="projects-command.html">
+              <span class="nav-icon">◆</span>
+              <span class="nav-label">Projects Command Center</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-icon">✓</span>
+            <span class="nav-label">Service</span>
+            <span class="nav-group-symbol">+</span>
+          </button>
+          <div class="nav-submenu">
+            <a href="service.html" title="Service Parts Lookup" data-page="service.html">
+              <span class="nav-icon">⌕</span>
+              <span class="nav-label">Service Parts Lookup</span>
+            </a>
+
+            <a href="client-services.html" title="Client Services Dashboard" data-page="client-services.html">
+              <span class="nav-icon">✓</span>
+              <span class="nav-label">Client Services Dashboard</span>
+            </a>
+
+            <a href="inspection-requests-office.html" title="Inspection Requests" data-page="inspection-requests-office.html">
+              <span class="nav-icon">▣</span>
+              <span class="nav-label">Inspection Requests</span>
+            </a>
+
+            <a href="client-marketing-sync.html" title="Client Marketing Sync" data-page="client-marketing-sync.html">
+              <span class="nav-icon">⇄</span>
+              <span class="nav-label">Client Marketing Sync</span>
+            </a>
+
+            <a href="service-department-admin.html" title="Service Admin" data-page="service-department-admin.html">
+              <span class="nav-icon">⚙</span>
+              <span class="nav-label">Service Admin</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <button class="nav-group-toggle" type="button" aria-expanded="false">
+            <span class="nav-icon">▣</span>
+            <span class="nav-label">Warehouse</span>
+            <span class="nav-group-symbol">+</span>
+          </button>
+          <div class="nav-submenu">
+            <a href="warehouse.html" title="Warehouse Operations" data-page="warehouse.html">
+              <span class="nav-icon">▣</span>
+              <span class="nav-label">Warehouse Operations</span>
+            </a>
+
+            <a href="warehouse-management.html" title="Warehouse Management" data-page="warehouse-management.html">
+              <span class="nav-icon">⚙</span>
+              <span class="nav-label">Warehouse Management</span>
+            </a>
+
+            <a href="warehouse-reports.html" title="Warehouse Reports" data-page="warehouse-reports.html">
+              <span class="nav-icon">▤</span>
+              <span class="nav-label">Warehouse Reports</span>
+            </a>
+
+            <a href="admin.html" title="Warehouse Admin" data-page="admin.html">
+              <span class="nav-icon">⚙</span>
+              <span class="nav-label">Warehouse Admin</span>
+            </a>
+          </div>
+        </div>
+
+      </nav>
+
+      <div class="sidebar-footer">
+        <nav class="side-nav utility-side-nav" aria-label="Utility navigation">
+          <button type="button" onclick="appLogout()" title="Logout">
+            <span class="nav-icon">⇥</span>
+            <span class="nav-label">Logout</span>
+          </button>
+        </nav>
+      </div>
+    </aside>
+
+    <main class="main">
+
+      <div class="header-bar no-print">
+        <div>
+          <div class="header-title">Molinari Pools – PPV Tracker</div>
+          <div class="header-subtitle">Pay-Per-Visit payroll review, import, approval, and export</div>
+        </div>
+        <div id="headerUserBadge" class="badge badge-neutral">Checking access...</div>
+      </div>
+
+      <div id="ppvAccessGate" class="access-layout no-print">
+        <div class="access-card">
+          <h2>PPV Tracker Access Required</h2>
+
+          <div id="ppvAccessMessage" class="warning-note">
+            Checking PPV tracker access...
+          </div>
+
+          <div class="access-actions">
+            <a class="nav-action-btn" href="login.html">GO TO LOGIN</a>
+            <a class="nav-action-btn" href="index.html">BACK TO MAIN MENU</a>
+            <button class="logout-action-btn" onclick="ppvLogout()">LOGOUT</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="ppvContent" class="page-wrapper hidden no-print">
+
+        <div id="accountingModeNotice" class="warning-note hidden">
+          ACCOUNTING VIEW / EXPORT MODE
+
+          Accounting users can view PPV records and export payroll reports, but import, submit, approve, reopen, and manual-edit controls are hidden or blocked.
+        </div>
+
+        <div class="content-grid">
+
+          <section>
+            <div class="card">
+              <h2>Pay Period Control</h2>
+
+              <label>Selected Pay Period:</label>
+              <select id="payPeriodSelect" onchange="handlePayPeriodChange()">
+                <option value="">Loading pay periods...</option>
+              </select>
+
+              <div class="help-text">
+                Select the active bi-weekly pay period to review PPV visits, payroll totals, imports, and exports.
+              </div>
+
+              <div class="button-row">
+                <button class="primary-btn small-btn" type="button" onclick="refreshPPVPageData()">REFRESH DATA</button>
+                <button class="secondary-btn small-btn" type="button" onclick="clearPPVStatus()">CLEAR MESSAGE</button>
+              </div>
+
+              <div id="selectedPayPeriodInfo" class="status-message">
+                Select a pay period to load PPV data.
+              </div>
+            </div>
+
+            <div class="card manager-only">
+              <h3>Create / Update Pay Period</h3>
+
+              <label>Pay Period Name:</label>
+              <input id="payPeriodNameInput" placeholder="Example: PPV 2026-06-01 to 2026-06-14" autocomplete="off">
+
+              <label>Start Date:</label>
+              <input id="payPeriodStartInput" type="date">
+
+              <label>End Date:</label>
+              <input id="payPeriodEndInput" type="date">
+
+              <label>Notes:</label>
+              <textarea id="payPeriodNotesInput" placeholder="Optional notes for this pay period..."></textarea>
+
+              <button class="accent-btn full-width-btn" type="button" onclick="upsertPayPeriodFromForm()">SAVE PAY PERIOD</button>
+
+              <div class="help-text">
+                This uses the PPV pay-period RPC first. If the database RPC signature differs, the page will show the exact error so we can align the call.
+              </div>
+            </div>
+
+            <div class="card manager-only">
+              <h3>Workflow Actions</h3>
+
+              <button class="primary-btn full-width-btn" type="button" onclick="submitSelectedPayPeriod()">SUBMIT PAY PERIOD</button>
+              <button class="success-btn full-width-btn admin-only" type="button" onclick="approveSelectedPayPeriod()">APPROVE PAY PERIOD</button>
+
+              <label>Correction / Reopen Reason:</label>
+              <textarea id="reopenReasonInput" placeholder="Required when reopening a submitted or approved pay period for correction..."></textarea>
+              <button class="warning-btn full-width-btn admin-only" type="button" onclick="reopenSelectedPayPeriod()">REOPEN FOR CORRECTION</button>
+
+              <div class="help-text">
+                Approved periods are expected to use snapshot-backed historical reporting.
+              </div>
+            </div>
+
+            <div class="card manager-only">
+              <h3>Manual Payroll Entries</h3>
+
+              <label>Route Tech:</label>
+              <select id="routeTechSelect">
+                <option value="">Loading route techs...</option>
+              </select>
+
+              <div class="manual-form-grid">
+                <div>
+                  <label>Hours:</label>
+                  <input id="hoursInput" type="number" min="0" step="0.01" placeholder="0.00">
+                </div>
+
+                <div>
+                  <label>Adjustment Amount:</label>
+                  <input id="adjustmentAmountInput" type="number" step="0.01" placeholder="0.00">
+                </div>
+
+                <div>
+                  <label>Commission Amount:</label>
+                  <input id="commissionAmountInput" type="number" step="0.01" placeholder="0.00">
+                </div>
+
+                <div>
+                  <label>Safeguard Amount:</label>
+                  <input id="safeguardAmountInput" type="number" step="0.01" placeholder="0.00">
+                </div>
+
+                <div class="full-span">
+                  <label>Notes / Reason:</label>
+                  <textarea id="manualNotesInput" placeholder="Required for adjustments/safeguards; optional for hours or commissions..."></textarea>
+                </div>
+              </div>
+
+              <div class="button-row">
+                <button class="primary-btn small-btn" type="button" onclick="savePPVHours()">SAVE HOURS</button>
+                <button class="accent-btn small-btn" type="button" onclick="savePPVAdjustment()">SAVE ADJUSTMENT</button>
+                <button class="success-btn small-btn" type="button" onclick="savePPVCommission()">SAVE COMMISSION</button>
+                <button class="warning-btn small-btn" type="button" onclick="savePPVSafeguard()">SAVE SAFEGUARD</button>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div class="card">
+              <div class="card-header-row">
+                <div>
+                  <h2>Live PPV Summary</h2>
+                  <div class="muted-text">Cleanings are the PPV visit source. Work Orders are reference-only.</div>
+                </div>
+                <span id="payPeriodStatusBadge" class="badge badge-neutral">No period selected</span>
+              </div>
+
+              <div class="metric-grid">
+                <div class="metric-card">
+                  <div class="metric-label">Total Visits</div>
+                  <div id="metricTotalVisits" class="metric-value">0</div>
+                  <div class="metric-help">Week 1 + Week 2 Cleanings</div>
+                </div>
+
+                <div class="metric-card">
+                  <div class="metric-label">Regular PPV</div>
+                  <div id="metricRegularVisits" class="metric-value">0</div>
+                  <div class="metric-help">Up to 124 visits</div>
+                </div>
+
+                <div class="metric-card">
+                  <div class="metric-label">Pickup Visits</div>
+                  <div id="metricPickupVisits" class="metric-value">0</div>
+                  <div class="metric-help">Visits above 124</div>
+                </div>
+
+                <div class="metric-card">
+                  <div class="metric-label">Payroll Total</div>
+                  <div id="metricPayrollTotal" class="metric-value">$0.00</div>
+                  <div class="metric-help">PPV + extras where available</div>
+                </div>
+              </div>
+
+              <div id="ppvStatusMessage" class="status-message">
+                Loading PPV tracker...
+              </div>
+
+              <div class="tabs">
+                <button class="tab-btn active" type="button" data-tab="summary" onclick="switchPPVTab('summary')">Summary</button>
+                <button class="tab-btn" type="button" data-tab="import" onclick="switchPPVTab('import')">Skimmer Import</button>
+                <button class="tab-btn" type="button" data-tab="export" onclick="switchPPVTab('export')">Exports</button>
+                <button class="tab-btn" type="button" data-tab="history" onclick="switchPPVTab('history')">History</button>
+              </div>
+
+              <div id="summaryTab" class="tab-panel active">
+                <div class="button-row">
+                  <button class="secondary-btn small-btn" type="button" onclick="exportRowsToCSV(currentLiveSummaryRows, 'ppv_live_summary.csv')">EXPORT SUMMARY CSV</button>
+                  <button class="secondary-btn small-btn" type="button" onclick="printCurrentSubmittalSheet()">PRINT SUBMITTAL SHEET</button>
+                </div>
+
+                <div class="table-wrap">
+                  <table>
+                    <thead id="liveSummaryHead"></thead>
+                    <tbody id="liveSummaryBody">
+                      <tr>
+                        <td>No pay period selected.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div id="importTab" class="tab-panel">
+                <div class="manager-only">
+                  <h3>Import Skimmer Tech Summary CSV</h3>
+
+                  <label>Import Week:</label>
+                  <select id="importWeekSelect">
+                    <option value="1">Week 1</option>
+                    <option value="2">Week 2</option>
+                  </select>
+
+                  <label>Skimmer Tech Summary CSV:</label>
+                  <input id="skimmerImportFileInput" type="file" accept=".csv,text/csv">
+
+                  <div class="help-text">
+                    Only RT/RTL Tech Name rows are imported. Non-RT/non-RTL rows are ignored. Re-importing the same pay period/week supersedes the prior active batch.
+                  </div>
+
+                  <button class="accent-btn full-width-btn" type="button" onclick="importSkimmerTechSummaryCSV()">IMPORT SKIMMER CSV</button>
+                </div>
+
+                <div id="accountingImportBlocked" class="warning-note hidden">
+                  Accounting users can view imports and exports, but cannot import Skimmer files.
+                </div>
+
+                <hr class="divider">
+
+                <div class="card-header-row">
+                  <h3>Recent Import Batches</h3>
+                  <button class="secondary-btn small-btn" type="button" onclick="loadImportBatches()">REFRESH IMPORTS</button>
+                </div>
+
+                <div class="table-wrap">
+                  <table>
+                    <thead id="importBatchesHead"></thead>
+                    <tbody id="importBatchesBody">
+                      <tr>
+                        <td>No import batches loaded.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div id="exportTab" class="tab-panel">
+                <div class="button-row">
+                  <button class="primary-btn small-btn" type="button" onclick="loadPayrollExportRows()">LOAD PAYROLL EXPORT</button>
+                  <button class="secondary-btn small-btn" type="button" onclick="exportRowsToCSV(currentPayrollExportRows, 'ppv_payroll_export.csv')">EXPORT PAYROLL CSV</button>
+                  <button class="primary-btn small-btn" type="button" onclick="loadBiweeklySubmittalRows()">LOAD BI-WEEKLY SUBMITTAL</button>
+                  <button class="secondary-btn small-btn" type="button" onclick="exportRowsToCSV(currentBiweeklySubmittalRows, 'ppv_biweekly_payroll_submittal.csv')">EXPORT SUBMITTAL CSV</button>
+                </div>
+
+                <div class="table-wrap">
+                  <table>
+                    <thead id="exportHead"></thead>
+                    <tbody id="exportBody">
+                      <tr>
+                        <td>Load an export view to begin.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div id="historyTab" class="tab-panel">
+                <div class="button-row">
+                  <button class="primary-btn small-btn" type="button" onclick="loadReportingHistoryRows()">LOAD REPORTING HISTORY</button>
+                  <button class="secondary-btn small-btn" type="button" onclick="exportRowsToCSV(currentReportingHistoryRows, 'ppv_reporting_history.csv')">EXPORT HISTORY CSV</button>
+                </div>
+
+                <div class="help-text">
+                  The reporting history view should already exclude zero-value rows and use approved snapshot data where locked.
+                </div>
+
+                <div class="table-wrap">
+                  <table>
+                    <thead id="historyHead"></thead>
+                    <tbody id="historyBody">
+                      <tr>
+                        <td>Load reporting history to begin.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+        </div>
+      </div>
+
+      <div id="printSheet" class="print-sheet"></div>
+    </main>
+  </div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const INVENTORY_SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
+
+const PPV_ALLOWED_ROLES = [
+  'SYSTEM_ADMIN',
+  'ADMIN',
+  'SERVICE',
+  'ACCOUNTING'
+];
+
+const PPV_MANAGER_ROLES = [
+  'SYSTEM_ADMIN',
+  'ADMIN',
+  'SERVICE'
+];
+
+const PPV_ADMIN_ROLES = [
+  'SYSTEM_ADMIN',
+  'ADMIN'
+];
+
+let currentPPVProfile = null;
+let currentPPVSession = null;
+let currentPayPeriodId = null;
+let currentPayPeriodRecord = null;
+let currentPayPeriods = [];
+let currentRouteTechRows = [];
+let currentLiveSummaryRows = [];
+let currentImportBatchRows = [];
+let currentPayrollExportRows = [];
+let currentBiweeklySubmittalRows = [];
+let currentReportingHistoryRows = [];
+
+let isAccountingMode = false;
+let isManagerMode = false;
+let isAdminMode = false;
+
+document.addEventListener('DOMContentLoaded', () => {
+  initializeInventorySidebar();
+});
+
+window.addEventListener('load', async () => {
+  const hasAccess = await enforcePPVAccess();
+
+  if (!hasAccess) {
+    return;
+  }
+
+  applyRoleModeToPage();
+  await loadInitialPPVData();
+});
+
+function initializeInventorySidebar() {
+  const appShell = document.getElementById('appShell');
+  const toggleButton = document.getElementById('inventorySidebarToggle');
+  const groupButtons = document.querySelectorAll('.nav-group-toggle');
+  const navLinks = document.querySelectorAll('.side-nav a[data-page]');
+
+  function applySidebarState(collapsed) {
+    if (!appShell || !toggleButton) {
+      return;
+    }
+
+    appShell.classList.toggle('sidebar-collapsed', collapsed);
+    toggleButton.title = collapsed ? 'Expand' : 'Collapse';
+    toggleButton.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    toggleButton.setAttribute('aria-expanded', String(!collapsed));
+  }
+
+  function getSavedState() {
+    try {
+      return localStorage.getItem(INVENTORY_SIDEBAR_STORAGE_KEY) === 'true';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function saveState(collapsed) {
+    try {
+      localStorage.setItem(INVENTORY_SIDEBAR_STORAGE_KEY, String(collapsed));
+    } catch (error) {
+      // Ignore localStorage errors so navigation remains usable.
+    }
+  }
+
+  function setGroupOpen(group, open) {
+    const button = group.querySelector('.nav-group-toggle');
+    const symbol = group.querySelector('.nav-group-symbol');
+
+    group.classList.toggle('open', open);
+
+    if (button) {
+      button.setAttribute('aria-expanded', String(open));
+    }
+
+    if (symbol) {
+      symbol.textContent = open ? '−' : '+';
+    }
+  }
+
+  function initializeGroupsCollapsed() {
+    document.querySelectorAll('.nav-group').forEach(group => {
+      setGroupOpen(group, false);
+    });
+  }
+
+  function markActivePage() {
+    const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+
+    navLinks.forEach(link => {
+      const page = link.getAttribute('data-page');
+      const isActive = page === currentPage;
+
+      link.classList.toggle('active', isActive);
+
+      if (isActive) {
+        const parentGroup = link.closest('.nav-group');
+
+        if (parentGroup) {
+          setGroupOpen(parentGroup, true);
+        }
+      }
+    });
+  }
+
+  initializeGroupsCollapsed();
+  markActivePage();
+
+  groupButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const group = button.closest('.nav-group');
+
+      if (!group) {
+        return;
+      }
+
+      const isOpen = group.classList.contains('open');
+      setGroupOpen(group, !isOpen);
+    });
+  });
+
+  if (appShell && toggleButton) {
+    applySidebarState(getSavedState());
+
+    toggleButton.addEventListener('click', () => {
+      const collapsed = !appShell.classList.contains('sidebar-collapsed');
+      applySidebarState(collapsed);
+      saveState(collapsed);
+    });
+  }
+}
+
+function showPPVAccessGate(message, type = 'warning') {
+  const gate = document.getElementById('ppvAccessGate');
+  const content = document.getElementById('ppvContent');
+  const messageBox = document.getElementById('ppvAccessMessage');
+  const headerBadge = document.getElementById('headerUserBadge');
+
+  if (gate) {
+    gate.classList.remove('hidden');
+  }
+
+  if (content) {
+    content.classList.add('hidden');
+  }
+
+  if (messageBox) {
+    messageBox.className =
+      type === 'success' ? 'status-note' :
+      type === 'danger' ? 'danger-note' :
+      'warning-note';
+
+    messageBox.textContent = message;
+  }
+
+  if (headerBadge) {
+    headerBadge.className = type === 'danger' ? 'badge badge-danger' : 'badge badge-warning';
+    headerBadge.textContent = type === 'danger' ? 'Access denied' : 'Checking access';
+  }
+}
+
+function showPPVContent(profile, email) {
+  const gate = document.getElementById('ppvAccessGate');
+  const content = document.getElementById('ppvContent');
+  const headerBadge = document.getElementById('headerUserBadge');
+
+  if (gate) {
+    gate.classList.add('hidden');
+  }
+
+  if (content) {
+    content.classList.remove('hidden');
+  }
+
+  if (headerBadge) {
+    headerBadge.className = isAccountingMode ? 'badge badge-warning' : 'badge badge-success';
+    headerBadge.textContent = `${profile?.role || 'USER'} • ${email || ''}`;
+  }
+
+  console.log('PPV access granted:', {
+    full_name: profile?.full_name || '',
+    email: email || '',
+    role: profile?.role || ''
+  });
+}
+
+async function enforcePPVAccess() {
+  showPPVAccessGate('Checking PPV tracker access...', 'warning');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showPPVAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session || !session.user) {
+    showPPVAccessGate(
+      'You must be logged in with an approved role to access the PPV Tracker page.',
+      'danger'
+    );
+    return false;
+  }
+
+  currentPPVSession = session;
+
+  const { data: profileData, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showPPVAccessGate(
+      'Login found, but user profile could not be loaded: ' + profileError.message,
+      'danger'
+    );
+    return false;
+  }
+
+  if (!profileData || profileData.active !== true) {
+    showPPVAccessGate(
+      'This user profile is inactive or unavailable. Contact an admin.',
+      'danger'
+    );
+    return false;
+  }
+
+  let helperAllowed = null;
+
+  try {
+    const { data: helperData, error: helperError } = await client.rpc('current_user_has_ppv_access');
+
+    if (!helperError) {
+      helperAllowed = Boolean(helperData);
+    } else {
+      console.warn('current_user_has_ppv_access helper check failed; falling back to role check:', helperError.message);
+    }
+  } catch (error) {
+    console.warn('current_user_has_ppv_access helper unavailable; falling back to role check:', error.message);
+  }
+
+  const roleAllowed = PPV_ALLOWED_ROLES.includes(profileData.role);
+  const finalAllowed = helperAllowed === null ? roleAllowed : (helperAllowed && roleAllowed);
+
+  if (!finalAllowed) {
+    showPPVAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page allows SYSTEM_ADMIN, ADMIN, SERVICE, or ACCOUNTING PPV access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentPPVProfile = profileData;
+  isAccountingMode = profileData.role === 'ACCOUNTING';
+  isManagerMode = PPV_MANAGER_ROLES.includes(profileData.role);
+  isAdminMode = PPV_ADMIN_ROLES.includes(profileData.role);
+
+  showPPVContent(profileData, session.user.email);
+
+  return true;
+}
+
+function applyRoleModeToPage() {
+  document.querySelectorAll('.manager-only').forEach(element => {
+    element.classList.toggle('hidden', !isManagerMode);
+  });
+
+  document.querySelectorAll('.admin-only').forEach(element => {
+    element.classList.toggle('hidden', !isAdminMode);
+  });
+
+  const accountingNotice = document.getElementById('accountingModeNotice');
+  const accountingImportBlocked = document.getElementById('accountingImportBlocked');
+
+  if (accountingNotice) {
+    accountingNotice.classList.toggle('hidden', !isAccountingMode);
+  }
+
+  if (accountingImportBlocked) {
+    accountingImportBlocked.classList.toggle('hidden', !isAccountingMode);
+  }
+}
+
+async function ppvLogout() {
+  await client.auth.signOut();
+  currentPPVProfile = null;
+  currentPPVSession = null;
+  window.location.href = 'login.html';
+}
+
+async function appLogout() {
+  try {
+    if (typeof client !== 'undefined' && client?.auth) {
+      await client.auth.signOut();
+    }
+  } catch (error) {
+    console.error('Logout error:', error);
+  }
+
+  currentPPVProfile = null;
+  currentPPVSession = null;
+  window.location.href = 'login.html';
+}
+
+async function loadInitialPPVData() {
+  setPPVStatus('Loading PPV pay periods and route techs...');
+
+  await Promise.all([
+    loadPayPeriods(),
+    loadRouteTechs()
+  ]);
+
+  if (currentPayPeriodId) {
+    await refreshSelectedPayPeriodData();
+  } else {
+    setPPVStatus('No pay period selected. Create or select a pay period to begin.', 'warning');
+  }
+}
+
+async function refreshPPVPageData() {
+  await loadPayPeriods(true);
+  await loadRouteTechs();
+  await refreshSelectedPayPeriodData();
+}
+
+function setPPVStatus(message, type = 'normal') {
+  const status = document.getElementById('ppvStatusMessage');
+
+  if (!status) {
+    return;
+  }
+
+  status.textContent = message;
+  status.className =
+    type === 'success' ? 'status-message success' :
+    type === 'error' ? 'status-message error' :
+    'status-message';
+}
+
+function clearPPVStatus() {
+  setPPVStatus('');
+}
+
+async function loadPayPeriods(keepSelection = false) {
+  const select = document.getElementById('payPeriodSelect');
+  const previousSelection = currentPayPeriodId;
+
+  select.innerHTML = '<option value="">Loading pay periods...</option>';
+
+  const { data, error } = await client
+    .from('ppv_pay_periods')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    select.innerHTML = '<option value="">Pay period load error</option>';
+    setPPVStatus('Pay period load error: ' + error.message, 'error');
+    return;
+  }
+
+  currentPayPeriods = data || [];
+  select.innerHTML = '<option value="">Select pay period...</option>';
+
+  currentPayPeriods.forEach(row => {
+    const option = document.createElement('option');
+    option.value = row.id;
+    option.textContent = formatPayPeriodLabel(row);
+    select.appendChild(option);
+  });
+
+  if (currentPayPeriods.length === 0) {
+    currentPayPeriodId = null;
+    currentPayPeriodRecord = null;
+    select.innerHTML = '<option value="">No pay periods found</option>';
+    renderSelectedPayPeriodInfo();
+    resetMetrics();
+    return;
+  }
+
+  if (keepSelection && previousSelection && currentPayPeriods.some(row => row.id === previousSelection)) {
+    currentPayPeriodId = previousSelection;
+  } else {
+    const openPeriod = currentPayPeriods.find(row => {
+      const status = getRecordValue(row, ['status', 'pay_period_status', 'period_status']);
+      return !['APPROVED', 'VOIDED', 'CLOSED'].includes(String(status || '').toUpperCase());
+    });
+
+    currentPayPeriodId = (openPeriod || currentPayPeriods[0]).id;
+  }
+
+  select.value = currentPayPeriodId || '';
+  currentPayPeriodRecord = currentPayPeriods.find(row => row.id === currentPayPeriodId) || null;
+  populatePayPeriodForm(currentPayPeriodRecord);
+  renderSelectedPayPeriodInfo();
+}
+
+function formatPayPeriodLabel(row) {
+  const name = getRecordValue(row, ['pay_period_name', 'period_name', 'name', 'pay_period_label', 'label']);
+  const start = getRecordValue(row, ['pay_period_start_date', 'period_start_date', 'start_date', 'date_start']);
+  const end = getRecordValue(row, ['pay_period_end_date', 'period_end_date', 'end_date', 'date_end']);
+  const status = getRecordValue(row, ['status', 'pay_period_status', 'period_status']);
+
+  const dateText = [formatDate(start), formatDate(end)].filter(Boolean).join(' to ');
+  const base = name || dateText || row.id;
+
+  return `${base}${status ? ' • ' + status : ''}`;
+}
+
+function populatePayPeriodForm(row) {
+  if (!row) {
+    return;
+  }
+
+  setInputValue('payPeriodNameInput', getRecordValue(row, ['pay_period_name', 'period_name', 'name', 'pay_period_label', 'label']) || '');
+  setInputValue('payPeriodStartInput', toDateInputValue(getRecordValue(row, ['pay_period_start_date', 'period_start_date', 'start_date', 'date_start'])));
+  setInputValue('payPeriodEndInput', toDateInputValue(getRecordValue(row, ['pay_period_end_date', 'period_end_date', 'end_date', 'date_end'])));
+  setInputValue('payPeriodNotesInput', getRecordValue(row, ['notes', 'pay_period_notes', 'description']) || '');
+}
+
+function handlePayPeriodChange() {
+  const select = document.getElementById('payPeriodSelect');
+  currentPayPeriodId = select.value || null;
+  currentPayPeriodRecord = currentPayPeriods.find(row => row.id === currentPayPeriodId) || null;
+  populatePayPeriodForm(currentPayPeriodRecord);
+  renderSelectedPayPeriodInfo();
+  refreshSelectedPayPeriodData();
+}
+
+function renderSelectedPayPeriodInfo() {
+  const info = document.getElementById('selectedPayPeriodInfo');
+  const badge = document.getElementById('payPeriodStatusBadge');
+
+  if (!currentPayPeriodRecord) {
+    info.textContent = 'No pay period selected.';
+    badge.className = 'badge badge-neutral';
+    badge.textContent = 'No period selected';
+    return;
+  }
+
+  const status = getRecordValue(currentPayPeriodRecord, ['status', 'pay_period_status', 'period_status']) || 'DRAFT';
+  const start = getRecordValue(currentPayPeriodRecord, ['pay_period_start_date', 'period_start_date', 'start_date', 'date_start']);
+  const end = getRecordValue(currentPayPeriodRecord, ['pay_period_end_date', 'period_end_date', 'end_date', 'date_end']);
+
+  info.textContent =
+    `Selected: ${formatPayPeriodLabel(currentPayPeriodRecord)}\n` +
+    `Date Range: ${formatDate(start) || 'N/A'} to ${formatDate(end) || 'N/A'}\n` +
+    `Status: ${status}`;
+
+  badge.className = `badge ${getStatusBadgeClass(status)}`;
+  badge.textContent = status;
+}
+
+function getStatusBadgeClass(status) {
+  const normalized = String(status || '').toUpperCase();
+
+  if (['APPROVED', 'LOCKED', 'CLOSED'].includes(normalized)) {
+    return 'badge-success';
+  }
+
+  if (['SUBMITTED', 'READY_FOR_REVIEW', 'PENDING_APPROVAL'].includes(normalized)) {
+    return 'badge-warning';
+  }
+
+  if (['REOPENED', 'CORRECTION', 'VOIDED'].includes(normalized)) {
+    return 'badge-danger';
+  }
+
+  return 'badge-neutral';
+}
+
+async function refreshSelectedPayPeriodData() {
+  if (!currentPayPeriodId) {
+    resetMetrics();
+    return;
+  }
+
+  setPPVStatus('Loading selected pay period data...');
+
+  await Promise.all([
+    loadLiveSummaryRows(),
+    loadImportBatches()
+  ]);
+
+  setPPVStatus('PPV data loaded.', 'success');
+}
+
+async function loadLiveSummaryRows() {
+  const result = await selectFromViewForPayPeriod('ppv_live_pay_period_summary_view', currentPayPeriodId);
+
+  if (result.error) {
+    currentLiveSummaryRows = [];
+    renderRowsTable([], 'liveSummaryHead', 'liveSummaryBody', 'Unable to load live summary: ' + result.error.message);
+    resetMetrics();
+    return;
+  }
+
+  currentLiveSummaryRows = result.rows || [];
+  renderRowsTable(currentLiveSummaryRows, 'liveSummaryHead', 'liveSummaryBody', 'No live summary rows found for this pay period.');
+  renderMetrics(currentLiveSummaryRows);
+}
+
+async function loadImportBatches() {
+  if (!currentPayPeriodId) {
+    currentImportBatchRows = [];
+    renderRowsTable([], 'importBatchesHead', 'importBatchesBody', 'Select a pay period to view imports.');
+    return;
+  }
+
+  const result = await selectFromViewForPayPeriod('ppv_skimmer_import_batches', currentPayPeriodId, 'created_at');
+
+  if (result.error) {
+    currentImportBatchRows = [];
+    renderRowsTable([], 'importBatchesHead', 'importBatchesBody', 'Unable to load import batches: ' + result.error.message);
+    return;
+  }
+
+  currentImportBatchRows = result.rows || [];
+  renderRowsTable(currentImportBatchRows, 'importBatchesHead', 'importBatchesBody', 'No import batches found for this pay period.');
+}
+
+async function loadRouteTechs() {
+  const select = document.getElementById('routeTechSelect');
+
+  if (!select) {
+    return;
+  }
+
+  select.innerHTML = '<option value="">Loading route techs...</option>';
+
+  const { data, error } = await client
+    .from('ppv_route_techs')
+    .select('*')
+    .order('rt_code', { ascending: true });
+
+  if (error) {
+    select.innerHTML = '<option value="">Route tech load error</option>';
+    console.error('Route tech load error:', error);
+    return;
+  }
+
+  currentRouteTechRows = data || [];
+  select.innerHTML = '<option value="">Select route tech...</option>';
+
+  currentRouteTechRows.forEach(row => {
+    const option = document.createElement('option');
+    option.value = row.id;
+    option.textContent = formatRouteTechLabel(row);
+    select.appendChild(option);
+  });
+
+  if (currentRouteTechRows.length === 0) {
+    select.innerHTML = '<option value="">No route techs found</option>';
+  }
+}
+
+function formatRouteTechLabel(row) {
+  const code = getRecordValue(row, ['rt_code', 'route_tech_code', 'code', 'tech_code']) || '';
+  const name = getRecordValue(row, ['route_tech_name', 'tech_name', 'full_name', 'name']) || '';
+  const active = getRecordValue(row, ['active', 'is_active']);
+
+  return `${code}${code && name ? ' - ' : ''}${name}${active === false ? ' (Inactive)' : ''}`;
+}
+
+async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = null) {
+  const candidateFields = [
+    'pay_period_id',
+    'ppv_pay_period_id',
+    'period_id'
+  ];
+
+  for (const field of candidateFields) {
+    let query = client
+      .from(sourceName)
+      .select('*')
+      .eq(field, payPeriodId);
+
+    if (orderField) {
+      query = query.order(orderField, { ascending: false });
+    }
+
+    const { data, error } = await query;
+
+    if (!error) {
+      return { rows: data || [], error: null };
+    }
+  }
+
+  let fallbackQuery = client.from(sourceName).select('*');
+
+  if (orderField) {
+    fallbackQuery = fallbackQuery.order(orderField, { ascending: false });
+  }
+
+  const { data, error } = await fallbackQuery;
+
+  if (error) {
+    return { rows: [], error };
+  }
+
+  const filteredRows = (data || []).filter(row => {
+    return candidateFields.some(field => String(row[field] || '') === String(payPeriodId));
+  });
+
+  return { rows: filteredRows, error: null };
+}
+
+function renderMetrics(rows) {
+  const totals = {
+    totalVisits: 0,
+    regularVisits: 0,
+    pickupVisits: 0,
+    payrollTotal: 0
+  };
+
+  rows.forEach(row => {
+    totals.totalVisits += numberFromRecord(row, [
+      'total_pay_period_visits',
+      'total_visits',
+      'ppv_total_visits',
+      'visit_total',
+      'cleanings_total'
+    ]);
+
+    totals.regularVisits += numberFromRecord(row, [
+      'regular_ppv_visits',
+      'regular_visits',
+      'baseline_visits',
+      'paid_regular_visits'
+    ]);
+
+    totals.pickupVisits += numberFromRecord(row, [
+      'pickup_visits',
+      'pickup_ppv_visits',
+      'overage_visits',
+      'paid_pickup_visits'
+    ]);
+
+    totals.payrollTotal += numberFromRecord(row, [
+      'total_pay',
+      'total_pay_amount',
+      'payroll_total',
+      'total_ppv_pay',
+      'net_pay_total',
+      'biweekly_pay_total'
+    ]);
+  });
+
+  setText('metricTotalVisits', formatNumber(totals.totalVisits));
+  setText('metricRegularVisits', formatNumber(totals.regularVisits));
+  setText('metricPickupVisits', formatNumber(totals.pickupVisits));
+  setText('metricPayrollTotal', formatCurrency(totals.payrollTotal));
+}
+
+function resetMetrics() {
+  setText('metricTotalVisits', '0');
+  setText('metricRegularVisits', '0');
+  setText('metricPickupVisits', '0');
+  setText('metricPayrollTotal', '$0.00');
+  renderRowsTable([], 'liveSummaryHead', 'liveSummaryBody', 'No pay period selected.');
+}
+
+async function upsertPayPeriodFromForm() {
+  if (!isManagerMode) {
+    setPPVStatus('Accounting users cannot create or update pay periods.', 'error');
+    return;
+  }
+
+  const name = getInputValue('payPeriodNameInput');
+  const startDate = getInputValue('payPeriodStartInput');
+  const endDate = getInputValue('payPeriodEndInput');
+  const notes = getInputValue('payPeriodNotesInput');
+
+  if (!startDate || !endDate) {
+    setPPVStatus('Start date and end date are required.', 'error');
+    return;
+  }
+
+  const attempts = [
+    {
+      p_pay_period_id: currentPayPeriodId,
+      p_pay_period_name: name,
+      p_period_start_date: startDate,
+      p_period_end_date: endDate,
+      p_notes: notes
+    },
+    {
+      p_pay_period_id: currentPayPeriodId,
+      p_pay_period_label: name,
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_notes: notes
+    },
+    {
+      pay_period_id: currentPayPeriodId,
+      pay_period_name: name,
+      period_start_date: startDate,
+      period_end_date: endDate,
+      notes: notes
+    }
+  ];
+
+  const result = await callRPCWithAttempts('upsert_ppv_pay_period', attempts);
+
+  if (!result.ok) {
+    setPPVStatus(result.message, 'error');
+    return;
+  }
+
+  setPPVStatus('Pay period saved.', 'success');
+  await loadPayPeriods(true);
+  await refreshSelectedPayPeriodData();
+}
+
+async function importSkimmerTechSummaryCSV() {
+  if (!isManagerMode) {
+    setPPVStatus('Accounting users cannot import Skimmer files.', 'error');
+    return;
+  }
+
+  if (!currentPayPeriodId) {
+    setPPVStatus('Select a pay period before importing.', 'error');
+    return;
+  }
+
+  const fileInput = document.getElementById('skimmerImportFileInput');
+  const weekNumber = Number(document.getElementById('importWeekSelect').value || 0);
+  const file = fileInput?.files?.[0];
+
+  if (!file) {
+    setPPVStatus('Choose a Skimmer Tech Summary CSV file first.', 'error');
+    return;
+  }
+
+  if (![1, 2].includes(weekNumber)) {
+    setPPVStatus('Import week must be Week 1 or Week 2.', 'error');
+    return;
+  }
+
+  setPPVStatus('Reading CSV and importing Skimmer Tech Summary...');
+
+  const csvText = await file.text();
+
+  const attempts = [
+    {
+      p_pay_period_id: currentPayPeriodId,
+      p_week_number: weekNumber,
+      p_file_name: file.name,
+      p_csv_text: csvText
+    },
+    {
+      p_pay_period_id: currentPayPeriodId,
+      p_import_week_number: weekNumber,
+      p_file_name: file.name,
+      p_csv_text: csvText
+    },
+    {
+      p_pay_period_id: currentPayPeriodId,
+      p_week_number: weekNumber,
+      p_file_name: file.name,
+      p_file_contents: csvText
+    },
+    {
+      p_pay_period_id: currentPayPeriodId,
+      p_week_number: weekNumber,
+      p_file_name: file.name,
+      p_raw_csv: csvText
+    },
+    {
+      pay_period_id: currentPayPeriodId,
+      week_number: weekNumber,
+      file_name: file.name,
+      csv_text: csvText
+    }
+  ];
+
+  const result = await callRPCWithAttempts('import_ppv_skimmer_tech_summary', attempts);
+
+  if (!result.ok) {
+    setPPVStatus(result.message, 'error');
+    return;
+  }
+
+  setPPVStatus('Skimmer Tech Summary import completed.', 'success');
+  fileInput.value = '';
+  await refreshSelectedPayPeriodData();
+}
+
+async function submitSelectedPayPeriod() {
+  if (!isManagerMode) {
+    setPPVStatus('Accounting users cannot submit pay periods.', 'error');
+    return;
+  }
+
+  if (!currentPayPeriodId) {
+    setPPVStatus('Select a pay period first.', 'error');
+    return;
+  }
+
+  const result = await callRPCWithAttempts('submit_ppv_pay_period', [
+    { p_pay_period_id: currentPayPeriodId },
+    { pay_period_id: currentPayPeriodId }
+  ]);
+
+  if (!result.ok) {
+    setPPVStatus(result.message, 'error');
+    return;
+  }
+
+  setPPVStatus('Pay period submitted.', 'success');
+  await loadPayPeriods(true);
+  await refreshSelectedPayPeriodData();
+}
+
+async function approveSelectedPayPeriod() {
+  if (!isAdminMode) {
+    setPPVStatus('Only ADMIN or SYSTEM_ADMIN users can approve pay periods from this page.', 'error');
+    return;
+  }
+
+  if (!currentPayPeriodId) {
+    setPPVStatus('Select a pay period first.', 'error');
+    return;
+  }
+
+  const result = await callRPCWithAttempts('approve_ppv_pay_period', [
+    { p_pay_period_id: currentPayPeriodId },
+    { pay_period_id: currentPayPeriodId }
+  ]);
+
+  if (!result.ok) {
+    setPPVStatus(result.message, 'error');
+    return;
+  }
+
+  setPPVStatus('Pay period approved and locked.', 'success');
+  await loadPayPeriods(true);
+  await refreshSelectedPayPeriodData();
+}
+
+async function reopenSelectedPayPeriod() {
+  if (!isAdminMode) {
+    setPPVStatus('Only ADMIN or SYSTEM_ADMIN users can reopen pay periods from this page.', 'error');
+    return;
+  }
+
+  if (!currentPayPeriodId) {
+    setPPVStatus('Select a pay period first.', 'error');
+    return;
+  }
+
+  const reason = getInputValue('reopenReasonInput');
+
+  if (!reason) {
+    setPPVStatus('A correction/reopen reason is required.', 'error');
+    return;
+  }
+
+  const result = await callRPCWithAttempts('reopen_ppv_pay_period_for_correction', [
+    { p_pay_period_id: currentPayPeriodId, p_reopen_reason: reason },
+    { p_pay_period_id: currentPayPeriodId, p_correction_reason: reason },
+    { pay_period_id: currentPayPeriodId, correction_reason: reason }
+  ]);
+
+  if (!result.ok) {
+    setPPVStatus(result.message, 'error');
+    return;
+  }
+
+  setPPVStatus('Pay period reopened for correction.', 'success');
+  await loadPayPeriods(true);
+  await refreshSelectedPayPeriodData();
+}
+
+async function savePPVHours() {
+  if (!validateManualEntryAccess()) {
+    return;
+  }
+
+  const routeTechId = getInputValue('routeTechSelect');
+  const hours = Number(getInputValue('hoursInput') || 0);
+  const notes = getInputValue('manualNotesInput');
+
+  if (!routeTechId || hours <= 0) {
+    setPPVStatus('Select a route tech and enter hours greater than 0.', 'error');
+    return;
+  }
+
+  const result = await callRPCWithAttempts('upsert_ppv_pay_period_hours', [
+    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_hours: hours, p_notes: notes },
+    { pay_period_id: currentPayPeriodId, route_tech_id: routeTechId, hours: hours, notes: notes }
+  ]);
+
+  if (!result.ok) {
+    setPPVStatus(result.message, 'error');
+    return;
+  }
+
+  setPPVStatus('Hours saved.', 'success');
+  await refreshSelectedPayPeriodData();
+}
+
+async function savePPVAdjustment() {
+  if (!validateManualEntryAccess()) {
+    return;
+  }
+
+  const routeTechId = getInputValue('routeTechSelect');
+  const amount = Number(getInputValue('adjustmentAmountInput') || 0);
+  const notes = getInputValue('manualNotesInput');
+
+  if (!routeTechId || amount === 0 || !notes) {
+    setPPVStatus('Select a route tech, enter a non-zero adjustment amount, and provide notes/reason.', 'error');
+    return;
+  }
+
+  const result = await callRPCWithAttempts('upsert_ppv_adjustment', [
+    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_adjustment_amount: amount, p_reason: notes },
+    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_amount: amount, p_notes: notes },
+    { pay_period_id: currentPayPeriodId, route_tech_id: routeTechId, amount: amount, notes: notes }
+  ]);
+
+  if (!result.ok) {
+    setPPVStatus(result.message, 'error');
+    return;
+  }
+
+  setPPVStatus('Adjustment saved.', 'success');
+  await refreshSelectedPayPeriodData();
+}
+
+async function savePPVCommission() {
+  if (!validateManualEntryAccess()) {
+    return;
+  }
+
+  const routeTechId = getInputValue('routeTechSelect');
+  const amount = Number(getInputValue('commissionAmountInput') || 0);
+  const notes = getInputValue('manualNotesInput');
+
+  if (!routeTechId || amount === 0) {
+    setPPVStatus('Select a route tech and enter a non-zero commission amount.', 'error');
+    return;
+  }
+
+  const result = await callRPCWithAttempts('upsert_ppv_quarterly_commission', [
+    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_commission_amount: amount, p_notes: notes },
+    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_amount: amount, p_notes: notes },
+    { pay_period_id: currentPayPeriodId, route_tech_id: routeTechId, amount: amount, notes: notes }
+  ]);
+
+  if (!result.ok) {
+    setPPVStatus(result.message, 'error');
+    return;
+  }
+
+  setPPVStatus('Quarterly commission saved.', 'success');
+  await refreshSelectedPayPeriodData();
+}
+
+async function savePPVSafeguard() {
+  if (!validateManualEntryAccess()) {
+    return;
+  }
+
+  const routeTechId = getInputValue('routeTechSelect');
+  const amount = Number(getInputValue('safeguardAmountInput') || 0);
+  const notes = getInputValue('manualNotesInput');
+
+  if (!routeTechId || amount === 0 || !notes) {
+    setPPVStatus('Select a route tech, enter a non-zero safeguard amount, and provide notes/reason.', 'error');
+    return;
+  }
+
+  const result = await callRPCWithAttempts('upsert_ppv_quality_safeguard_event', [
+    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_safeguard_amount: amount, p_reason: notes },
+    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_amount: amount, p_notes: notes },
+    { pay_period_id: currentPayPeriodId, route_tech_id: routeTechId, amount: amount, notes: notes }
+  ]);
+
+  if (!result.ok) {
+    setPPVStatus(result.message, 'error');
+    return;
+  }
+
+  setPPVStatus('Quality safeguard saved.', 'success');
+  await refreshSelectedPayPeriodData();
+}
+
+function validateManualEntryAccess() {
+  if (!isManagerMode) {
+    setPPVStatus('Accounting users cannot add or edit manual payroll entries.', 'error');
+    return false;
+  }
+
+  if (!currentPayPeriodId) {
+    setPPVStatus('Select a pay period first.', 'error');
+    return false;
+  }
+
+  return true;
+}
+
+async function loadPayrollExportRows() {
+  if (!currentPayPeriodId) {
+    setPPVStatus('Select a pay period first.', 'error');
+    return;
+  }
+
+  const result = await selectFromViewForPayPeriod('ppv_payroll_export_view', currentPayPeriodId);
+
+  if (result.error) {
+    currentPayrollExportRows = [];
+    renderRowsTable([], 'exportHead', 'exportBody', 'Unable to load payroll export: ' + result.error.message);
+    return;
+  }
+
+  currentPayrollExportRows = result.rows || [];
+  renderRowsTable(currentPayrollExportRows, 'exportHead', 'exportBody', 'No payroll export rows found for this pay period.');
+  setPPVStatus('Payroll export loaded.', 'success');
+}
+
+async function loadBiweeklySubmittalRows() {
+  if (!currentPayPeriodId) {
+    setPPVStatus('Select a pay period first.', 'error');
+    return;
+  }
+
+  const result = await selectFromViewForPayPeriod('ppv_biweekly_payroll_submittal_view', currentPayPeriodId);
+
+  if (result.error) {
+    currentBiweeklySubmittalRows = [];
+    renderRowsTable([], 'exportHead', 'exportBody', 'Unable to load bi-weekly payroll submittal: ' + result.error.message);
+    return;
+  }
+
+  currentBiweeklySubmittalRows = result.rows || [];
+  renderRowsTable(currentBiweeklySubmittalRows, 'exportHead', 'exportBody', 'No bi-weekly submittal rows found for this pay period.');
+  setPPVStatus('Bi-weekly payroll submittal loaded.', 'success');
+}
+
+async function loadReportingHistoryRows() {
+  let query = client
+    .from('ppv_reporting_history_view')
+    .select('*')
+    .limit(1000);
+
+  const { data, error } = await query;
+
+  if (error) {
+    currentReportingHistoryRows = [];
+    renderRowsTable([], 'historyHead', 'historyBody', 'Unable to load reporting history: ' + error.message);
+    return;
+  }
+
+  currentReportingHistoryRows = data || [];
+  renderRowsTable(currentReportingHistoryRows, 'historyHead', 'historyBody', 'No reporting history rows found.');
+  setPPVStatus('Reporting history loaded.', 'success');
+}
+
+async function callRPCWithAttempts(functionName, payloadAttempts) {
+  const errors = [];
+
+  for (const payload of payloadAttempts) {
+    try {
+      const cleanPayload = removeEmptyRPCValues(payload);
+      const { data, error } = await client.rpc(functionName, cleanPayload);
+
+      if (!error) {
+        return { ok: true, data };
+      }
+
+      errors.push(`${JSON.stringify(cleanPayload)} => ${error.message}`);
+    } catch (error) {
+      errors.push(`${JSON.stringify(payload)} => ${error.message}`);
+    }
+  }
+
+  return {
+    ok: false,
+    message:
+      `RPC call failed for ${functionName}.\n\n` +
+      `The page tried common argument shapes, but the database function signature did not match.\n\n` +
+      errors.join('\n\n')
+  };
+}
+
+function removeEmptyRPCValues(payload) {
+  const cleanPayload = {};
+
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      cleanPayload[key] = value;
+    }
+  });
+
+  return cleanPayload;
+}
+
+function switchPPVTab(tabName) {
+  document.querySelectorAll('.tab-btn').forEach(button => {
+    button.classList.toggle('active', button.getAttribute('data-tab') === tabName);
+  });
+
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    panel.classList.remove('active');
+  });
+
+  const target = document.getElementById(`${tabName}Tab`);
+
+  if (target) {
+    target.classList.add('active');
+  }
+}
+
+function renderRowsTable(rows, headId, bodyId, emptyMessage) {
+  const head = document.getElementById(headId);
+  const body = document.getElementById(bodyId);
+
+  if (!head || !body) {
+    return;
+  }
+
+  if (!rows || rows.length === 0) {
+    head.innerHTML = '';
+    body.innerHTML = `<tr><td>${escapeHTML(emptyMessage || 'No rows found.')}</td></tr>`;
+    return;
+  }
+
+  const columns = buildDisplayColumns(rows);
+
+  head.innerHTML = '<tr>' + columns.map(column => `<th>${escapeHTML(formatColumnLabel(column))}</th>`).join('') + '</tr>';
+  body.innerHTML = '';
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+
+    columns.forEach(column => {
+      const td = document.createElement('td');
+      const value = row[column];
+
+      if (String(value || '').length > 40) {
+        td.classList.add('wrap-cell');
+      }
+
+      td.textContent = formatCellValue(column, value);
+      tr.appendChild(td);
+    });
+
+    body.appendChild(tr);
+  });
+}
+
+function buildDisplayColumns(rows) {
+  const priority = [
+    'pay_period_name',
+    'period_name',
+    'pay_period_start_date',
+    'pay_period_end_date',
+    'week_number',
+    'rt_code',
+    'route_tech_name',
+    'tech_name',
+    'total_visits',
+    'total_pay_period_visits',
+    'regular_ppv_visits',
+    'pickup_visits',
+    'regular_ppv_pay',
+    'pickup_ppv_pay',
+    'hours',
+    'adjustment_amount',
+    'quality_safeguard_amount',
+    'quarterly_commission_amount',
+    'total_pay',
+    'payroll_total',
+    'file_name',
+    'import_status',
+    'route_rows_imported',
+    'rtl_rows_imported',
+    'ignored_rows_count',
+    'created_at',
+    'approved_at',
+    'submitted_at'
+  ];
+
+  const allColumns = new Set();
+
+  rows.forEach(row => {
+    Object.keys(row || {}).forEach(key => allColumns.add(key));
+  });
+
+  const priorityColumns = priority.filter(column => allColumns.has(column));
+  const remainingColumns = Array.from(allColumns)
+    .filter(column => !priorityColumns.includes(column))
+    .filter(column => !['id', 'pay_period_id', 'route_tech_id', 'created_by', 'updated_by'].includes(column))
+    .sort((a, b) => a.localeCompare(b));
+
+  return priorityColumns.concat(remainingColumns).slice(0, 28);
+}
+
+function exportRowsToCSV(rows, fileName) {
+  if (!rows || rows.length === 0) {
+    setPPVStatus('There are no rows to export.', 'error');
+    return;
+  }
+
+  const columns = buildDisplayColumns(rows);
+  const csvLines = [];
+
+  csvLines.push(columns.map(value => csvEscape(formatColumnLabel(value))).join(','));
+
+  rows.forEach(row => {
+    csvLines.push(columns.map(column => csvEscape(formatCellValue(column, row[column]))).join(','));
+  });
+
+  const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  setPPVStatus(`Exported ${rows.length} rows to ${fileName}.`, 'success');
+}
+
+function csvEscape(value) {
+  const text = String(value ?? '');
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+async function printCurrentSubmittalSheet() {
+  if (!currentPayPeriodId) {
+    setPPVStatus('Select a pay period first.', 'error');
+    return;
+  }
+
+  if (!currentBiweeklySubmittalRows || currentBiweeklySubmittalRows.length === 0) {
+    await loadBiweeklySubmittalRows();
+  }
+
+  const rows = currentBiweeklySubmittalRows.length > 0 ? currentBiweeklySubmittalRows : currentLiveSummaryRows;
+
+  if (!rows || rows.length === 0) {
+    setPPVStatus('No submittal rows are available to print.', 'error');
+    return;
+  }
+
+  const printSheet = document.getElementById('printSheet');
+  const columns = buildDisplayColumns(rows).slice(0, 12);
+  const periodLabel = currentPayPeriodRecord ? formatPayPeriodLabel(currentPayPeriodRecord) : 'Selected Pay Period';
+
+  printSheet.innerHTML = `
+    <h1>Molinari Pools - Bi-Weekly Payroll Submittal</h1>
+    <div>${escapeHTML(periodLabel)}</div>
+    <div>Generated: ${escapeHTML(new Date().toLocaleString())}</div>
+
+    <h2>Route Tech PPV Payroll Review</h2>
+    <table>
+      <thead>
+        <tr>${columns.map(column => `<th>${escapeHTML(formatColumnLabel(column))}</th>`).join('')}</tr>
+      </thead>
+      <tbody>
+        ${rows.map(row => `
+          <tr>
+            ${columns.map(column => `<td>${escapeHTML(formatCellValue(column, row[column]))}</td>`).join('')}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+
+    <div class="signature-row">
+      <div class="signature-line">Route Tech Signature / Date</div>
+      <div class="signature-line">Manager / Accounting Signature / Date</div>
+    </div>
+  `;
+
+  window.print();
+}
+
+function getRecordValue(record, keys) {
+  if (!record) {
+    return null;
+  }
+
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(record, key) && record[key] !== null && record[key] !== undefined) {
+      return record[key];
+    }
+  }
+
+  return null;
+}
+
+function numberFromRecord(record, keys) {
+  const value = getRecordValue(record, keys);
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+function setInputValue(id, value) {
+  const element = document.getElementById(id);
+
+  if (element) {
+    element.value = value || '';
+  }
+}
+
+function getInputValue(id) {
+  const element = document.getElementById(id);
+  return String(element?.value || '').trim();
+}
+
+function formatDate(value) {
+  if (!value) {
+    return '';
+  }
+
+  const text = String(value);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const [year, month, day] = text.split('-');
+    return `${month}/${day}/${year}`;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return text;
+  }
+
+  return date.toLocaleDateString();
+}
+
+function toDateInputValue(value) {
+  if (!value) {
+    return '';
+  }
+
+  const text = String(value);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return text;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  });
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString('en-US', {
+    maximumFractionDigits: 2
+  });
+}
+
+function formatColumnLabel(column) {
+  return String(column || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, letter => letter.toUpperCase())
+    .replace('Ppv', 'PPV')
+    .replace('Rt', 'RT')
+    .replace('Rtl', 'RTL')
+    .replace('Id', 'ID');
+}
+
+function formatCellValue(column, value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'YES' : 'NO';
+  }
+
+  const lowerColumn = String(column || '').toLowerCase();
+
+  if (lowerColumn.includes('amount') || lowerColumn.includes('pay') || lowerColumn.includes('cost') || lowerColumn.includes('total_dollars')) {
+    const number = Number(value);
+
+    if (Number.isFinite(number)) {
+      return formatCurrency(number);
+    }
+  }
+
+  if ((lowerColumn.includes('date') || lowerColumn.endsWith('_at')) && String(value).length >= 10) {
+    return formatDate(value);
+  }
+
+  if (typeof value === 'object') {
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+}
+
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+
+</body>
+</html>
