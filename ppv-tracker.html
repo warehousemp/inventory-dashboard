@@ -1247,10 +1247,32 @@
               <input id="payPeriodNameInput" placeholder="Example: PPV 2026-06-01 to 2026-06-14" autocomplete="off">
 
               <label>Start Date:</label>
-              <input id="payPeriodStartInput" type="date">
+              <input id="payPeriodStartInput" type="date" onchange="populateDefaultWeekDates()">
 
               <label>End Date:</label>
-              <input id="payPeriodEndInput" type="date">
+              <input id="payPeriodEndInput" type="date" onchange="populateDefaultWeekDates()">
+
+              <div class="manual-form-grid">
+                <div>
+                  <label>Week 1 Start:</label>
+                  <input id="week1StartInput" type="date">
+                </div>
+
+                <div>
+                  <label>Week 1 End:</label>
+                  <input id="week1EndInput" type="date">
+                </div>
+
+                <div>
+                  <label>Week 2 Start:</label>
+                  <input id="week2StartInput" type="date">
+                </div>
+
+                <div>
+                  <label>Week 2 End:</label>
+                  <input id="week2EndInput" type="date">
+                </div>
+              </div>
 
               <label>Notes:</label>
               <textarea id="payPeriodNotesInput" placeholder="Optional notes for this pay period..."></textarea>
@@ -1258,7 +1280,7 @@
               <button class="accent-btn full-width-btn" type="button" onclick="upsertPayPeriodFromForm()">SAVE PAY PERIOD</button>
 
               <div class="help-text">
-                This uses the PPV pay-period RPC first. If the database RPC signature differs, the page will show the exact error so we can align the call.
+                Week dates are required by the PPV pay-period RPC. If left blank, they default to a 7-day Week 1 followed by Week 2 through the pay-period end date.
               </div>
             </div>
 
@@ -1287,8 +1309,63 @@
 
               <div class="manual-form-grid">
                 <div>
-                  <label>Hours:</label>
-                  <input id="hoursInput" type="number" min="0" step="0.01" placeholder="0.00">
+                  <label>Regular Hours:</label>
+                  <input id="regularHoursInput" type="number" min="0" step="0.01" placeholder="0.00">
+                </div>
+
+                <div>
+                  <label>Overtime Hours:</label>
+                  <input id="overtimeHoursInput" type="number" min="0" step="0.01" placeholder="0.00">
+                </div>
+
+                <div>
+                  <label>PTO Hours:</label>
+                  <input id="ptoHoursInput" type="number" min="0" step="0.01" placeholder="0.00">
+                </div>
+
+                <div>
+                  <label>Holiday Hours:</label>
+                  <input id="holidayHoursInput" type="number" min="0" step="0.01" placeholder="0.00">
+                </div>
+
+                <div>
+                  <label>Meeting Hours:</label>
+                  <input id="meetingHoursInput" type="number" min="0" step="0.01" placeholder="0.00">
+                </div>
+
+                <div>
+                  <label>Maintenance Hours:</label>
+                  <input id="maintenanceHoursInput" type="number" min="0" step="0.01" placeholder="0.00">
+                </div>
+
+                <div>
+                  <label>Other Paid Hours:</label>
+                  <input id="otherPaidHoursInput" type="number" min="0" step="0.01" placeholder="0.00">
+                </div>
+
+                <div>
+                  <label>PTO/Holiday Visit Credit:</label>
+                  <input id="ptoHolidayVisitCreditInput" type="number" min="0" step="1" placeholder="0">
+                </div>
+
+                <div>
+                  <label>Meeting/Maint. Visit Credit:</label>
+                  <input id="meetingMaintenanceVisitCreditInput" type="number" min="0" step="1" placeholder="0">
+                </div>
+
+                <div>
+                  <label>Other Paid Visit Credit:</label>
+                  <input id="otherPaidVisitCreditInput" type="number" min="0" step="1" placeholder="0">
+                </div>
+
+                <div>
+                  <label>Adjustment Type:</label>
+                  <select id="adjustmentTypeInput">
+                    <option value="MANUAL_PAY_ADJUSTMENT">Manual Pay Adjustment</option>
+                    <option value="VISIT_CREDIT">Visit Credit</option>
+                    <option value="CORRECTION">Correction</option>
+                    <option value="OTHER">Other</option>
+                  </select>
                 </div>
 
                 <div>
@@ -1297,12 +1374,17 @@
                 </div>
 
                 <div>
+                  <label>Adjustment Visit Count:</label>
+                  <input id="adjustmentVisitCountInput" type="number" step="1" placeholder="0">
+                </div>
+
+                <div>
                   <label>Commission Amount:</label>
                   <input id="commissionAmountInput" type="number" step="0.01" placeholder="0.00">
                 </div>
 
                 <div>
-                  <label>Safeguard Amount:</label>
+                  <label>Safeguard Impact Amount:</label>
                   <input id="safeguardAmountInput" type="number" step="0.01" placeholder="0.00">
                 </div>
 
@@ -1739,7 +1821,7 @@ async function enforcePPVAccess() {
   let helperAllowed = null;
 
   try {
-    const { data: helperData, error: helperError } = await client.rpc('current_user_has_ppv_access');
+    const { data: helperData, error: helperError } = await client.rpc('current_user_has_ppv_access', { p_access_type: 'TRACKER' });
 
     if (!helperError) {
       helperAllowed = Boolean(helperData);
@@ -1751,7 +1833,7 @@ async function enforcePPVAccess() {
   }
 
   const roleAllowed = PPV_ALLOWED_ROLES.includes(profileData.role);
-  const finalAllowed = helperAllowed === null ? roleAllowed : (helperAllowed && roleAllowed);
+  const finalAllowed = roleAllowed;
 
   if (!finalAllowed) {
     showPPVAccessGate(
@@ -1906,9 +1988,9 @@ async function loadPayPeriods(keepSelection = false) {
 }
 
 function formatPayPeriodLabel(row) {
-  const name = getRecordValue(row, ['pay_period_name', 'period_name', 'name', 'pay_period_label', 'label']);
-  const start = getRecordValue(row, ['pay_period_start_date', 'period_start_date', 'start_date', 'date_start']);
-  const end = getRecordValue(row, ['pay_period_end_date', 'period_end_date', 'end_date', 'date_end']);
+  const name = getRecordValue(row, ['pay_period_label']);
+  const start = getRecordValue(row, ['period_start_date']);
+  const end = getRecordValue(row, ['period_end_date']);
   const status = getRecordValue(row, ['status', 'pay_period_status', 'period_status']);
 
   const dateText = [formatDate(start), formatDate(end)].filter(Boolean).join(' to ');
@@ -1922,10 +2004,50 @@ function populatePayPeriodForm(row) {
     return;
   }
 
-  setInputValue('payPeriodNameInput', getRecordValue(row, ['pay_period_name', 'period_name', 'name', 'pay_period_label', 'label']) || '');
-  setInputValue('payPeriodStartInput', toDateInputValue(getRecordValue(row, ['pay_period_start_date', 'period_start_date', 'start_date', 'date_start'])));
-  setInputValue('payPeriodEndInput', toDateInputValue(getRecordValue(row, ['pay_period_end_date', 'period_end_date', 'end_date', 'date_end'])));
-  setInputValue('payPeriodNotesInput', getRecordValue(row, ['notes', 'pay_period_notes', 'description']) || '');
+  setInputValue('payPeriodNameInput', getRecordValue(row, ['pay_period_label']) || '');
+  setInputValue('payPeriodStartInput', toDateInputValue(getRecordValue(row, ['period_start_date'])));
+  setInputValue('payPeriodEndInput', toDateInputValue(getRecordValue(row, ['period_end_date'])));
+  setInputValue('week1StartInput', toDateInputValue(getRecordValue(row, ['week_1_start_date'])));
+  setInputValue('week1EndInput', toDateInputValue(getRecordValue(row, ['week_1_end_date'])));
+  setInputValue('week2StartInput', toDateInputValue(getRecordValue(row, ['week_2_start_date'])));
+  setInputValue('week2EndInput', toDateInputValue(getRecordValue(row, ['week_2_end_date'])));
+  setInputValue('payPeriodNotesInput', getRecordValue(row, ['notes']) || '');
+}
+
+function populateDefaultWeekDates() {
+  const startDate = getInputValue('payPeriodStartInput');
+  const endDate = getInputValue('payPeriodEndInput');
+
+  if (!startDate || !endDate) {
+    return;
+  }
+
+  if (!getInputValue('week1StartInput')) {
+    setInputValue('week1StartInput', startDate);
+  }
+
+  if (!getInputValue('week1EndInput')) {
+    setInputValue('week1EndInput', addDaysISO(startDate, 6));
+  }
+
+  if (!getInputValue('week2StartInput')) {
+    setInputValue('week2StartInput', addDaysISO(startDate, 7));
+  }
+
+  if (!getInputValue('week2EndInput')) {
+    setInputValue('week2EndInput', endDate);
+  }
+}
+
+function addDaysISO(dateValue, dayCount) {
+  const date = new Date(dateValue + 'T00:00:00');
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  date.setDate(date.getDate() + dayCount);
+  return date.toISOString().slice(0, 10);
 }
 
 function handlePayPeriodChange() {
@@ -2147,6 +2269,10 @@ function renderMetrics(rows) {
     ]);
 
     totals.payrollTotal += numberFromRecord(row, [
+      'final_gross_before_taxes_deductions',
+      'net_ppv_pay',
+      'gross_ppv_pay',
+      'pre_safeguard_pay',
       'total_pay',
       'total_pay_amount',
       'payroll_total',
@@ -2176,45 +2302,43 @@ async function upsertPayPeriodFromForm() {
     return;
   }
 
-  const name = getInputValue('payPeriodNameInput');
+  populateDefaultWeekDates();
+
+  const label = getInputValue('payPeriodNameInput');
   const startDate = getInputValue('payPeriodStartInput');
   const endDate = getInputValue('payPeriodEndInput');
+  const week1StartDate = getInputValue('week1StartInput');
+  const week1EndDate = getInputValue('week1EndInput');
+  const week2StartDate = getInputValue('week2StartInput');
+  const week2EndDate = getInputValue('week2EndInput');
   const notes = getInputValue('payPeriodNotesInput');
 
-  if (!startDate || !endDate) {
-    setPPVStatus('Start date and end date are required.', 'error');
+  if (!label || !startDate || !endDate || !week1StartDate || !week1EndDate || !week2StartDate || !week2EndDate) {
+    setPPVStatus('Pay period label, start/end dates, and Week 1/Week 2 dates are required.', 'error');
     return;
   }
 
-  const attempts = [
-    {
-      p_pay_period_id: currentPayPeriodId,
-      p_pay_period_name: name,
-      p_period_start_date: startDate,
-      p_period_end_date: endDate,
-      p_notes: notes
-    },
-    {
-      p_pay_period_id: currentPayPeriodId,
-      p_pay_period_label: name,
-      p_start_date: startDate,
-      p_end_date: endDate,
-      p_notes: notes
-    },
-    {
-      pay_period_id: currentPayPeriodId,
-      pay_period_name: name,
-      period_start_date: startDate,
-      period_end_date: endDate,
-      notes: notes
-    }
-  ];
+  const payload = {
+    p_pay_period_label: label,
+    p_period_start_date: startDate,
+    p_period_end_date: endDate,
+    p_week_1_start_date: week1StartDate,
+    p_week_1_end_date: week1EndDate,
+    p_week_2_start_date: week2StartDate,
+    p_week_2_end_date: week2EndDate,
+    p_notes: notes || null,
+    p_pay_period_id: currentPayPeriodId || null
+  };
 
-  const result = await callRPCWithAttempts('upsert_ppv_pay_period', attempts);
+  const { data, error } = await client.rpc('upsert_ppv_pay_period', payload);
 
-  if (!result.ok) {
-    setPPVStatus(result.message, 'error');
+  if (error) {
+    setPPVStatus('Pay period save error: ' + error.message, 'error');
     return;
+  }
+
+  if (data?.id) {
+    currentPayPeriodId = data.id;
   }
 
   setPPVStatus('Pay period saved.', 'success');
@@ -2249,49 +2373,39 @@ async function importSkimmerTechSummaryCSV() {
 
   setPPVStatus('Reading CSV and importing Skimmer Tech Summary...');
 
-  const csvText = await file.text();
+  let rows = [];
 
-  const attempts = [
-    {
-      p_pay_period_id: currentPayPeriodId,
-      p_week_number: weekNumber,
-      p_file_name: file.name,
-      p_csv_text: csvText
-    },
-    {
-      p_pay_period_id: currentPayPeriodId,
-      p_import_week_number: weekNumber,
-      p_file_name: file.name,
-      p_csv_text: csvText
-    },
-    {
-      p_pay_period_id: currentPayPeriodId,
-      p_week_number: weekNumber,
-      p_file_name: file.name,
-      p_file_contents: csvText
-    },
-    {
-      p_pay_period_id: currentPayPeriodId,
-      p_week_number: weekNumber,
-      p_file_name: file.name,
-      p_raw_csv: csvText
-    },
-    {
-      pay_period_id: currentPayPeriodId,
-      week_number: weekNumber,
-      file_name: file.name,
-      csv_text: csvText
-    }
-  ];
-
-  const result = await callRPCWithAttempts('import_ppv_skimmer_tech_summary', attempts);
-
-  if (!result.ok) {
-    setPPVStatus(result.message, 'error');
+  try {
+    const csvText = await file.text();
+    rows = parseCSVToObjects(csvText);
+  } catch (error) {
+    setPPVStatus('CSV read/parse error: ' + error.message, 'error');
     return;
   }
 
-  setPPVStatus('Skimmer Tech Summary import completed.', 'success');
+  if (!rows || rows.length === 0) {
+    setPPVStatus('No rows were found in the selected CSV file.', 'error');
+    return;
+  }
+
+  const { data, error } = await client.rpc('import_ppv_skimmer_tech_summary', {
+    p_pay_period_id: currentPayPeriodId,
+    p_week_number: weekNumber,
+    p_file_name: file.name,
+    p_rows: rows,
+    p_notes: getInputValue('payPeriodNotesInput') || null
+  });
+
+  if (error) {
+    setPPVStatus('Skimmer import error: ' + error.message, 'error');
+    return;
+  }
+
+  const importSummary = typeof data === 'object' && data !== null
+    ? JSON.stringify(data, null, 2)
+    : String(data || 'Import completed.');
+
+  setPPVStatus('Skimmer Tech Summary import completed.\n' + importSummary, 'success');
   fileInput.value = '';
   await refreshSelectedPayPeriodData();
 }
@@ -2307,13 +2421,13 @@ async function submitSelectedPayPeriod() {
     return;
   }
 
-  const result = await callRPCWithAttempts('submit_ppv_pay_period', [
-    { p_pay_period_id: currentPayPeriodId },
-    { pay_period_id: currentPayPeriodId }
-  ]);
+  const { error } = await client.rpc('submit_ppv_pay_period', {
+    p_pay_period_id: currentPayPeriodId,
+    p_notes: getInputValue('payPeriodNotesInput') || null
+  });
 
-  if (!result.ok) {
-    setPPVStatus(result.message, 'error');
+  if (error) {
+    setPPVStatus('Submit error: ' + error.message, 'error');
     return;
   }
 
@@ -2333,13 +2447,13 @@ async function approveSelectedPayPeriod() {
     return;
   }
 
-  const result = await callRPCWithAttempts('approve_ppv_pay_period', [
-    { p_pay_period_id: currentPayPeriodId },
-    { pay_period_id: currentPayPeriodId }
-  ]);
+  const { error } = await client.rpc('approve_ppv_pay_period', {
+    p_pay_period_id: currentPayPeriodId,
+    p_notes: getInputValue('payPeriodNotesInput') || null
+  });
 
-  if (!result.ok) {
-    setPPVStatus(result.message, 'error');
+  if (error) {
+    setPPVStatus('Approval error: ' + error.message, 'error');
     return;
   }
 
@@ -2366,14 +2480,13 @@ async function reopenSelectedPayPeriod() {
     return;
   }
 
-  const result = await callRPCWithAttempts('reopen_ppv_pay_period_for_correction', [
-    { p_pay_period_id: currentPayPeriodId, p_reopen_reason: reason },
-    { p_pay_period_id: currentPayPeriodId, p_correction_reason: reason },
-    { pay_period_id: currentPayPeriodId, correction_reason: reason }
-  ]);
+  const { error } = await client.rpc('reopen_ppv_pay_period_for_correction', {
+    p_pay_period_id: currentPayPeriodId,
+    p_reopen_reason: reason
+  });
 
-  if (!result.ok) {
-    setPPVStatus(result.message, 'error');
+  if (error) {
+    setPPVStatus('Reopen error: ' + error.message, 'error');
     return;
   }
 
@@ -2388,25 +2501,43 @@ async function savePPVHours() {
   }
 
   const routeTechId = getInputValue('routeTechSelect');
-  const hours = Number(getInputValue('hoursInput') || 0);
-  const notes = getInputValue('manualNotesInput');
 
-  if (!routeTechId || hours <= 0) {
-    setPPVStatus('Select a route tech and enter hours greater than 0.', 'error');
+  if (!routeTechId) {
+    setPPVStatus('Select a route tech before saving hours.', 'error');
     return;
   }
 
-  const result = await callRPCWithAttempts('upsert_ppv_pay_period_hours', [
-    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_hours: hours, p_notes: notes },
-    { pay_period_id: currentPayPeriodId, route_tech_id: routeTechId, hours: hours, notes: notes }
-  ]);
+  const payload = {
+    p_pay_period_id: currentPayPeriodId,
+    p_route_tech_id: routeTechId,
+    p_regular_hours: numberInputValue('regularHoursInput'),
+    p_overtime_hours: numberInputValue('overtimeHoursInput'),
+    p_pto_hours: numberInputValue('ptoHoursInput'),
+    p_holiday_hours: numberInputValue('holidayHoursInput'),
+    p_meeting_hours: numberInputValue('meetingHoursInput'),
+    p_maintenance_hours: numberInputValue('maintenanceHoursInput'),
+    p_other_paid_hours: numberInputValue('otherPaidHoursInput'),
+    p_pto_holiday_visit_credit: integerInputValue('ptoHolidayVisitCreditInput'),
+    p_meeting_maintenance_visit_credit: integerInputValue('meetingMaintenanceVisitCreditInput'),
+    p_other_paid_visit_credit: integerInputValue('otherPaidVisitCreditInput'),
+    p_notes: getInputValue('manualNotesInput') || null
+  };
 
-  if (!result.ok) {
-    setPPVStatus(result.message, 'error');
+  const enteredTotal = payload.p_regular_hours + payload.p_overtime_hours + payload.p_pto_hours + payload.p_holiday_hours + payload.p_meeting_hours + payload.p_maintenance_hours + payload.p_other_paid_hours + payload.p_pto_holiday_visit_credit + payload.p_meeting_maintenance_visit_credit + payload.p_other_paid_visit_credit;
+
+  if (enteredTotal <= 0) {
+    setPPVStatus('Enter at least one hour value or visit credit before saving.', 'error');
     return;
   }
 
-  setPPVStatus('Hours saved.', 'success');
+  const { error } = await client.rpc('upsert_ppv_pay_period_hours', payload);
+
+  if (error) {
+    setPPVStatus('Hours save error: ' + error.message, 'error');
+    return;
+  }
+
+  setPPVStatus('Hours and visit credits saved.', 'success');
   await refreshSelectedPayPeriodData();
 }
 
@@ -2416,22 +2547,29 @@ async function savePPVAdjustment() {
   }
 
   const routeTechId = getInputValue('routeTechSelect');
-  const amount = Number(getInputValue('adjustmentAmountInput') || 0);
-  const notes = getInputValue('manualNotesInput');
+  const amount = numberInputValue('adjustmentAmountInput');
+  const visitCount = integerInputValue('adjustmentVisitCountInput');
+  const reason = getInputValue('manualNotesInput');
 
-  if (!routeTechId || amount === 0 || !notes) {
-    setPPVStatus('Select a route tech, enter a non-zero adjustment amount, and provide notes/reason.', 'error');
+  if (!routeTechId || (amount === 0 && visitCount === 0) || !reason) {
+    setPPVStatus('Select a route tech, enter a non-zero adjustment amount or visit count, and provide notes/reason.', 'error');
     return;
   }
 
-  const result = await callRPCWithAttempts('upsert_ppv_adjustment', [
-    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_adjustment_amount: amount, p_reason: notes },
-    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_amount: amount, p_notes: notes },
-    { pay_period_id: currentPayPeriodId, route_tech_id: routeTechId, amount: amount, notes: notes }
-  ]);
+  const { error } = await client.rpc('upsert_ppv_adjustment', {
+    p_pay_period_id: currentPayPeriodId,
+    p_route_tech_id: routeTechId,
+    p_adjustment_type: getInputValue('adjustmentTypeInput') || 'MANUAL_PAY_ADJUSTMENT',
+    p_adjustment_amount: amount,
+    p_visit_adjustment_count: visitCount,
+    p_reason: reason,
+    p_status: 'DRAFT',
+    p_notes: reason,
+    p_adjustment_id: null
+  });
 
-  if (!result.ok) {
-    setPPVStatus(result.message, 'error');
+  if (error) {
+    setPPVStatus('Adjustment save error: ' + error.message, 'error');
     return;
   }
 
@@ -2445,26 +2583,38 @@ async function savePPVCommission() {
   }
 
   const routeTechId = getInputValue('routeTechSelect');
-  const amount = Number(getInputValue('commissionAmountInput') || 0);
+  const amount = numberInputValue('commissionAmountInput');
   const notes = getInputValue('manualNotesInput');
+  const fiscal = getFiscalYearQuarterForSelectedPeriod();
 
   if (!routeTechId || amount === 0) {
     setPPVStatus('Select a route tech and enter a non-zero commission amount.', 'error');
     return;
   }
 
-  const result = await callRPCWithAttempts('upsert_ppv_quarterly_commission', [
-    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_commission_amount: amount, p_notes: notes },
-    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_amount: amount, p_notes: notes },
-    { pay_period_id: currentPayPeriodId, route_tech_id: routeTechId, amount: amount, notes: notes }
-  ]);
+  const { error } = await client.rpc('upsert_ppv_quarterly_commission', {
+    p_route_tech_id: routeTechId,
+    p_fiscal_year: fiscal.fiscalYear,
+    p_fiscal_quarter: fiscal.fiscalQuarter,
+    p_commission_amount: amount,
+    p_quarter_start_date: fiscal.quarterStartDate,
+    p_quarter_end_date: fiscal.quarterEndDate,
+    p_earned_start_date: fiscal.quarterStartDate,
+    p_earned_end_date: fiscal.quarterEndDate,
+    p_pay_period_id: currentPayPeriodId,
+    p_commission_type: 'ROUTE_TECH_SALES',
+    p_source_reference: currentPayPeriodRecord?.pay_period_label || null,
+    p_notes: notes || null,
+    p_status: 'DRAFT',
+    p_commission_id: null
+  });
 
-  if (!result.ok) {
-    setPPVStatus(result.message, 'error');
+  if (error) {
+    setPPVStatus('Quarterly commission save error: ' + error.message, 'error');
     return;
   }
 
-  setPPVStatus('Quarterly commission saved.', 'success');
+  setPPVStatus(`Quarterly commission saved for ${fiscal.fiscalYear} ${fiscal.fiscalQuarter}.`, 'success');
   await refreshSelectedPayPeriodData();
 }
 
@@ -2474,27 +2624,164 @@ async function savePPVSafeguard() {
   }
 
   const routeTechId = getInputValue('routeTechSelect');
-  const amount = Number(getInputValue('safeguardAmountInput') || 0);
+  const amount = numberInputValue('safeguardAmountInput');
   const notes = getInputValue('manualNotesInput');
 
   if (!routeTechId || amount === 0 || !notes) {
-    setPPVStatus('Select a route tech, enter a non-zero safeguard amount, and provide notes/reason.', 'error');
+    setPPVStatus('Select a route tech, enter a non-zero safeguard impact amount, and provide notes/reason.', 'error');
     return;
   }
 
-  const result = await callRPCWithAttempts('upsert_ppv_quality_safeguard_event', [
-    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_safeguard_amount: amount, p_reason: notes },
-    { p_pay_period_id: currentPayPeriodId, p_route_tech_id: routeTechId, p_amount: amount, p_notes: notes },
-    { pay_period_id: currentPayPeriodId, route_tech_id: routeTechId, amount: amount, notes: notes }
-  ]);
+  const { error } = await client.rpc('upsert_ppv_quality_safeguard_event', {
+    p_pay_period_id: currentPayPeriodId,
+    p_incident_date: getTodayISODate(),
+    p_incident_type: 'PPV_PAY_IMPACT',
+    p_route_tech_id: routeTechId,
+    p_route_tech_leader_id: null,
+    p_client_name: null,
+    p_address_community: null,
+    p_root_cause_category: 'MANUAL_REVIEW',
+    p_severity: 'COACHING',
+    p_detected_by: currentPPVProfile?.full_name || currentPPVSession?.user?.email || 'PPV Tracker',
+    p_was_causation: false,
+    p_corrective_action: notes,
+    p_follow_up_required: false,
+    p_follow_up_completed: false,
+    p_outcome_notes: notes,
+    p_coaching_only: amount === 0,
+    p_ppv_impact_amount: amount,
+    p_linked_adjustment_id: null,
+    p_status: 'OPEN',
+    p_notes: notes,
+    p_event_id: null
+  });
 
-  if (!result.ok) {
-    setPPVStatus(result.message, 'error');
+  if (error) {
+    setPPVStatus('Quality safeguard save error: ' + error.message, 'error');
     return;
   }
 
-  setPPVStatus('Quality safeguard saved.', 'success');
+  setPPVStatus('Quality safeguard event saved.', 'success');
   await refreshSelectedPayPeriodData();
+}
+
+
+function parseCSVToObjects(csvText) {
+  const rows = [];
+  const parsedRows = [];
+  let currentRow = [];
+  let currentValue = '';
+  let insideQuotes = false;
+
+  for (let index = 0; index < csvText.length; index += 1) {
+    const character = csvText[index];
+    const nextCharacter = csvText[index + 1];
+
+    if (character === '"') {
+      if (insideQuotes && nextCharacter === '"') {
+        currentValue += '"';
+        index += 1;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if (character === ',' && !insideQuotes) {
+      currentRow.push(currentValue);
+      currentValue = '';
+    } else if ((character === '\n' || character === '\r') && !insideQuotes) {
+      if (character === '\r' && nextCharacter === '\n') {
+        index += 1;
+      }
+
+      currentRow.push(currentValue);
+      parsedRows.push(currentRow);
+      currentRow = [];
+      currentValue = '';
+    } else {
+      currentValue += character;
+    }
+  }
+
+  if (currentValue.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentValue);
+    parsedRows.push(currentRow);
+  }
+
+  if (parsedRows.length === 0) {
+    return rows;
+  }
+
+  const headers = parsedRows[0].map(header => String(header || '').trim());
+
+  parsedRows.slice(1).forEach(row => {
+    const record = {};
+    let hasValue = false;
+
+    headers.forEach((header, index) => {
+      if (!header) {
+        return;
+      }
+
+      const value = String(row[index] ?? '').trim();
+      record[header] = value;
+
+      if (value) {
+        hasValue = true;
+      }
+    });
+
+    if (hasValue) {
+      rows.push(record);
+    }
+  });
+
+  return rows;
+}
+
+function numberInputValue(id) {
+  const value = Number(getInputValue(id) || 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function integerInputValue(id) {
+  const value = parseInt(getInputValue(id) || '0', 10);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function getTodayISODate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getFiscalYearQuarterForSelectedPeriod() {
+  const referenceDateValue = currentPayPeriodRecord?.period_end_date || currentPayPeriodRecord?.period_start_date || getTodayISODate();
+  const date = new Date(referenceDateValue + 'T00:00:00');
+  const month = date.getMonth() + 1;
+  const calendarYear = date.getFullYear();
+
+  const fiscalYear = month >= 7 ? calendarYear + 1 : calendarYear;
+  let fiscalQuarter = 'Q4';
+  let quarterStartDate = `${fiscalYear - 1}-04-01`;
+  let quarterEndDate = `${fiscalYear - 1}-06-30`;
+
+  if (month >= 7 && month <= 9) {
+    fiscalQuarter = 'Q1';
+    quarterStartDate = `${calendarYear}-07-01`;
+    quarterEndDate = `${calendarYear}-09-30`;
+  } else if (month >= 10 && month <= 12) {
+    fiscalQuarter = 'Q2';
+    quarterStartDate = `${calendarYear}-10-01`;
+    quarterEndDate = `${calendarYear}-12-31`;
+  } else if (month >= 1 && month <= 3) {
+    fiscalQuarter = 'Q3';
+    quarterStartDate = `${calendarYear}-01-01`;
+    quarterEndDate = `${calendarYear}-03-31`;
+  }
+
+  return {
+    fiscalYear,
+    fiscalQuarter,
+    quarterStartDate,
+    quarterEndDate
+  };
 }
 
 function validateManualEntryAccess() {
@@ -2568,44 +2855,9 @@ async function loadReportingHistoryRows() {
   setPPVStatus('Reporting history loaded.', 'success');
 }
 
-async function callRPCWithAttempts(functionName, payloadAttempts) {
-  const errors = [];
 
-  for (const payload of payloadAttempts) {
-    try {
-      const cleanPayload = removeEmptyRPCValues(payload);
-      const { data, error } = await client.rpc(functionName, cleanPayload);
 
-      if (!error) {
-        return { ok: true, data };
-      }
 
-      errors.push(`${JSON.stringify(cleanPayload)} => ${error.message}`);
-    } catch (error) {
-      errors.push(`${JSON.stringify(payload)} => ${error.message}`);
-    }
-  }
-
-  return {
-    ok: false,
-    message:
-      `RPC call failed for ${functionName}.\n\n` +
-      `The page tried common argument shapes, but the database function signature did not match.\n\n` +
-      errors.join('\n\n')
-  };
-}
-
-function removeEmptyRPCValues(payload) {
-  const cleanPayload = {};
-
-  Object.entries(payload).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      cleanPayload[key] = value;
-    }
-  });
-
-  return cleanPayload;
-}
 
 function switchPPVTab(tabName) {
   document.querySelectorAll('.tab-btn').forEach(button => {
@@ -2663,34 +2915,53 @@ function renderRowsTable(rows, headId, bodyId, emptyMessage) {
 
 function buildDisplayColumns(rows) {
   const priority = [
-    'pay_period_name',
-    'period_name',
-    'pay_period_start_date',
-    'pay_period_end_date',
+    'pay_period_label',
+    'period_start_date',
+    'period_end_date',
+    'pay_period_status',
+    'report_source',
+    'snapshot_status',
     'week_number',
-    'rt_code',
-    'route_tech_name',
-    'tech_name',
-    'total_visits',
-    'total_pay_period_visits',
-    'regular_ppv_visits',
-    'pickup_visits',
-    'regular_ppv_pay',
-    'pickup_ppv_pay',
-    'hours',
-    'adjustment_amount',
-    'quality_safeguard_amount',
-    'quarterly_commission_amount',
-    'total_pay',
-    'payroll_total',
     'file_name',
     'import_status',
     'route_rows_imported',
     'rtl_rows_imported',
     'ignored_rows_count',
+    'rt_code',
+    'rt_code_normalized',
+    'route_tech_name',
+    'row_type',
+    'ppv_eligible',
+    'week_1_visits',
+    'week_2_visits',
+    'total_visits',
+    'regular_ppv_visits',
+    'pickup_visits',
+    'assigned_base_visits',
+    'final_ppv_rate',
+    'pickup_visit_rate',
+    'gross_ppv_pay',
+    'payroll_credit_pay_total',
+    'safeguard_impact_total',
+    'adjustment_total',
+    'quarterly_commission_pay',
+    'net_ppv_pay',
+    'final_gross_before_taxes_deductions',
+    'regular_hours',
+    'overtime_hours',
+    'pto_hours',
+    'holiday_hours',
+    'meeting_hours',
+    'maintenance_hours',
+    'other_paid_hours',
+    'total_paid_hours',
+    'effective_hourly_rate',
+    'export_status',
+    'submittal_status',
+    'locked_for_signature',
     'created_at',
-    'approved_at',
-    'submitted_at'
+    'submitted_at',
+    'approved_at'
   ];
 
   const allColumns = new Set();
