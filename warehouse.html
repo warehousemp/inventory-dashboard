@@ -1854,7 +1854,12 @@
         </div>
 
         <label>Vendor:</label>
-        <input id="receiveVendor" placeholder="Vendor name" autocomplete="off">
+        <select id="receiveVendor">
+          <option value="">Loading approved vendors...</option>
+        </select>
+        <div class="help-text">
+          Select from the approved vendor list. New vendors must be added through Vendor Management.
+        </div>
 
         <label>PO #:</label>
         <input id="receivePO" placeholder="Internal Molinari PO #, if used" autocomplete="off">
@@ -2305,6 +2310,7 @@ let uagBulkLineData = [];
 let serializedInventoryData = [];
 let serializedCategoryBrowseData = [];
 let serializedPartsData = [];
+let inventoryVendorData = [];
 
 let currentWarehouseProfile = null;
 let currentWarehouseSession = null;
@@ -2352,6 +2358,7 @@ window.addEventListener('load', async () => {
   }
 
   await loadInventoryLocationDropdowns();
+  await loadInventoryVendors();
   await loadParts();
   await loadSerializedCategoryDropdown();
 });
@@ -2695,6 +2702,65 @@ async function loadInventoryLocationDropdowns() {
   await checkTransferSerialized();
 
   console.log('Active operational inventory locations loaded:', operationalLocations.length);
+}
+
+async function loadInventoryVendors() {
+  const receiveVendorSelect = document.getElementById('receiveVendor');
+
+  if (receiveVendorSelect) {
+    receiveVendorSelect.innerHTML = '<option value="">Loading approved vendors...</option>';
+    receiveVendorSelect.disabled = true;
+  }
+
+  const { data, error } = await client
+    .from('active_inventory_vendors_view')
+    .select('id, vendor_name, vendor_name_normalized, vendor_type, active, notes')
+    .order('vendor_name', { ascending: true });
+
+  if (error) {
+    inventoryVendorData = [];
+
+    if (receiveVendorSelect) {
+      receiveVendorSelect.innerHTML = '<option value="">Vendor load error</option>';
+      receiveVendorSelect.disabled = false;
+    }
+
+    console.error('Inventory vendor load error:', error);
+    return;
+  }
+
+  inventoryVendorData = data || [];
+
+  populateReceiveVendorDropdown();
+
+  console.log('Active inventory vendors loaded:', inventoryVendorData.length);
+}
+
+function populateReceiveVendorDropdown() {
+  const receiveVendorSelect = document.getElementById('receiveVendor');
+
+  if (!receiveVendorSelect) {
+    return;
+  }
+
+  const currentValue = receiveVendorSelect.value || '';
+
+  receiveVendorSelect.innerHTML = '<option value="">Select approved vendor...</option>';
+
+  inventoryVendorData.forEach(vendor => {
+    const option = document.createElement('option');
+    option.value = vendor.vendor_name;
+    option.textContent = vendor.vendor_name;
+    option.dataset.vendorType = vendor.vendor_type || '';
+    receiveVendorSelect.appendChild(option);
+  });
+
+  if (currentValue && inventoryVendorData.some(vendor => vendor.vendor_name === currentValue)) {
+    receiveVendorSelect.value = currentValue;
+  }
+
+  receiveVendorSelect.disabled = false;
+  updateReceiveBatchFields();
 }
 
 async function loadParts() {
@@ -3331,7 +3397,7 @@ document.getElementById('receivePart').addEventListener('input', checkReceiveSer
 
 const receiveVendorElement = document.getElementById('receiveVendor');
 if (receiveVendorElement) {
-  receiveVendorElement.addEventListener('input', updateReceiveBatchFields);
+  receiveVendorElement.addEventListener('change', updateReceiveBatchFields);
 }
 
 const receiveOrderTypeElement = document.getElementById('receiveOrderType');
