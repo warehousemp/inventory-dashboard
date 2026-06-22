@@ -2111,11 +2111,11 @@
         <h3>WAREHOUSE INVENTORY ADJUSTMENT</h3>
 
         <div class="inventory-workflow-note">
-          Use this section only for positive, audit-preserving warehouse adjustments such as found inventory, missed cycle count items, restock found, or physical count corrections. This does not edit or delete original transactions.
+          Use this section for audit-preserving warehouse adjustments such as found inventory, missed cycle count items, restock found, physical count corrections, or Return to Vendor removals. This does not edit or delete original transactions.
         </div>
 
         <div class="warning-note">
-          Positive adjustments only. Serialized items are blocked in this workflow so serial-number tracking stays accurate. Use Receive Inventory for serialized items.
+          Positive adjustments are allowed for standard correction reasons. Negative adjustments are allowed only when Adjustment Reason is RETURN_TO_VENDOR. Serialized items are blocked in this workflow so serial-number tracking stays accurate. Use Receive Inventory for serialized items.
         </div>
 
         <label>Part Number:</label>
@@ -2124,6 +2124,9 @@
 
         <label>Adjustment Quantity:</label>
         <input id="adjustmentQty" type="number" step="1" value="1">
+        <div id="adjustmentQuantityHelp" class="help-text">
+          Enter a positive quantity for standard adjustments. Select RETURN_TO_VENDOR to enter a negative quantity.
+        </div>
 
         <label>Adjusted By:</label>
         <input id="adjustedBy" placeholder="Warehouse team member name" autocomplete="off">
@@ -2136,6 +2139,7 @@
           <option value="RECEIVING_ERROR_CORRECTION">RECEIVING_ERROR_CORRECTION</option>
           <option value="RESTOCK_FOUND">RESTOCK_FOUND</option>
           <option value="PHYSICAL_COUNT_CORRECTION">PHYSICAL_COUNT_CORRECTION</option>
+          <option value="RETURN_TO_VENDOR">RETURN_TO_VENDOR</option>
           <option value="OTHER">OTHER</option>
         </select>
 
@@ -3382,6 +3386,53 @@ function checkReceiveSerialized() {
   */
 }
 
+function isReturnToVendorAdjustmentReason(reason) {
+  return String(reason || '').trim().toUpperCase() === 'RETURN_TO_VENDOR';
+}
+
+function updateAdjustmentQuantityRules() {
+  const reasonElement = document.getElementById('adjustmentReason');
+  const quantityInput = document.getElementById('adjustmentQty');
+  const quantityHelp = document.getElementById('adjustmentQuantityHelp');
+
+  if (!quantityInput) {
+    return;
+  }
+
+  const isReturnToVendor = isReturnToVendorAdjustmentReason(reasonElement?.value);
+
+  quantityInput.min = '';
+  quantityInput.title = isReturnToVendor
+    ? 'Return to Vendor adjustments must be entered as a negative quantity, for example -1.'
+    : 'Standard warehouse adjustments must be entered as a positive quantity.';
+
+  if (quantityHelp) {
+    quantityHelp.textContent = isReturnToVendor
+      ? 'Return to Vendor selected. Enter a negative quantity, for example -1, to remove inventory from Main Warehouse.'
+      : 'Enter a positive quantity for standard adjustments. Select RETURN_TO_VENDOR to enter a negative quantity.';
+  }
+
+  if (isReturnToVendor) {
+    if (Number(quantityInput.value) > 0) {
+      quantityInput.value = String(Number(quantityInput.value) * -1);
+    }
+
+    if (!quantityInput.value || Number(quantityInput.value) === 0) {
+      quantityInput.value = '-1';
+    }
+
+    return;
+  }
+
+  if (Number(quantityInput.value) < 0) {
+    quantityInput.value = String(Math.abs(Number(quantityInput.value)));
+  }
+
+  if (!quantityInput.value || Number(quantityInput.value) === 0) {
+    quantityInput.value = '1';
+  }
+}
+
 document.getElementById('issuePart').addEventListener('input', checkIssueSerialized);
 
 const issueSerialElement = document.getElementById('issueSerial');
@@ -3425,6 +3476,18 @@ const adjustmentPartElement = document.getElementById('adjustmentPart');
 if (adjustmentPartElement) {
   adjustmentPartElement.addEventListener('input', updateAdjustmentPartDescription);
 }
+
+const adjustmentReasonElement = document.getElementById('adjustmentReason');
+if (adjustmentReasonElement) {
+  adjustmentReasonElement.addEventListener('change', updateAdjustmentQuantityRules);
+}
+
+const adjustmentQtyElement = document.getElementById('adjustmentQty');
+if (adjustmentQtyElement) {
+  adjustmentQtyElement.addEventListener('blur', updateAdjustmentQuantityRules);
+}
+
+updateAdjustmentQuantityRules();
 
 const changeSerializationPartNumberElement = document.getElementById('changeSerializationPartNumber');
 if (changeSerializationPartNumberElement) {
@@ -3576,6 +3639,7 @@ function resetAdjustmentFields() {
   document.getElementById('adjustmentNotes').value = '';
 
   updateAdjustmentPartDescription();
+  updateAdjustmentQuantityRules();
 }
 
 function resetSerializationFields() {
@@ -3977,9 +4041,27 @@ async function warehouseAdjustment() {
     return;
   }
 
-  if (!quantity || quantity <= 0) {
+  if (!quantity || quantity === 0) {
     document.getElementById('adjustmentOutput').textContent =
-      'Adjustment quantity must be greater than zero. Only positive warehouse adjustments are currently allowed.';
+      'Adjustment quantity cannot be zero.';
+    return;
+  }
+
+  if (quantity < 0 && !isReturnToVendorAdjustmentReason(reason)) {
+    document.getElementById('adjustmentOutput').textContent =
+      'Negative adjustments are allowed only when Adjustment Reason is RETURN_TO_VENDOR.';
+    return;
+  }
+
+  if (isReturnToVendorAdjustmentReason(reason) && quantity > 0) {
+    document.getElementById('adjustmentOutput').textContent =
+      'Return to Vendor adjustments must be entered as a negative quantity, for example -1.';
+    return;
+  }
+
+  if (isReturnToVendorAdjustmentReason(reason) && !notes) {
+    document.getElementById('adjustmentOutput').textContent =
+      'Notes are required for Return to Vendor adjustments. Include vendor/order details or the reason inventory is being removed.';
     return;
   }
 
