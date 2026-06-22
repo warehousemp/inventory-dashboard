@@ -359,7 +359,7 @@
 
     .warehouse-section-tabbar {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       align-items: stretch;
       background: #ffffff;
       width: 100%;
@@ -1138,6 +1138,38 @@
     .uag-line-table td:nth-child(12) { width: 125px; }
 
 
+    .vendor-management-table {
+      table-layout: fixed;
+      min-width: 1050px;
+    }
+
+    .vendor-management-table th,
+    .vendor-management-table td {
+      white-space: normal;
+      vertical-align: top;
+    }
+
+    .vendor-management-table th:nth-child(1),
+    .vendor-management-table td:nth-child(1) { width: 220px; word-break: break-word; }
+    .vendor-management-table th:nth-child(2),
+    .vendor-management-table td:nth-child(2) { width: 150px; }
+    .vendor-management-table th:nth-child(3),
+    .vendor-management-table td:nth-child(3) { width: 120px; }
+    .vendor-management-table th:nth-child(4),
+    .vendor-management-table td:nth-child(4) { width: 340px; word-break: break-word; line-height: 1.35; }
+    .vendor-management-table th:nth-child(5),
+    .vendor-management-table td:nth-child(5) { width: 180px; }
+
+    .vendor-status-active {
+      color: #166534;
+      font-weight: bold;
+    }
+
+    .vendor-status-inactive {
+      color: #991b1b;
+      font-weight: bold;
+    }
+
 
     .hidden {
       display: none !important;
@@ -1864,6 +1896,7 @@
 <div aria-label="Warehouse sections" class="warehouse-section-tabs wide-card" role="tablist">
 <div class="warehouse-section-tabbar">
 <button class="warehouse-section-tab active" data-warehouse-tab-button="warehousePartsTab" onclick="showWarehouseSection('warehousePartsTab')" type="button">PARTS MANAGEMENT</button>
+<button class="warehouse-section-tab" data-warehouse-tab-button="warehouseVendorsTab" onclick="showWarehouseSection('warehouseVendorsTab')" type="button">VENDOR MANAGEMENT</button>
 <button class="warehouse-section-tab" data-warehouse-tab-button="warehouseCycleCountsTab" onclick="showWarehouseSection('warehouseCycleCountsTab')" type="button">CYCLE COUNTS</button>
 <button class="warehouse-section-tab" data-warehouse-tab-button="warehouseDeadStockTab" onclick="showWarehouseSection('warehouseDeadStockTab')" type="button">DEAD STOCK</button>
 <button class="warehouse-section-tab" data-warehouse-tab-button="warehouseNeedsCategoryTab" onclick="showWarehouseSection('warehouseNeedsCategoryTab')" type="button">NEEDS CATEGORY</button>
@@ -1929,6 +1962,67 @@
 <textarea id="serializationReason" placeholder="Explain why the serialization requirement is being changed"></textarea>
 <button class="category-btn" onclick="changePartSerializationStatus()">UPDATE SERIALIZATION STATUS</button>
 <pre id="changeSerializationResult">Change an existing part serialization requirement here...</pre>
+</div>
+</div>
+
+<div class="warehouse-tab-pane" id="warehouseVendorsTab">
+<div class="card wide-card">
+<h2>Vendor Management</h2>
+<button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+<div class="status-note">
+      Use this section to manage the approved vendor list used by Receive Inventory.
+      Adding a vendor makes it available in the Warehouse Operations receive dropdown.
+      Deactivating a vendor removes it from the receive dropdown without deleting historical receiving records.
+    </div>
+<div class="inventory-workflow-grid">
+<div class="inventory-workflow-panel">
+<h3>Add / Reactivate Vendor</h3>
+<label>Vendor Name:</label>
+<input autocomplete="off" id="newInventoryVendorName" placeholder="Example: PENTAIR"/>
+<label>Vendor Type:</label>
+<select id="newInventoryVendorType">
+<option selected="" value="STANDARD">STANDARD</option>
+<option value="INTERNAL">INTERNAL</option>
+<option value="TEST">TEST</option>
+<option value="BULK_BATCH">BULK_BATCH</option>
+</select>
+<div class="help-text">
+      Use STANDARD for normal suppliers. Use BULK_BATCH only for vendors intended for tracked bulk / batch receiving.
+    </div>
+<label>Notes:</label>
+<textarea id="newInventoryVendorNotes" placeholder="Optional notes. Example: Approved receive inventory vendor"></textarea>
+<button class="create-btn" onclick="addInventoryVendor()">ADD / REACTIVATE VENDOR</button>
+</div>
+<div class="inventory-workflow-panel">
+<h3>Vendor Actions</h3>
+<div class="inventory-workflow-note">
+      The approved vendor list below includes active and inactive vendors.
+      Active vendors appear in the Warehouse Operations receive dropdown.
+    </div>
+<button class="report-btn" onclick="loadInventoryVendors()">REFRESH VENDOR LIST</button>
+<pre id="inventoryVendorResult" class="workflow-output">Vendor management status will appear here...</pre>
+</div>
+</div>
+<div class="section-divider"></div>
+<h3>Approved Vendor List</h3>
+<div class="count-table-wrapper">
+<table class="vendor-management-table">
+<thead>
+<tr>
+<th>Vendor Name</th>
+<th>Vendor Type</th>
+<th>Status</th>
+<th>Notes</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="inventoryVendorTableBody">
+<tr>
+<td colspan="5">Loading inventory vendors...</td>
+</tr>
+</tbody>
+</table>
+</div>
 </div>
 </div>
 
@@ -2418,6 +2512,7 @@ let inventoryLocationData = [];
 let issueAvailableSerialRows = [];
 let uagBulkSummaryData = [];
 let uagBulkLineData = [];
+let inventoryVendorData = [];
 
 let currentWarehouseProfile = null;
 let currentWarehouseSession = null;
@@ -2465,6 +2560,7 @@ window.addEventListener('load', async () => {
   }
 
   await loadCategoryDropdowns();
+  await loadInventoryVendors();
   await loadParts();
   await loadCycleCountCategories();
   await loadCycleCountLocationDropdowns();
@@ -2633,6 +2729,204 @@ async function loadCategoryDropdowns() {
   });
 
   console.log('Active inventory categories loaded:', categoryData.length);
+}
+
+async function loadInventoryVendors() {
+  const tableBody = document.getElementById('inventoryVendorTableBody');
+  const resultBox = document.getElementById('inventoryVendorResult');
+
+  if (tableBody) {
+    tableBody.innerHTML = '<tr><td colspan="5">Loading inventory vendors...</td></tr>';
+  }
+
+  const { data, error } = await client
+    .from('inventory_vendors')
+    .select('id, vendor_name, vendor_name_normalized, vendor_type, active, notes, updated_at')
+    .order('vendor_name', { ascending: true });
+
+  if (error) {
+    inventoryVendorData = [];
+
+    if (tableBody) {
+      tableBody.innerHTML = `<tr><td colspan="5">${escapeHTML(error.message)}</td></tr>`;
+    }
+
+    if (resultBox) {
+      resultBox.textContent = 'Vendor list load failed: ' + error.message;
+    }
+
+    console.error('Inventory vendor load error:', error);
+    return;
+  }
+
+  inventoryVendorData = data || [];
+  renderInventoryVendorTable();
+
+  if (resultBox) {
+    const activeCount = inventoryVendorData.filter(vendor => vendor.active === true).length;
+    const inactiveCount = inventoryVendorData.length - activeCount;
+
+    resultBox.textContent =
+      `Inventory vendors loaded.\n` +
+      `Total Vendors: ${formatNumber(inventoryVendorData.length)}\n` +
+      `Active Vendors: ${formatNumber(activeCount)}\n` +
+      `Inactive Vendors: ${formatNumber(inactiveCount)}`;
+  }
+
+  console.log('Inventory vendors loaded:', inventoryVendorData.length);
+}
+
+function renderInventoryVendorTable() {
+  const tableBody = document.getElementById('inventoryVendorTableBody');
+
+  if (!tableBody) {
+    return;
+  }
+
+  tableBody.innerHTML = '';
+
+  if (!inventoryVendorData || inventoryVendorData.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="5">No inventory vendors found.</td></tr>';
+    return;
+  }
+
+  inventoryVendorData.forEach(vendor => {
+    const tr = document.createElement('tr');
+    const isActive = vendor.active === true;
+    const nextActiveValue = !isActive;
+    const actionText = isActive ? 'DEACTIVATE' : 'REACTIVATE';
+    const actionClass = isActive ? 'danger-btn' : 'save-btn';
+    const statusClass = isActive ? 'vendor-status-active' : 'vendor-status-inactive';
+    const statusText = isActive ? 'ACTIVE' : 'INACTIVE';
+
+    tr.innerHTML = `
+      <td>${escapeHTML(vendor.vendor_name || '')}</td>
+      <td>${escapeHTML(vendor.vendor_type || '')}</td>
+      <td class="${statusClass}">${statusText}</td>
+      <td>${escapeHTML(vendor.notes || '')}</td>
+      <td>
+        <button class="${actionClass} small-btn" onclick="setInventoryVendorActive('${escapeJS(vendor.id)}', ${nextActiveValue})">
+          ${actionText}
+        </button>
+      </td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function resetInventoryVendorFields() {
+  const nameInput = document.getElementById('newInventoryVendorName');
+  const typeSelect = document.getElementById('newInventoryVendorType');
+  const notesInput = document.getElementById('newInventoryVendorNotes');
+
+  if (nameInput) {
+    nameInput.value = '';
+  }
+
+  if (typeSelect) {
+    typeSelect.value = 'STANDARD';
+  }
+
+  if (notesInput) {
+    notesInput.value = '';
+  }
+}
+
+async function addInventoryVendor() {
+  const resultBox = document.getElementById('inventoryVendorResult');
+  const vendorName = document.getElementById('newInventoryVendorName')?.value.trim() || '';
+  const vendorType = document.getElementById('newInventoryVendorType')?.value.trim() || 'STANDARD';
+  const notes = document.getElementById('newInventoryVendorNotes')?.value.trim() || '';
+
+  if (!vendorName) {
+    if (resultBox) {
+      resultBox.textContent = 'Vendor Name is required.';
+    }
+
+    return;
+  }
+
+  if (!['STANDARD', 'INTERNAL', 'TEST', 'BULK_BATCH'].includes(vendorType)) {
+    if (resultBox) {
+      resultBox.textContent = 'Vendor Type must be STANDARD, INTERNAL, TEST, or BULK_BATCH.';
+    }
+
+    return;
+  }
+
+  if (resultBox) {
+    resultBox.textContent = `Saving vendor ${vendorName.toUpperCase()}...`;
+  }
+
+  const { data, error } = await client.rpc('add_inventory_vendor', {
+    p_vendor_name: vendorName,
+    p_vendor_type: vendorType,
+    p_notes: notes || null
+  });
+
+  if (error) {
+    if (resultBox) {
+      resultBox.textContent = 'Add vendor failed: ' + error.message;
+    }
+
+    return;
+  }
+
+  const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+
+  if (resultBox) {
+    resultBox.textContent = result
+      ? `Vendor saved successfully.\n\nVendor: ${result.vendor_name}\nType: ${result.vendor_type}\nStatus: ${result.active === true ? 'ACTIVE' : 'INACTIVE'}\nResult: ${result.action_result || ''}`
+      : 'Vendor saved successfully.';
+  }
+
+  resetInventoryVendorFields();
+  await loadInventoryVendors();
+}
+
+async function setInventoryVendorActive(vendorId, activeValue) {
+  const resultBox = document.getElementById('inventoryVendorResult');
+  const vendor = inventoryVendorData.find(row => String(row.id) === String(vendorId));
+  const vendorName = vendor?.vendor_name || vendorId;
+  const actionText = activeValue === true ? 'reactivate' : 'deactivate';
+
+  const confirmed = window.confirm(
+    `${activeValue === true ? 'Reactivate' : 'Deactivate'} vendor?\n\n${vendorName}\n\n` +
+    `${activeValue === true ? 'This vendor will appear in the Receive Inventory dropdown again.' : 'This vendor will be removed from the Receive Inventory dropdown. Historical records will stay intact.'}`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  if (resultBox) {
+    resultBox.textContent = `${actionText.charAt(0).toUpperCase() + actionText.slice(1)}ing vendor ${vendorName}...`;
+  }
+
+  const { data, error } = await client.rpc('set_inventory_vendor_active', {
+    p_vendor_id: vendorId,
+    p_active: activeValue,
+    p_notes: vendor?.notes || null
+  });
+
+  if (error) {
+    if (resultBox) {
+      resultBox.textContent = `${actionText.charAt(0).toUpperCase() + actionText.slice(1)} vendor failed: ${error.message}`;
+    }
+
+    return;
+  }
+
+  const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+
+  if (resultBox) {
+    resultBox.textContent = result
+      ? `Vendor status updated successfully.\n\nVendor: ${result.vendor_name}\nType: ${result.vendor_type}\nStatus: ${result.active === true ? 'ACTIVE' : 'INACTIVE'}\nResult: ${result.action_result || ''}`
+      : 'Vendor status updated successfully.';
+  }
+
+  await loadInventoryVendors();
 }
 
 async function loadInventoryLocationDropdowns() {
