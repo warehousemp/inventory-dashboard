@@ -2165,11 +2165,38 @@ document.addEventListener('DOMContentLoaded', () => {
   setInputValue('safeguardIncidentDateInput', getTodayISODate());
   setInputValue('hrSignoffDateInput', getTodayISODate());
   bootstrapPPVTracker();
+  setTimeout(ensurePayPeriodsLoadedAfterStartup, 1200);
 });
 
 window.addEventListener('load', () => {
   bootstrapPPVTracker();
+  setTimeout(ensurePayPeriodsLoadedAfterStartup, 600);
 });
+
+function ensurePayPeriodsLoadedAfterStartup() {
+  const select = document.getElementById('payPeriodSelect');
+
+  if (!select || !currentPPVSession || !currentPPVProfile) {
+    return;
+  }
+
+  const currentOptionText = String(select.options?.[0]?.textContent || select.textContent || '');
+  const stillLoading = currentOptionText.toLowerCase().includes('loading pay periods');
+
+  if (stillLoading) {
+    loadPayPeriods(true)
+      .then(() => {
+        if (currentPayPeriodId) {
+          return refreshSelectedPayPeriodData();
+        }
+        return null;
+      })
+      .catch(error => {
+        console.error('Automatic pay period reload failed:', error);
+        setPPVStatus('Pay periods did not finish loading automatically. Click Refresh Data to try again. Details: ' + (error?.message || error), 'error');
+      });
+  }
+}
 
 async function bootstrapPPVTracker() {
   if (ppvBootstrapStarted) {
@@ -2346,6 +2373,8 @@ function showPPVContent(profile, email) {
     email: email || '',
     role: profile?.role || ''
   });
+
+  setTimeout(ensurePayPeriodsLoadedAfterStartup, 500);
 }
 
 async function enforcePPVAccess() {
@@ -2511,20 +2540,25 @@ async function loadPayPeriods(keepSelection = false) {
   const select = document.getElementById('payPeriodSelect');
   const previousSelection = currentPayPeriodId;
 
+  if (!select) {
+    return;
+  }
+
   select.innerHTML = '<option value="">Loading pay periods...</option>';
 
   const { data, error } = await client
     .from('ppv_pay_periods')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('period_start_date', { ascending: false });
 
   if (error) {
     select.innerHTML = '<option value="">Pay period load error</option>';
+    renderSuggestedPayPeriodInfo();
     setPPVStatus('Pay period load error: ' + error.message, 'error');
     return;
   }
 
-  currentPayPeriods = data || [];
+  currentPayPeriods = sortPayPeriodsNewestFirst(data || []);
   select.innerHTML = '<option value="">Select pay period...</option>';
 
   currentPayPeriods.forEach(row => {
@@ -2539,6 +2573,7 @@ async function loadPayPeriods(keepSelection = false) {
     currentPayPeriodRecord = null;
     select.innerHTML = '<option value="">No pay periods found</option>';
     renderSelectedPayPeriodInfo();
+    renderSuggestedPayPeriodInfo();
     resetMetrics();
     return;
   }
@@ -2558,6 +2593,51 @@ async function loadPayPeriods(keepSelection = false) {
   currentPayPeriodRecord = currentPayPeriods.find(row => row.id === currentPayPeriodId) || null;
   populatePayPeriodForm(currentPayPeriodRecord);
   renderSelectedPayPeriodInfo();
+  renderSuggestedPayPeriodInfo();
+}
+
+function sortPayPeriodsNewestFirst(rows) {
+  return [...rows].sort((a, b) => {
+    const aStart = toDateInputValue(getRecordValue(a, [
+      'period_start_date',
+      'pay_period_start_date',
+      'start_date',
+      'date_start'
+    ])) || '';
+
+    const bStart = toDateInputValue(getRecordValue(b, [
+      'period_start_date',
+      'pay_period_start_date',
+      'start_date',
+      'date_start'
+    ])) || '';
+
+    if (aStart !== bStart) {
+      return bStart.localeCompare(aStart);
+    }
+
+    const aEnd = toDateInputValue(getRecordValue(a, [
+      'period_end_date',
+      'pay_period_end_date',
+      'end_date',
+      'date_end'
+    ])) || '';
+
+    const bEnd = toDateInputValue(getRecordValue(b, [
+      'period_end_date',
+      'pay_period_end_date',
+      'end_date',
+      'date_end'
+    ])) || '';
+
+    if (aEnd !== bEnd) {
+      return bEnd.localeCompare(aEnd);
+    }
+
+    const aCreated = String(getRecordValue(a, ['created_at']) || '');
+    const bCreated = String(getRecordValue(b, ['created_at']) || '');
+    return bCreated.localeCompare(aCreated);
+  });
 }
 
 function formatPayPeriodLabel(row) {
