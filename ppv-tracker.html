@@ -1575,7 +1575,7 @@
               <span class="payroll-step-number">1</span>
               <span>
                 <span class="payroll-step-title">Select Pay Period</span>
-                <span class="payroll-step-summary">Select an existing bi-weekly payroll period or start data entry for the next suggested pay period.</span>
+                <span class="payroll-step-summary">Choose the open bi-weekly payroll period. Create or update the pay period here if needed.</span>
               </span>
               <span class="payroll-step-status" id="payrollStep1Status">Open</span>
               <span class="payroll-step-toggle" id="payrollStep1Toggle">−</span>
@@ -1603,37 +1603,56 @@
                     Select a pay period to load PPV data.
                   </div>
 
-                  <div class="hidden">
-                    <input id="payPeriodNameInput" autocomplete="off">
-                    <input id="payPeriodStartInput" type="date">
-                    <input id="payPeriodEndInput" type="date">
-                    <input id="week1StartInput" type="date">
-                    <input id="week1EndInput" type="date">
-                    <input id="week2StartInput" type="date">
-                    <input id="week2EndInput" type="date">
-                    <textarea id="payPeriodNotesInput"></textarea>
-                  </div>
-
                   <div class="workflow-action-row">
                     <button class="success-btn small-btn" type="button" onclick="markPayrollWorkflowStepComplete(1, true)">PAY PERIOD SELECTED - OPEN STEP 2</button>
                   </div>
                 </div>
 
                 <div class="card manager-only">
-                  <h2>Suggested Next Pay Period</h2>
+                  <h2>Create / Update Pay Period</h2>
 
-                  <div id="suggestedPayPeriodInfo" class="status-message">
-                    Loading suggested next pay period...
+                  <label>Pay Period Name:</label>
+                  <input id="payPeriodNameInput" placeholder="Example: PPV 2026-06-01 to 2026-06-14" autocomplete="off">
+
+                  <div class="form-grid">
+                    <div>
+                      <label>Start Date:</label>
+                      <input id="payPeriodStartInput" type="date" onchange="populateDefaultWeekDates()">
+                    </div>
+
+                    <div>
+                      <label>End Date:</label>
+                      <input id="payPeriodEndInput" type="date" onchange="populateDefaultWeekDates()">
+                    </div>
+
+                    <div>
+                      <label>Week 1 Start:</label>
+                      <input id="week1StartInput" type="date">
+                    </div>
+
+                    <div>
+                      <label>Week 1 End:</label>
+                      <input id="week1EndInput" type="date">
+                    </div>
+
+                    <div>
+                      <label>Week 2 Start:</label>
+                      <input id="week2StartInput" type="date">
+                    </div>
+
+                    <div>
+                      <label>Week 2 End:</label>
+                      <input id="week2EndInput" type="date">
+                    </div>
                   </div>
 
-                  <div class="workflow-action-row">
-                    <button id="startSuggestedPayPeriodBtn" class="accent-btn small-btn" type="button" onclick="startSuggestedPayPeriod()">
-                      START DATA ENTRY FOR SUGGESTED PAY PERIOD
-                    </button>
-                  </div>
+                  <label>Notes:</label>
+                  <textarea id="payPeriodNotesInput" placeholder="Optional notes for this pay period..."></textarea>
+
+                  <button class="accent-btn full-width-btn" type="button" onclick="upsertPayPeriodFromForm()">SAVE PAY PERIOD</button>
 
                   <div class="help-text">
-                    The system calculates the next bi-weekly period from the latest existing pay-period end date. Week 1 and Week 2 dates are calculated internally only for Skimmer import/reporting logic.
+                    Week dates are required by the PPV pay-period RPC and are used on reporting/attestation output.
                   </div>
                 </div>
               </div>
@@ -2155,7 +2174,6 @@ let currentPPVSession = null;
 let currentPayPeriodId = null;
 let currentPayPeriodRecord = null;
 let currentPayPeriods = [];
-let suggestedNextPayPeriod = null;
 let currentRouteTechRows = [];
 let currentLiveSummaryRows = [];
 let currentImportBatchRows = [];
@@ -2170,23 +2188,42 @@ let isManagerMode = false;
 let isAdminMode = false;
 
 
+let ppvBootstrapStarted = false;
+
 document.addEventListener('DOMContentLoaded', () => {
   initializeInventorySidebar();
   initializePayrollWorkflowUI();
   setInputValue('safeguardIncidentDateInput', getTodayISODate());
   setInputValue('hrSignoffDateInput', getTodayISODate());
+  bootstrapPPVTracker();
 });
 
-window.addEventListener('load', async () => {
-  const hasAccess = await enforcePPVAccess();
+window.addEventListener('load', () => {
+  bootstrapPPVTracker();
+});
 
-  if (!hasAccess) {
+async function bootstrapPPVTracker() {
+  if (ppvBootstrapStarted) {
     return;
   }
 
-  applyRoleModeToPage();
-  await loadInitialPPVData();
-});
+  ppvBootstrapStarted = true;
+
+  try {
+    const hasAccess = await enforcePPVAccess();
+
+    if (!hasAccess) {
+      return;
+    }
+
+    applyRoleModeToPage();
+    await loadInitialPPVData();
+  } catch (error) {
+    console.error('PPV tracker startup error:', error);
+    showPPVContent(currentPPVProfile || {}, currentPPVSession?.user?.email || '');
+    setPPVStatus('Unable to finish loading the PPV Tracker. Click Refresh Data to try again. Details: ' + (error?.message || error), 'error');
+  }
+}
 
 function initializeInventorySidebar() {
   const appShell = document.getElementById('appShell');
@@ -2463,18 +2500,21 @@ async function appLogout() {
 async function loadInitialPPVData() {
   setPPVStatus('Loading PPV pay periods and route techs...');
 
-  await Promise.all([
-    loadPayPeriods(),
-    loadRouteTechs()
-  ]);
+  try {
+    await loadPayPeriods(false);
+    await loadRouteTechs();
 
-  if (currentPayPeriodId) {
-    await refreshSelectedPayPeriodData();
-  } else {
-    setPPVStatus('No pay period selected. Create or select a pay period to begin.', 'warning');
+    if (currentPayPeriodId) {
+      await refreshSelectedPayPeriodData();
+    } else {
+      setPPVStatus('No pay period selected. Select or start a pay period to begin.', 'warning');
+    }
+  } catch (error) {
+    console.error('Initial PPV load error:', error);
+    setPPVStatus('Initial PPV load error: ' + (error?.message || error), 'error');
+  } finally {
+    updatePayrollWorkflowUI();
   }
-
-  updatePayrollWorkflowUI();
 }
 
 async function refreshPPVPageData() {
@@ -2505,22 +2545,38 @@ async function loadPayPeriods(keepSelection = false) {
   const select = document.getElementById('payPeriodSelect');
   const previousSelection = currentPayPeriodId;
 
+  if (!select) {
+    return;
+  }
+
+  select.disabled = true;
   select.innerHTML = '<option value="">Loading pay periods...</option>';
 
   const { data, error } = await client
     .from('ppv_pay_periods')
     .select('*')
+    .order('period_start_date', { ascending: false })
     .order('created_at', { ascending: false });
 
   if (error) {
+    select.disabled = false;
     select.innerHTML = '<option value="">Pay period load error</option>';
     setPPVStatus('Pay period load error: ' + error.message, 'error');
-    renderSuggestedNextPayPeriod();
     return;
   }
 
-  currentPayPeriods = data || [];
-  select.innerHTML = '<option value="">Select pay period...</option>';
+  currentPayPeriods = sortPayPeriodsNewestFirst(data || []);
+  select.innerHTML = '';
+
+  if (currentPayPeriods.length === 0) {
+    currentPayPeriodId = null;
+    currentPayPeriodRecord = null;
+    select.innerHTML = '<option value="">No pay periods found</option>';
+    select.disabled = false;
+    renderSelectedPayPeriodInfo();
+    resetMetrics();
+    return;
+  }
 
   currentPayPeriods.forEach(row => {
     const option = document.createElement('option');
@@ -2529,32 +2585,57 @@ async function loadPayPeriods(keepSelection = false) {
     select.appendChild(option);
   });
 
-  if (currentPayPeriods.length === 0) {
-    currentPayPeriodId = null;
-    currentPayPeriodRecord = null;
-    select.innerHTML = '<option value="">No pay periods found</option>';
-    renderSelectedPayPeriodInfo();
-    renderSuggestedNextPayPeriod();
-    resetMetrics();
-    return;
-  }
-
   if (keepSelection && previousSelection && currentPayPeriods.some(row => row.id === previousSelection)) {
     currentPayPeriodId = previousSelection;
   } else {
-    const openPeriod = currentPayPeriods.find(row => {
+    const newestOpenPeriod = currentPayPeriods.find(row => {
       const status = getRecordValue(row, ['status', 'pay_period_status', 'period_status']);
       return !['APPROVED', 'VOIDED', 'CLOSED'].includes(String(status || '').toUpperCase());
     });
 
-    currentPayPeriodId = (openPeriod || currentPayPeriods[0]).id;
+    currentPayPeriodId = (newestOpenPeriod || currentPayPeriods[0]).id;
   }
 
   select.value = currentPayPeriodId || '';
+  select.disabled = false;
   currentPayPeriodRecord = currentPayPeriods.find(row => row.id === currentPayPeriodId) || null;
   populatePayPeriodForm(currentPayPeriodRecord);
   renderSelectedPayPeriodInfo();
-  renderSuggestedNextPayPeriod();
+}
+
+function sortPayPeriodsNewestFirst(rows) {
+  return [...rows].sort((a, b) => {
+    const bDate = getPayPeriodSortDate(b);
+    const aDate = getPayPeriodSortDate(a);
+
+    if (bDate !== aDate) {
+      return bDate.localeCompare(aDate);
+    }
+
+    const bCreated = String(getRecordValue(b, ['created_at']) || '');
+    const aCreated = String(getRecordValue(a, ['created_at']) || '');
+
+    if (bCreated !== aCreated) {
+      return bCreated.localeCompare(aCreated);
+    }
+
+    return String(formatPayPeriodLabel(b)).localeCompare(String(formatPayPeriodLabel(a)));
+  });
+}
+
+function getPayPeriodSortDate(row) {
+  return toDateInputValue(
+    getRecordValue(row, [
+      'period_start_date',
+      'pay_period_start_date',
+      'start_date',
+      'date_start',
+      'period_end_date',
+      'pay_period_end_date',
+      'end_date',
+      'date_end'
+    ])
+  ) || '0000-00-00';
 }
 
 function formatPayPeriodLabel(row) {
@@ -2618,140 +2699,6 @@ function addDaysISO(dateValue, dayCount) {
 
   date.setDate(date.getDate() + dayCount);
   return date.toISOString().slice(0, 10);
-}
-
-function calculateSuggestedNextPayPeriod() {
-  const datedPeriods = (currentPayPeriods || [])
-    .map(row => ({
-      row,
-      endDate: toDateInputValue(getRecordValue(row, ['period_end_date', 'pay_period_end_date', 'end_date', 'date_end']))
-    }))
-    .filter(item => item.endDate);
-
-  if (datedPeriods.length === 0) {
-    return null;
-  }
-
-  datedPeriods.sort((a, b) => a.endDate.localeCompare(b.endDate));
-
-  const latest = datedPeriods[datedPeriods.length - 1];
-  const startDate = addDaysISO(latest.endDate, 1);
-  const endDate = addDaysISO(startDate, 13);
-  const week1StartDate = startDate;
-  const week1EndDate = addDaysISO(startDate, 6);
-  const week2StartDate = addDaysISO(startDate, 7);
-  const week2EndDate = endDate;
-  const label = `PPV ${startDate} to ${endDate}`;
-  const existing = (currentPayPeriods || []).find(row => {
-    const rowStart = toDateInputValue(getRecordValue(row, ['period_start_date', 'pay_period_start_date', 'start_date', 'date_start']));
-    const rowEnd = toDateInputValue(getRecordValue(row, ['period_end_date', 'pay_period_end_date', 'end_date', 'date_end']));
-    return rowStart === startDate && rowEnd === endDate;
-  }) || null;
-
-  return {
-    label,
-    startDate,
-    endDate,
-    week1StartDate,
-    week1EndDate,
-    week2StartDate,
-    week2EndDate,
-    existingPayPeriodId: existing?.id || null
-  };
-}
-
-function renderSuggestedNextPayPeriod() {
-  const info = document.getElementById('suggestedPayPeriodInfo');
-  const button = document.getElementById('startSuggestedPayPeriodBtn');
-
-  suggestedNextPayPeriod = calculateSuggestedNextPayPeriod();
-
-  if (!info) {
-    return;
-  }
-
-  if (!suggestedNextPayPeriod) {
-    info.textContent = 'No suggested pay period is available yet. A prior pay period with an end date is needed to calculate the next bi-weekly period.';
-    info.className = 'status-message warning';
-    if (button) {
-      button.disabled = true;
-      button.textContent = 'NO SUGGESTED PAY PERIOD AVAILABLE';
-    }
-    return;
-  }
-
-  info.textContent =
-    `Suggested: ${suggestedNextPayPeriod.label}\n` +
-    `Date Range: ${formatDate(suggestedNextPayPeriod.startDate)} to ${formatDate(suggestedNextPayPeriod.endDate)}`;
-  info.className = suggestedNextPayPeriod.existingPayPeriodId
-    ? 'status-message success'
-    : 'status-message';
-
-  if (button) {
-    button.disabled = false;
-    button.textContent = suggestedNextPayPeriod.existingPayPeriodId
-      ? 'SELECT EXISTING SUGGESTED PAY PERIOD'
-      : 'START DATA ENTRY FOR SUGGESTED PAY PERIOD';
-  }
-}
-
-async function startSuggestedPayPeriod() {
-  if (!isManagerMode) {
-    setPPVStatus('Accounting users cannot start a pay period.', 'error');
-    return;
-  }
-
-  if (!suggestedNextPayPeriod) {
-    renderSuggestedNextPayPeriod();
-  }
-
-  if (!suggestedNextPayPeriod) {
-    setPPVStatus('No suggested pay period is available.', 'error');
-    return;
-  }
-
-  if (suggestedNextPayPeriod.existingPayPeriodId) {
-    currentPayPeriodId = suggestedNextPayPeriod.existingPayPeriodId;
-    const select = document.getElementById('payPeriodSelect');
-    if (select) {
-      select.value = currentPayPeriodId;
-    }
-    currentPayPeriodRecord = currentPayPeriods.find(row => row.id === currentPayPeriodId) || null;
-    populatePayPeriodForm(currentPayPeriodRecord);
-    renderSelectedPayPeriodInfo();
-    await refreshSelectedPayPeriodData();
-    setPayrollStepOpen(1, true, true);
-    setPPVStatus('Suggested pay period selected.', 'success');
-    return;
-  }
-
-  const payload = {
-    p_pay_period_label: suggestedNextPayPeriod.label,
-    p_period_start_date: suggestedNextPayPeriod.startDate,
-    p_period_end_date: suggestedNextPayPeriod.endDate,
-    p_week_1_start_date: suggestedNextPayPeriod.week1StartDate,
-    p_week_1_end_date: suggestedNextPayPeriod.week1EndDate,
-    p_week_2_start_date: suggestedNextPayPeriod.week2StartDate,
-    p_week_2_end_date: suggestedNextPayPeriod.week2EndDate,
-    p_notes: 'Started from PPV Tracker suggested next pay period.',
-    p_pay_period_id: null
-  };
-
-  const { data, error } = await client.rpc('upsert_ppv_pay_period', payload);
-
-  if (error) {
-    setPPVStatus('Unable to start suggested pay period: ' + error.message, 'error');
-    return;
-  }
-
-  if (data?.id) {
-    currentPayPeriodId = data.id;
-  }
-
-  setPPVStatus('Suggested pay period started. Step 2 is available for weekly Skimmer imports.', 'success');
-  await loadPayPeriods(true);
-  await refreshSelectedPayPeriodData();
-  setPayrollStepOpen(1, true, true);
 }
 
 function handlePayPeriodChange() {
@@ -3799,7 +3746,9 @@ function isPayrollWorkflowStepComplete(stepNumber) {
   }
 
   if (stepNumber === 2) {
-    return hasRequiredWeeklySkimmerImports();
+    return Boolean(state.step2Complete)
+      || (Array.isArray(currentImportBatchRows) && currentImportBatchRows.length > 0)
+      || (Array.isArray(currentLiveSummaryRows) && currentLiveSummaryRows.some(row => numberFromRecord(row, ['total_visits']) > 0));
   }
 
   if (stepNumber === 8) {
