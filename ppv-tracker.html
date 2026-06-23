@@ -443,7 +443,7 @@
 
     .metric-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
       gap: 12px;
       margin-bottom: 18px;
     }
@@ -646,6 +646,43 @@
 
     .workflow-status-card {
       border-left: 4px solid var(--accent);
+    }
+
+    .suggestion-card {
+      background: #f8fafc;
+      border: 1px solid #d9e2ec;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .suggestion-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 900;
+      margin-bottom: 7px;
+    }
+
+    .suggestion-title {
+      color: var(--header);
+      font-size: 20px;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+
+    .suggestion-dates,
+    .suggestion-status {
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .suggestion-status {
+      color: var(--muted);
+      margin-top: 4px;
     }
 
     .workflow-action-row {
@@ -1635,27 +1672,26 @@
               <span class="payroll-step-number">2</span>
               <span>
                 <span class="payroll-step-title">Import Skimmer CSV</span>
-                <span class="payroll-step-summary">Import the two-week combined Skimmer Tech Summary CSV for the selected pay period.</span>
+                <span class="payroll-step-summary">Import Week 1 and Week 2 Skimmer Tech Summary CSV files separately into the selected bi-weekly pay period.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep2Status">Locked</span>
+              <span class="payroll-step-status" id="payrollStep2Status">Ready</span>
               <span class="payroll-step-toggle" id="payrollStep2Toggle">+</span>
             </button>
             <div class="payroll-step-body">
               <div class="card manager-only">
                 <h2>Import Skimmer Tech Summary CSV</h2>
 
-                <label>Database Import Bucket:</label>
+                <label>Import Week:</label>
                 <select id="importWeekSelect">
-                  <option value="1">Two-week combined CSV / Pay Period Total</option>
-                  <option value="1">Week 1 only - legacy split import</option>
-                  <option value="2">Week 2 only - legacy split import</option>
+                  <option value="1">Week 1 Skimmer Tech Summary CSV</option>
+                  <option value="2">Week 2 Skimmer Tech Summary CSV</option>
                 </select>
 
                 <label>Skimmer Tech Summary CSV:</label>
                 <input id="skimmerImportFileInput" type="file" accept=".csv,text/csv">
 
                 <div class="help-text">
-                  New payroll workflow: upload the two-week combined Skimmer Tech Summary once. Cleanings count as actual visits. Work Orders remain reference-only.
+                  Upload Week 1 and Week 2 Skimmer Tech Summary files separately into this selected bi-weekly pay period. Cleanings count as actual visits. Work Orders remain reference-only.
                 </div>
 
                 <button class="accent-btn full-width-btn" type="button" onclick="importSkimmerTechSummaryCSV()">IMPORT SKIMMER CSV</button>
@@ -1696,7 +1732,7 @@
                 <span class="payroll-step-title">Extra Cleaning Adjustments</span>
                 <span class="payroll-step-summary">Add completed cleanings that were identified after the Skimmer import.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep3Status">Locked</span>
+              <span class="payroll-step-status" id="payrollStep3Status">Ready</span>
               <span class="payroll-step-toggle" id="payrollStep3Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -1737,7 +1773,7 @@
                 <span class="payroll-step-title">Extra RT Meetings / Safeguards</span>
                 <span class="payroll-step-summary">Enter extra RT meeting or maintenance credits and any reviewed safeguard payroll impacts.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep4Status">Locked</span>
+              <span class="payroll-step-status" id="payrollStep4Status">Ready</span>
               <span class="payroll-step-toggle" id="payrollStep4Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -1829,7 +1865,7 @@
                 <span class="payroll-step-title">HR Hours Input</span>
                 <span class="payroll-step-summary">HR enters regular hours, overtime hours, PTO taken, holiday pay hours, and other approved time.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep5Status">Locked</span>
+              <span class="payroll-step-status" id="payrollStep5Status">Ready</span>
               <span class="payroll-step-toggle" id="payrollStep5Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -1896,7 +1932,7 @@
                 <span class="payroll-step-title">Calculate Payroll / Final Pay Period Display</span>
                 <span class="payroll-step-summary">Refresh calculations and review final payroll as a whole for the selected pay period.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep6Status">Locked</span>
+              <span class="payroll-step-status" id="payrollStep6Status">Ready</span>
               <span class="payroll-step-toggle" id="payrollStep6Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -1913,7 +1949,13 @@
                   <div class="metric-card">
                     <div class="metric-label">Total Visits</div>
                     <div id="metricTotalVisits" class="metric-value">0</div>
-                    <div class="metric-help">Imported cleanings + approved visit corrections</div>
+                    <div class="metric-help">RT + RTL cleanings completed</div>
+                  </div>
+
+                  <div class="metric-card">
+                    <div class="metric-label">RTL Visits Completed</div>
+                    <div id="metricRTLVisits" class="metric-value">0</div>
+                    <div class="metric-help">Tracked for production only; excluded from PPV pay</div>
                   </div>
 
                   <div class="metric-card">
@@ -1931,7 +1973,7 @@
                   <div class="metric-card">
                     <div class="metric-label">Payroll Total</div>
                     <div id="metricPayrollTotal" class="metric-value">$0.00</div>
-                    <div class="metric-help">PPV + credits + approved extras/safeguards</div>
+                    <div class="metric-help">RT PPV + credits + approved extras/safeguards</div>
                   </div>
                 </div>
 
@@ -1986,7 +2028,7 @@
                 <span class="payroll-step-title">Generate Route Tech Payroll Attestation Forms</span>
                 <span class="payroll-step-summary">Generate individual route tech attestation forms for HR to print to PDF and send for signatures.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep7Status">Locked</span>
+              <span class="payroll-step-status" id="payrollStep7Status">Ready</span>
               <span class="payroll-step-toggle" id="payrollStep7Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -1994,7 +2036,7 @@
                 <div class="card-header-row">
                   <div>
                     <h2>Route Tech Payroll Attestation Forms</h2>
-                    <div class="muted-text">Employee-facing breakdown. HR hours and effective hourly review are intentionally excluded.</div>
+                    <div class="muted-text">Employee-facing PPV payroll breakdown for active Route Techs only.</div>
                   </div>
                   <div class="button-row">
                     <button class="primary-btn small-btn" type="button" onclick="printSelectedRouteTechPaySheet()">PRINT SELECTED</button>
@@ -2030,7 +2072,7 @@
                 <span class="payroll-step-title">HR Payroll Sign-Off</span>
                 <span class="payroll-step-summary">HR confirms all payroll activities are complete, then submits the pay period for review/approval.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep8Status">Locked</span>
+              <span class="payroll-step-status" id="payrollStep8Status">Ready</span>
               <span class="payroll-step-toggle" id="payrollStep8Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -2458,7 +2500,7 @@ async function loadInitialPPVData() {
   if (currentPayPeriodId) {
     await refreshSelectedPayPeriodData();
   } else {
-    setPPVStatus('No pay period selected. Create or select a pay period to begin.', 'warning');
+    setPPVStatus('No pay period selected. Select an existing pay period or start the suggested next pay period to begin.', 'warning');
   }
 
   updatePayrollWorkflowUI();
@@ -2683,6 +2725,177 @@ function renderSelectedPayPeriodInfo() {
   badge.textContent = status;
 }
 
+
+function calculateSuggestedNextPayPeriod() {
+  if (!Array.isArray(currentPayPeriods) || currentPayPeriods.length === 0) {
+    return null;
+  }
+
+  const latestEndDate = currentPayPeriods
+    .map(row => getPayPeriodEndDate(row))
+    .filter(Boolean)
+    .sort()
+    .pop();
+
+  if (!latestEndDate) {
+    return null;
+  }
+
+  const periodStartDate = addDaysISO(latestEndDate, 1);
+  const periodEndDate = addDaysISO(periodStartDate, 13);
+  const week1StartDate = periodStartDate;
+  const week1EndDate = addDaysISO(periodStartDate, 6);
+  const week2StartDate = addDaysISO(periodStartDate, 7);
+  const week2EndDate = periodEndDate;
+  const payPeriodLabel = `PPV ${periodStartDate} to ${periodEndDate}`;
+
+  const existingMatch = currentPayPeriods.find(row => {
+    return getPayPeriodStartDate(row) === periodStartDate
+      && getPayPeriodEndDate(row) === periodEndDate;
+  }) || null;
+
+  return {
+    pay_period_label: payPeriodLabel,
+    period_start_date: periodStartDate,
+    period_end_date: periodEndDate,
+    week_1_start_date: week1StartDate,
+    week_1_end_date: week1EndDate,
+    week_2_start_date: week2StartDate,
+    week_2_end_date: week2EndDate,
+    existing_pay_period_id: existingMatch?.id || null
+  };
+}
+
+function renderSuggestedPayPeriodInfo() {
+  const title = document.getElementById('suggestedPayPeriodTitle');
+  const dates = document.getElementById('suggestedPayPeriodDates');
+  const status = document.getElementById('suggestedPayPeriodStatus');
+
+  if (!title || !dates || !status) {
+    return;
+  }
+
+  if (!suggestedPayPeriod) {
+    title.textContent = 'No suggestion available yet';
+    dates.textContent = 'Start Date: -- / End Date: --';
+    status.textContent = 'At least one existing pay period with an end date is needed to suggest the next bi-weekly period.';
+    return;
+  }
+
+  title.textContent = suggestedPayPeriod.pay_period_label;
+  dates.textContent = `Start Date: ${formatDate(suggestedPayPeriod.period_start_date)} / End Date: ${formatDate(suggestedPayPeriod.period_end_date)}`;
+
+  if (suggestedPayPeriod.existing_pay_period_id) {
+    status.textContent = 'This suggested pay period already exists. Starting data entry will select the existing period.';
+  } else {
+    status.textContent = `Week 1: ${formatDate(suggestedPayPeriod.week_1_start_date)} to ${formatDate(suggestedPayPeriod.week_1_end_date)} • Week 2: ${formatDate(suggestedPayPeriod.week_2_start_date)} to ${formatDate(suggestedPayPeriod.week_2_end_date)}`;
+  }
+}
+
+async function openSelectedPayPeriodForDataEntry() {
+  if (!currentPayPeriodId) {
+    setPPVStatus('Select a pay period before opening Step 2.', 'error');
+    return;
+  }
+
+  markPayrollWorkflowStepComplete(1, false);
+  setPayrollStepOpen(2, true, false);
+  setPPVStatus('Selected pay period is ready for Week 1 / Week 2 Skimmer imports.', 'success');
+}
+
+function extractPayPeriodIdFromUpsertResult(data) {
+  if (!data) {
+    return null;
+  }
+
+  if (typeof data === 'string') {
+    return data;
+  }
+
+  if (Array.isArray(data)) {
+    return data[0]?.id || data[0]?.pay_period_id || null;
+  }
+
+  return data.id || data.pay_period_id || null;
+}
+
+async function startSuggestedPayPeriodForDataEntry() {
+  if (!isManagerMode) {
+    setPPVStatus('Accounting users cannot start a new pay period.', 'error');
+    return;
+  }
+
+  if (!suggestedPayPeriod) {
+    setPPVStatus('Suggested next pay period is not available yet. Refresh pay periods and try again.', 'error');
+    return;
+  }
+
+  if (suggestedPayPeriod.existing_pay_period_id) {
+    currentPayPeriodId = suggestedPayPeriod.existing_pay_period_id;
+    const select = document.getElementById('payPeriodSelect');
+    if (select) {
+      select.value = currentPayPeriodId;
+    }
+    currentPayPeriodRecord = currentPayPeriods.find(row => row.id === currentPayPeriodId) || null;
+    renderSelectedPayPeriodInfo();
+    await refreshSelectedPayPeriodData();
+    markPayrollWorkflowStepComplete(1, false);
+    setPayrollStepOpen(2, true, false);
+    setPPVStatus('Existing suggested pay period selected and ready for Week 1 / Week 2 Skimmer imports.', 'success');
+    return;
+  }
+
+  const payPeriodToStart = { ...suggestedPayPeriod };
+
+  setPPVStatus('Starting suggested bi-weekly pay period...');
+
+  const { data, error } = await client.rpc('upsert_ppv_pay_period', {
+    p_pay_period_label: payPeriodToStart.pay_period_label,
+    p_period_start_date: payPeriodToStart.period_start_date,
+    p_period_end_date: payPeriodToStart.period_end_date,
+    p_week_1_start_date: payPeriodToStart.week_1_start_date,
+    p_week_1_end_date: payPeriodToStart.week_1_end_date,
+    p_week_2_start_date: payPeriodToStart.week_2_start_date,
+    p_week_2_end_date: payPeriodToStart.week_2_end_date,
+    p_notes: 'Started from PPV Tracker suggested next pay period workflow.',
+    p_pay_period_id: null
+  });
+
+  if (error) {
+    setPPVStatus('Suggested pay period start error: ' + error.message, 'error');
+    return;
+  }
+
+  const newPayPeriodId = extractPayPeriodIdFromUpsertResult(data);
+
+  if (newPayPeriodId) {
+    currentPayPeriodId = newPayPeriodId;
+  }
+
+  await loadPayPeriods(true);
+
+  if (!currentPayPeriodId) {
+    const createdMatch = currentPayPeriods.find(row => {
+      return getPayPeriodStartDate(row) === payPeriodToStart.period_start_date
+        && getPayPeriodEndDate(row) === payPeriodToStart.period_end_date;
+    });
+
+    currentPayPeriodId = createdMatch?.id || null;
+  }
+
+  const select = document.getElementById('payPeriodSelect');
+  if (select && currentPayPeriodId) {
+    select.value = currentPayPeriodId;
+  }
+
+  currentPayPeriodRecord = currentPayPeriods.find(row => row.id === currentPayPeriodId) || null;
+  renderSelectedPayPeriodInfo();
+  await refreshSelectedPayPeriodData();
+  markPayrollWorkflowStepComplete(1, false);
+  setPayrollStepOpen(2, true, false);
+  setPPVStatus('Suggested pay period started and ready for Week 1 / Week 2 Skimmer imports.', 'success');
+}
+
 function getStatusBadgeClass(status) {
   const normalized = String(status || '').toUpperCase();
 
@@ -2834,8 +3047,40 @@ function deriveRouteTechRowsFromLiveSummaryRows() {
   return sortRouteTechRows(Array.from(rowsById.values()));
 }
 
+
+function isRTLRow(row) {
+  const rowType = String(getRecordValue(row, ['row_type', 'route_tech_row_type']) || '').toUpperCase();
+  const code = String(getRecordValue(row, ['rt_code', 'rt_code_normalized', 'route_tech_code', 'code', 'tech_code']) || '').toUpperCase();
+
+  return rowType === 'RTL' || code.startsWith('RTL');
+}
+
+function isActiveRouteTechPayrollRow(row) {
+  if (!row) {
+    return false;
+  }
+
+  const active = getRecordValue(row, ['active', 'is_active']);
+  const ppvEligible = getRecordValue(row, ['ppv_eligible']);
+  const rowType = String(getRecordValue(row, ['row_type', 'route_tech_row_type']) || '').toUpperCase();
+
+  if (active === false || ppvEligible === false || isRTLRow(row)) {
+    return false;
+  }
+
+  if (rowType && rowType !== 'RT') {
+    return false;
+  }
+
+  return true;
+}
+
+function getActiveRouteTechPayrollRows(rows) {
+  return sortRouteTechRows((rows || []).filter(isActiveRouteTechPayrollRow));
+}
+
 function populateRouteTechSelects(rows, loadErrorMessage = '') {
-  const finalRows = sortRouteTechRows(rows && rows.length ? rows : deriveRouteTechRowsFromLiveSummaryRows());
+  const finalRows = getActiveRouteTechPayrollRows(rows && rows.length ? rows : deriveRouteTechRowsFromLiveSummaryRows());
 
   document.querySelectorAll('.route-tech-select').forEach(select => {
     const existingValue = select.value;
@@ -2914,19 +3159,31 @@ async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = 
 function renderMetrics(rows) {
   const totals = {
     totalVisits: 0,
+    rtlVisits: 0,
     regularVisits: 0,
     pickupVisits: 0,
     payrollTotal: 0
   };
 
   rows.forEach(row => {
-    totals.totalVisits += numberFromRecord(row, [
+    const rowTotalVisits = numberFromRecord(row, [
       'total_pay_period_visits',
       'total_visits',
       'ppv_total_visits',
       'visit_total',
       'cleanings_total'
     ]);
+
+    totals.totalVisits += rowTotalVisits;
+
+    if (isRTLRow(row)) {
+      totals.rtlVisits += rowTotalVisits;
+      return;
+    }
+
+    if (!isActiveRouteTechPayrollRow(row)) {
+      return;
+    }
 
     totals.regularVisits += numberFromRecord(row, [
       'regular_ppv_visits',
@@ -2957,6 +3214,7 @@ function renderMetrics(rows) {
   });
 
   setText('metricTotalVisits', formatNumber(totals.totalVisits));
+  setText('metricRTLVisits', formatNumber(totals.rtlVisits));
   setText('metricRegularVisits', formatNumber(totals.regularVisits));
   setText('metricPickupVisits', formatNumber(totals.pickupVisits));
   setText('metricPayrollTotal', formatCurrency(totals.payrollTotal));
@@ -2964,6 +3222,7 @@ function renderMetrics(rows) {
 
 function resetMetrics() {
   setText('metricTotalVisits', '0');
+  setText('metricRTLVisits', '0');
   setText('metricRegularVisits', '0');
   setText('metricPickupVisits', '0');
   setText('metricPayrollTotal', '$0.00');
@@ -3699,9 +3958,24 @@ async function loadReportingHistoryRows() {
     return;
   }
 
-  currentReportingHistoryRows = data || [];
+  currentReportingHistoryRows = sortReportingHistoryRows(data || []);
   renderRowsTable(currentReportingHistoryRows, 'historyHead', 'historyBody', 'No reporting history rows found.');
-  setPPVStatus('Reporting history loaded.', 'success');
+  setPPVStatus('Reporting history loaded newest to oldest.', 'success');
+}
+
+function sortReportingHistoryRows(rows) {
+  return (rows || []).slice().sort((a, b) => {
+    const aDate = getPayPeriodEndDate(a) || getPayPeriodStartDate(a) || '';
+    const bDate = getPayPeriodEndDate(b) || getPayPeriodStartDate(b) || '';
+
+    if (aDate !== bDate) {
+      return bDate.localeCompare(aDate);
+    }
+
+    const aCode = String(getRecordValue(a, ['rt_code_normalized', 'rt_code']) || '');
+    const bCode = String(getRecordValue(b, ['rt_code_normalized', 'rt_code']) || '');
+    return aCode.localeCompare(bCode, undefined, { numeric: true, sensitivity: 'base' });
+  });
 }
 
 function initializePayrollWorkflowUI() {
@@ -3931,11 +4205,7 @@ async function calculateFinalPayrollAndOpenNext() {
 }
 
 function getAttestationRows() {
-  return (currentLiveSummaryRows || []).filter(row => {
-    const eligible = getRecordValue(row, ['ppv_eligible']);
-    const rowType = String(getRecordValue(row, ['row_type']) || '').toUpperCase();
-    return eligible !== false && ['RT', 'RTL'].includes(rowType);
-  });
+  return (currentLiveSummaryRows || []).filter(row => isActiveRouteTechPayrollRow(row));
 }
 
 function generateAllRouteTechAttestationForms() {
@@ -4301,7 +4571,7 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
       <div class="pay-sheet-title-row">
         <div>
           <div class="pay-sheet-title">Molinari Pools - Route Tech PPV Pay Sheet</div>
-          <div class="pay-sheet-subtitle">Employee-facing payroll breakdown for signature. HR minimum-wage review fields are excluded.</div>
+          <div class="pay-sheet-subtitle">Employee-facing PPV payroll breakdown for signature.</div>
         </div>
         <div>
           <div class="badge badge-neutral">${escapeHTML(getRecordValue(row, ['pay_period_status']) || '')}</div>
@@ -4385,14 +4655,14 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
             <td>${formatNumber(ptoHolidayCredit)} credits</td>
             <td>${formatCurrency(pickupRate)}</td>
             <td>${formatCurrency(ptoHolidayPay)}</td>
-            <td>Hours converted at 1.5 visit credits per hour and paid at pickup visit rate.</td>
+            <td>Approved PTO / holiday credit paid at the pickup visit rate.</td>
           </tr>
           <tr>
             <td>Other Time</td>
             <td>${formatNumber(otherPaidCredit)} credits</td>
             <td>${formatCurrency(pickupRate)}</td>
             <td>${formatCurrency(otherPaidPay)}</td>
-            <td>Other approved paid time converted at 1.5 visit credits per hour.</td>
+            <td>Other approved paid-time credit paid at the pickup visit rate.</td>
           </tr>
           <tr>
             <td>Extra RT Meetings / Maintenance</td>
