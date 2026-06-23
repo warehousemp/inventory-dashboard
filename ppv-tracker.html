@@ -529,7 +529,7 @@
       border-color: rgba(2,122,72,0.35);
     }
 
-    .payroll-step.locked-legacy-unused {
+    .payroll-step.locked {
       opacity: 0.62;
       background: #f8fafc;
     }
@@ -549,7 +549,7 @@
       color: var(--text);
     }
 
-    .payroll-step.locked-legacy-unused .payroll-step-header {
+    .payroll-step.locked .payroll-step-header {
       cursor: not-allowed;
     }
 
@@ -576,7 +576,7 @@
       background: var(--success);
     }
 
-    .payroll-step.locked-legacy-unused .payroll-step-number {
+    .payroll-step.locked .payroll-step-number {
       background: #98a2b3;
     }
 
@@ -611,7 +611,7 @@
       color: var(--success);
     }
 
-    .payroll-step.locked-legacy-unused .payroll-step-status {
+    .payroll-step.locked .payroll-step-status {
       background: #f2f4f7;
       color: #667085;
     }
@@ -1575,7 +1575,7 @@
               <span class="payroll-step-number">1</span>
               <span>
                 <span class="payroll-step-title">Select / Start Pay Period</span>
-                <span class="payroll-step-summary">Select an existing bi-weekly pay period or start data entry for the suggested next pay period.</span>
+                <span class="payroll-step-summary">Select an existing bi-weekly pay period or start data entry for the system-suggested next pay period.</span>
               </span>
               <span class="payroll-step-status" id="payrollStep1Status">Open</span>
               <span class="payroll-step-toggle" id="payrollStep1Toggle">−</span>
@@ -1595,7 +1595,7 @@
                   </div>
 
                   <div class="button-row">
-                    <button class="primary-btn small-btn" type="button" onclick="refreshPPVPageData()">REFRESH DATA</button>
+                    <button class="primary-btn small-btn" type="button" onclick="refreshPPVPageData()">REFRESH PAY PERIODS</button>
                     <button class="secondary-btn small-btn" type="button" onclick="clearPPVStatus()">CLEAR MESSAGE</button>
                   </div>
 
@@ -1604,23 +1604,26 @@
                   </div>
 
                   <div class="workflow-action-row">
-                    <button class="success-btn small-btn" type="button" onclick="markPayrollWorkflowStepComplete(1, true)">PAY PERIOD SELECTED - OPEN STEP 2</button>
+                    <button class="success-btn small-btn" type="button" onclick="openSelectedPayPeriodForDataEntry()">OPEN SELECTED PAY PERIOD - STEP 2</button>
                   </div>
                 </div>
 
                 <div class="card manager-only">
                   <h2>Suggested Next Pay Period</h2>
 
-                  <div id="suggestedPayPeriodInfo" class="status-message">
-                    Loading suggested next pay period...
+                  <div class="suggestion-card">
+                    <div class="suggestion-label">System Recommendation</div>
+                    <div class="suggestion-title" id="suggestedPayPeriodTitle">Calculating next pay period...</div>
+                    <div class="suggestion-dates" id="suggestedPayPeriodDates">Start Date: -- / End Date: --</div>
+                    <div class="suggestion-status" id="suggestedPayPeriodStatus">Checking existing pay periods...</div>
                   </div>
 
-                  <button id="startSuggestedPayPeriodButton" class="accent-btn full-width-btn" type="button" onclick="startSuggestedPayPeriod()">
-                    START DATA ENTRY FOR SUGGESTED PAY PERIOD
-                  </button>
-
                   <div class="help-text">
-                    The system suggests the next bi-weekly pay period from the latest existing end date. Week 1 and Week 2 dates are calculated internally for Skimmer imports and reporting; users do not establish weekly pay periods.
+                    The system suggests the next bi-weekly pay period from the latest pay period end date. Week 1 and Week 2 dates are calculated internally only for Skimmer imports and reporting.
+                  </div>
+
+                  <div class="workflow-action-row">
+                    <button class="accent-btn small-btn" type="button" onclick="startSuggestedPayPeriodForDataEntry()">START DATA ENTRY FOR SUGGESTED PAY PERIOD</button>
                   </div>
                 </div>
               </div>
@@ -1632,36 +1635,33 @@
               <span class="payroll-step-number">2</span>
               <span>
                 <span class="payroll-step-title">Import Skimmer CSV</span>
-                <span class="payroll-step-summary">Import Week 1 and Week 2 Skimmer Tech Summary CSV files separately for the selected pay period.</span>
+                <span class="payroll-step-summary">Import the two-week combined Skimmer Tech Summary CSV for the selected pay period.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep2Status">Ready</span>
+              <span class="payroll-step-status" id="payrollStep2Status">Locked</span>
               <span class="payroll-step-toggle" id="payrollStep2Toggle">+</span>
             </button>
             <div class="payroll-step-body">
               <div class="card manager-only">
                 <h2>Import Skimmer Tech Summary CSV</h2>
 
-                <label>Week to Import:</label>
+                <label>Database Import Bucket:</label>
                 <select id="importWeekSelect">
-                  <option value="1">Week 1 Skimmer Tech Summary CSV</option>
-                  <option value="2">Week 2 Skimmer Tech Summary CSV</option>
+                  <option value="1">Two-week combined CSV / Pay Period Total</option>
+                  <option value="1">Week 1 only - legacy split import</option>
+                  <option value="2">Week 2 only - legacy split import</option>
                 </select>
 
                 <label>Skimmer Tech Summary CSV:</label>
                 <input id="skimmerImportFileInput" type="file" accept=".csv,text/csv">
 
                 <div class="help-text">
-                  Import Week 1 and Week 2 separately so weekly visit totals remain accurate. These are still part of one bi-weekly pay period; there is no separate weekly pay period setup.
+                  New payroll workflow: upload the two-week combined Skimmer Tech Summary once. Cleanings count as actual visits. Work Orders remain reference-only.
                 </div>
 
-                <div id="weeklyImportStatus" class="status-message">
-                  Week 1 and Week 2 import status will appear after a pay period is selected.
-                </div>
-
-                <button class="accent-btn full-width-btn" type="button" onclick="importSkimmerTechSummaryCSV()">IMPORT SELECTED WEEK CSV</button>
+                <button class="accent-btn full-width-btn" type="button" onclick="importSkimmerTechSummaryCSV()">IMPORT SKIMMER CSV</button>
 
                 <div class="workflow-action-row">
-                  <button class="success-btn small-btn" type="button" onclick="completeSkimmerImportStep()">BOTH WEEKLY IMPORTS COMPLETE - OPEN STEP 3</button>
+                  <button class="success-btn small-btn" type="button" onclick="completeWorkflowStepAndOpenNext(2)">SKIMMER IMPORT COMPLETE - OPEN STEP 3</button>
                 </div>
               </div>
 
@@ -1696,7 +1696,7 @@
                 <span class="payroll-step-title">Extra Cleaning Adjustments</span>
                 <span class="payroll-step-summary">Add completed cleanings that were identified after the Skimmer import.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep3Status">Ready</span>
+              <span class="payroll-step-status" id="payrollStep3Status">Locked</span>
               <span class="payroll-step-toggle" id="payrollStep3Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -1720,7 +1720,7 @@
                 <button class="accent-btn full-width-btn" type="button" onclick="saveExtraCompletedVisits()">SAVE EXTRA COMPLETED VISITS</button>
 
                 <div class="workflow-action-row">
-                  <button class="success-btn small-btn" type="button" onclick="markPayrollWorkflowStepComplete(3, true)">EXTRA CLEANINGS REVIEW COMPLETE - OPEN STEP 4</button>
+                  <button class="success-btn small-btn" type="button" onclick="completeWorkflowStepAndOpenNext(3)">EXTRA CLEANINGS REVIEW COMPLETE - OPEN STEP 4</button>
                 </div>
 
                 <div class="step-complete-note">
@@ -1737,7 +1737,7 @@
                 <span class="payroll-step-title">Extra RT Meetings / Safeguards</span>
                 <span class="payroll-step-summary">Enter extra RT meeting or maintenance credits and any reviewed safeguard payroll impacts.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep4Status">Ready</span>
+              <span class="payroll-step-status" id="payrollStep4Status">Locked</span>
               <span class="payroll-step-toggle" id="payrollStep4Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -1817,7 +1817,7 @@
               </div>
 
               <div class="workflow-action-row">
-                <button class="success-btn small-btn" type="button" onclick="markPayrollWorkflowStepComplete(4, true)">MEETINGS / SAFEGUARDS REVIEW COMPLETE - OPEN STEP 5</button>
+                <button class="success-btn small-btn" type="button" onclick="completeWorkflowStepAndOpenNext(4)">MEETINGS / SAFEGUARDS REVIEW COMPLETE - OPEN STEP 5</button>
               </div>
             </div>
           </section>
@@ -1829,7 +1829,7 @@
                 <span class="payroll-step-title">HR Hours Input</span>
                 <span class="payroll-step-summary">HR enters regular hours, overtime hours, PTO taken, holiday pay hours, and other approved time.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep5Status">Ready</span>
+              <span class="payroll-step-status" id="payrollStep5Status">Locked</span>
               <span class="payroll-step-toggle" id="payrollStep5Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -1883,7 +1883,7 @@
                 <button class="primary-btn full-width-btn" type="button" onclick="saveHRHoursReview()">SAVE HR HOURS / PTO / HOLIDAY PAY</button>
 
                 <div class="workflow-action-row">
-                  <button class="success-btn small-btn" type="button" onclick="markPayrollWorkflowStepComplete(5, true)">HR HOURS COMPLETE - OPEN STEP 6</button>
+                  <button class="success-btn small-btn" type="button" onclick="completeWorkflowStepAndOpenNext(5)">HR HOURS COMPLETE - OPEN STEP 6</button>
                 </div>
               </div>
             </div>
@@ -1896,7 +1896,7 @@
                 <span class="payroll-step-title">Calculate Payroll / Final Pay Period Display</span>
                 <span class="payroll-step-summary">Refresh calculations and review final payroll as a whole for the selected pay period.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep6Status">Ready</span>
+              <span class="payroll-step-status" id="payrollStep6Status">Locked</span>
               <span class="payroll-step-toggle" id="payrollStep6Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -1986,7 +1986,7 @@
                 <span class="payroll-step-title">Generate Route Tech Payroll Attestation Forms</span>
                 <span class="payroll-step-summary">Generate individual route tech attestation forms for HR to print to PDF and send for signatures.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep7Status">Ready</span>
+              <span class="payroll-step-status" id="payrollStep7Status">Locked</span>
               <span class="payroll-step-toggle" id="payrollStep7Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -2013,7 +2013,7 @@
 
                 <div class="workflow-action-row">
                   <button class="primary-btn small-btn" type="button" onclick="generateAllRouteTechAttestationForms()">GENERATE FORM LIST</button>
-                  <button class="success-btn small-btn" type="button" onclick="markPayrollWorkflowStepComplete(7, true)">ATTESTATION FORMS GENERATED - OPEN STEP 8</button>
+                  <button class="success-btn small-btn" type="button" onclick="completeWorkflowStepAndOpenNext(7)">ATTESTATION FORMS GENERATED - OPEN STEP 8</button>
                 </div>
 
                 <div id="allRouteTechFormsPreview" class="calc-panel">
@@ -2030,7 +2030,7 @@
                 <span class="payroll-step-title">HR Payroll Sign-Off</span>
                 <span class="payroll-step-summary">HR confirms all payroll activities are complete, then submits the pay period for review/approval.</span>
               </span>
-              <span class="payroll-step-status" id="payrollStep8Status">Ready</span>
+              <span class="payroll-step-status" id="payrollStep8Status">Locked</span>
               <span class="payroll-step-toggle" id="payrollStep8Toggle">+</span>
             </button>
             <div class="payroll-step-body">
@@ -2142,7 +2142,7 @@ let currentPPVSession = null;
 let currentPayPeriodId = null;
 let currentPayPeriodRecord = null;
 let currentPayPeriods = [];
-let currentSuggestedPayPeriod = null;
+let suggestedPayPeriod = null;
 let currentRouteTechRows = [];
 let currentLiveSummaryRows = [];
 let currentImportBatchRows = [];
@@ -2157,69 +2157,23 @@ let isManagerMode = false;
 let isAdminMode = false;
 
 
-let ppvBootstrapStarted = false;
-
 document.addEventListener('DOMContentLoaded', () => {
   initializeInventorySidebar();
   initializePayrollWorkflowUI();
   setInputValue('safeguardIncidentDateInput', getTodayISODate());
   setInputValue('hrSignoffDateInput', getTodayISODate());
-  bootstrapPPVTracker();
-  setTimeout(ensurePayPeriodsLoadedAfterStartup, 1200);
 });
 
-window.addEventListener('load', () => {
-  bootstrapPPVTracker();
-  setTimeout(ensurePayPeriodsLoadedAfterStartup, 600);
-});
+window.addEventListener('load', async () => {
+  const hasAccess = await enforcePPVAccess();
 
-function ensurePayPeriodsLoadedAfterStartup() {
-  const select = document.getElementById('payPeriodSelect');
-
-  if (!select || !currentPPVSession || !currentPPVProfile) {
+  if (!hasAccess) {
     return;
   }
 
-  const currentOptionText = String(select.options?.[0]?.textContent || select.textContent || '');
-  const stillLoading = currentOptionText.toLowerCase().includes('loading pay periods');
-
-  if (stillLoading) {
-    loadPayPeriods(true)
-      .then(() => {
-        if (currentPayPeriodId) {
-          return refreshSelectedPayPeriodData();
-        }
-        return null;
-      })
-      .catch(error => {
-        console.error('Automatic pay period reload failed:', error);
-        setPPVStatus('Pay periods did not finish loading automatically. Click Refresh Data to try again. Details: ' + (error?.message || error), 'error');
-      });
-  }
-}
-
-async function bootstrapPPVTracker() {
-  if (ppvBootstrapStarted) {
-    return;
-  }
-
-  ppvBootstrapStarted = true;
-
-  try {
-    const hasAccess = await enforcePPVAccess();
-
-    if (!hasAccess) {
-      return;
-    }
-
-    applyRoleModeToPage();
-    await loadInitialPPVData();
-  } catch (error) {
-    console.error('PPV tracker startup error:', error);
-    showPPVContent(currentPPVProfile || {}, currentPPVSession?.user?.email || '');
-    setPPVStatus('Unable to finish loading the PPV Tracker. Click Refresh Data to try again. Details: ' + (error?.message || error), 'error');
-  }
-}
+  applyRoleModeToPage();
+  await loadInitialPPVData();
+});
 
 function initializeInventorySidebar() {
   const appShell = document.getElementById('appShell');
@@ -2373,8 +2327,6 @@ function showPPVContent(profile, email) {
     email: email || '',
     role: profile?.role || ''
   });
-
-  setTimeout(ensurePayPeriodsLoadedAfterStartup, 500);
 }
 
 async function enforcePPVAccess() {
@@ -2506,7 +2458,7 @@ async function loadInitialPPVData() {
   if (currentPayPeriodId) {
     await refreshSelectedPayPeriodData();
   } else {
-    setPPVStatus('No pay period selected. Select an existing pay period or start data entry for the suggested next pay period.', 'warning');
+    setPPVStatus('No pay period selected. Create or select a pay period to begin.', 'warning');
   }
 
   updatePayrollWorkflowUI();
@@ -2549,16 +2501,28 @@ async function loadPayPeriods(keepSelection = false) {
   const { data, error } = await client
     .from('ppv_pay_periods')
     .select('*')
-    .order('period_start_date', { ascending: false });
+    .order('period_start_date', { ascending: false })
+    .order('created_at', { ascending: false });
 
   if (error) {
     select.innerHTML = '<option value="">Pay period load error</option>';
-    renderSuggestedPayPeriodInfo();
     setPPVStatus('Pay period load error: ' + error.message, 'error');
     return;
   }
 
-  currentPayPeriods = sortPayPeriodsNewestFirst(data || []);
+  currentPayPeriods = (data || []).slice().sort((a, b) => {
+    const aStart = getPayPeriodStartDate(a) || '';
+    const bStart = getPayPeriodStartDate(b) || '';
+
+    if (aStart !== bStart) {
+      return bStart.localeCompare(aStart);
+    }
+
+    const aCreated = String(getRecordValue(a, ['created_at']) || '');
+    const bCreated = String(getRecordValue(b, ['created_at']) || '');
+    return bCreated.localeCompare(aCreated);
+  });
+
   select.innerHTML = '<option value="">Select pay period...</option>';
 
   currentPayPeriods.forEach(row => {
@@ -2568,12 +2532,18 @@ async function loadPayPeriods(keepSelection = false) {
     select.appendChild(option);
   });
 
+  if (typeof calculateSuggestedNextPayPeriod === 'function') {
+    suggestedPayPeriod = calculateSuggestedNextPayPeriod();
+  }
+
   if (currentPayPeriods.length === 0) {
     currentPayPeriodId = null;
     currentPayPeriodRecord = null;
     select.innerHTML = '<option value="">No pay periods found</option>';
     renderSelectedPayPeriodInfo();
-    renderSuggestedPayPeriodInfo();
+    if (typeof renderSuggestedPayPeriodInfo === 'function') {
+      renderSuggestedPayPeriodInfo();
+    }
     resetMetrics();
     return;
   }
@@ -2593,51 +2563,27 @@ async function loadPayPeriods(keepSelection = false) {
   currentPayPeriodRecord = currentPayPeriods.find(row => row.id === currentPayPeriodId) || null;
   populatePayPeriodForm(currentPayPeriodRecord);
   renderSelectedPayPeriodInfo();
-  renderSuggestedPayPeriodInfo();
+  if (typeof renderSuggestedPayPeriodInfo === 'function') {
+    renderSuggestedPayPeriodInfo();
+  }
 }
 
-function sortPayPeriodsNewestFirst(rows) {
-  return [...rows].sort((a, b) => {
-    const aStart = toDateInputValue(getRecordValue(a, [
-      'period_start_date',
-      'pay_period_start_date',
-      'start_date',
-      'date_start'
-    ])) || '';
+function getPayPeriodStartDate(row) {
+  return toDateInputValue(getRecordValue(row, [
+    'period_start_date',
+    'pay_period_start_date',
+    'start_date',
+    'date_start'
+  ]));
+}
 
-    const bStart = toDateInputValue(getRecordValue(b, [
-      'period_start_date',
-      'pay_period_start_date',
-      'start_date',
-      'date_start'
-    ])) || '';
-
-    if (aStart !== bStart) {
-      return bStart.localeCompare(aStart);
-    }
-
-    const aEnd = toDateInputValue(getRecordValue(a, [
-      'period_end_date',
-      'pay_period_end_date',
-      'end_date',
-      'date_end'
-    ])) || '';
-
-    const bEnd = toDateInputValue(getRecordValue(b, [
-      'period_end_date',
-      'pay_period_end_date',
-      'end_date',
-      'date_end'
-    ])) || '';
-
-    if (aEnd !== bEnd) {
-      return bEnd.localeCompare(aEnd);
-    }
-
-    const aCreated = String(getRecordValue(a, ['created_at']) || '');
-    const bCreated = String(getRecordValue(b, ['created_at']) || '');
-    return bCreated.localeCompare(aCreated);
-  });
+function getPayPeriodEndDate(row) {
+  return toDateInputValue(getRecordValue(row, [
+    'period_end_date',
+    'pay_period_end_date',
+    'end_date',
+    'date_end'
+  ]));
 }
 
 function formatPayPeriodLabel(row) {
@@ -2650,159 +2596,6 @@ function formatPayPeriodLabel(row) {
   const base = name || dateText || row.id;
 
   return `${base}${status ? ' • ' + status : ''}`;
-}
-
-
-function renderSuggestedPayPeriodInfo() {
-  const info = document.getElementById('suggestedPayPeriodInfo');
-  const button = document.getElementById('startSuggestedPayPeriodButton');
-
-  if (!info || !button) {
-    return;
-  }
-
-  currentSuggestedPayPeriod = buildSuggestedNextPayPeriod();
-
-  if (!currentSuggestedPayPeriod) {
-    info.textContent =
-      'A suggested next pay period could not be calculated because no prior pay period end date was found.';
-    button.disabled = true;
-    button.textContent = 'SUGGESTED PAY PERIOD UNAVAILABLE';
-    return;
-  }
-
-  const suggested = currentSuggestedPayPeriod;
-  const existingText = suggested.existingPayPeriodId
-    ? '\nStatus: This pay period already exists. Use the button below to open it.'
-    : '\nStatus: Ready to start data entry.';
-
-  info.textContent =
-    `Suggested Pay Period: ${suggested.label}\n` +
-    `Start Date: ${formatDate(suggested.startDate)}\n` +
-    `End Date: ${formatDate(suggested.endDate)}${existingText}`;
-
-  button.disabled = false;
-  button.textContent = suggested.existingPayPeriodId
-    ? 'OPEN EXISTING SUGGESTED PAY PERIOD'
-    : 'START DATA ENTRY FOR SUGGESTED PAY PERIOD';
-}
-
-function buildSuggestedNextPayPeriod() {
-  if (!Array.isArray(currentPayPeriods) || currentPayPeriods.length === 0) {
-    return null;
-  }
-
-  const rowsWithEndDate = currentPayPeriods
-    .map(row => ({
-      row,
-      endDate: toDateInputValue(getRecordValue(row, [
-        'period_end_date',
-        'pay_period_end_date',
-        'end_date',
-        'date_end'
-      ]))
-    }))
-    .filter(item => item.endDate);
-
-  if (rowsWithEndDate.length === 0) {
-    return null;
-  }
-
-  rowsWithEndDate.sort((a, b) => b.endDate.localeCompare(a.endDate));
-
-  const latestEndDate = rowsWithEndDate[0].endDate;
-  const startDate = addDaysISO(latestEndDate, 1);
-  const endDate = addDaysISO(startDate, 13);
-
-  if (!startDate || !endDate) {
-    return null;
-  }
-
-  const existingPayPeriod = currentPayPeriods.find(row => {
-    const rowStart = toDateInputValue(getRecordValue(row, [
-      'period_start_date',
-      'pay_period_start_date',
-      'start_date',
-      'date_start'
-    ]));
-    const rowEnd = toDateInputValue(getRecordValue(row, [
-      'period_end_date',
-      'pay_period_end_date',
-      'end_date',
-      'date_end'
-    ]));
-
-    return rowStart === startDate && rowEnd === endDate;
-  });
-
-  return {
-    label: `PPV ${startDate} to ${endDate}`,
-    startDate,
-    endDate,
-    week1StartDate: startDate,
-    week1EndDate: addDaysISO(startDate, 6),
-    week2StartDate: addDaysISO(startDate, 7),
-    week2EndDate: endDate,
-    existingPayPeriodId: existingPayPeriod?.id || null
-  };
-}
-
-async function startSuggestedPayPeriod() {
-  if (!isManagerMode) {
-    setPPVStatus('Accounting users cannot start new pay periods.', 'error');
-    return;
-  }
-
-  const suggested = currentSuggestedPayPeriod || buildSuggestedNextPayPeriod();
-
-  if (!suggested) {
-    setPPVStatus('Suggested pay period is unavailable. Refresh pay periods and try again.', 'error');
-    return;
-  }
-
-  if (suggested.existingPayPeriodId) {
-    currentPayPeriodId = suggested.existingPayPeriodId;
-    const select = document.getElementById('payPeriodSelect');
-
-    if (select) {
-      select.value = currentPayPeriodId;
-    }
-
-    currentPayPeriodRecord = currentPayPeriods.find(row => row.id === currentPayPeriodId) || null;
-    renderSelectedPayPeriodInfo();
-    await refreshSelectedPayPeriodData();
-    markPayrollWorkflowStepComplete(1, true);
-    setPPVStatus('Existing suggested pay period opened.', 'success');
-    return;
-  }
-
-  const payload = {
-    p_pay_period_label: suggested.label,
-    p_period_start_date: suggested.startDate,
-    p_period_end_date: suggested.endDate,
-    p_week_1_start_date: suggested.week1StartDate,
-    p_week_1_end_date: suggested.week1EndDate,
-    p_week_2_start_date: suggested.week2StartDate,
-    p_week_2_end_date: suggested.week2EndDate,
-    p_notes: 'Started from PPV Tracker suggested next pay period workflow.',
-    p_pay_period_id: null
-  };
-
-  const { data, error } = await client.rpc('upsert_ppv_pay_period', payload);
-
-  if (error) {
-    setPPVStatus('Suggested pay period start error: ' + error.message, 'error');
-    return;
-  }
-
-  if (data?.id) {
-    currentPayPeriodId = data.id;
-  }
-
-  setPPVStatus('Suggested pay period started and selected.', 'success');
-  await loadPayPeriods(true);
-  await refreshSelectedPayPeriodData();
-  markPayrollWorkflowStepComplete(1, true);
 }
 
 function populatePayPeriodForm(row) {
@@ -2862,7 +2655,7 @@ function handlePayPeriodChange() {
   currentPayPeriodRecord = currentPayPeriods.find(row => row.id === currentPayPeriodId) || null;
   populatePayPeriodForm(currentPayPeriodRecord);
   renderSelectedPayPeriodInfo();
-  setPayrollStepOpen(1, true, true);
+  setPayrollStepOpen(1, true, false);
   refreshSelectedPayPeriodData();
 }
 
@@ -2921,6 +2714,12 @@ async function refreshSelectedPayPeriodData() {
     loadImportBatches()
   ]);
 
+  if (!currentRouteTechRows.length) {
+    await loadRouteTechs();
+  } else {
+    populateRouteTechSelects(currentRouteTechRows);
+  }
+
   renderSelectedRouteTechPaySheet();
   updatePaidTimeCreditPreview();
   updateHRHoursPreview();
@@ -2966,39 +2765,97 @@ async function loadImportBatches() {
 }
 
 async function loadRouteTechs() {
+  const selects = document.querySelectorAll('.route-tech-select');
+
+  selects.forEach(select => {
+    if (!select.value) {
+      select.innerHTML = '<option value="">Loading route techs...</option>';
+    }
+  });
+
   const { data, error } = await client
     .from('ppv_route_techs')
-    .select('*')
-    .order('rt_code', { ascending: true });
+    .select('*');
 
   if (error) {
     console.error('Route tech load error:', error);
-    populateRouteTechSelects([]);
+
+    const fallbackRows = deriveRouteTechRowsFromLiveSummaryRows();
+    currentRouteTechRows = fallbackRows;
+    populateRouteTechSelects(fallbackRows, error.message);
     return;
   }
 
-  currentRouteTechRows = data || [];
+  currentRouteTechRows = sortRouteTechRows(data || []);
+
+  if (!currentRouteTechRows.length) {
+    currentRouteTechRows = deriveRouteTechRowsFromLiveSummaryRows();
+  }
+
   populateRouteTechSelects(currentRouteTechRows);
 }
 
-function populateRouteTechSelects(rows) {
+function sortRouteTechRows(rows) {
+  return (rows || []).slice().sort((a, b) => {
+    const aCode = String(getRecordValue(a, ['rt_code_normalized', 'rt_code', 'route_tech_code', 'code']) || '');
+    const bCode = String(getRecordValue(b, ['rt_code_normalized', 'rt_code', 'route_tech_code', 'code']) || '');
+
+    if (aCode !== bCode) {
+      return aCode.localeCompare(bCode, undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    const aName = String(getRecordValue(a, ['route_tech_name', 'tech_name', 'full_name', 'name']) || '');
+    const bName = String(getRecordValue(b, ['route_tech_name', 'tech_name', 'full_name', 'name']) || '');
+    return aName.localeCompare(bName);
+  });
+}
+
+function deriveRouteTechRowsFromLiveSummaryRows() {
+  const rowsById = new Map();
+
+  (currentLiveSummaryRows || []).forEach(row => {
+    const routeTechId = getRecordValue(row, ['route_tech_id']);
+
+    if (!routeTechId || rowsById.has(routeTechId)) {
+      return;
+    }
+
+    rowsById.set(routeTechId, {
+      id: routeTechId,
+      rt_code: getRecordValue(row, ['rt_code', 'rt_code_normalized']) || '',
+      rt_code_normalized: getRecordValue(row, ['rt_code_normalized', 'rt_code']) || '',
+      route_tech_name: getRecordValue(row, ['route_tech_name']) || '',
+      row_type: getRecordValue(row, ['row_type']) || '',
+      active: getRecordValue(row, ['active']) !== false,
+      ppv_eligible: getRecordValue(row, ['ppv_eligible']) !== false
+    });
+  });
+
+  return sortRouteTechRows(Array.from(rowsById.values()));
+}
+
+function populateRouteTechSelects(rows, loadErrorMessage = '') {
+  const finalRows = sortRouteTechRows(rows && rows.length ? rows : deriveRouteTechRowsFromLiveSummaryRows());
+
   document.querySelectorAll('.route-tech-select').forEach(select => {
     const existingValue = select.value;
     select.innerHTML = '<option value="">Select route tech...</option>';
 
-    rows.forEach(row => {
+    finalRows.forEach(row => {
       const option = document.createElement('option');
       option.value = row.id;
       option.textContent = formatRouteTechLabel(row);
       select.appendChild(option);
     });
 
-    if (existingValue && rows.some(row => row.id === existingValue)) {
+    if (existingValue && finalRows.some(row => String(row.id) === String(existingValue))) {
       select.value = existingValue;
     }
 
-    if (rows.length === 0) {
-      select.innerHTML = '<option value="">No route techs found</option>';
+    if (finalRows.length === 0) {
+      select.innerHTML = loadErrorMessage
+        ? '<option value="">Route tech load error - refresh data</option>'
+        : '<option value="">No route techs found</option>';
     }
   });
 }
@@ -3225,7 +3082,7 @@ async function importSkimmerTechSummaryCSV() {
   setPPVStatus('Skimmer Tech Summary import completed.\n' + importSummary, 'success');
   fileInput.value = '';
   await refreshSelectedPayPeriodData();
-  markPayrollWorkflowStepComplete(2, true);
+  completeWorkflowStepAndOpenNext(2);
 }
 
 async function submitSelectedPayPeriod() {
@@ -3901,7 +3758,9 @@ function isPayrollWorkflowStepComplete(stepNumber) {
   }
 
   if (stepNumber === 2) {
-    return Boolean(state.step2Complete) || hasRequiredWeeklySkimmerImports();
+    return Boolean(state.step2Complete)
+      || (Array.isArray(currentImportBatchRows) && currentImportBatchRows.length > 0)
+      || (Array.isArray(currentLiveSummaryRows) && currentLiveSummaryRows.some(row => numberFromRecord(row, ['total_visits']) > 0));
   }
 
   if (stepNumber === 8) {
@@ -3916,6 +3775,10 @@ function isPayrollWorkflowStepUnlocked(stepNumber) {
 }
 
 function getPayrollStepStatusText(stepNumber, unlocked, complete) {
+  if (!unlocked) {
+    return 'Locked';
+  }
+
   if (complete) {
     return 'Complete';
   }
@@ -3925,7 +3788,7 @@ function getPayrollStepStatusText(stepNumber, unlocked, complete) {
 }
 
 function updatePayrollWorkflowUI() {
-  let firstIncompleteStep = null;
+  let firstIncompleteUnlocked = null;
 
   for (let stepNumber = 1; stepNumber <= PAYROLL_WORKFLOW_STEP_COUNT; stepNumber += 1) {
     const step = document.getElementById(`payrollStep${stepNumber}`);
@@ -3937,21 +3800,22 @@ function updatePayrollWorkflowUI() {
     }
 
     const complete = isPayrollWorkflowStepComplete(stepNumber);
+    const unlocked = true;
 
     step.classList.toggle('complete', complete);
     step.classList.remove('locked');
     step.setAttribute('aria-disabled', 'false');
 
     if (status) {
-      status.textContent = getPayrollStepStatusText(stepNumber, true, complete);
+      status.textContent = getPayrollStepStatusText(stepNumber, unlocked, complete);
     }
 
     if (toggle) {
       toggle.textContent = step.classList.contains('open') ? '−' : '+';
     }
 
-    if (!firstIncompleteStep && !complete) {
-      firstIncompleteStep = stepNumber;
+    if (!firstIncompleteUnlocked && !complete) {
+      firstIncompleteUnlocked = stepNumber;
     }
   }
 
@@ -3964,7 +3828,7 @@ function updatePayrollWorkflowUI() {
       workflowStatus.textContent = 'Payroll workflow is complete for the selected pay period.';
       workflowStatus.className = 'status-message workflow-status-card success';
     } else {
-      workflowStatus.textContent = `Selected pay period loaded. Next incomplete step: Step ${firstIncompleteStep || 8}. All steps remain openable as needed.`;
+      workflowStatus.textContent = `Selected pay period loaded. Next incomplete step: Step ${firstIncompleteUnlocked || 8}. All steps remain openable as needed.`;
       workflowStatus.className = 'status-message workflow-status-card';
     }
   }
@@ -3980,12 +3844,20 @@ function togglePayrollStep(stepNumber) {
   step.classList.toggle('open');
   updatePayrollWorkflowUI();
 
+  if ([3, 4, 5, 7].includes(stepNumber) && step.classList.contains('open')) {
+    if (!currentRouteTechRows.length) {
+      loadRouteTechs();
+    } else {
+      populateRouteTechSelects(currentRouteTechRows);
+    }
+  }
+
   if (stepNumber === 7) {
     renderSelectedRouteTechPaySheet();
   }
 }
 
-function setPayrollStepOpen(stepNumber, open = true, collapseOthers = true) {
+function setPayrollStepOpen(stepNumber, open = true, collapseOthers = false) {
   if (collapseOthers) {
     document.querySelectorAll('.payroll-step').forEach(step => {
       step.classList.remove('open');
@@ -3996,6 +3868,18 @@ function setPayrollStepOpen(stepNumber, open = true, collapseOthers = true) {
 
   if (step) {
     step.classList.toggle('open', open);
+
+    if (open && [3, 4, 5, 7].includes(stepNumber)) {
+      if (!currentRouteTechRows.length) {
+        loadRouteTechs();
+      } else {
+        populateRouteTechSelects(currentRouteTechRows);
+      }
+    }
+
+    if (open) {
+      step.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
   updatePayrollWorkflowUI();
@@ -4003,13 +3887,17 @@ function setPayrollStepOpen(stepNumber, open = true, collapseOthers = true) {
 
 function openFirstAvailableWorkflowStep() {
   for (let stepNumber = 1; stepNumber <= PAYROLL_WORKFLOW_STEP_COUNT; stepNumber += 1) {
-    if (!isPayrollWorkflowStepComplete(stepNumber)) {
-      setPayrollStepOpen(stepNumber, true, true);
+    if (isPayrollWorkflowStepUnlocked(stepNumber) && !isPayrollWorkflowStepComplete(stepNumber)) {
+      setPayrollStepOpen(stepNumber, true, false);
       return;
     }
   }
 
-  setPayrollStepOpen(1, true, true);
+  setPayrollStepOpen(1, true, false);
+}
+
+function completeWorkflowStepAndOpenNext(stepNumber) {
+  markPayrollWorkflowStepComplete(stepNumber, true);
 }
 
 function markPayrollWorkflowStepComplete(stepNumber, openNext = false) {
@@ -4026,7 +3914,7 @@ function markPayrollWorkflowStepComplete(stepNumber, openNext = false) {
   updatePayrollWorkflowUI();
 
   if (openNext && stepNumber < PAYROLL_WORKFLOW_STEP_COUNT) {
-    setPayrollStepOpen(stepNumber + 1, true, true);
+    setPayrollStepOpen(stepNumber + 1, true, false);
   }
 }
 
@@ -4111,6 +3999,11 @@ function printAllRouteTechPaySheets() {
 function completeHRPayrollSignOff() {
   if (!currentPayPeriodId) {
     setPPVStatus('Select a pay period before HR sign-off.', 'error');
+    return;
+  }
+
+  if (!isPayrollWorkflowStepUnlocked(8)) {
+    setPPVStatus('Complete Steps 1 through 7 before HR sign-off.', 'error');
     return;
   }
 
