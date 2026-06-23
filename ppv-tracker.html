@@ -975,7 +975,18 @@
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 18px;
-      align-items: start;
+      align-items: stretch;
+    }
+
+    .two-column-grid > .card {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .two-column-grid > .card .workflow-action-row:last-child,
+    .two-column-grid > .card > button:last-child {
+      margin-top: auto;
     }
 
     .calc-panel {
@@ -1729,39 +1740,61 @@
             <button class="payroll-step-header" type="button" onclick="togglePayrollStep(3)">
               <span class="payroll-step-number">3</span>
               <span>
-                <span class="payroll-step-title">Extra Cleaning Adjustments</span>
-                <span class="payroll-step-summary">Add completed cleanings that were identified after the Skimmer import.</span>
+                <span class="payroll-step-title">Extra Cleaning / Manual Payroll Adjustments</span>
+                <span class="payroll-step-summary">Add completed cleanings missed by Skimmer or approved manual dollar adjustments.</span>
               </span>
               <span class="payroll-step-status" id="payrollStep3Status">Ready</span>
               <span class="payroll-step-toggle" id="payrollStep3Toggle">+</span>
             </button>
             <div class="payroll-step-body">
-              <div class="card manager-only">
-                <h2>Extra Completed Visits</h2>
-                <div class="status-note">
-                  Use this only when a route tech completed actual cleanings that were not included in the Skimmer Tech Summary import. This saves an approved CORRECTION with a visit adjustment count.
+              <div class="two-column-grid">
+                <div class="card manager-only">
+                  <h2>Extra Completed Visits</h2>
+                  <div class="status-note">
+                    Use this only when a route tech completed actual cleanings that were not included in the Skimmer Tech Summary import. This saves an approved CORRECTION with a visit adjustment count.
+                  </div>
+
+                  <label>Route Tech:</label>
+                  <select id="extraVisitRouteTechSelect" class="route-tech-select">
+                    <option value="">Loading route techs...</option>
+                  </select>
+
+                  <label>Extra Completed Visit Count:</label>
+                  <input id="extraCompletedVisitsInput" type="number" min="0" step="1" placeholder="Example: 2">
+
+                  <label>Reason / Notes:</label>
+                  <textarea id="extraCompletedVisitsReasonInput" placeholder="Example: 2 completed visits outside normal assigned Skimmer route after Tech Summary upload."></textarea>
+
+                  <button class="accent-btn full-width-btn" type="button" onclick="saveExtraCompletedVisits()">SAVE EXTRA COMPLETED VISITS</button>
                 </div>
 
-                <label>Route Tech:</label>
-                <select id="extraVisitRouteTechSelect" class="route-tech-select">
-                  <option value="">Loading route techs...</option>
-                </select>
+                <div class="card manager-only">
+                  <h2>Manual Dollar Adjustment</h2>
+                  <div class="warning-note">
+                    Use this only for approved payroll dollar corrections that are not visit credits, PTO/holiday/other time, quarterly commissions, or safeguard events. Positive and negative amounts are allowed.
+                  </div>
 
-                <label>Extra Completed Visit Count:</label>
-                <input id="extraCompletedVisitsInput" type="number" min="0" step="1" placeholder="Example: 2">
+                  <label>Route Tech:</label>
+                  <select id="manualAdjustmentRouteTechSelect" class="route-tech-select">
+                    <option value="">Loading route techs...</option>
+                  </select>
 
-                <label>Reason / Notes:</label>
-                <textarea id="extraCompletedVisitsReasonInput" placeholder="Example: 2 completed visits outside normal assigned Skimmer route after Tech Summary upload."></textarea>
+                  <label>Adjustment Amount:</label>
+                  <input id="manualAdjustmentAmountInput" type="number" step="0.01" placeholder="Example: 50.00 or -25.00">
 
-                <button class="accent-btn full-width-btn" type="button" onclick="saveExtraCompletedVisits()">SAVE EXTRA COMPLETED VISITS</button>
+                  <label>Reason / Notes:</label>
+                  <textarea id="manualAdjustmentReasonInput" placeholder="Required. Example: Approved payroll correction for missed bonus or deduction correction."></textarea>
 
-                <div class="workflow-action-row">
-                  <button class="success-btn small-btn" type="button" onclick="completeWorkflowStepAndOpenNext(3)">EXTRA CLEANINGS REVIEW COMPLETE - OPEN STEP 4</button>
+                  <button class="primary-btn full-width-btn" type="button" onclick="saveManualDollarAdjustment()">SAVE MANUAL DOLLAR ADJUSTMENT</button>
                 </div>
+              </div>
 
-                <div class="step-complete-note">
-                  If there are no extra cleanings for this pay period, use the review-complete button to move forward.
-                </div>
+              <div class="workflow-action-row">
+                <button class="success-btn small-btn" type="button" onclick="completeWorkflowStepAndOpenNext(3)">ADJUSTMENTS REVIEW COMPLETE - OPEN STEP 4</button>
+              </div>
+
+              <div class="step-complete-note">
+                If there are no extra cleanings or manual dollar adjustments for this pay period, use the review-complete button to move forward.
               </div>
             </div>
           </section>
@@ -1770,8 +1803,8 @@
             <button class="payroll-step-header" type="button" onclick="togglePayrollStep(4)">
               <span class="payroll-step-number">4</span>
               <span>
-                <span class="payroll-step-title">Extra RT Meetings / Safeguards</span>
-                <span class="payroll-step-summary">Enter extra RT meeting or maintenance credits and any reviewed safeguard payroll impacts.</span>
+                <span class="payroll-step-title">Extra RT Meetings / Safeguards / Quarterly Commissions</span>
+                <span class="payroll-step-summary">Enter approved meeting or maintenance credits, reviewed safeguards, and quarterly commissions.</span>
               </span>
               <span class="payroll-step-status" id="payrollStep4Status">Ready</span>
               <span class="payroll-step-toggle" id="payrollStep4Toggle">+</span>
@@ -1852,8 +1885,41 @@
                 </div>
               </div>
 
+              <div class="card manager-only" style="margin-top: 18px;">
+                <h2>Quarterly Commission Earned</h2>
+                <div class="status-note">
+                  Enter approved quarterly commission earned for a route tech. This is separate from visit corrections, paid-time credits, and safeguards.
+                </div>
+
+                <div class="form-grid">
+                  <div>
+                    <label>Route Tech:</label>
+                    <select id="quarterlyCommissionRouteTechSelect" class="route-tech-select">
+                      <option value="">Loading route techs...</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label>Quarter / Commission Period:</label>
+                    <input id="quarterlyCommissionPeriodInput" placeholder="Example: FY2026 Q4">
+                  </div>
+
+                  <div>
+                    <label>Commission Amount:</label>
+                    <input id="quarterlyCommissionAmountInput" type="number" min="0" step="0.01" placeholder="0.00">
+                  </div>
+
+                  <div class="full-span">
+                    <label>Commission Notes:</label>
+                    <textarea id="quarterlyCommissionNotesInput" placeholder="Optional notes, source, or approval reference for this quarterly commission."></textarea>
+                  </div>
+                </div>
+
+                <button class="success-btn full-width-btn" type="button" onclick="saveQuarterlyCommission()">SAVE QUARTERLY COMMISSION</button>
+              </div>
+
               <div class="workflow-action-row">
-                <button class="success-btn small-btn" type="button" onclick="completeWorkflowStepAndOpenNext(4)">MEETINGS / SAFEGUARDS REVIEW COMPLETE - OPEN STEP 5</button>
+                <button class="success-btn small-btn" type="button" onclick="completeWorkflowStepAndOpenNext(4)">MEETINGS / SAFEGUARDS / COMMISSIONS REVIEW COMPLETE - OPEN STEP 5</button>
               </div>
             </div>
           </section>
@@ -1983,7 +2049,7 @@
 
                 <div class="button-row">
                   <button class="primary-btn small-btn" type="button" onclick="calculateFinalPayrollAndOpenNext()">CALCULATE / REFRESH FINAL PAYROLL</button>
-                  <button class="secondary-btn small-btn" type="button" onclick="exportRowsToCSV(currentLiveSummaryRows, 'ppv_live_summary.csv')">EXPORT SUMMARY CSV</button>
+                  <button class="secondary-btn small-btn" type="button" onclick="exportRowsToCSV(currentLivePayrollRows, 'ppv_live_summary.csv')">EXPORT SUMMARY CSV</button>
                 </div>
 
                 <div class="table-wrap">
@@ -2187,6 +2253,8 @@ let currentPayPeriods = [];
 let suggestedPayPeriod = null;
 let currentRouteTechRows = [];
 let currentLiveSummaryRows = [];
+let currentLivePayrollRows = [];
+let currentSafeguardEventRows = [];
 let currentImportBatchRows = [];
 let currentPayrollExportRows = [];
 let currentBiweeklySubmittalRows = [];
@@ -2924,7 +2992,8 @@ async function refreshSelectedPayPeriodData() {
 
   await Promise.all([
     loadLiveSummaryRows(),
-    loadImportBatches()
+    loadImportBatches(),
+    loadSafeguardEventRows()
   ]);
 
   if (!currentRouteTechRows.length) {
@@ -2947,14 +3016,40 @@ async function loadLiveSummaryRows() {
 
   if (result.error) {
     currentLiveSummaryRows = [];
+    currentLivePayrollRows = [];
     renderRowsTable([], 'liveSummaryHead', 'liveSummaryBody', 'Unable to load live summary: ' + result.error.message);
     resetMetrics();
     return;
   }
 
   currentLiveSummaryRows = result.rows || [];
-  renderRowsTable(currentLiveSummaryRows, 'liveSummaryHead', 'liveSummaryBody', 'No live summary rows found for this pay period.');
+  currentLivePayrollRows = getPayrollReportRows(currentLiveSummaryRows);
+  renderRowsTable(currentLivePayrollRows, 'liveSummaryHead', 'liveSummaryBody', 'No route tech payroll rows found for this pay period.');
   renderMetrics(currentLiveSummaryRows);
+}
+
+async function loadSafeguardEventRows() {
+  if (!currentPayPeriodId) {
+    currentSafeguardEventRows = [];
+    return;
+  }
+
+  let query = client
+    .from('ppv_quality_safeguard_events')
+    .select('*')
+    .eq('pay_period_id', currentPayPeriodId)
+    .order('incident_date', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.warn('Safeguard event rows could not be loaded for attestation detail:', error.message);
+    currentSafeguardEventRows = [];
+    return;
+  }
+
+  currentSafeguardEventRows = data || [];
 }
 
 async function loadImportBatches() {
@@ -3079,6 +3174,29 @@ function getActiveRouteTechPayrollRows(rows) {
   return sortRouteTechRows((rows || []).filter(isActiveRouteTechPayrollRow));
 }
 
+function isRouteTechPayrollReportRow(row) {
+  if (!row || isRTLRow(row)) {
+    return false;
+  }
+
+  const ppvEligible = getRecordValue(row, ['ppv_eligible']);
+  const rowType = String(getRecordValue(row, ['row_type', 'route_tech_row_type']) || '').toUpperCase();
+
+  if (ppvEligible === false) {
+    return false;
+  }
+
+  if (rowType && rowType !== 'RT') {
+    return false;
+  }
+
+  return true;
+}
+
+function getPayrollReportRows(rows) {
+  return (rows || []).filter(isRouteTechPayrollReportRow);
+}
+
 function populateRouteTechSelects(rows, loadErrorMessage = '') {
   const finalRows = getActiveRouteTechPayrollRows(rows && rows.length ? rows : deriveRouteTechRowsFromLiveSummaryRows());
 
@@ -3181,7 +3299,7 @@ function renderMetrics(rows) {
       return;
     }
 
-    if (!isActiveRouteTechPayrollRow(row)) {
+    if (!isRouteTechPayrollReportRow(row)) {
       return;
     }
 
@@ -3226,6 +3344,7 @@ function resetMetrics() {
   setText('metricRegularVisits', '0');
   setText('metricPickupVisits', '0');
   setText('metricPayrollTotal', '$0.00');
+  currentLivePayrollRows = [];
   renderRowsTable([], 'liveSummaryHead', 'liveSummaryBody', 'No pay period selected.');
 }
 
@@ -3479,6 +3598,45 @@ async function saveExtraCompletedVisits() {
   setPPVStatus('Extra completed visits saved as an approved correction.', 'success');
   setInputValue('extraCompletedVisitsInput', '');
   setInputValue('extraCompletedVisitsReasonInput', '');
+  await refreshSelectedPayPeriodData();
+}
+
+async function saveManualDollarAdjustment() {
+  if (!validateManualEntryAccess()) {
+    return;
+  }
+
+  const routeTechId = getInputValue('manualAdjustmentRouteTechSelect');
+  const amount = numberInputValue('manualAdjustmentAmountInput');
+  const reason = getInputValue('manualAdjustmentReasonInput');
+
+  if (!routeTechId || amount === 0 || !reason) {
+    setPPVStatus('Select a route tech, enter a non-zero dollar amount, and provide a reason before saving a manual dollar adjustment.', 'error');
+    return;
+  }
+
+  const fullReason = `Manual Dollar Adjustment - ${reason}`;
+
+  const { error } = await client.rpc('upsert_ppv_adjustment', {
+    p_pay_period_id: currentPayPeriodId,
+    p_route_tech_id: routeTechId,
+    p_adjustment_type: 'CORRECTION',
+    p_adjustment_amount: amount,
+    p_visit_adjustment_count: 0,
+    p_reason: fullReason,
+    p_status: 'APPROVED',
+    p_notes: fullReason,
+    p_adjustment_id: null
+  });
+
+  if (error) {
+    setPPVStatus('Manual dollar adjustment save error: ' + error.message, 'error');
+    return;
+  }
+
+  setPPVStatus('Manual dollar adjustment saved as an approved payroll correction.', 'success');
+  setInputValue('manualAdjustmentAmountInput', '');
+  setInputValue('manualAdjustmentReasonInput', '');
   await refreshSelectedPayPeriodData();
 }
 
@@ -3818,6 +3976,104 @@ async function saveHRHoursReview() {
   await refreshSelectedPayPeriodData();
 }
 
+async function saveQuarterlyCommission() {
+  if (!validateManualEntryAccess()) {
+    return;
+  }
+
+  const routeTechId = getInputValue('quarterlyCommissionRouteTechSelect');
+  const periodLabel = getInputValue('quarterlyCommissionPeriodInput');
+  const amount = numberInputValue('quarterlyCommissionAmountInput');
+  const notes = getInputValue('quarterlyCommissionNotesInput');
+
+  if (!routeTechId || !periodLabel || amount <= 0) {
+    setPPVStatus('Select a route tech, enter the quarter / commission period, and enter a positive commission amount.', 'error');
+    return;
+  }
+
+  const baseNotes = notes || `Quarterly commission earned for ${periodLabel}.`;
+  const rpcAttempts = [
+    {
+      p_pay_period_id: currentPayPeriodId,
+      p_route_tech_id: routeTechId,
+      p_commission_period_label: periodLabel,
+      p_commission_amount: amount,
+      p_status: 'APPROVED',
+      p_notes: baseNotes,
+      p_quarterly_commission_id: null
+    },
+    {
+      p_pay_period_id: currentPayPeriodId,
+      p_route_tech_id: routeTechId,
+      p_quarter_label: periodLabel,
+      p_commission_amount: amount,
+      p_status: 'APPROVED',
+      p_notes: baseNotes,
+      p_commission_id: null
+    },
+    {
+      p_pay_period_id: currentPayPeriodId,
+      p_route_tech_id: routeTechId,
+      p_commission_quarter: periodLabel,
+      p_commission_pay: amount,
+      p_status: 'APPROVED',
+      p_notes: baseNotes,
+      p_quarterly_commission_id: null
+    }
+  ];
+
+  const errors = [];
+
+  for (const payload of rpcAttempts) {
+    const { error } = await client.rpc('upsert_ppv_quarterly_commission', payload);
+
+    if (!error) {
+      setPPVStatus('Quarterly commission saved.', 'success');
+      setInputValue('quarterlyCommissionAmountInput', '');
+      setInputValue('quarterlyCommissionNotesInput', '');
+      await refreshSelectedPayPeriodData();
+      return;
+    }
+
+    errors.push(error.message);
+  }
+
+  const insertAttempts = [
+    {
+      pay_period_id: currentPayPeriodId,
+      route_tech_id: routeTechId,
+      commission_period_label: periodLabel,
+      commission_amount: amount,
+      status: 'APPROVED',
+      notes: baseNotes
+    },
+    {
+      pay_period_id: currentPayPeriodId,
+      route_tech_id: routeTechId,
+      quarter_label: periodLabel,
+      commission_amount: amount,
+      status: 'APPROVED',
+      notes: baseNotes
+    }
+  ];
+
+  for (const payload of insertAttempts) {
+    const { error } = await client.from('ppv_quarterly_commissions').insert(payload);
+
+    if (!error) {
+      setPPVStatus('Quarterly commission saved.', 'success');
+      setInputValue('quarterlyCommissionAmountInput', '');
+      setInputValue('quarterlyCommissionNotesInput', '');
+      await refreshSelectedPayPeriodData();
+      return;
+    }
+
+    errors.push(error.message);
+  }
+
+  setPPVStatus('Quarterly commission save error. Last database response: ' + (errors[errors.length - 1] || 'Unknown error'), 'error');
+}
+
 function updateSafeguardCalculatedAmount() {
   const preview = document.getElementById('safeguardPreview');
   const routeTechId = getInputValue('safeguardRouteTechSelect');
@@ -3922,8 +4178,8 @@ async function loadPayrollExportRows() {
     return;
   }
 
-  currentPayrollExportRows = result.rows || [];
-  renderRowsTable(currentPayrollExportRows, 'exportHead', 'exportBody', 'No payroll export rows found for this pay period.');
+  currentPayrollExportRows = getPayrollReportRows(result.rows || []);
+  renderRowsTable(currentPayrollExportRows, 'exportHead', 'exportBody', 'No route tech payroll export rows found for this pay period.');
   setPPVStatus('Payroll export loaded.', 'success');
 }
 
@@ -3941,8 +4197,8 @@ async function loadBiweeklySubmittalRows() {
     return;
   }
 
-  currentBiweeklySubmittalRows = result.rows || [];
-  renderRowsTable(currentBiweeklySubmittalRows, 'exportHead', 'exportBody', 'No bi-weekly submittal rows found for this pay period.');
+  currentBiweeklySubmittalRows = getPayrollReportRows(result.rows || []);
+  renderRowsTable(currentBiweeklySubmittalRows, 'exportHead', 'exportBody', 'No route tech bi-weekly submittal rows found for this pay period.');
   setPPVStatus('Bi-weekly payroll submittal loaded.', 'success');
 }
 
@@ -3958,7 +4214,7 @@ async function loadReportingHistoryRows() {
     return;
   }
 
-  currentReportingHistoryRows = sortReportingHistoryRows(data || []);
+  currentReportingHistoryRows = sortReportingHistoryRows(getPayrollReportRows(data || []));
   renderRowsTable(currentReportingHistoryRows, 'historyHead', 'historyBody', 'No reporting history rows found.');
   setPPVStatus('Reporting history loaded newest to oldest.', 'success');
 }
@@ -4537,6 +4793,100 @@ function printSelectedRouteTechPaySheet() {
   window.print();
 }
 
+function getSafeguardEventsForRouteTech(routeTechId) {
+  if (!routeTechId) {
+    return [];
+  }
+
+  return (currentSafeguardEventRows || []).filter(event => {
+    const eventRouteTechId = getRecordValue(event, ['route_tech_id']);
+    const status = String(getRecordValue(event, ['status', 'event_status']) || '').toUpperCase();
+
+    return String(eventRouteTechId || '') === String(routeTechId)
+      && !['VOIDED', 'CANCELLED', 'DELETED'].includes(status);
+  });
+}
+
+function formatSafeguardTypeLabel(value) {
+  const normalized = String(value || '').toUpperCase();
+
+  if (normalized === 'FAILED_QC_CHECK') {
+    return 'Failed QC Check';
+  }
+
+  if (normalized === 'CAUSATION_CALLBACK') {
+    return 'Causation Callback';
+  }
+
+  if (normalized === 'LOST_CLIENT') {
+    return 'Lost Client';
+  }
+
+  return formatColumnLabel(normalized || 'Safeguard Penalty');
+}
+
+function buildSafeguardExplanation(event) {
+  const typeLabel = formatSafeguardTypeLabel(getRecordValue(event, ['incident_type', 'safeguard_type', 'root_cause_category']));
+  const incidentDate = getRecordValue(event, ['incident_date', 'event_date']);
+  const clientName = getRecordValue(event, ['client_name', 'site_name', 'client_site_name']) || '';
+  const notes = getRecordValue(event, ['notes', 'outcome_notes', 'corrective_action']) || '';
+  const pieces = [];
+
+  pieces.push(`${typeLabel}${incidentDate ? ' on ' + formatDate(incidentDate) : ''}`);
+
+  if (clientName) {
+    pieces.push(clientName);
+  }
+
+  if (notes) {
+    pieces.push(notes);
+  }
+
+  return pieces.join(' - ');
+}
+
+function buildSafeguardPaySheetRows(row, fallbackSafeguardPenalty) {
+  const routeTechId = getRecordValue(row, ['route_tech_id']);
+  const events = getSafeguardEventsForRouteTech(routeTechId);
+
+  if (events.length) {
+    return events.map(event => {
+      const typeLabel = formatSafeguardTypeLabel(getRecordValue(event, ['incident_type', 'safeguard_type', 'root_cause_category']));
+      const amount = numberFromRecord(event, ['ppv_impact_amount', 'safeguard_impact_amount', 'impact_amount', 'penalty_amount', 'adjustment_amount']);
+      const explanation = buildSafeguardExplanation(event);
+
+      return `
+          <tr class="pay-sheet-negative-row">
+            <td>${escapeHTML(typeLabel)}</td>
+            <td></td>
+            <td></td>
+            <td>${formatCurrency(amount)}</td>
+            <td>${escapeHTML(explanation)}</td>
+          </tr>`;
+    }).join('');
+  }
+
+  if (Number(fallbackSafeguardPenalty || 0) !== 0) {
+    return `
+          <tr class="pay-sheet-negative-row">
+            <td>Safeguard Penalty</td>
+            <td></td>
+            <td></td>
+            <td>${formatCurrency(fallbackSafeguardPenalty)}</td>
+            <td>Reviewed safeguard impact for this pay period.</td>
+          </tr>`;
+  }
+
+  return `
+          <tr class="pay-sheet-negative-row">
+            <td>Safeguard Penalty</td>
+            <td></td>
+            <td></td>
+            <td>${formatCurrency(0)}</td>
+            <td>No reviewed safeguard penalties for this pay period.</td>
+          </tr>`;
+}
+
 function buildRouteTechPaySheetHTML(row, printMode = false) {
   const periodLabel = getRecordValue(row, ['pay_period_label']) || formatPayPeriodLabel(currentPayPeriodRecord || {});
   const startDate = getRecordValue(row, ['period_start_date']);
@@ -4562,7 +4912,12 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
   const preSafeguardPay = numberFromRecord(row, ['pre_safeguard_pay']);
   const safeguardPenalty = numberFromRecord(row, ['safeguard_impact_total']);
   const adjustmentTotal = numberFromRecord(row, ['adjustment_total']);
+  const quarterlyCommissionPay = numberFromRecord(row, ['quarterly_commission_pay', 'quarterly_commission_amount', 'commission_pay']);
   const finalGross = numberFromRecord(row, ['final_gross_before_taxes_deductions', 'net_ppv_pay']);
+  const preSafeguardDisplayPay = finalGross || safeguardPenalty
+    ? roundNumber(finalGross - safeguardPenalty, 2)
+    : roundNumber(preSafeguardPay + adjustmentTotal + quarterlyCommissionPay, 2);
+  const safeguardRowsHTML = buildSafeguardPaySheetRows(row, safeguardPenalty);
 
   const wrapperClass = printMode ? '' : 'pay-sheet-shell';
 
@@ -4672,6 +5027,13 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
             <td>Approved meeting or maintenance credits paid at pickup visit rate.</td>
           </tr>
           <tr>
+            <td>Quarterly Commission Earned</td>
+            <td></td>
+            <td></td>
+            <td>${formatCurrency(quarterlyCommissionPay)}</td>
+            <td>Approved quarterly commission earned for this pay period.</td>
+          </tr>
+          <tr>
             <td>Manual Dollar Adjustments</td>
             <td></td>
             <td></td>
@@ -4682,16 +5044,10 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
             <td>Pre-Safeguard Pay</td>
             <td></td>
             <td></td>
-            <td>${formatCurrency(preSafeguardPay + adjustmentTotal)}</td>
-            <td>PPV pay plus approved credits and adjustments before safeguard penalties.</td>
+            <td>${formatCurrency(preSafeguardDisplayPay)}</td>
+            <td>PPV pay plus approved credits, commissions, and adjustments before safeguard penalties.</td>
           </tr>
-          <tr class="pay-sheet-negative-row">
-            <td>Safeguard Penalty</td>
-            <td></td>
-            <td></td>
-            <td>${formatCurrency(safeguardPenalty)}</td>
-            <td>Failed QC, causation callback, or lost client safeguard impact.</td>
-          </tr>
+          ${safeguardRowsHTML}
           <tr class="pay-sheet-total-row">
             <td>Gross Wages Before Taxes & Deductions</td>
             <td></td>
