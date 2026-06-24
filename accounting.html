@@ -1480,7 +1480,7 @@
       <button class="accounting-btn section-refresh-btn" onclick="refreshAccountingPage()">REFRESH PAGE</button>
 
       <div class="report-note">
-        Select a date range to view a true inventory valuation ledger. This report uses the same valuation basis throughout: historical quantity multiplied by the current part unit cost, so Beginning Inventory plus activity ties exactly to Ending Inventory.
+        Select a date range and choose the valuation basis. Current-Cost Valuation uses current item cost and is available now. FIFO Valuation is reserved for the true accounting layer-cost report after FIFO cost layers are built and validated.
       </div>
 
       <div class="ledger-controls-grid">
@@ -1496,11 +1496,13 @@
       </div>
 
       <div class="ledger-actions-grid">
-        <button class="accounting-btn" onclick="loadInventoryValuationLedger()">RUN VALUATION LEDGER</button>
-        <button class="accounting-btn" onclick="exportInventoryValuationLedgerCSV()">EXPORT LEDGER DETAIL CSV</button>
+        <button class="accounting-btn" onclick="loadCurrentCostInventoryValuationLedger()">RUN CURRENT-COST VALUATION</button>
+        <button class="accounting-btn" onclick="loadFifoInventoryValuationLedger()">RUN FIFO VALUATION</button>
+        <button class="accounting-btn" onclick="exportCurrentCostInventoryValuationLedgerCSV()">EXPORT CURRENT-COST CSV</button>
+        <button class="accounting-btn" onclick="exportFifoInventoryValuationLedgerCSV()">EXPORT FIFO CSV</button>
       </div>
 
-      <div id="valuationLedgerReport" class="ledger-placeholder">Select a date range and run valuation ledger...</div>
+      <div id="valuationLedgerReport" class="ledger-placeholder">Select a date range, then run Current-Cost Valuation or FIFO Valuation...</div>
 
     </div>
 
@@ -2169,6 +2171,45 @@ async function exportInventoryValueDetailCSV() {
 }
 
 async function loadInventoryValuationLedger() {
+  return loadCurrentCostInventoryValuationLedger();
+}
+
+async function loadFifoInventoryValuationLedger() {
+  const startDate = document.getElementById('valuationLedgerStartDate').value;
+  const endDate = document.getElementById('valuationLedgerEndDate').value;
+  const reportElement = document.getElementById('valuationLedgerReport');
+
+  if (!startDate || !endDate) {
+    reportElement.className = 'ledger-placeholder';
+    reportElement.textContent = 'Please select both a start date and end date.';
+    valuationLedgerSummaryData = null;
+    valuationLedgerDetailData = [];
+    return;
+  }
+
+  if (startDate > endDate) {
+    reportElement.className = 'ledger-placeholder';
+    reportElement.textContent = 'Start date cannot be after end date.';
+    valuationLedgerSummaryData = null;
+    valuationLedgerDetailData = [];
+    return;
+  }
+
+  valuationLedgerSummaryData = null;
+  valuationLedgerDetailData = [];
+
+  const fifoMessage =
+    `FIFO INVENTORY VALUATION LEDGER\n` +
+    `Date Range: ${startDate} to ${endDate}\n` +
+    `Basis: FIFO valuation. Remaining inventory should be valued from original receipt cost layers.\n\n` +
+    `Status: FIFO valuation is not enabled yet. The Accounting page is ready for this report option, but the database FIFO cost-layer source still needs to be built and validated before this button returns accounting values.\n\n` +
+    `Next build step: create FIFO cost layers for all RECEIVE activity, consume oldest layers for ISSUED and negative adjustments, preserve layer cost through transfers, and expose the validated result through FIFO valuation RPCs/views.`;
+
+  reportElement.className = 'ledger-placeholder';
+  reportElement.textContent = fifoMessage;
+}
+
+async function loadCurrentCostInventoryValuationLedger() {
   const startDate = document.getElementById('valuationLedgerStartDate').value;
   const endDate = document.getElementById('valuationLedgerEndDate').value;
   const reportElement = document.getElementById('valuationLedgerReport');
@@ -2190,7 +2231,7 @@ async function loadInventoryValuationLedger() {
   }
 
   reportElement.className = 'ledger-placeholder';
-  reportElement.textContent = 'Loading inventory valuation ledger...';
+  reportElement.textContent = 'Loading current-cost inventory valuation ledger...';
 
   const { data: summaryData, error: summaryError } = await client
     .rpc('get_inventory_valuation_history_summary', {
@@ -2222,7 +2263,7 @@ async function loadInventoryValuationLedger() {
 
   if (!summaryData || summaryData.length === 0) {
     reportElement.className = 'ledger-placeholder';
-    reportElement.textContent = 'No valuation ledger data found for selected date range.';
+    reportElement.textContent = 'No current-cost valuation ledger data found for selected date range.';
     valuationLedgerSummaryData = null;
     valuationLedgerDetailData = [];
     return;
@@ -2413,9 +2454,9 @@ function displayInventoryValuationLedger(summary, details, startDate, endDate) {
     }
   ];
 
-  let summaryText = `INVENTORY VALUATION LEDGER\n`;
+  let summaryText = `CURRENT-COST INVENTORY VALUATION LEDGER\n`;
   summaryText += `Date Range: ${startDate} to ${endDate}\n`;
-  summaryText += `Basis: Historical quantity × current part unit cost\n`;
+  summaryText += `Basis: Current-cost valuation. Quantities are valued using current item cost, not FIFO layer cost.\n`;
   summaryText += `Calculated Ending Inventory: ${formatSignedCurrency(summary.calculated_ending_inventory_value)}\n`;
   summaryText += `Variance: ${formatSignedCurrency(summary.variance)}`;
 
@@ -2572,11 +2613,11 @@ function formatValuationLedgerValue(columnName, value) {
   return value;
 }
 
-function exportInventoryValuationLedgerCSV() {
+function exportCurrentCostInventoryValuationLedgerCSV() {
   if (!valuationLedgerDetailData || valuationLedgerDetailData.length === 0) {
     document.getElementById('valuationLedgerReport').className = 'ledger-placeholder';
     document.getElementById('valuationLedgerReport').textContent =
-      'Run the valuation ledger before exporting.';
+      'Run the current-cost valuation ledger before exporting.';
     return;
   }
 
@@ -2584,9 +2625,9 @@ function exportInventoryValuationLedgerCSV() {
   const endDate = document.getElementById('valuationLedgerEndDate').value;
   const summary = valuationLedgerSummaryData || {};
 
-  let csv = 'Inventory Valuation Ledger Summary\n';
+  let csv = 'Current-Cost Inventory Valuation Ledger Summary\n';
   csv += `"Date Range","${cleanCSV(startDate)} to ${cleanCSV(endDate)}"\n`;
-  csv += `"Basis","Historical quantity x current part unit cost"\n`;
+  csv += `"Basis","Current-cost valuation. Quantities are valued using current item cost, not FIFO layer cost."\n`;
   csv += `"Beginning Inventory Value","${cleanCSV(summary.beginning_inventory_value)}"\n`;
   csv += `"Add: Received Inventory","${cleanCSV(summary.received_inventory_value)}"\n`;
   csv += `"Add/Less: Manual Adjustments","${cleanCSV(summary.manual_adjustment_value)}"\n`;
@@ -2630,7 +2671,21 @@ function exportInventoryValuationLedgerCSV() {
     csv += exportColumns.map(col => `"${cleanCSV(row[col])}"`).join(',') + '\n';
   });
 
-  downloadCSV(csv, `inventory_valuation_ledger_${startDate}_to_${endDate}.csv`);
+  downloadCSV(csv, `current_cost_inventory_valuation_ledger_${startDate}_to_${endDate}.csv`);
+}
+
+function exportInventoryValuationLedgerCSV() {
+  return exportCurrentCostInventoryValuationLedgerCSV();
+}
+
+function exportFifoInventoryValuationLedgerCSV() {
+  const reportElement = document.getElementById('valuationLedgerReport');
+
+  if (reportElement) {
+    reportElement.className = 'ledger-placeholder';
+    reportElement.textContent =
+      'FIFO export is not available yet. The database FIFO cost-layer report needs to be built and validated before this export can produce accounting values.';
+  }
 }
 
 async function loadTransactionLog() {
