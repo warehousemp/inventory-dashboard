@@ -968,20 +968,24 @@
     .uag-batch-table th:nth-child(10),
     .uag-batch-table td:nth-child(10) { width: 135px; }
 
+    .uag-line-table {
+      min-width: 2300px;
+    }
+
     .uag-line-table th:nth-child(1),
-    .uag-line-table td:nth-child(1) { width: 230px; }
+    .uag-line-table td:nth-child(1) { width: 220px; }
     .uag-line-table th:nth-child(2),
-    .uag-line-table td:nth-child(2) { width: 140px; }
+    .uag-line-table td:nth-child(2) { width: 165px; }
     .uag-line-table th:nth-child(3),
-    .uag-line-table td:nth-child(3) { width: 330px; word-break: break-word; line-height: 1.35; }
+    .uag-line-table td:nth-child(3) { width: 155px; }
     .uag-line-table th:nth-child(4),
-    .uag-line-table td:nth-child(4) { width: 130px; }
+    .uag-line-table td:nth-child(4) { width: 150px; }
     .uag-line-table th:nth-child(5),
-    .uag-line-table td:nth-child(5),
+    .uag-line-table td:nth-child(5) { width: 330px; word-break: break-word; line-height: 1.35; }
     .uag-line-table th:nth-child(6),
-    .uag-line-table td:nth-child(6),
+    .uag-line-table td:nth-child(6) { width: 190px; word-break: break-word; line-height: 1.35; }
     .uag-line-table th:nth-child(7),
-    .uag-line-table td:nth-child(7),
+    .uag-line-table td:nth-child(7) { width: 110px; }
     .uag-line-table th:nth-child(8),
     .uag-line-table td:nth-child(8),
     .uag-line-table th:nth-child(9),
@@ -991,7 +995,30 @@
     .uag-line-table th:nth-child(11),
     .uag-line-table td:nth-child(11),
     .uag-line-table th:nth-child(12),
-    .uag-line-table td:nth-child(12) { width: 125px; }
+    .uag-line-table td:nth-child(12),
+    .uag-line-table th:nth-child(13),
+    .uag-line-table td:nth-child(13),
+    .uag-line-table th:nth-child(14),
+    .uag-line-table td:nth-child(14) { width: 125px; }
+    .uag-line-table th:nth-child(15),
+    .uag-line-table td:nth-child(15) { width: 155px; }
+    .uag-line-table th:nth-child(16),
+    .uag-line-table td:nth-child(16) { width: 110px; }
+
+    .uag-line-status-open {
+      color: #0b3c5d;
+      font-weight: 900;
+    }
+
+    .uag-line-status-issued {
+      color: #475569;
+      font-weight: 900;
+    }
+
+    .uag-line-status-inactive {
+      color: #b91c1c;
+      font-weight: 900;
+    }
 
 
     .reorder-dashboard-note {
@@ -2018,8 +2045,8 @@
 
           <label>Show Lines:</label>
           <select id="uagLineFilter">
-            <option value="ALL">All Lines</option>
-            <option value="OPEN">Remaining Inventory Only</option>
+            <option value="ALL">All UAG Batched Items</option>
+            <option value="OPEN">Open / Remaining Inventory Only</option>
             <option value="NO_MOVEMENT">No Issue Activity</option>
             <option value="FULLY_ISSUED">Fully Issued</option>
           </select>
@@ -2081,29 +2108,34 @@
         </table>
       </div>
 
-      <h3>Line Usage Detail</h3>
+      <h3>All UAG Batched Items</h3>
+      <div class="status-note">
+        This detail section lists every UAG batched lot/item returned by the report source, including serialized units, active remaining items, fully issued items, and inactive or reversed lots.
+      </div>
       <div class="count-table-wrapper">
         <table class="uag-line-table">
           <thead>
             <tr>
               <th>Batch Code</th>
+              <th>UAG Order #</th>
+              <th>Received At</th>
               <th>Part Number</th>
               <th>Description</th>
+              <th>Serial Number</th>
               <th>Serialized</th>
-              <th>Started With</th>
-              <th>Issued</th>
-              <th>Remaining</th>
+              <th>Qty Received</th>
+              <th>Qty Issued</th>
+              <th>Qty Remaining</th>
               <th>Unit Cost</th>
               <th>Original Value</th>
               <th>Issued Value</th>
               <th>Remaining Value</th>
-              <th>Usage %</th>
-              <th>Last Issued</th>
-              <th>No Activity</th>
+              <th>Line Status</th>
+              <th>Active</th>
             </tr>
           </thead>
           <tbody id="uagBatchLineTableBody">
-            <tr><td colspan="14">No UAG batch report loaded.</td></tr>
+            <tr><td colspan="16">No UAG batch report loaded.</td></tr>
           </tbody>
         </table>
       </div>
@@ -2876,10 +2908,9 @@ async function fetchUagBulkBatchData() {
     .order('batch_code', { ascending: true });
 
   let lineQuery = client
-    .from('purchase_batch_line_usage_view')
+    .from('uag_bulk_batch_all_items_view')
     .select('*')
-    .eq('vendor_name', 'UAG')
-    .eq('purchase_order_type', 'BULK_BATCH')
+    .order('lot_created_at', { ascending: false })
     .order('batch_code', { ascending: true })
     .order('part_number', { ascending: true });
 
@@ -2891,7 +2922,7 @@ async function fetchUagBulkBatchData() {
   if (selectedLineFilter === 'OPEN') {
     lineQuery = lineQuery.gt('quantity_remaining', 0);
   } else if (selectedLineFilter === 'NO_MOVEMENT') {
-    lineQuery = lineQuery.eq('has_no_issue_activity', true);
+    lineQuery = lineQuery.eq('quantity_issued', 0);
   } else if (selectedLineFilter === 'FULLY_ISSUED') {
     lineQuery = lineQuery.eq('quantity_remaining', 0);
   }
@@ -2921,15 +2952,23 @@ function populateUagBatchFilter() {
   }
 
   const currentValue = select.value || 'ALL';
-  const existingBatchCodes = new Set(
-    uagBulkSummaryData
-      .map(row => row.batch_code)
-      .filter(Boolean)
-  );
+  const existingBatchCodes = new Set();
+
+  (uagBulkSummaryData || []).forEach(row => {
+    if (row.batch_code) {
+      existingBatchCodes.add(row.batch_code);
+    }
+  });
+
+  (uagBulkLineData || []).forEach(row => {
+    if (row.batch_code) {
+      existingBatchCodes.add(row.batch_code);
+    }
+  });
 
   select.innerHTML = '<option value="ALL">All UAG Bulk Batches</option>';
 
-  existingBatchCodes.forEach(batchCode => {
+  [...existingBatchCodes].sort().forEach(batchCode => {
     const option = document.createElement('option');
     option.value = batchCode;
     option.textContent = batchCode;
@@ -2957,7 +2996,7 @@ async function loadUagBulkBatchReport() {
   }
 
   if (lineBody) {
-    lineBody.innerHTML = '<tr><td colspan="14">Loading UAG batch lines...</td></tr>';
+    lineBody.innerHTML = '<tr><td colspan="16">Loading all UAG batched items...</td></tr>';
   }
 
   try {
@@ -2975,7 +3014,7 @@ async function loadUagBulkBatchReport() {
     }
 
     if (lineBody) {
-      lineBody.innerHTML = `<tr><td colspan="14">${escapeHTML(error.message)}</td></tr>`;
+      lineBody.innerHTML = `<tr><td colspan="16">${escapeHTML(error.message)}</td></tr>`;
     }
 
     return;
@@ -3079,27 +3118,35 @@ function renderUagBatchLineTable() {
   tableBody.innerHTML = '';
 
   if (!uagBulkLineData || uagBulkLineData.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="14">No UAG batch line details found for the selected filters.</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="16">No UAG batched items found for the selected filters.</td></tr>';
     return;
   }
 
   uagBulkLineData.forEach(row => {
     const tr = document.createElement('tr');
+    const lineStatus = String(row.line_status || '').toUpperCase();
+    const statusClass =
+      lineStatus === 'OPEN' ? 'uag-line-status-open' :
+      lineStatus === 'FULLY_ISSUED' || lineStatus === 'NO_REMAINING' ? 'uag-line-status-issued' :
+      'uag-line-status-inactive';
+
     tr.innerHTML = `
       <td>${escapeHTML(row.batch_code || '')}</td>
+      <td>${escapeHTML(row.vendor_order_number || '')}</td>
+      <td>${formatDateTime(row.lot_created_at || row.first_received_at || row.received_date)}</td>
       <td>${escapeHTML(row.part_number || '')}</td>
       <td>${escapeHTML(row.description || '')}</td>
+      <td>${escapeHTML(row.serial_number || '')}</td>
       <td>${row.is_serialized === true ? 'Yes' : 'No'}</td>
-      <td>${formatNumber(row.quantity_started_with)}</td>
+      <td>${formatNumber(row.quantity_received)}</td>
       <td>${formatNumber(row.quantity_issued)}</td>
       <td>${formatNumber(row.quantity_remaining)}</td>
       <td>${formatCurrency(row.unit_cost)}</td>
       <td>${formatCurrency(row.original_value)}</td>
       <td>${formatCurrency(row.issued_value)}</td>
       <td>${formatCurrency(row.remaining_value)}</td>
-      <td>${formatNumber(row.value_usage_percent)}%</td>
-      <td>${formatDateTime(row.last_issued_at)}</td>
-      <td>${row.has_no_issue_activity === true ? 'Yes' : 'No'}</td>
+      <td class="${statusClass}">${escapeHTML(formatUagLineStatus(row.line_status))}</td>
+      <td>${row.active === true ? 'Yes' : 'No'}</td>
     `;
 
     tableBody.appendChild(tr);
@@ -3145,8 +3192,30 @@ function updateUagBatchSummaryText() {
     `Remaining Bulk UAG Inventory Value: ${formatCurrency(remainingValue)}`;
 }
 
+function formatUagLineStatus(value) {
+  const normalized = String(value || '').toUpperCase();
+
+  if (normalized === 'OPEN') {
+    return 'Open / Remaining';
+  }
+
+  if (normalized === 'FULLY_ISSUED') {
+    return 'Fully Issued';
+  }
+
+  if (normalized === 'INACTIVE_OR_REVERSED') {
+    return 'Inactive / Reversed';
+  }
+
+  if (normalized === 'NO_REMAINING') {
+    return 'No Remaining';
+  }
+
+  return value || '';
+}
+
 async function exportUagBulkBatchCSV() {
-  if (!uagBulkSummaryData || uagBulkSummaryData.length === 0) {
+  if (!uagBulkSummaryData || uagBulkSummaryData.length === 0 || !uagBulkLineData || uagBulkLineData.length === 0) {
     try {
       await fetchUagBulkBatchData();
     } catch (error) {
@@ -3155,18 +3224,21 @@ async function exportUagBulkBatchCSV() {
     }
   }
 
-  if (!uagBulkSummaryData || uagBulkSummaryData.length === 0) {
+  if ((!uagBulkSummaryData || uagBulkSummaryData.length === 0) && (!uagBulkLineData || uagBulkLineData.length === 0)) {
     document.getElementById('uagBatchSummary').textContent = 'No UAG bulk batch data available to export.';
     return;
   }
 
-  let csv = 'Section,Batch Code,UAG Order Number,Part Number,Description,Serialized,Started With,Issued,Remaining,Unit Cost,Original Value,Issued Value,Remaining Value,Usage Percent,Last Issued,No Issue Activity\n';
+  let csv = 'Section,Batch Code,UAG Order Number,Received At,Part Number,Description,Serial Number,Serialized,Qty Received,Qty Issued,Qty Remaining,Unit Cost,Original Value,Issued Value,Remaining Value,Line Status,Active,Inventory Lot ID,Received Transaction ID
+';
 
   uagBulkSummaryData.forEach(row => {
     csv +=
       `"Batch Summary",` +
       `"${cleanCSV(row.batch_code)}",` +
       `"${cleanCSV(row.vendor_order_number)}",` +
+      `"${cleanCSV(row.received_date)}",` +
+      `"",` +
       `"",` +
       `"",` +
       `"",` +
@@ -3177,33 +3249,39 @@ async function exportUagBulkBatchCSV() {
       `"${cleanCSV(row.original_inventory_value)}",` +
       `"${cleanCSV(row.issued_inventory_value)}",` +
       `"${cleanCSV(row.remaining_inventory_value)}",` +
-      `"${cleanCSV(row.value_usage_percent)}",` +
+      `"Batch Summary",` +
       `"",` +
-      `""\n`;
+      `"",` +
+      `""
+`;
   });
 
   uagBulkLineData.forEach(row => {
     csv +=
-      `"Line Detail",` +
+      `"All UAG Batched Items",` +
       `"${cleanCSV(row.batch_code)}",` +
       `"${cleanCSV(row.vendor_order_number)}",` +
+      `"${cleanCSV(row.lot_created_at || row.first_received_at || row.received_date)}",` +
       `"${cleanCSV(row.part_number)}",` +
       `"${cleanCSV(row.description)}",` +
+      `"${cleanCSV(row.serial_number)}",` +
       `"${cleanCSV(row.is_serialized === true ? 'Yes' : 'No')}",` +
-      `"${cleanCSV(row.quantity_started_with)}",` +
+      `"${cleanCSV(row.quantity_received)}",` +
       `"${cleanCSV(row.quantity_issued)}",` +
       `"${cleanCSV(row.quantity_remaining)}",` +
       `"${cleanCSV(row.unit_cost)}",` +
       `"${cleanCSV(row.original_value)}",` +
       `"${cleanCSV(row.issued_value)}",` +
       `"${cleanCSV(row.remaining_value)}",` +
-      `"${cleanCSV(row.value_usage_percent)}",` +
-      `"${cleanCSV(row.last_issued_at)}",` +
-      `"${cleanCSV(row.has_no_issue_activity === true ? 'Yes' : 'No')}"\n`;
+      `"${cleanCSV(formatUagLineStatus(row.line_status))}",` +
+      `"${cleanCSV(row.active === true ? 'Yes' : 'No')}",` +
+      `"${cleanCSV(row.inventory_lot_id)}",` +
+      `"${cleanCSV(row.received_transaction_id)}"
+`;
   });
 
   const selectedBatch = document.getElementById('uagBatchFilter')?.value || 'ALL';
-  downloadCSV(csv, `uag_bulk_batch_usage_${cleanFilename(selectedBatch)}.csv`);
+  downloadCSV(csv, `uag_bulk_batch_all_items_${cleanFilename(selectedBatch)}.csv`);
 }
 
 
