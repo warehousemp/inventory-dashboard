@@ -2111,21 +2111,29 @@
         <h3>WAREHOUSE INVENTORY ADJUSTMENT</h3>
 
         <div class="inventory-workflow-note">
-          Use this section for audit-preserving warehouse adjustments such as found inventory, missed cycle count items, restock found, physical count corrections, or Return to Vendor removals. This does not edit or delete original transactions.
+          Use this section for audit-preserving warehouse adjustments such as found inventory, missed cycle count items, restock found, physical count corrections, Return to Vendor removals, or one-time Initial Location Load / Van Opening Balance entries. This does not edit or delete original transactions.
         </div>
 
         <div class="warning-note">
-          Positive adjustments are allowed for standard correction reasons. Negative adjustments are allowed only when Adjustment Reason is RETURN_TO_VENDOR. Serialized items are blocked in this workflow so serial-number tracking stays accurate. Use Receive Inventory for serialized items.
+          Positive adjustments are allowed for standard correction reasons and Initial Location Load / Van Opening Balance. Negative adjustments are allowed only when Adjustment Reason is RETURN_TO_VENDOR. Serialized items are blocked in this workflow so serial-number tracking stays accurate. Use Receive Inventory for serialized items.
         </div>
 
         <label>Part Number:</label>
         <input id="adjustmentPart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
         <div id="adjustmentPartDescription" class="part-description-display">Part description will appear here after a part number is selected.</div>
 
+        <label>Target Location:</label>
+        <select id="adjustmentLocation">
+          <option value="">Loading locations...</option>
+        </select>
+        <div class="help-text">
+          Required. Select the warehouse, van, or warranty location where the inventory physically exists. Issued / Job Use and Adjustment Holding are excluded.
+        </div>
+
         <label>Adjustment Quantity:</label>
         <input id="adjustmentQty" type="number" step="1" value="1">
         <div id="adjustmentQuantityHelp" class="help-text">
-          Enter a positive quantity for standard adjustments. Select RETURN_TO_VENDOR to enter a negative quantity.
+          Enter a positive quantity for standard adjustments or Initial Location Load. Select RETURN_TO_VENDOR to enter a negative quantity.
         </div>
 
         <label>Adjusted By:</label>
@@ -2139,12 +2147,13 @@
           <option value="RECEIVING_ERROR_CORRECTION">RECEIVING_ERROR_CORRECTION</option>
           <option value="RESTOCK_FOUND">RESTOCK_FOUND</option>
           <option value="PHYSICAL_COUNT_CORRECTION">PHYSICAL_COUNT_CORRECTION</option>
+          <option value="INITIAL_LOCATION_LOAD">Initial Location Load / Van Opening Balance</option>
           <option value="RETURN_TO_VENDOR">RETURN_TO_VENDOR</option>
           <option value="OTHER">OTHER</option>
         </select>
 
         <label>Notes:</label>
-        <textarea id="adjustmentNotes" placeholder="Add clear notes explaining why this adjustment is being made"></textarea>
+        <textarea id="adjustmentNotes" placeholder="Add clear notes explaining why this adjustment is being made. For Initial Location Load, use: Initial location load before first whole-location cycle count."></textarea>
 
         <button class="adjustment-btn" onclick="warehouseAdjustment()">SAVE WAREHOUSE ADJUSTMENT</button>
 
@@ -2631,7 +2640,8 @@ async function loadInventoryLocationDropdowns() {
   ];
 
   const issueSelect = document.getElementById('issueSourceLocation');
-  const allSelects = [...transferSelects, issueSelect].filter(Boolean);
+  const adjustmentSelect = document.getElementById('adjustmentLocation');
+  const allSelects = [...transferSelects, issueSelect, adjustmentSelect].filter(Boolean);
 
   allSelects.forEach(select => {
     select.innerHTML = '<option value="">Loading locations...</option>';
@@ -2639,7 +2649,7 @@ async function loadInventoryLocationDropdowns() {
 
   const { data, error } = await client
     .from('inventory_locations')
-    .select('id, location_name, active')
+    .select('id, location_name, location_type, active')
     .eq('active', true)
     .order('location_name', { ascending: true });
 
@@ -2657,14 +2667,10 @@ async function loadInventoryLocationDropdowns() {
     !EXCLUDED_OPERATIONAL_LOCATION_NAMES.includes(location.location_name)
   );
 
-  transferSelects.forEach(select => {
+  function populateLocationSelect(select, placeholder) {
     if (!select) {
       return;
     }
-
-    const placeholder = select.id === 'transferFromLocation'
-      ? 'Select source location...'
-      : 'Select destination location...';
 
     select.innerHTML = `<option value="">${placeholder}</option>`;
 
@@ -2672,24 +2678,27 @@ async function loadInventoryLocationDropdowns() {
       const option = document.createElement('option');
       option.value = location.id;
       option.textContent = location.location_name;
+      option.dataset.locationType = location.location_type || '';
       select.appendChild(option);
-    });
-  });
-
-  if (issueSelect) {
-    issueSelect.innerHTML = '<option value="">Select issue source location...</option>';
-
-    operationalLocations.forEach(location => {
-      const option = document.createElement('option');
-      option.value = location.id;
-      option.textContent = location.location_name;
-      issueSelect.appendChild(option);
     });
   }
 
+  transferSelects.forEach(select => {
+    const placeholder = select && select.id === 'transferFromLocation'
+      ? 'Select source location...'
+      : 'Select destination location...';
+
+    populateLocationSelect(select, placeholder);
+  });
+
+  populateLocationSelect(issueSelect, 'Select issue source location...');
+  populateLocationSelect(adjustmentSelect, 'Select adjustment target location...');
+
   const fromSelect = document.getElementById('transferFromLocation');
   const issueSourceSelect = document.getElementById('issueSourceLocation');
+  const adjustmentLocationSelect = document.getElementById('adjustmentLocation');
   const transferByElement = document.getElementById('transferBy');
+  const adjustedByElement = document.getElementById('adjustedBy');
 
   if (fromSelect && operationalLocations.some(location => String(location.id) === MAIN_WAREHOUSE_ID)) {
     fromSelect.value = MAIN_WAREHOUSE_ID;
@@ -2699,14 +2708,23 @@ async function loadInventoryLocationDropdowns() {
     issueSourceSelect.value = MAIN_WAREHOUSE_ID;
   }
 
+  if (adjustmentLocationSelect && operationalLocations.some(location => String(location.id) === MAIN_WAREHOUSE_ID)) {
+    adjustmentLocationSelect.value = MAIN_WAREHOUSE_ID;
+  }
+
   if (transferByElement && currentWarehouseProfile?.full_name && !transferByElement.value.trim()) {
     transferByElement.value = currentWarehouseProfile.full_name;
+  }
+
+  if (adjustedByElement && currentWarehouseProfile?.full_name && !adjustedByElement.value.trim()) {
+    adjustedByElement.value = currentWarehouseProfile.full_name;
   }
 
   await checkTransferSerialized();
 
   console.log('Active operational inventory locations loaded:', operationalLocations.length);
 }
+
 
 async function loadInventoryVendors() {
   const receiveVendorSelect = document.getElementById('receiveVendor');
@@ -3390,6 +3408,10 @@ function isReturnToVendorAdjustmentReason(reason) {
   return String(reason || '').trim().toUpperCase() === 'RETURN_TO_VENDOR';
 }
 
+function isInitialLocationLoadAdjustmentReason(reason) {
+  return String(reason || '').trim().toUpperCase() === 'INITIAL_LOCATION_LOAD';
+}
+
 function updateAdjustmentQuantityRules() {
   const reasonElement = document.getElementById('adjustmentReason');
   const quantityInput = document.getElementById('adjustmentQty');
@@ -3399,17 +3421,23 @@ function updateAdjustmentQuantityRules() {
     return;
   }
 
-  const isReturnToVendor = isReturnToVendorAdjustmentReason(reasonElement?.value);
+  const reasonValue = reasonElement?.value || '';
+  const isReturnToVendor = isReturnToVendorAdjustmentReason(reasonValue);
+  const isInitialLocationLoad = isInitialLocationLoadAdjustmentReason(reasonValue);
 
   quantityInput.min = '';
   quantityInput.title = isReturnToVendor
     ? 'Return to Vendor adjustments must be entered as a negative quantity, for example -1.'
-    : 'Standard warehouse adjustments must be entered as a positive quantity.';
+    : 'Standard warehouse adjustments and Initial Location Load entries must be entered as a positive quantity.';
 
   if (quantityHelp) {
-    quantityHelp.textContent = isReturnToVendor
-      ? 'Return to Vendor selected. Enter a negative quantity, for example -1, to remove inventory from Main Warehouse.'
-      : 'Enter a positive quantity for standard adjustments. Select RETURN_TO_VENDOR to enter a negative quantity.';
+    if (isReturnToVendor) {
+      quantityHelp.textContent = 'Return to Vendor selected. Enter a negative quantity, for example -1, to remove inventory from the selected Target Location.';
+    } else if (isInitialLocationLoad) {
+      quantityHelp.textContent = 'Initial Location Load selected. Enter the actual positive quantity physically found in the selected van/location before the first whole-location cycle count.';
+    } else {
+      quantityHelp.textContent = 'Enter a positive quantity for standard adjustments. Select RETURN_TO_VENDOR to enter a negative quantity.';
+    }
   }
 
   if (isReturnToVendor) {
@@ -3432,6 +3460,7 @@ function updateAdjustmentQuantityRules() {
     quantityInput.value = '1';
   }
 }
+
 
 document.getElementById('issuePart').addEventListener('input', checkIssueSerialized);
 
@@ -3631,16 +3660,37 @@ function resetTransferFields() {
   updateTransferPartDescription();
 }
 
-function resetAdjustmentFields() {
+function resetAdjustmentFields(options = {}) {
+  const keepLocationId = options.keepLocationId || null;
+  const keepReason = options.keepReason || false;
+  const keepNotes = options.keepNotes || false;
+  const keepAdjustedBy = options.keepAdjustedBy || false;
+  const adjustedByElement = document.getElementById('adjustedBy');
+
   document.getElementById('adjustmentPart').value = '';
   document.getElementById('adjustmentQty').value = '1';
-  document.getElementById('adjustedBy').value = '';
-  document.getElementById('adjustmentReason').value = '';
-  document.getElementById('adjustmentNotes').value = '';
+
+  const adjustmentLocationElement = document.getElementById('adjustmentLocation');
+  if (adjustmentLocationElement) {
+    adjustmentLocationElement.value = keepLocationId || MAIN_WAREHOUSE_ID;
+  }
+
+  if (!keepAdjustedBy && adjustedByElement) {
+    adjustedByElement.value = currentWarehouseProfile?.full_name || '';
+  }
+
+  if (!keepReason) {
+    document.getElementById('adjustmentReason').value = '';
+  }
+
+  if (!keepNotes) {
+    document.getElementById('adjustmentNotes').value = '';
+  }
 
   updateAdjustmentPartDescription();
   updateAdjustmentQuantityRules();
 }
+
 
 function resetSerializationFields() {
   document.getElementById('changeSerializationPartNumber').value = '';
@@ -4018,68 +4068,95 @@ async function receive() {
 }
 
 async function warehouseAdjustment() {
+  const output = document.getElementById('adjustmentOutput');
   const partNumber = document.getElementById('adjustmentPart').value.trim();
+  const locationId = document.getElementById('adjustmentLocation')?.value || '';
+  const locationName = getLocationNameById(locationId);
   const quantity = Number(document.getElementById('adjustmentQty').value);
   const adjustedBy = document.getElementById('adjustedBy').value.trim();
   const reason = document.getElementById('adjustmentReason').value;
   const notes = document.getElementById('adjustmentNotes').value.trim();
   const matchedPart = getMatchedPart('adjustmentPart');
+  const isReturnToVendor = isReturnToVendorAdjustmentReason(reason);
+  const isInitialLocationLoad = isInitialLocationLoadAdjustmentReason(reason);
 
   if (!partNumber) {
-    document.getElementById('adjustmentOutput').textContent = 'Part number is required for warehouse adjustment.';
+    output.textContent = 'Part number is required for warehouse adjustment.';
     return;
   }
 
   if (!matchedPart) {
-    document.getElementById('adjustmentOutput').textContent = `Active part not found in dropdown: ${partNumber}`;
+    output.textContent = `Active part not found in dropdown: ${partNumber}`;
     return;
   }
 
   if (matchedPart.is_serialized === true) {
-    document.getElementById('adjustmentOutput').textContent =
+    output.textContent =
       'Serialized parts are blocked from Warehouse Inventory Adjustment. Use Receive Inventory with a serial number so serialized tracking stays accurate.';
     return;
   }
 
+  if (!locationId) {
+    output.textContent = 'Target Location is required for warehouse adjustment.';
+    return;
+  }
+
+  if (EXCLUDED_OPERATIONAL_LOCATION_NAMES.includes(locationName)) {
+    output.textContent = `Target Location cannot be ${locationName}. Select Main Warehouse, a van, or WARRANTY.`;
+    return;
+  }
+
   if (!quantity || quantity === 0) {
-    document.getElementById('adjustmentOutput').textContent =
+    output.textContent =
       'Adjustment quantity cannot be zero.';
     return;
   }
 
-  if (quantity < 0 && !isReturnToVendorAdjustmentReason(reason)) {
-    document.getElementById('adjustmentOutput').textContent =
+  if (quantity < 0 && !isReturnToVendor) {
+    output.textContent =
       'Negative adjustments are allowed only when Adjustment Reason is RETURN_TO_VENDOR.';
     return;
   }
 
-  if (isReturnToVendorAdjustmentReason(reason) && quantity > 0) {
-    document.getElementById('adjustmentOutput').textContent =
+  if (isReturnToVendor && quantity > 0) {
+    output.textContent =
       'Return to Vendor adjustments must be entered as a negative quantity, for example -1.';
     return;
   }
 
-  if (isReturnToVendorAdjustmentReason(reason) && !notes) {
-    document.getElementById('adjustmentOutput').textContent =
+  if (isReturnToVendor && !notes) {
+    output.textContent =
       'Notes are required for Return to Vendor adjustments. Include vendor/order details or the reason inventory is being removed.';
     return;
   }
 
+  if (isInitialLocationLoad && quantity <= 0) {
+    output.textContent =
+      'Initial Location Load / Van Opening Balance must be entered as a positive quantity.';
+    return;
+  }
+
+  if (isInitialLocationLoad && !notes) {
+    output.textContent =
+      'Notes are required for Initial Location Load. Use a note such as: Initial location load before first whole-location cycle count.';
+    return;
+  }
+
   if (!adjustedBy) {
-    document.getElementById('adjustmentOutput').textContent = 'Adjusted By is required.';
+    output.textContent = 'Adjusted By is required.';
     return;
   }
 
   if (!reason) {
-    document.getElementById('adjustmentOutput').textContent = 'Adjustment Reason is required.';
+    output.textContent = 'Adjustment Reason is required.';
     return;
   }
 
-  document.getElementById('adjustmentOutput').textContent = 'Saving warehouse inventory adjustment...';
+  output.textContent = 'Saving warehouse inventory adjustment...';
 
   const { data, error } = await client.rpc('warehouse_inventory_adjustment', {
     p_part_number: partNumber,
-    p_location_id: MAIN_WAREHOUSE_ID,
+    p_location_id: locationId,
     p_quantity: quantity,
     p_adjusted_by: adjustedBy,
     p_adjustment_reason: reason,
@@ -4087,28 +4164,33 @@ async function warehouseAdjustment() {
   });
 
   if (error) {
-    document.getElementById('adjustmentOutput').textContent = error.message;
+    output.textContent = error.message;
     return;
   }
 
   const result = data && data.length > 0 ? data[0] : null;
 
   if (result) {
-    document.getElementById('adjustmentOutput').textContent =
+    output.textContent =
       `Warehouse adjustment saved successfully.\n\n` +
       `Part Number: ${result.part_number}\n` +
       `Description: ${result.description || ''}\n` +
-      `Location: ${result.location_name || 'Main Warehouse'}\n` +
+      `Location: ${result.location_name || locationName || 'Selected Location'}\n` +
       `Adjustment Quantity: ${formatNumber(result.adjustment_quantity)}\n` +
       `New Quantity On Hand: ${formatNumber(result.new_quantity_on_hand)}\n` +
       `Reason: ${result.adjustment_reason}\n` +
       `Transaction ID: ${result.transaction_id}`;
   } else {
-    document.getElementById('adjustmentOutput').textContent =
+    output.textContent =
       'Warehouse adjustment saved successfully, but no result was returned.';
   }
 
-  resetAdjustmentFields();
+  resetAdjustmentFields({
+    keepLocationId: isInitialLocationLoad ? locationId : null,
+    keepReason: isInitialLocationLoad,
+    keepNotes: isInitialLocationLoad,
+    keepAdjustedBy: true
+  });
   await loadReorder();
 }
 
