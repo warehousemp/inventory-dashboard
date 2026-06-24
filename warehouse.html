@@ -1920,7 +1920,7 @@
             <option value="">Select available serial number...</option>
           </select>
           <div id="transferSerialHelp" class="help-text">
-            Serial number is required only when transferring a serialized part to or from WARRANTY.
+            Serial number is required for every serialized transfer. Select the exact on-hand serial number from the From Location.
           </div>
         </div>
 
@@ -3170,26 +3170,21 @@ async function checkTransferSerialized() {
 
   const matchedPart = getMatchedPart('transferPart');
   const isSerialized = matchedPart?.is_serialized === true;
-  const fromLocationId = document.getElementById('transferFromLocation')?.value || '';
-  const toLocationId = document.getElementById('transferToLocation')?.value || '';
-  const warrantyInvolved = isWarrantyTransfer(fromLocationId, toLocationId);
 
   const serialContainer = document.getElementById('transferSerialContainer');
   const serialSelect = document.getElementById('transferSerial');
   const serialHelp = document.getElementById('transferSerialHelp');
   const quantityInput = document.getElementById('transferQty');
 
-  const shouldShowSerial = isSerialized && warrantyInvolved;
-
   if (serialContainer) {
-    serialContainer.style.display = shouldShowSerial ? 'block' : 'none';
+    serialContainer.style.display = isSerialized ? 'block' : 'none';
   }
 
   if (quantityInput) {
-    if (shouldShowSerial) {
+    if (isSerialized) {
       quantityInput.value = '1';
       quantityInput.readOnly = true;
-      quantityInput.title = 'Serialized warranty transfers must be moved one serial number at a time.';
+      quantityInput.title = 'Serialized transfers must be moved one serial number at a time.';
     } else {
       quantityInput.readOnly = false;
       quantityInput.title = '';
@@ -3204,21 +3199,7 @@ async function checkTransferSerialized() {
     }
 
     if (serialHelp) {
-      serialHelp.textContent = 'Serial number is required only when transferring a serialized part to or from WARRANTY.';
-    }
-
-    return;
-  }
-
-  if (!warrantyInvolved) {
-    if (serialSelect) {
-      serialSelect.innerHTML = '<option value="">Serial transfers require WARRANTY...</option>';
-      serialSelect.value = '';
-      serialSelect.disabled = true;
-    }
-
-    if (serialHelp) {
-      serialHelp.textContent = 'Serialized parts are blocked from normal transfers. Select WARRANTY as the From or To Location to move a serialized warranty item.';
+      serialHelp.textContent = 'Serial number is required for every serialized transfer. Select the exact on-hand serial number from the From Location.';
     }
 
     return;
@@ -3271,25 +3252,37 @@ async function loadAvailableTransferSerials(matchedPart) {
     return;
   }
 
-  if (!isWarrantyTransfer(fromLocationId, toLocationId)) {
-    serialSelect.innerHTML = '<option value="">Serial transfers require WARRANTY...</option>';
+  const sourceLocationName = getLocationNameById(fromLocationId);
+  let partId = null;
+
+  try {
+    partId = await getPartIdForMatchedPart(matchedPart, 'transferPart');
+  } catch (error) {
+    serialSelect.innerHTML = '<option value="">Serial number load error</option>';
 
     if (serialHelp) {
-      serialHelp.textContent = 'Serialized parts are blocked from normal transfers. WARRANTY must be either the From or To Location.';
+      serialHelp.textContent = 'Unable to look up part ID: ' + error.message;
     }
 
     return;
   }
 
-  const sourceLocationName = getLocationNameById(fromLocationId);
+  if (!partId) {
+    serialSelect.innerHTML = '<option value="">Serial number load error</option>';
+
+    if (serialHelp) {
+      serialHelp.textContent = 'Unable to determine the selected part ID.';
+    }
+
+    return;
+  }
 
   const { data, error } = await client
-    .from('v_serialized_inventory_current')
-    .select('serial_number_raw, status, current_location')
-    .eq('part_number', matchedPart.part_number)
+    .from('serialized_inventory')
+    .select('id, serial_number_raw, serial_number_normalized, status, current_location_id, is_batch_tracked, batch_code, purchase_order_type, vendor_name, vendor_order_number, received_at, created_at')
+    .eq('part_id', partId)
     .eq('status', 'on_hand')
-    .eq('current_location', sourceLocationName)
-    .order('serial_number_raw', { ascending: true });
+    .eq('current_location_id', fromLocationId);
 
   if (error) {
     serialSelect.innerHTML = '<option value="">Serial number load error</option>';
@@ -3301,7 +3294,23 @@ async function loadAvailableTransferSerials(matchedPart) {
     return;
   }
 
-  const rows = data || [];
+  const rows = (data || []).sort((a, b) => {
+    const aBatch = a.is_batch_tracked === true ? 1 : 0;
+    const bBatch = b.is_batch_tracked === true ? 1 : 0;
+
+    if (aBatch !== bBatch) {
+      return aBatch - bBatch;
+    }
+
+    const aDate = new Date(a.received_at || a.created_at || 0).getTime();
+    const bDate = new Date(b.received_at || b.created_at || 0).getTime();
+
+    if (aDate !== bDate) {
+      return aDate - bDate;
+    }
+
+    return String(a.serial_number_raw || '').localeCompare(String(b.serial_number_raw || ''));
+  });
 
   serialSelect.innerHTML = '<option value="">Select available serial number...</option>';
 
@@ -3312,18 +3321,31 @@ async function loadAvailableTransferSerials(matchedPart) {
       return;
     }
 
+    const sourceLabel = row.is_batch_tracked === true
+      ? `${row.batch_code || 'Tracked Batch'} — Bulk Batch`
+      : 'Existing / Non-Batch Stock';
+
+    const receivedLabel = row.received_at || row.created_at
+      ? ` — Received ${formatDateOnly(row.received_at || row.created_at)}`
+      : '';
+
     const option = document.createElement('option');
     option.value = serialNumber;
-    option.textContent = serialNumber;
+    option.textContent = `${serialNumber} — ${sourceLabel}${receivedLabel}`;
+    option.dataset.isBatchTracked = String(row.is_batch_tracked === true);
+    option.dataset.batchCode = row.batch_code || '';
     serialSelect.appendChild(option);
   });
 
   serialSelect.disabled = rows.length === 0;
 
   if (serialHelp) {
+    const batchCount = rows.filter(row => row.is_batch_tracked === true).length;
+    const nonBatchCount = rows.length - batchCount;
+
     serialHelp.textContent = rows.length === 0
       ? `No on-hand serial numbers are available in ${sourceLocationName} for this part.`
-      : `${rows.length} on-hand serial number(s) available in ${sourceLocationName}.`;
+      : `${rows.length} on-hand serial number(s) available in ${sourceLocationName}. Non-batch: ${nonBatchCount}. Tracked batch: ${batchCount}.`;
   }
 }
 
@@ -3654,7 +3676,7 @@ function resetTransferFields() {
 
   const serialHelp = document.getElementById('transferSerialHelp');
   if (serialHelp) {
-    serialHelp.textContent = 'Serial number is required only when transferring a serialized part to or from WARRANTY.';
+    serialHelp.textContent = 'Serial number is required for every serialized transfer. Select the exact on-hand serial number from the From Location.';
   }
 
   updateTransferPartDescription();
@@ -3773,20 +3795,13 @@ async function transferInventory() {
   }
 
   const isSerialized = matchedPart.is_serialized === true;
-  const warrantyInvolved = isWarrantyTransfer(fromLocationId, toLocationId);
-  const quantity = isSerialized && warrantyInvolved
+  const quantity = isSerialized
     ? 1
     : Number(transferQtyElement.value);
 
-  if (isSerialized && !warrantyInvolved) {
+  if (isSerialized && serialValue === '') {
     output.textContent =
-      'Serialized parts are blocked from normal transfers. To transfer a serialized part, WARRANTY must be either the From Location or the To Location.';
-    return;
-  }
-
-  if (isSerialized && warrantyInvolved && serialValue === '') {
-    output.textContent =
-      'Select a serial number before transferring a serialized part to or from WARRANTY.';
+      'Select a serial number before transferring a serialized part.';
     return;
   }
 
