@@ -2228,10 +2228,143 @@ async function loadInventoryValuationLedger() {
     return;
   }
 
-  valuationLedgerSummaryData = summaryData[0];
-  valuationLedgerDetailData = detailData || [];
+  const normalizedLedgerData = normalizeInventoryValuationLedgerData(summaryData[0], detailData || []);
+
+  valuationLedgerSummaryData = normalizedLedgerData.summary;
+  valuationLedgerDetailData = normalizedLedgerData.details;
 
   displayInventoryValuationLedger(valuationLedgerSummaryData, valuationLedgerDetailData, startDate, endDate);
+}
+
+function toLedgerNumber(value) {
+  const number = Number(value || 0);
+
+  if (!Number.isFinite(number)) {
+    return 0;
+  }
+
+  return number;
+}
+
+function roundLedgerCurrency(value) {
+  return Math.round((toLedgerNumber(value) + Number.EPSILON) * 100) / 100;
+}
+
+function roundLedgerQuantity(value) {
+  return Math.round((toLedgerNumber(value) + Number.EPSILON) * 10000) / 10000;
+}
+
+function normalizeInventoryValuationLedgerData(summary, details) {
+  if (!details || details.length === 0) {
+    return {
+      summary: summary || {},
+      details: []
+    };
+  }
+
+  let beginningInventoryValue = 0;
+  let receivedInventoryValue = 0;
+  let issuedInventoryValue = 0;
+  let manualAdjustmentValue = 0;
+  let cycleCountAdjustmentValue = 0;
+  let transactionReversalValue = 0;
+  let otherActivityValue = 0;
+  let endingInventoryValue = 0;
+
+  const normalizedDetails = details.map(row => {
+    const unitCost = toLedgerNumber(row.unit_cost);
+    const endingQuantity = toLedgerNumber(row.ending_quantity);
+
+    const receivedQuantity = toLedgerNumber(row.received_quantity);
+    const issuedQuantity = toLedgerNumber(row.issued_quantity);
+    const adjustmentQuantity = toLedgerNumber(row.adjustment_quantity);
+    const cycleCountAdjustmentQuantity = toLedgerNumber(row.cycle_count_adjustment_quantity);
+    const reversalQuantity = toLedgerNumber(row.reversal_quantity);
+    const otherQuantity = toLedgerNumber(row.other_quantity);
+
+    const netActivityQuantity =
+      receivedQuantity +
+      issuedQuantity +
+      adjustmentQuantity +
+      cycleCountAdjustmentQuantity +
+      reversalQuantity +
+      otherQuantity;
+
+    const beginningQuantity = endingQuantity - netActivityQuantity;
+
+    const beginningValue = roundLedgerCurrency(beginningQuantity * unitCost);
+    const endingValue = roundLedgerCurrency(endingQuantity * unitCost);
+    const receivedValue = roundLedgerCurrency(receivedQuantity * unitCost);
+    const issuedValue = roundLedgerCurrency(issuedQuantity * unitCost);
+    const adjustmentValue = roundLedgerCurrency(adjustmentQuantity * unitCost);
+    const cycleCountAdjustmentLineValue = roundLedgerCurrency(cycleCountAdjustmentQuantity * unitCost);
+    const reversalValue = roundLedgerCurrency(reversalQuantity * unitCost);
+    const otherValue = roundLedgerCurrency(otherQuantity * unitCost);
+    const valueChange = roundLedgerCurrency(netActivityQuantity * unitCost);
+
+    beginningInventoryValue += beginningValue;
+    endingInventoryValue += endingValue;
+    receivedInventoryValue += receivedValue;
+    issuedInventoryValue += issuedValue;
+    manualAdjustmentValue += adjustmentValue;
+    cycleCountAdjustmentValue += cycleCountAdjustmentLineValue;
+    transactionReversalValue += reversalValue;
+    otherActivityValue += otherValue;
+
+    return {
+      ...row,
+      beginning_quantity: roundLedgerQuantity(beginningQuantity),
+      ending_quantity: roundLedgerQuantity(endingQuantity),
+      quantity_change: roundLedgerQuantity(netActivityQuantity),
+      beginning_value: beginningValue,
+      ending_value: endingValue,
+      value_change: valueChange,
+      received_value: receivedValue,
+      issued_value: issuedValue,
+      adjustment_value: adjustmentValue,
+      cycle_count_adjustment_value: cycleCountAdjustmentLineValue,
+      reversal_value: reversalValue,
+      other_value: otherValue
+    };
+  });
+
+  beginningInventoryValue = roundLedgerCurrency(beginningInventoryValue);
+  endingInventoryValue = roundLedgerCurrency(endingInventoryValue);
+  receivedInventoryValue = roundLedgerCurrency(receivedInventoryValue);
+  issuedInventoryValue = roundLedgerCurrency(issuedInventoryValue);
+  manualAdjustmentValue = roundLedgerCurrency(manualAdjustmentValue);
+  cycleCountAdjustmentValue = roundLedgerCurrency(cycleCountAdjustmentValue);
+  transactionReversalValue = roundLedgerCurrency(transactionReversalValue);
+  otherActivityValue = roundLedgerCurrency(otherActivityValue);
+
+  const calculatedEndingInventoryValue = roundLedgerCurrency(
+    beginningInventoryValue +
+    receivedInventoryValue +
+    issuedInventoryValue +
+    manualAdjustmentValue +
+    cycleCountAdjustmentValue +
+    transactionReversalValue +
+    otherActivityValue
+  );
+
+  const variance = roundLedgerCurrency(endingInventoryValue - calculatedEndingInventoryValue);
+
+  return {
+    summary: {
+      ...(summary || {}),
+      beginning_inventory_value: beginningInventoryValue,
+      received_inventory_value: receivedInventoryValue,
+      issued_inventory_value: Math.abs(issuedInventoryValue),
+      manual_adjustment_value: manualAdjustmentValue,
+      cycle_count_adjustment_value: cycleCountAdjustmentValue,
+      transaction_reversal_value: transactionReversalValue,
+      other_activity_value: otherActivityValue,
+      ending_inventory_value: endingInventoryValue,
+      calculated_ending_inventory_value: calculatedEndingInventoryValue,
+      variance
+    },
+    details: normalizedDetails
+  };
 }
 
 function displayInventoryValuationLedger(summary, details, startDate, endDate) {
