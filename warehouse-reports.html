@@ -994,6 +994,130 @@
     .uag-line-table td:nth-child(12) { width: 125px; }
 
 
+    .reorder-dashboard-note {
+      margin-bottom: 16px;
+    }
+
+    .reorder-dashboard-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .reorder-dashboard-summary-card {
+      border: 1px solid #d9e2ec;
+      border-radius: 10px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+
+    .reorder-dashboard-summary-card .summary-label {
+      font-size: 12px;
+      color: #667085;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 6px;
+    }
+
+    .reorder-dashboard-summary-card .summary-value {
+      font-size: 20px;
+      color: #0b3c5d;
+      font-weight: 800;
+    }
+
+    .reorder-dashboard-wrapper {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: auto;
+      border: 1px solid #d9e2ec;
+      border-radius: 10px;
+      margin-top: 16px;
+      max-height: 560px;
+      -webkit-overflow-scrolling: touch;
+      background: white;
+    }
+
+    .reorder-dashboard-table {
+      table-layout: fixed;
+      min-width: 1050px;
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    .reorder-dashboard-table th {
+      background: #dcfce7;
+      color: #04233c;
+      text-align: left;
+      padding: 12px 10px;
+      font-size: 13px;
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      border-bottom: 1px solid #bbf7d0;
+    }
+
+    .reorder-dashboard-table td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 12px 10px;
+      font-size: 13px;
+      vertical-align: top;
+      white-space: normal;
+      line-height: 1.35;
+    }
+
+    .reorder-dashboard-table tr:hover td {
+      background: #f8fafc;
+    }
+
+    .reorder-dashboard-table th:nth-child(1),
+    .reorder-dashboard-table td:nth-child(1) {
+      width: 180px;
+      font-weight: 800;
+      color: #04233c;
+      word-break: break-word;
+    }
+
+    .reorder-dashboard-table th:nth-child(2),
+    .reorder-dashboard-table td:nth-child(2) {
+      width: 430px;
+      word-break: break-word;
+    }
+
+    .reorder-dashboard-table th:nth-child(3),
+    .reorder-dashboard-table td:nth-child(3),
+    .reorder-dashboard-table th:nth-child(4),
+    .reorder-dashboard-table td:nth-child(4),
+    .reorder-dashboard-table th:nth-child(5),
+    .reorder-dashboard-table td:nth-child(5) {
+      width: 145px;
+      text-align: right;
+      white-space: nowrap;
+      font-weight: 800;
+    }
+
+    .reorder-qty-needed {
+      color: #b91c1c;
+      font-weight: 900;
+    }
+
+    .reorder-on-hand-negative {
+      color: #b91c1c;
+      font-weight: 900;
+    }
+
+    .reorder-empty-row td {
+      text-align: left !important;
+      font-weight: 700;
+      color: #475569;
+    }
+
+
 
     .hidden {
       display: none !important;
@@ -1992,7 +2116,46 @@
 
       <h2>Reorder Dashboard</h2>
       <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
-      <pre id="reorder"></pre>
+
+      <div class="status-note reorder-dashboard-note">
+        Parts below their reorder setpoint are listed in priority order. The table is limited to a clean scrollable view so the first 10 to 12 items are visible before scrolling.
+      </div>
+
+      <div id="reorderDashboardSummaryCards" class="reorder-dashboard-summary-grid">
+        <div class="reorder-dashboard-summary-card">
+          <div class="summary-label">Items Needing Order</div>
+          <div class="summary-value">0</div>
+        </div>
+        <div class="reorder-dashboard-summary-card">
+          <div class="summary-label">Total Qty to Order</div>
+          <div class="summary-value">0</div>
+        </div>
+        <div class="reorder-dashboard-summary-card">
+          <div class="summary-label">Highest Priority Qty</div>
+          <div class="summary-value">0</div>
+        </div>
+      </div>
+
+      <div id="reorderDashboardSummary" class="session-id-box">
+        Loading reorder dashboard...
+      </div>
+
+      <div class="reorder-dashboard-wrapper">
+        <table class="reorder-dashboard-table">
+          <thead>
+            <tr>
+              <th>Part #</th>
+              <th>Description</th>
+              <th>Qty On Hand</th>
+              <th>Reorder Setpoint</th>
+              <th>Qty to Order</th>
+            </tr>
+          </thead>
+          <tbody id="reorderDashboardTableBody">
+            <tr class="reorder-empty-row"><td colspan="5">Loading reorder dashboard...</td></tr>
+          </tbody>
+        </table>
+      </div>
 
     </div>
   </div>
@@ -2010,6 +2173,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const INVENTORY_SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
 
 let partsData = [];
+let reorderDashboardData = [];
 let transactionLogData = [];
 let uagBulkSummaryData = [];
 let uagBulkLineData = [];
@@ -3045,30 +3209,241 @@ async function exportUagBulkBatchCSV() {
 
 
 async function loadReorder() {
+  const summary = document.getElementById('reorderDashboardSummary');
+  const tableBody = document.getElementById('reorderDashboardTableBody');
+
+  if (summary) {
+    summary.textContent = 'Loading reorder dashboard...';
+  }
+
+  if (tableBody) {
+    tableBody.innerHTML = '<tr class="reorder-empty-row"><td colspan="5">Loading reorder dashboard...</td></tr>';
+  }
+
   const { data, error } = await client
     .from('inventory_reorder_warehouse')
     .select('*')
     .order('reorder_qty', { ascending: false });
 
   if (error) {
-    document.getElementById('reorder').textContent = error.message;
+    reorderDashboardData = [];
+    renderReorderDashboardTable([]);
+    updateReorderDashboardSummary(error.message);
     return;
   }
 
-  if (!data || data.length === 0) {
-    document.getElementById('reorder').textContent =
-      'No items need reordering';
+  try {
+    reorderDashboardData = await enrichReorderDashboardData(data || []);
+  } catch (enrichError) {
+    console.error('Reorder dashboard part detail enrichment error:', enrichError);
+    reorderDashboardData = data || [];
+  }
+
+  renderReorderDashboardTable(reorderDashboardData);
+  updateReorderDashboardSummary();
+}
+
+async function enrichReorderDashboardData(rows) {
+  if (!rows || rows.length === 0) {
+    return [];
+  }
+
+  const partIds = [...new Set(rows
+    .map(row => row.part_id)
+    .filter(Boolean)
+    .map(value => String(value)))];
+
+  const partNumbers = [...new Set(rows
+    .map(row => getFirstValue(row, ['part_number', 'item_number']))
+    .filter(Boolean)
+    .map(value => String(value)))];
+
+  const partMapById = {};
+  const partMapByNumber = {};
+
+  async function fetchPartsByIds(ids) {
+    const chunkSize = 200;
+
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const { data, error } = await client
+        .from('parts')
+        .select('id, part_number, description, reorder_point')
+        .in('id', chunk);
+
+      if (error) {
+        throw error;
+      }
+
+      (data || []).forEach(part => {
+        partMapById[String(part.id)] = part;
+        partMapByNumber[String(part.part_number || '').toUpperCase()] = part;
+      });
+    }
+  }
+
+  async function fetchPartsByNumbers(numbers) {
+    const chunkSize = 200;
+
+    for (let i = 0; i < numbers.length; i += chunkSize) {
+      const chunk = numbers.slice(i, i + chunkSize);
+      const { data, error } = await client
+        .from('parts')
+        .select('id, part_number, description, reorder_point')
+        .in('part_number', chunk);
+
+      if (error) {
+        throw error;
+      }
+
+      (data || []).forEach(part => {
+        partMapById[String(part.id)] = part;
+        partMapByNumber[String(part.part_number || '').toUpperCase()] = part;
+      });
+    }
+  }
+
+  if (partIds.length > 0) {
+    await fetchPartsByIds(partIds);
+  }
+
+  if (partNumbers.length > 0) {
+    await fetchPartsByNumbers(partNumbers);
+  }
+
+  return rows.map(row => {
+    const rowPartId = row.part_id ? String(row.part_id) : '';
+    const rowPartNumber = String(getFirstValue(row, ['part_number', 'item_number']) || '').toUpperCase();
+    const matchingPart = partMapById[rowPartId] || partMapByNumber[rowPartNumber] || {};
+
+    return {
+      ...row,
+      part_number: getFirstValue(row, ['part_number', 'item_number']) || matchingPart.part_number || '',
+      description: getFirstValue(row, ['description', 'part_description', 'item_description']) || matchingPart.description || '',
+      reorder_point: getFirstValue(row, ['reorder_point', 'reorder_setpoint', 'minimum_quantity', 'min_quantity', 'min_stock']) ?? matchingPart.reorder_point
+    };
+  });
+}
+
+function renderReorderDashboardTable(rows) {
+  const tableBody = document.getElementById('reorderDashboardTableBody');
+
+  if (!tableBody) {
     return;
   }
 
-  let output = 'PART | ON HAND | REORDER\n';
-  output += '---------------------------------\n';
+  tableBody.innerHTML = '';
 
-  data.forEach(row => {
-    output += `${row.part_number} | ${row.qty_on_hand} | ${row.reorder_qty}\n`;
+  if (!rows || rows.length === 0) {
+    tableBody.innerHTML = '<tr class="reorder-empty-row"><td colspan="5">No items need reordering.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const partNumber = getFirstValue(row, ['part_number', 'item_number']) || '';
+    const description = getFirstValue(row, ['description', 'part_description', 'item_description']) || '';
+    const qtyOnHand = Number(getFirstValue(row, ['qty_on_hand', 'quantity_on_hand', 'on_hand_qty']) || 0);
+    const qtyToOrder = Number(getFirstValue(row, ['reorder_qty', 'qty_to_order', 'quantity_to_order']) || 0);
+
+    let reorderSetpoint = getFirstValue(row, [
+      'reorder_setpoint',
+      'reorder_point',
+      'minimum_quantity',
+      'min_quantity',
+      'min_stock'
+    ]);
+
+    if (reorderSetpoint === null || reorderSetpoint === undefined || reorderSetpoint === '') {
+      reorderSetpoint = qtyOnHand + qtyToOrder;
+    }
+
+    const tr = document.createElement('tr');
+    const qtyOnHandClass = qtyOnHand < 0 ? 'reorder-on-hand-negative' : '';
+
+    tr.innerHTML = `
+      <td>${escapeHTML(partNumber)}</td>
+      <td>${escapeHTML(description)}</td>
+      <td class="${qtyOnHandClass}">${formatNumber(qtyOnHand)}</td>
+      <td>${formatNumber(reorderSetpoint)}</td>
+      <td class="reorder-qty-needed">${formatNumber(qtyToOrder)}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+function updateReorderDashboardSummary(errorMessage = '') {
+  const summary = document.getElementById('reorderDashboardSummary');
+  const cards = document.getElementById('reorderDashboardSummaryCards');
+
+  if (errorMessage) {
+    if (summary) {
+      summary.textContent = errorMessage;
+    }
+
+    if (cards) {
+      cards.innerHTML = `
+        <div class="reorder-dashboard-summary-card">
+          <div class="summary-label">Items Needing Order</div>
+          <div class="summary-value">0</div>
+        </div>
+        <div class="reorder-dashboard-summary-card">
+          <div class="summary-label">Total Qty to Order</div>
+          <div class="summary-value">0</div>
+        </div>
+        <div class="reorder-dashboard-summary-card">
+          <div class="summary-label">Highest Priority Qty</div>
+          <div class="summary-value">0</div>
+        </div>
+      `;
+    }
+
+    return;
+  }
+
+  const itemCount = reorderDashboardData.length;
+  let totalQtyToOrder = 0;
+  let highestPriorityQty = 0;
+
+  reorderDashboardData.forEach(row => {
+    const qtyToOrder = Number(getFirstValue(row, ['reorder_qty', 'qty_to_order', 'quantity_to_order']) || 0);
+    totalQtyToOrder += qtyToOrder;
+
+    if (qtyToOrder > highestPriorityQty) {
+      highestPriorityQty = qtyToOrder;
+    }
   });
 
-  document.getElementById('reorder').textContent = output;
+  if (cards) {
+    cards.innerHTML = `
+      <div class="reorder-dashboard-summary-card">
+        <div class="summary-label">Items Needing Order</div>
+        <div class="summary-value">${formatNumber(itemCount)}</div>
+      </div>
+      <div class="reorder-dashboard-summary-card">
+        <div class="summary-label">Total Qty to Order</div>
+        <div class="summary-value">${formatNumber(totalQtyToOrder)}</div>
+      </div>
+      <div class="reorder-dashboard-summary-card">
+        <div class="summary-label">Highest Priority Qty</div>
+        <div class="summary-value">${formatNumber(highestPriorityQty)}</div>
+      </div>
+    `;
+  }
+
+  if (!summary) {
+    return;
+  }
+
+  if (itemCount === 0) {
+    summary.textContent = 'No items need reordering.';
+    return;
+  }
+
+  summary.textContent =
+    `Items Needing Order: ${formatNumber(itemCount)}\n` +
+    `Total Qty to Order: ${formatNumber(totalQtyToOrder)}\n` +
+    `Highest Priority Qty to Order: ${formatNumber(highestPriorityQty)}`;
 }
 
 
