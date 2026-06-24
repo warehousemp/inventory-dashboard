@@ -1325,6 +1325,10 @@
         <div class="info-value">None selected</div>
       </div>
       <div class="info-box">
+        <div class="info-label">Serial Number</div>
+        <div class="info-value">None selected</div>
+      </div>
+      <div class="info-box">
         <div class="info-label">Quantity</div>
         <div class="info-value">None selected</div>
       </div>
@@ -1345,6 +1349,7 @@
             <th>Transaction Type</th>
             <th>Created At</th>
             <th>Part Number</th>
+            <th>Serial Number</th>
             <th>Description</th>
             <th>Quantity</th>
             <th>Client</th>
@@ -1357,7 +1362,7 @@
         </thead>
         <tbody id="issueReversalBody">
           <tr>
-            <td colspan="13">Click LOAD RECENT TRANSACTIONS to begin.</td>
+            <td colspan="14">Click LOAD RECENT TRANSACTIONS to begin.</td>
           </tr>
         </tbody>
       </table>
@@ -2211,6 +2216,41 @@ async function loadIssuedTransactionsForReversal() {
     });
   }
 
+  const transactionIds = transactions.map(row => row.id).filter(Boolean);
+  let serialByTransactionId = {};
+
+  if (transactionIds.length > 0) {
+    const { data: receivedSerialRows, error: receivedSerialError } = await client
+      .from('serialized_inventory')
+      .select('id, received_transaction_id, last_transaction_id, serial_number_raw, serial_number_normalized, status')
+      .in('received_transaction_id', transactionIds);
+
+    if (receivedSerialError) {
+      console.warn('Serial number lookup by received_transaction_id failed:', receivedSerialError);
+    } else {
+      (receivedSerialRows || []).forEach(serialRow => {
+        if (serialRow.received_transaction_id) {
+          serialByTransactionId[String(serialRow.received_transaction_id)] = serialRow;
+        }
+      });
+    }
+
+    const { data: lastSerialRows, error: lastSerialError } = await client
+      .from('serialized_inventory')
+      .select('id, received_transaction_id, last_transaction_id, serial_number_raw, serial_number_normalized, status')
+      .in('last_transaction_id', transactionIds);
+
+    if (lastSerialError) {
+      console.warn('Serial number lookup by last_transaction_id failed:', lastSerialError);
+    } else {
+      (lastSerialRows || []).forEach(serialRow => {
+        if (serialRow.last_transaction_id && !serialByTransactionId[String(serialRow.last_transaction_id)]) {
+          serialByTransactionId[String(serialRow.last_transaction_id)] = serialRow;
+        }
+      });
+    }
+  }
+
   const { data: reversalRows, error: reversalError } = await client
     .from('inventory_transactions')
     .select('id, notes, transaction_type')
@@ -2236,10 +2276,14 @@ async function loadIssuedTransactionsForReversal() {
 
   issueReversalData = transactions.map(row => {
     const part = partMap[String(row.part_id)] || {};
+    const serial = serialByTransactionId[String(row.id)] || {};
+    const serialNumber = serial.serial_number_raw || serial.serial_number_normalized || '';
 
     return {
       ...row,
       part_number: part.part_number || '',
+      serial_number: serialNumber,
+      serialized_status: serial.status || '',
       description: part.description || '',
       already_reversed: reversedOriginalIds.has(String(row.id))
     };
@@ -2268,6 +2312,8 @@ function filterIssuedTransactionsForReversal() {
         row.id,
         row.transaction_type,
         row.part_number,
+        row.serial_number,
+        row.serialized_status,
         row.description,
         row.client_name,
         row.work_order,
@@ -2295,7 +2341,7 @@ function renderIssueReversalTable(rows) {
   tbody.innerHTML = '';
 
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="13">No inventory transactions to display.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14">No inventory transactions to display.</td></tr>';
     return;
   }
 
@@ -2325,6 +2371,7 @@ function renderIssueReversalTable(rows) {
       <td>${escapeHTML(row.transaction_type)}</td>
       <td>${escapeHTML(formatDateTime(row.created_at))}</td>
       <td>${escapeHTML(row.part_number)}</td>
+      <td>${escapeHTML(row.serial_number)}</td>
       <td>${escapeHTML(row.description)}</td>
       <td>${formatVariance(row.quantity)}</td>
       <td>${escapeHTML(row.client_name)}</td>
@@ -2394,6 +2441,10 @@ function renderSelectedIssueReversalInfo(row) {
       <div class="info-value">${escapeHTML(row.part_number)}</div>
     </div>
     <div class="info-box">
+      <div class="info-label">Serial Number</div>
+      <div class="info-value">${escapeHTML(row.serial_number)}</div>
+    </div>
+    <div class="info-box">
       <div class="info-label">Transaction Type</div>
       <div class="info-value">${escapeHTML(row.transaction_type)}</div>
     </div>
@@ -2458,6 +2509,7 @@ async function reverseSelectedIssuedTransaction() {
     `Reverse inventory transaction?\n\n` +
     `Transaction Type: ${selectedIssueReversal.transaction_type}\n` +
     `Part Number: ${selectedIssueReversal.part_number}\n` +
+    `Serial Number: ${selectedIssueReversal.serial_number || ''}\n` +
     `Description: ${selectedIssueReversal.description}\n` +
     `Original Quantity: ${selectedIssueReversal.quantity}\n` +
     `Client: ${selectedIssueReversal.client_name || ''}\n` +
@@ -2515,7 +2567,7 @@ async function reverseSelectedIssuedTransaction() {
   renderIssueReversalTable([]);
 
   const tbody = document.getElementById('issueReversalBody');
-  tbody.innerHTML = '<tr><td colspan="13">Reversal completed. Click LOAD RECENT TRANSACTIONS to refresh the list.</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="14">Reversal completed. Click LOAD RECENT TRANSACTIONS to refresh the list.</td></tr>';
 }
 
 
