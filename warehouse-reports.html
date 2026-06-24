@@ -936,7 +936,7 @@
     .uag-batch-table,
     .uag-line-table {
       table-layout: fixed;
-      min-width: 1500px;
+      min-width: 1900px;
     }
 
     .uag-batch-table th,
@@ -952,9 +952,9 @@
     .uag-batch-table th:nth-child(2),
     .uag-batch-table td:nth-child(2) { width: 170px; }
     .uag-batch-table th:nth-child(3),
-    .uag-batch-table td:nth-child(3) { width: 135px; }
+    .uag-batch-table td:nth-child(3),
     .uag-batch-table th:nth-child(4),
-    .uag-batch-table td:nth-child(4),
+    .uag-batch-table td:nth-child(4) { width: 135px; }
     .uag-batch-table th:nth-child(5),
     .uag-batch-table td:nth-child(5),
     .uag-batch-table th:nth-child(6),
@@ -966,7 +966,15 @@
     .uag-batch-table th:nth-child(9),
     .uag-batch-table td:nth-child(9),
     .uag-batch-table th:nth-child(10),
-    .uag-batch-table td:nth-child(10) { width: 135px; }
+    .uag-batch-table td:nth-child(10),
+    .uag-batch-table th:nth-child(11),
+    .uag-batch-table td:nth-child(11),
+    .uag-batch-table th:nth-child(12),
+    .uag-batch-table td:nth-child(12),
+    .uag-batch-table th:nth-child(13),
+    .uag-batch-table td:nth-child(13) { width: 135px; }
+    .uag-batch-table th:nth-child(14),
+    .uag-batch-table td:nth-child(14) { width: 165px; }
 
     .uag-line-table {
       min-width: 2300px;
@@ -2063,6 +2071,22 @@
 
       <div id="uagBatchSummaryCards" class="uag-summary-grid">
         <div class="uag-summary-card">
+          <div class="summary-label">Batch Codes</div>
+          <div class="summary-value">0</div>
+        </div>
+        <div class="uag-summary-card">
+          <div class="summary-label">Item / Serial Lines</div>
+          <div class="summary-value">0</div>
+        </div>
+        <div class="uag-summary-card">
+          <div class="summary-label">Qty Started</div>
+          <div class="summary-value">0</div>
+        </div>
+        <div class="uag-summary-card">
+          <div class="summary-label">Qty Remaining</div>
+          <div class="summary-value">0</div>
+        </div>
+        <div class="uag-summary-card">
           <div class="summary-label">Original Value</div>
           <div class="summary-value">$0.00</div>
         </div>
@@ -2091,19 +2115,22 @@
             <tr>
               <th>Batch Code</th>
               <th>UAG Order #</th>
-              <th>Received Date</th>
+              <th>First Received</th>
+              <th>Last Received</th>
+              <th>Detail Lines</th>
               <th>Unique Parts</th>
+              <th>Serialized Lines</th>
               <th>Qty Started</th>
               <th>Qty Issued</th>
               <th>Qty Remaining</th>
               <th>Original Value</th>
               <th>Issued Value</th>
               <th>Remaining Value</th>
-              <th>Usage %</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody id="uagBatchSummaryTableBody">
-            <tr><td colspan="11">No UAG batch report loaded.</td></tr>
+            <tr><td colspan="14">No UAG batch report loaded.</td></tr>
           </tbody>
         </table>
       </div>
@@ -2902,17 +2929,19 @@ async function fetchUagBulkBatchData() {
   const selectedLineFilter = document.getElementById('uagLineFilter')?.value || 'ALL';
 
   let summaryQuery = client
-    .from('uag_bulk_inventory_valuation_view')
+    .from('uag_bulk_batch_summary_all_view')
     .select('*')
-    .order('received_date', { ascending: false })
+    .order('last_received_at', { ascending: false })
     .order('batch_code', { ascending: true });
 
   let lineQuery = client
     .from('uag_bulk_batch_all_items_view')
     .select('*')
+    .order('first_received_at', { ascending: false })
     .order('lot_created_at', { ascending: false })
     .order('batch_code', { ascending: true })
-    .order('part_number', { ascending: true });
+    .order('part_number', { ascending: true })
+    .order('serial_number', { ascending: true });
 
   if (selectedBatch !== 'ALL') {
     summaryQuery = summaryQuery.eq('batch_code', selectedBatch);
@@ -2992,7 +3021,7 @@ async function loadUagBulkBatchReport() {
   }
 
   if (summaryBody) {
-    summaryBody.innerHTML = '<tr><td colspan="11">Loading UAG batch summary...</td></tr>';
+    summaryBody.innerHTML = '<tr><td colspan="14">Loading UAG batch summary...</td></tr>';
   }
 
   if (lineBody) {
@@ -3010,7 +3039,7 @@ async function loadUagBulkBatchReport() {
     }
 
     if (summaryBody) {
-      summaryBody.innerHTML = `<tr><td colspan="11">${escapeHTML(error.message)}</td></tr>`;
+      summaryBody.innerHTML = `<tr><td colspan="14">${escapeHTML(error.message)}</td></tr>`;
     }
 
     if (lineBody) {
@@ -3043,18 +3072,36 @@ function renderUagSummaryCards() {
   let remainingValue = 0;
   let startedQty = 0;
   let issuedQty = 0;
+  let remainingQty = 0;
 
   uagBulkSummaryData.forEach(row => {
-    originalValue += Number(row.original_inventory_value || 0);
-    issuedValue += Number(row.issued_inventory_value || 0);
-    remainingValue += Number(row.remaining_inventory_value || 0);
-    startedQty += Number(row.total_quantity_received || 0);
-    issuedQty += Number(row.total_quantity_issued || 0);
+    originalValue += Number(row.original_value || 0);
+    issuedValue += Number(row.issued_value || 0);
+    remainingValue += Number(row.remaining_value || 0);
+    startedQty += Number(row.qty_started || 0);
+    issuedQty += Number(row.qty_issued || 0);
+    remainingQty += Number(row.qty_remaining || 0);
   });
 
   const usagePercent = originalValue > 0 ? (issuedValue / originalValue) * 100 : 0;
 
   container.innerHTML = `
+    <div class="uag-summary-card">
+      <div class="summary-label">Batch Codes</div>
+      <div class="summary-value">${formatNumber(uagBulkSummaryData.length)}</div>
+    </div>
+    <div class="uag-summary-card">
+      <div class="summary-label">Item / Serial Lines</div>
+      <div class="summary-value">${formatNumber(uagBulkLineData.length)}</div>
+    </div>
+    <div class="uag-summary-card">
+      <div class="summary-label">Qty Started</div>
+      <div class="summary-value">${formatNumber(startedQty)}</div>
+    </div>
+    <div class="uag-summary-card">
+      <div class="summary-label">Qty Remaining</div>
+      <div class="summary-value">${formatNumber(remainingQty)}</div>
+    </div>
     <div class="uag-summary-card">
       <div class="summary-label">Original Value</div>
       <div class="summary-value">${formatCurrency(originalValue)}</div>
@@ -3084,7 +3131,7 @@ function renderUagBatchSummaryTable() {
   tableBody.innerHTML = '';
 
   if (!uagBulkSummaryData || uagBulkSummaryData.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="11">No UAG bulk batches found.</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="14">No UAG bulk batches found.</td></tr>';
     return;
   }
 
@@ -3092,16 +3139,19 @@ function renderUagBatchSummaryTable() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHTML(row.batch_code || '')}</td>
-      <td>${escapeHTML(row.vendor_order_number || '')}</td>
-      <td>${formatDateOnly(row.received_date)}</td>
-      <td>${formatNumber(row.unique_part_count)}</td>
-      <td>${formatNumber(row.total_quantity_received)}</td>
-      <td>${formatNumber(row.total_quantity_issued)}</td>
-      <td>${formatNumber(row.total_quantity_remaining)}</td>
-      <td>${formatCurrency(row.original_inventory_value)}</td>
-      <td>${formatCurrency(row.issued_inventory_value)}</td>
-      <td>${formatCurrency(row.remaining_inventory_value)}</td>
-      <td>${formatNumber(row.value_usage_percent)}%</td>
+      <td>${escapeHTML(row.uag_order_number || row.vendor_order_number || '')}</td>
+      <td>${formatDateOnly(row.first_received_date)}</td>
+      <td>${formatDateOnly(row.last_received_date)}</td>
+      <td>${formatNumber(row.detail_line_count)}</td>
+      <td>${formatNumber(row.unique_parts)}</td>
+      <td>${formatNumber(row.serialized_line_count)}</td>
+      <td>${formatNumber(row.qty_started)}</td>
+      <td>${formatNumber(row.qty_issued)}</td>
+      <td>${formatNumber(row.qty_remaining)}</td>
+      <td>${formatCurrency(row.original_value)}</td>
+      <td>${formatCurrency(row.issued_value)}</td>
+      <td>${formatCurrency(row.remaining_value)}</td>
+      <td>${escapeHTML(row.batch_status || '')}</td>
     `;
 
     tableBody.appendChild(tr);
@@ -3133,7 +3183,7 @@ function renderUagBatchLineTable() {
     tr.innerHTML = `
       <td>${escapeHTML(row.batch_code || '')}</td>
       <td>${escapeHTML(row.vendor_order_number || '')}</td>
-      <td>${formatDateTime(row.lot_created_at || row.first_received_at || row.received_date)}</td>
+      <td>${formatDateTime(row.first_received_at || row.lot_created_at || row.received_date)}</td>
       <td>${escapeHTML(row.part_number || '')}</td>
       <td>${escapeHTML(row.description || '')}</td>
       <td>${escapeHTML(row.serial_number || '')}</td>
@@ -3171,20 +3221,29 @@ function updateUagBatchSummaryText() {
   let totalStarted = 0;
   let totalIssued = 0;
   let totalRemaining = 0;
+  let totalDetailLines = 0;
+  let totalSerializedLines = 0;
 
   uagBulkSummaryData.forEach(row => {
-    originalValue += Number(row.original_inventory_value || 0);
-    issuedValue += Number(row.issued_inventory_value || 0);
-    remainingValue += Number(row.remaining_inventory_value || 0);
-    totalStarted += Number(row.total_quantity_received || 0);
-    totalIssued += Number(row.total_quantity_issued || 0);
-    totalRemaining += Number(row.total_quantity_remaining || 0);
+    originalValue += Number(row.original_value || 0);
+    issuedValue += Number(row.issued_value || 0);
+    remainingValue += Number(row.remaining_value || 0);
+    totalStarted += Number(row.qty_started || 0);
+    totalIssued += Number(row.qty_issued || 0);
+    totalRemaining += Number(row.qty_remaining || 0);
+    totalDetailLines += Number(row.detail_line_count || 0);
+    totalSerializedLines += Number(row.serialized_line_count || 0);
   });
 
+  const selectedLineFilter = document.getElementById('uagLineFilter')?.value || 'ALL';
+
   summary.textContent =
-    `UAG Bulk Batches Returned: ${formatNumber(uagBulkSummaryData.length)}\n` +
-    `Line Items Returned: ${formatNumber(uagBulkLineData.length)}\n` +
-    `Quantity Started With: ${formatNumber(totalStarted)}\n` +
+    `UAG Batch Codes Returned: ${formatNumber(uagBulkSummaryData.length)}\n` +
+    `All UAG Item / Serial Detail Lines: ${formatNumber(totalDetailLines)}\n` +
+    `Visible Detail Lines Returned: ${formatNumber(uagBulkLineData.length)}\n` +
+    `Serialized Detail Lines: ${formatNumber(totalSerializedLines)}\n` +
+    `Line Filter: ${selectedLineFilter}\n` +
+    `Quantity Started: ${formatNumber(totalStarted)}\n` +
     `Quantity Issued/Sold: ${formatNumber(totalIssued)}\n` +
     `Quantity Remaining: ${formatNumber(totalRemaining)}\n` +
     `Original Inventory Value: ${formatCurrency(originalValue)}\n` +
@@ -3229,30 +3288,35 @@ async function exportUagBulkBatchCSV() {
     return;
   }
 
-  let csv = 'Section,Batch Code,UAG Order Number,Received At,Part Number,Description,Serial Number,Serialized,Qty Received,Qty Issued,Qty Remaining,Unit Cost,Original Value,Issued Value,Remaining Value,Line Status,Active,Inventory Lot ID,Received Transaction ID\n';
+  let csv = 'Section,Batch Code,UAG Order Number,PO Number,First Received,Last Received,Received At,Part Number,Description,Serial Number,Serialized,Detail Lines,Unique Parts,Serialized Lines,Qty Started/Received,Qty Issued,Qty Remaining,Unit Cost,Original Value,Issued Value,Remaining Value,Status,Active,Inventory Lot ID,Received Transaction ID\n';
 
   uagBulkSummaryData.forEach(row => {
     csv +=
       `"Batch Summary",` +
       `"${cleanCSV(row.batch_code)}",` +
-      `"${cleanCSV(row.vendor_order_number)}",` +
-      `"${cleanCSV(row.received_date)}",` +
+      `"${cleanCSV(row.uag_order_number || row.vendor_order_number)}",` +
+      `"${cleanCSV(row.po_number)}",` +
+      `"${cleanCSV(row.first_received_date)}",` +
+      `"${cleanCSV(row.last_received_date)}",` +
       `"",` +
       `"",` +
       `"",` +
       `"",` +
-      `"${cleanCSV(row.total_quantity_received)}",` +
-      `"${cleanCSV(row.total_quantity_issued)}",` +
-      `"${cleanCSV(row.total_quantity_remaining)}",` +
       `"",` +
-      `"${cleanCSV(row.original_inventory_value)}",` +
-      `"${cleanCSV(row.issued_inventory_value)}",` +
-      `"${cleanCSV(row.remaining_inventory_value)}",` +
-      `"Batch Summary",` +
+      `"${cleanCSV(row.detail_line_count)}",` +
+      `"${cleanCSV(row.unique_parts)}",` +
+      `"${cleanCSV(row.serialized_line_count)}",` +
+      `"${cleanCSV(row.qty_started)}",` +
+      `"${cleanCSV(row.qty_issued)}",` +
+      `"${cleanCSV(row.qty_remaining)}",` +
+      `"",` +
+      `"${cleanCSV(row.original_value)}",` +
+      `"${cleanCSV(row.issued_value)}",` +
+      `"${cleanCSV(row.remaining_value)}",` +
+      `"${cleanCSV(row.batch_status)}",` +
       `"",` +
       `"",` +
-      `""
-`;
+      `""\n`;
   });
 
   uagBulkLineData.forEach(row => {
@@ -3260,11 +3324,17 @@ async function exportUagBulkBatchCSV() {
       `"All UAG Batched Items",` +
       `"${cleanCSV(row.batch_code)}",` +
       `"${cleanCSV(row.vendor_order_number)}",` +
-      `"${cleanCSV(row.lot_created_at || row.first_received_at || row.received_date)}",` +
+      `"${cleanCSV(row.po_number)}",` +
+      `"${cleanCSV(row.received_date)}",` +
+      `"",` +
+      `"${cleanCSV(row.first_received_at || row.lot_created_at || row.received_date)}",` +
       `"${cleanCSV(row.part_number)}",` +
       `"${cleanCSV(row.description)}",` +
       `"${cleanCSV(row.serial_number)}",` +
       `"${cleanCSV(row.is_serialized === true ? 'Yes' : 'No')}",` +
+      `"",` +
+      `"",` +
+      `"",` +
       `"${cleanCSV(row.quantity_received)}",` +
       `"${cleanCSV(row.quantity_issued)}",` +
       `"${cleanCSV(row.quantity_remaining)}",` +
@@ -3275,8 +3345,7 @@ async function exportUagBulkBatchCSV() {
       `"${cleanCSV(formatUagLineStatus(row.line_status))}",` +
       `"${cleanCSV(row.active === true ? 'Yes' : 'No')}",` +
       `"${cleanCSV(row.inventory_lot_id)}",` +
-      `"${cleanCSV(row.received_transaction_id)}"
-`;
+      `"${cleanCSV(row.received_transaction_id)}"\n`;
   });
 
   const selectedBatch = document.getElementById('uagBatchFilter')?.value || 'ALL';
@@ -3565,6 +3634,13 @@ function formatNumber(value) {
 function formatDateOnly(value) {
   if (!value) {
     return '';
+  }
+
+  const stringValue = String(value);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) {
+    const [year, month, day] = stringValue.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString();
   }
 
   const date = new Date(value);
