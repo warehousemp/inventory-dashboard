@@ -722,6 +722,16 @@
       text-align: right;
     }
 
+    .ledger-detail-table .difference-positive {
+      color: #027a48;
+      font-weight: 800;
+    }
+
+    .ledger-detail-table .difference-negative {
+      color: #b42318;
+      font-weight: 800;
+    }
+
 
 
     .accounting-section-tabs {
@@ -1480,7 +1490,7 @@
       <button class="accounting-btn section-refresh-btn" onclick="refreshAccountingPage()">REFRESH PAGE</button>
 
       <div class="report-note">
-        Select a date range and choose the valuation basis. Current-Cost Valuation uses current item cost and is available now. FIFO Valuation is reserved for the true accounting layer-cost report after FIFO cost layers are built and validated.
+        Select a date range for the Current-Cost Valuation Ledger, or run FIFO Valuation for the current on-hand FIFO layer value. FIFO uses the approved opening layers and reconstructed receipt cost layers; WARRANTY inventory is treated as zero-value.
       </div>
 
       <div class="ledger-controls-grid">
@@ -1502,7 +1512,7 @@
         <button class="accounting-btn" onclick="exportFifoInventoryValuationLedgerCSV()">EXPORT FIFO CSV</button>
       </div>
 
-      <div id="valuationLedgerReport" class="ledger-placeholder">Select a date range, then run Current-Cost Valuation or FIFO Valuation...</div>
+      <div id="valuationLedgerReport" class="ledger-placeholder">Select a date range for Current-Cost Valuation, or run FIFO Valuation for the current FIFO value...</div>
 
     </div>
 
@@ -1512,7 +1522,7 @@
       <button class="accounting-btn section-refresh-btn" onclick="refreshAccountingPage()">REFRESH PAGE</button>
 
       <div class="report-note">
-        Use these reports for a current inventory value summary and part/location-level inventory valuation detail.
+        Use these reports for a current-cost inventory value summary and part/location-level detail. WARRANTY inventory is treated as zero-value for Accounting valuation.
       </div>
 
       <button class="accounting-btn" onclick="loadInventoryValueSummary()">INVENTORY VALUE SUMMARY</button>
@@ -1659,6 +1669,9 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let transactionLogData = [];
 let valuationLedgerSummaryData = null;
 let valuationLedgerDetailData = [];
+let fifoValuationSummaryData = null;
+let fifoValuationComparisonData = [];
+let currentValuationLedgerMode = null;
 let currentTransactionReportType = 'ALL';
 let currentAccountingUserProfile = null;
 let uagBulkSummaryData = [];
@@ -2080,9 +2093,9 @@ async function loadInventoryValueSummary() {
     'Loading inventory valuation summary...';
 
   const { data, error } = await client
-    .from('inventory_total_value')
-    .select('*')
-    .limit(1);
+    .from('inventory_fifo_vs_current_valuation_view')
+    .select('part_number, location_name, current_qty_on_hand, current_cost_value')
+    .range(0, 4999);
 
   if (error) {
     document.getElementById('accountingReport').textContent = error.message;
@@ -2095,12 +2108,32 @@ async function loadInventoryValueSummary() {
     return;
   }
 
-  const totalValue = data[0].total_inventory_value;
+  const partNumbers = new Set();
+  const locationNames = new Set();
+  let totalQty = 0;
+  let totalValue = 0;
+
+  data.forEach(row => {
+    if (row.part_number) {
+      partNumbers.add(row.part_number);
+    }
+
+    if (row.location_name) {
+      locationNames.add(row.location_name);
+    }
+
+    totalQty += Number(row.current_qty_on_hand || 0);
+    totalValue += Number(row.current_cost_value || 0);
+  });
 
   document.getElementById('accountingReport').textContent =
-    `TOTAL INVENTORY VALUE\n` +
-    `-----------------------------\n` +
-    `${formatCurrency(totalValue)}`;
+    `CURRENT-COST INVENTORY VALUE SUMMARY\n` +
+    `----------------------------------------\n` +
+    `Part Count: ${formatNumber(partNumbers.size)}\n` +
+    `Location Count: ${formatNumber(locationNames.size)}\n` +
+    `Total Qty On Hand: ${formatQuantity(totalQty)}\n` +
+    `Total Inventory Value: ${formatCurrency(totalValue)}\n\n` +
+    `Note: This Accounting valuation treats WARRANTY inventory as zero-value.`;
 }
 
 async function loadInventoryValueDetail() {
@@ -2108,9 +2141,10 @@ async function loadInventoryValueDetail() {
     'Loading inventory valuation detail...';
 
   const { data, error } = await client
-    .from('inventory_valuation_by_location')
-    .select('*')
-    .order('part_number', { ascending: true });
+    .from('inventory_fifo_vs_current_valuation_view')
+    .select('part_number, description, location_name, current_qty_on_hand, current_unit_cost, current_cost_value')
+    .order('part_number', { ascending: true })
+    .range(0, 4999);
 
   if (error) {
     document.getElementById('accountingReport').textContent = error.message;
@@ -2123,16 +2157,17 @@ async function loadInventoryValueDetail() {
     return;
   }
 
-  let output = 'PART | LOCATION | QTY | AVG COST | VALUE\n';
-  output += '------------------------------------------------------------\n';
+  let output = 'PART | DESCRIPTION | LOCATION | QTY | CURRENT COST | VALUE\n';
+  output += '--------------------------------------------------------------------------------\n';
 
   data.forEach(row => {
     output +=
       `${row.part_number} | ` +
+      `${row.description || ''} | ` +
       `${row.location_name} | ` +
-      `${row.qty_on_hand} | ` +
-      `${formatCurrency(row.avg_cost)} | ` +
-      `${formatCurrency(row.total_value)}\n`;
+      `${formatQuantity(row.current_qty_on_hand)} | ` +
+      `${formatCurrency(row.current_unit_cost)} | ` +
+      `${formatCurrency(row.current_cost_value)}\n`;
   });
 
   document.getElementById('accountingReport').textContent = output;
@@ -2140,9 +2175,10 @@ async function loadInventoryValueDetail() {
 
 async function exportInventoryValueDetailCSV() {
   const { data, error } = await client
-    .from('inventory_valuation_by_location')
-    .select('*')
-    .order('part_number', { ascending: true });
+    .from('inventory_fifo_vs_current_valuation_view')
+    .select('part_number, description, location_name, current_qty_on_hand, current_unit_cost, current_cost_value')
+    .order('part_number', { ascending: true })
+    .range(0, 4999);
 
   if (error) {
     document.getElementById('accountingReport').textContent = error.message;
@@ -2156,18 +2192,19 @@ async function exportInventoryValueDetailCSV() {
   }
 
   let csv =
-    'Part Number,Location,Qty On Hand,Avg Cost,Total Value\n';
+    'Part Number,Description,Location,Qty On Hand,Current Unit Cost,Current-Cost Value\n';
 
   data.forEach(row => {
     csv +=
       `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description)}",` +
       `"${cleanCSV(row.location_name)}",` +
-      `"${cleanCSV(row.qty_on_hand)}",` +
-      `"${cleanCSV(row.avg_cost)}",` +
-      `"${cleanCSV(row.total_value)}"\n`;
+      `"${cleanCSV(row.current_qty_on_hand)}",` +
+      `"${cleanCSV(row.current_unit_cost)}",` +
+      `"${cleanCSV(row.current_cost_value)}"\n`;
   });
 
-  downloadCSV(csv, 'inventory_value_detail.csv');
+  downloadCSV(csv, 'inventory_value_detail_accounting_current_cost.csv');
 }
 
 async function loadInventoryValuationLedger() {
@@ -2179,34 +2216,75 @@ async function loadFifoInventoryValuationLedger() {
   const endDate = document.getElementById('valuationLedgerEndDate').value;
   const reportElement = document.getElementById('valuationLedgerReport');
 
-  if (!startDate || !endDate) {
-    reportElement.className = 'ledger-placeholder';
-    reportElement.textContent = 'Please select both a start date and end date.';
-    valuationLedgerSummaryData = null;
-    valuationLedgerDetailData = [];
-    return;
-  }
-
-  if (startDate > endDate) {
-    reportElement.className = 'ledger-placeholder';
-    reportElement.textContent = 'Start date cannot be after end date.';
-    valuationLedgerSummaryData = null;
-    valuationLedgerDetailData = [];
-    return;
-  }
+  reportElement.className = 'ledger-placeholder';
+  reportElement.textContent = 'Loading FIFO inventory valuation...';
 
   valuationLedgerSummaryData = null;
   valuationLedgerDetailData = [];
+  fifoValuationSummaryData = null;
+  fifoValuationComparisonData = [];
+  currentValuationLedgerMode = 'FIFO';
 
-  const fifoMessage =
-    `FIFO INVENTORY VALUATION LEDGER\n` +
-    `Date Range: ${startDate} to ${endDate}\n` +
-    `Basis: FIFO valuation. Remaining inventory should be valued from original receipt cost layers.\n\n` +
-    `Status: FIFO valuation is not enabled yet. The Accounting page is ready for this report option, but the database FIFO cost-layer source still needs to be built and validated before this button returns accounting values.\n\n` +
-    `Next build step: create FIFO cost layers for all RECEIVE activity, consume oldest layers for ISSUED and negative adjustments, preserve layer cost through transfers, and expose the validated result through FIFO valuation RPCs/views.`;
+  const [{ data: summaryData, error: summaryError }, { data: comparisonData, error: comparisonError }] = await Promise.all([
+    client
+      .from('inventory_fifo_valuation_summary_view')
+      .select('*')
+      .limit(1),
+    client
+      .from('inventory_fifo_vs_current_valuation_view')
+      .select('*')
+      .range(0, 4999)
+  ]);
 
-  reportElement.className = 'ledger-placeholder';
-  reportElement.textContent = fifoMessage;
+  if (summaryError) {
+    reportElement.className = 'ledger-placeholder';
+    reportElement.textContent = summaryError.message;
+    fifoValuationSummaryData = null;
+    fifoValuationComparisonData = [];
+    currentValuationLedgerMode = null;
+    return;
+  }
+
+  if (comparisonError) {
+    reportElement.className = 'ledger-placeholder';
+    reportElement.textContent = comparisonError.message;
+    fifoValuationSummaryData = null;
+    fifoValuationComparisonData = [];
+    currentValuationLedgerMode = null;
+    return;
+  }
+
+  if (!comparisonData || comparisonData.length === 0) {
+    reportElement.className = 'ledger-placeholder';
+    reportElement.textContent = 'No FIFO valuation data found.';
+    fifoValuationSummaryData = null;
+    fifoValuationComparisonData = [];
+    currentValuationLedgerMode = null;
+    return;
+  }
+
+  const sortedComparisonData = [...comparisonData].sort((a, b) => {
+    const diffA = Math.abs(Number(a.fifo_vs_current_difference || 0));
+    const diffB = Math.abs(Number(b.fifo_vs_current_difference || 0));
+
+    if (diffA !== diffB) {
+      return diffB - diffA;
+    }
+
+    const partA = String(a.part_number || '');
+    const partB = String(b.part_number || '');
+
+    if (partA !== partB) {
+      return partA.localeCompare(partB);
+    }
+
+    return String(a.location_name || '').localeCompare(String(b.location_name || ''));
+  });
+
+  fifoValuationComparisonData = sortedComparisonData;
+  fifoValuationSummaryData = buildFifoValuationSummary(summaryData && summaryData.length > 0 ? summaryData[0] : null, sortedComparisonData);
+
+  displayFifoInventoryValuationLedger(fifoValuationSummaryData, fifoValuationComparisonData, startDate, endDate);
 }
 
 async function loadCurrentCostInventoryValuationLedger() {
@@ -2219,6 +2297,7 @@ async function loadCurrentCostInventoryValuationLedger() {
     reportElement.textContent = 'Please select both a start date and end date.';
     valuationLedgerSummaryData = null;
     valuationLedgerDetailData = [];
+    currentValuationLedgerMode = null;
     return;
   }
 
@@ -2227,8 +2306,15 @@ async function loadCurrentCostInventoryValuationLedger() {
     reportElement.textContent = 'Start date cannot be after end date.';
     valuationLedgerSummaryData = null;
     valuationLedgerDetailData = [];
+    currentValuationLedgerMode = null;
     return;
   }
+
+  valuationLedgerSummaryData = null;
+  valuationLedgerDetailData = [];
+  fifoValuationSummaryData = null;
+  fifoValuationComparisonData = [];
+  currentValuationLedgerMode = 'CURRENT_COST';
 
   reportElement.className = 'ledger-placeholder';
   reportElement.textContent = 'Loading current-cost inventory valuation ledger...';
@@ -2313,7 +2399,9 @@ function normalizeInventoryValuationLedgerData(summary, details) {
   let endingInventoryValue = 0;
 
   const normalizedDetails = details.map(row => {
-    const unitCost = toLedgerNumber(row.unit_cost);
+    const rawUnitCost = toLedgerNumber(row.unit_cost);
+    const isWarrantyLocation = String(row.location_name || '').toUpperCase() === 'WARRANTY';
+    const unitCost = isWarrantyLocation ? 0 : rawUnitCost;
     const endingQuantity = toLedgerNumber(row.ending_quantity);
 
     const receivedQuantity = toLedgerNumber(row.received_quantity);
@@ -2354,6 +2442,7 @@ function normalizeInventoryValuationLedgerData(summary, details) {
 
     return {
       ...row,
+      unit_cost: unitCost,
       beginning_quantity: roundLedgerQuantity(beginningQuantity),
       ending_quantity: roundLedgerQuantity(endingQuantity),
       quantity_change: roundLedgerQuantity(netActivityQuantity),
@@ -2613,8 +2702,272 @@ function formatValuationLedgerValue(columnName, value) {
   return value;
 }
 
+function buildFifoValuationSummary(rawSummary, rows) {
+  const partNumbers = new Set();
+  const locationNames = new Set();
+  let currentQtyOnHand = 0;
+  let fifoQtyOnHand = 0;
+  let currentCostValue = 0;
+  let fifoValue = 0;
+  let differenceRowCount = 0;
+
+  rows.forEach(row => {
+    if (row.part_number) {
+      partNumbers.add(row.part_number);
+    }
+
+    if (row.location_name) {
+      locationNames.add(row.location_name);
+    }
+
+    currentQtyOnHand += Number(row.current_qty_on_hand || 0);
+    fifoQtyOnHand += Number(row.fifo_qty_on_hand || 0);
+    currentCostValue += Number(row.current_cost_value || 0);
+    fifoValue += Number(row.fifo_value || 0);
+
+    if (Number(row.fifo_vs_current_difference || 0) !== 0) {
+      differenceRowCount += 1;
+    }
+  });
+
+  return {
+    valuation_generated_at: rawSummary ? rawSummary.valuation_generated_at : new Date().toISOString(),
+    row_count: rows.length,
+    part_count: partNumbers.size,
+    location_count: locationNames.size,
+    difference_row_count: differenceRowCount,
+    current_qty_on_hand: roundLedgerQuantity(currentQtyOnHand),
+    fifo_qty_on_hand: roundLedgerQuantity(fifoQtyOnHand),
+    qty_difference: roundLedgerQuantity(fifoQtyOnHand - currentQtyOnHand),
+    current_cost_value: roundLedgerCurrency(currentCostValue),
+    fifo_value: roundLedgerCurrency(fifoValue),
+    fifo_vs_current_difference: roundLedgerCurrency(fifoValue - currentCostValue)
+  };
+}
+
+function displayFifoInventoryValuationLedger(summary, rows, startDate, endDate) {
+  const reportElement = document.getElementById('valuationLedgerReport');
+  const selectedDateText = startDate && endDate ? `\nDate Controls Selected: ${startDate} to ${endDate}` : '';
+
+  let summaryText = `FIFO INVENTORY VALUATION\n`;
+  summaryText += `Basis: Current on-hand inventory valued by approved FIFO layers.\n`;
+  summaryText += `Generated At: ${formatDateTime(summary.valuation_generated_at)}${selectedDateText}\n`;
+  summaryText += `Note: FIFO Valuation is a current point-in-time report. The date controls are used by the Current-Cost Valuation Ledger.\n`;
+  summaryText += `WARRANTY inventory is treated as zero-value.\n`;
+  summaryText += `Qty Difference: ${formatQuantity(summary.qty_difference)}\n`;
+  summaryText += `FIFO vs Current-Cost Difference: ${formatSignedCurrency(summary.fifo_vs_current_difference)}`;
+
+  const ledgerRows = [
+    {
+      label: 'Part Count',
+      amount: formatNumber(summary.part_count),
+      className: '',
+      isText: true
+    },
+    {
+      label: 'Location Count',
+      amount: formatNumber(summary.location_count),
+      className: '',
+      isText: true
+    },
+    {
+      label: 'Detail Rows',
+      amount: formatNumber(summary.row_count),
+      className: '',
+      isText: true
+    },
+    {
+      label: 'Rows With FIFO Difference',
+      amount: formatNumber(summary.difference_row_count),
+      className: '',
+      isText: true
+    },
+    {
+      label: 'Current-Cost Qty On Hand',
+      amount: formatQuantity(summary.current_qty_on_hand),
+      className: '',
+      isText: true
+    },
+    {
+      label: 'FIFO Qty On Hand',
+      amount: formatQuantity(summary.fifo_qty_on_hand),
+      className: '',
+      isText: true
+    },
+    {
+      label: 'Qty Difference',
+      amount: formatQuantity(summary.qty_difference),
+      className: '',
+      isText: true
+    },
+    {
+      label: 'Current-Cost Inventory Value',
+      amount: summary.current_cost_value,
+      className: ''
+    },
+    {
+      label: 'FIFO Inventory Value',
+      amount: summary.fifo_value,
+      className: 'ledger-ending-row'
+    },
+    {
+      label: 'FIFO vs Current-Cost Difference',
+      amount: summary.fifo_vs_current_difference,
+      className: ''
+    }
+  ];
+
+  let ledgerHTML = `
+    <div class="transaction-report-summary">${escapeHTML(summaryText)}</div>
+    <div class="ledger-summary-wrapper">
+      <table class="ledger-table">
+        <thead>
+          <tr>
+            <th>FIFO Summary Line</th>
+            <th class="ledger-amount">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ledgerRows.map(row => `
+            <tr class="${row.className}">
+              <td>${escapeHTML(row.label)}</td>
+              <td class="ledger-amount">${escapeHTML(row.isText ? row.amount : formatSignedCurrency(row.amount))}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  if (Number(summary.qty_difference || 0) !== 0) {
+    ledgerHTML += `
+      <div class="access-message danger" style="margin-top: 14px;">
+        Warning: FIFO quantity does not tie to current on-hand quantity. Difference: ${escapeHTML(formatQuantity(summary.qty_difference))}.
+      </div>
+    `;
+  }
+
+  ledgerHTML += buildFifoValuationDetailTable(rows);
+
+  reportElement.className = '';
+  reportElement.innerHTML = ledgerHTML;
+}
+
+function buildFifoValuationDetailTable(rows) {
+  const displayColumns = [
+    'part_number',
+    'description',
+    'location_name',
+    'current_qty_on_hand',
+    'fifo_qty_on_hand',
+    'qty_difference',
+    'current_unit_cost',
+    'fifo_avg_unit_cost',
+    'current_cost_value',
+    'fifo_value',
+    'fifo_vs_current_difference',
+    'open_fifo_layer_count',
+    'oldest_open_layer_date',
+    'newest_open_layer_date'
+  ];
+
+  let tableHTML = `
+    <div class="ledger-detail-wrapper">
+      <table class="ledger-detail-table">
+        <thead>
+          <tr>
+            ${displayColumns.map(col => `<th>${escapeHTML(formatColumnHeader(col))}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  rows.forEach(row => {
+    tableHTML += '<tr>';
+
+    displayColumns.forEach(col => {
+      tableHTML += `<td class="${getFifoValuationCellClass(col, row[col])}">${escapeHTML(formatFifoValuationValue(col, row[col]))}</td>`;
+    });
+
+    tableHTML += '</tr>';
+  });
+
+  tableHTML += `
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  return tableHTML;
+}
+
+function getFifoValuationCellClass(columnName, value) {
+  if (columnName === 'description') {
+    return 'description-cell';
+  }
+
+  if (
+    columnName === 'current_unit_cost' ||
+    columnName === 'fifo_avg_unit_cost' ||
+    columnName === 'current_cost_value' ||
+    columnName === 'fifo_value' ||
+    columnName === 'fifo_vs_current_difference'
+  ) {
+    const directionClass = columnName === 'fifo_vs_current_difference'
+      ? Number(value || 0) > 0 ? ' difference-positive' : Number(value || 0) < 0 ? ' difference-negative' : ''
+      : '';
+
+    return `money-cell${directionClass}`;
+  }
+
+  if (
+    columnName === 'current_qty_on_hand' ||
+    columnName === 'fifo_qty_on_hand' ||
+    columnName === 'qty_difference' ||
+    columnName === 'open_fifo_layer_count'
+  ) {
+    return 'qty-cell';
+  }
+
+  return '';
+}
+
+function formatFifoValuationValue(columnName, value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (
+    columnName === 'current_unit_cost' ||
+    columnName === 'fifo_avg_unit_cost' ||
+    columnName === 'current_cost_value' ||
+    columnName === 'fifo_value' ||
+    columnName === 'fifo_vs_current_difference'
+  ) {
+    return formatSignedCurrency(value);
+  }
+
+  if (
+    columnName === 'current_qty_on_hand' ||
+    columnName === 'fifo_qty_on_hand' ||
+    columnName === 'qty_difference'
+  ) {
+    return formatQuantity(value);
+  }
+
+  if (columnName === 'open_fifo_layer_count') {
+    return formatNumber(value);
+  }
+
+  if (columnName === 'oldest_open_layer_date' || columnName === 'newest_open_layer_date') {
+    return formatDateTime(value);
+  }
+
+  return value;
+}
+
 function exportCurrentCostInventoryValuationLedgerCSV() {
-  if (!valuationLedgerDetailData || valuationLedgerDetailData.length === 0) {
+  if (currentValuationLedgerMode !== 'CURRENT_COST' || !valuationLedgerDetailData || valuationLedgerDetailData.length === 0) {
     document.getElementById('valuationLedgerReport').className = 'ledger-placeholder';
     document.getElementById('valuationLedgerReport').textContent =
       'Run the current-cost valuation ledger before exporting.';
@@ -2681,11 +3034,56 @@ function exportInventoryValuationLedgerCSV() {
 function exportFifoInventoryValuationLedgerCSV() {
   const reportElement = document.getElementById('valuationLedgerReport');
 
-  if (reportElement) {
-    reportElement.className = 'ledger-placeholder';
-    reportElement.textContent =
-      'FIFO export is not available yet. The database FIFO cost-layer report needs to be built and validated before this export can produce accounting values.';
+  if (currentValuationLedgerMode !== 'FIFO' || !fifoValuationComparisonData || fifoValuationComparisonData.length === 0) {
+    if (reportElement) {
+      reportElement.className = 'ledger-placeholder';
+      reportElement.textContent =
+        'Run the FIFO valuation before exporting.';
+    }
+
+    return;
   }
+
+  const summary = fifoValuationSummaryData || buildFifoValuationSummary(null, fifoValuationComparisonData);
+
+  let csv = 'FIFO Inventory Valuation Summary\n';
+  csv += `"Generated At","${cleanCSV(summary.valuation_generated_at)}"\n`;
+  csv += `"Basis","Current on-hand inventory valued by approved FIFO layers. WARRANTY inventory is treated as zero-value."\n`;
+  csv += `"Part Count","${cleanCSV(summary.part_count)}"\n`;
+  csv += `"Location Count","${cleanCSV(summary.location_count)}"\n`;
+  csv += `"Detail Rows","${cleanCSV(summary.row_count)}"\n`;
+  csv += `"Rows With FIFO Difference","${cleanCSV(summary.difference_row_count)}"\n`;
+  csv += `"Current-Cost Qty On Hand","${cleanCSV(summary.current_qty_on_hand)}"\n`;
+  csv += `"FIFO Qty On Hand","${cleanCSV(summary.fifo_qty_on_hand)}"\n`;
+  csv += `"Qty Difference","${cleanCSV(summary.qty_difference)}"\n`;
+  csv += `"Current-Cost Inventory Value","${cleanCSV(summary.current_cost_value)}"\n`;
+  csv += `"FIFO Inventory Value","${cleanCSV(summary.fifo_value)}"\n`;
+  csv += `"FIFO vs Current-Cost Difference","${cleanCSV(summary.fifo_vs_current_difference)}"\n\n`;
+
+  const exportColumns = [
+    'part_number',
+    'description',
+    'location_name',
+    'current_qty_on_hand',
+    'fifo_qty_on_hand',
+    'qty_difference',
+    'current_unit_cost',
+    'fifo_avg_unit_cost',
+    'current_cost_value',
+    'fifo_value',
+    'fifo_vs_current_difference',
+    'open_fifo_layer_count',
+    'oldest_open_layer_date',
+    'newest_open_layer_date'
+  ];
+
+  csv += exportColumns.map(col => `"${cleanCSV(formatColumnHeader(col))}"`).join(',') + '\n';
+
+  fifoValuationComparisonData.forEach(row => {
+    csv += exportColumns.map(col => `"${cleanCSV(row[col])}"`).join(',') + '\n';
+  });
+
+  downloadCSV(csv, 'fifo_inventory_valuation_current.csv');
 }
 
 async function loadTransactionLog() {
