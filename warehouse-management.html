@@ -2144,11 +2144,13 @@
 <div class="help-text" id="cycleCountModeHelpText">
       Main Warehouse by Category uses the existing category workflow for Main Warehouse.
       Whole Location Count is for Van 3, Van 4, Van 6, and WARRANTY only.
-      The CSV includes blank Counted Quantity / Count Result columns for physical counting.
+      Count sheet CSV / print / PDF uses clean counting columns, including Expected Serial Number for serialized items.
     </div>
 <div class="button-row">
 <button class="cycle-btn" onclick="loadCycleCountSheet()">LOAD COUNT SHEET</button>
 <button class="export-btn" onclick="exportCycleCountSheetCSV()">EXPORT COUNT SHEET CSV</button>
+<button class="export-btn" onclick="printCycleCountSheet()">PRINT COUNT SHEET</button>
+<button class="export-btn" onclick="exportCycleCountSheetPDF()">EXPORT PDF COUNT SHEET</button>
 </div>
 <pre id="cycleCountSheetReport">Select a category and load count sheet...</pre>
 <h3>Step 2: Create Count Session</h3>
@@ -6171,6 +6173,12 @@ function renderOpenCycleCountQueue() {
           <button class="export-btn small-btn" onclick="exportOpenCycleCountSheetCSV('${escapeJS(row.cycle_count_id)}')">
             EXPORT COUNT SHEET CSV
           </button>
+          <button class="export-btn small-btn" onclick="printOpenCycleCountSheet('${escapeJS(row.cycle_count_id)}')">
+            PRINT COUNT SHEET
+          </button>
+          <button class="export-btn small-btn" onclick="exportOpenCycleCountSheetPDF('${escapeJS(row.cycle_count_id)}')">
+            EXPORT PDF COUNT SHEET
+          </button>
           <button class="danger-btn small-btn" onclick="voidOpenCycleCount('${escapeJS(row.cycle_count_id)}')">
             VOID COUNT
           </button>
@@ -6266,24 +6274,54 @@ async function fetchCycleCountLinesForExport(cycleCountId) {
   };
 }
 
-async function exportOpenCycleCountSheetCSV(cycleCountId) {
+async function getOpenCycleCountSheetData(cycleCountId, statusBox = null, statusVerb = 'Preparing') {
   const session = openCycleCountQueueData.find(
     row => String(row.cycle_count_id) === String(cycleCountId)
-  );
-
-  const statusBox = document.getElementById('openCycleCountsStatus');
+  ) || {};
 
   if (statusBox) {
-    statusBox.textContent = `Preparing count sheet CSV for ${session?.count_name || cycleCountId}...`;
+    statusBox.textContent = `${statusVerb} count sheet for ${session?.count_name || cycleCountId}...`;
   }
 
   let quantityLines = [];
   let serializedLines = [];
 
+  const exportData = await fetchCycleCountLinesForExport(cycleCountId);
+  quantityLines = exportData.quantityLines;
+  serializedLines = exportData.serializedLines;
+
+  if ((!quantityLines || quantityLines.length === 0) && (!serializedLines || serializedLines.length === 0)) {
+    throw new Error('No count lines were found for the selected OPEN cycle count.');
+  }
+
+  const rows = normalizeOpenCycleCountSheetRows(quantityLines, serializedLines, session);
+  const fallbackLocationName = getOpenSessionFallbackLocationName(session, quantityLines, serializedLines);
+
+  const metadata = {
+    countName: session?.count_name || '',
+    mode: String(session?.cycle_count_category || '').toUpperCase() === WHOLE_LOCATION_CYCLE_COUNT_CATEGORY
+      ? 'Whole Location Count'
+      : 'Main Warehouse by Category',
+    location: fallbackLocationName,
+    category: session?.cycle_count_category || '',
+    cycleCountId: cycleCountId
+  };
+
+  return {
+    session,
+    quantityLines,
+    serializedLines,
+    rows,
+    metadata
+  };
+}
+
+async function exportOpenCycleCountSheetCSV(cycleCountId) {
+  const statusBox = document.getElementById('openCycleCountsStatus');
+  let result = null;
+
   try {
-    const exportData = await fetchCycleCountLinesForExport(cycleCountId);
-    quantityLines = exportData.quantityLines;
-    serializedLines = exportData.serializedLines;
+    result = await getOpenCycleCountSheetData(cycleCountId, statusBox, 'Preparing');
   } catch (error) {
     if (statusBox) {
       statusBox.textContent = error.message;
@@ -6292,74 +6330,45 @@ async function exportOpenCycleCountSheetCSV(cycleCountId) {
     return;
   }
 
-  if ((!quantityLines || quantityLines.length === 0) && (!serializedLines || serializedLines.length === 0)) {
+  const csv = buildCleanCountSheetCSV(result.rows);
+  const safeName = cleanFilename(result.session?.count_name || cycleCountId || 'open_cycle_count');
+  downloadCSV(csv, `open_cycle_count_sheet_${safeName}.csv`);
+
+  if (statusBox) {
+    statusBox.textContent =
+      `Exported clean count sheet CSV for ${result.session?.count_name || cycleCountId}.\n` +
+      `Columns: ${COUNT_SHEET_COLUMNS.join(' | ')}\n` +
+      `Quantity Lines: ${formatNumber(result.quantityLines.length)}\n` +
+      `Serialized Verification Lines: ${formatNumber(result.serializedLines.length)}`;
+  }
+}
+
+async function printOpenCycleCountSheet(cycleCountId) {
+  const statusBox = document.getElementById('openCycleCountsStatus');
+  let result = null;
+
+  try {
+    result = await getOpenCycleCountSheetData(cycleCountId, statusBox, 'Preparing print');
+  } catch (error) {
     if (statusBox) {
-      statusBox.textContent = 'No count lines were found for the selected OPEN cycle count.';
+      statusBox.textContent = error.message;
     }
 
     return;
   }
 
-  let csv =
-    'Line Type,Cycle Count ID,Count Name,Category,Line ID,Part ID,Part Number,Description,System Quantity,Counted Quantity,Variance Quantity,Expected Serial Number,Expected Location,Expected Status,Count Result,Unit Cost,Variance Value,Notes\n';
-
-  quantityLines.forEach(line => {
-    const existingCountedQuantity = line.counted_quantity === null || line.counted_quantity === undefined
-      ? ''
-      : line.counted_quantity;
-
-    csv +=
-      `"QUANTITY",` +
-      `"${cleanCSV(cycleCountId)}",` +
-      `"${cleanCSV(session?.count_name || '')}",` +
-      `"${cleanCSV(session?.cycle_count_category || '')}",` +
-      `"${cleanCSV(line.id)}",` +
-      `"${cleanCSV(line.part_id)}",` +
-      `"${cleanCSV(line.part_number)}",` +
-      `"${cleanCSV(line.description)}",` +
-      `"${cleanCSV(line.system_quantity)}",` +
-      `"${cleanCSV(existingCountedQuantity)}",` +
-      `"${cleanCSV(line.variance_quantity)}",` +
-      `"",` +
-      `"",` +
-      `"",` +
-      `"",` +
-      `"${cleanCSV(line.unit_cost)}",` +
-      `"${cleanCSV(line.variance_value)}",` +
-      `"${cleanCSV(line.notes)}"\n`;
-  });
-
-  serializedLines.forEach(line => {
-    csv +=
-      `"SERIALIZED",` +
-      `"${cleanCSV(cycleCountId)}",` +
-      `"${cleanCSV(session?.count_name || '')}",` +
-      `"${cleanCSV(session?.cycle_count_category || '')}",` +
-      `"${cleanCSV(line.serial_line_id || line.id)}",` +
-      `"${cleanCSV(line.part_id)}",` +
-      `"${cleanCSV(line.part_number)}",` +
-      `"${cleanCSV(line.description)}",` +
-      `"1",` +
-      `"",` +
-      `"",` +
-      `"${cleanCSV(line.serial_number_raw)}",` +
-      `"${cleanCSV(line.expected_location_name)}",` +
-      `"${cleanCSV(line.expected_status)}",` +
-      `"${cleanCSV(line.count_result)}",` +
-      `"",` +
-      `"",` +
-      `"${cleanCSV(line.notes)}"\n`;
-  });
-
-  const safeName = cleanFilename(session?.count_name || cycleCountId || 'open_cycle_count');
-  downloadCSV(csv, `open_cycle_count_sheet_${safeName}.csv`);
+  const title = result.metadata.countName || `${result.metadata.location || result.metadata.category || 'Open Cycle Count'} Count Sheet`;
+  const opened = openCleanCountSheetPrintWindow(title, result.metadata, result.rows, true);
 
   if (statusBox) {
-    statusBox.textContent =
-      `Exported count sheet CSV for ${session?.count_name || cycleCountId}.\n` +
-      `Quantity Lines: ${formatNumber(quantityLines.length)}\n` +
-      `Serialized Verification Lines: ${formatNumber(serializedLines.length)}`;
+    statusBox.textContent = opened
+      ? `Print count sheet opened for ${result.session?.count_name || cycleCountId}.\nColumns: ${COUNT_SHEET_COLUMNS.join(' | ')}`
+      : 'Unable to open print window. Check browser pop-up blocker settings.';
   }
+}
+
+async function exportOpenCycleCountSheetPDF(cycleCountId) {
+  await printOpenCycleCountSheet(cycleCountId);
 }
 
 async function callVoidCycleCountRpc(cycleCountId, voidedBy, reason) {
@@ -6824,6 +6833,14 @@ function renderCycleCountSheetPreview(selectedModeLabel, selectedCategory, selec
     totalSystemValue += Number(row.inventory_value || 0);
   });
 
+  const previewRows = normalizeLoadedCycleCountSheetRows(
+    [...quantityRows, ...serializedSheetRows],
+    {
+      locationName: selectedLocationName || '',
+      category: selectedCategory || ''
+    }
+  );
+
   let output =
     `CYCLE COUNT MODE: ${selectedModeLabel}\n` +
     `LOCATION: ${selectedLocationName || ''}\n` +
@@ -6834,38 +6851,24 @@ function renderCycleCountSheetPreview(selectedModeLabel, selectedCategory, selec
     `TOTAL NON-SERIALIZED SYSTEM QTY: ${formatNumber(totalSystemQty)}\n` +
     `TOTAL NON-SERIALIZED SYSTEM VALUE: ${formatCurrency(totalSystemValue)}\n\n`;
 
-  output += 'QUANTITY COUNT LINES\n';
-  output += 'PART NUMBER | DESCRIPTION | SYSTEM QTY | COUNTED QTY | VARIANCE | LOCATION\n';
-  output += '------------------------------------------------------------------------------------------\n';
+  output += 'COUNT SHEET COLUMNS\n';
+  output += 'LINE TYPE | LOCATION | PART NUMBER | DESCRIPTION | CATEGORY | SYSTEM QTY | EXPECTED SERIAL NUMBER | COUNTED QTY | NOTES\n';
+  output += '------------------------------------------------------------------------------------------------------------------------------------\n';
 
-  if (quantityRows.length === 0) {
-    output += 'No non-serialized quantity lines found for this count.\n';
+  if (previewRows.length === 0) {
+    output += 'No count lines found for this count sheet.\n';
   } else {
-    quantityRows.forEach(row => {
+    previewRows.forEach(row => {
       output +=
+        `${row.line_type || ''} | ` +
+        `${row.location || ''} | ` +
         `${row.part_number || ''} | ` +
         `${row.description || ''} | ` +
-        `${row.quantity_on_hand ?? 0} | ` +
-        `_____ | ` +
-        `_____ | ` +
-        `${row.location_name || ''}\n`;
-    });
-  }
-
-  output += '\nSERIALIZED VERIFICATION LINES\n';
-  output += 'PART NUMBER | DESCRIPTION | EXPECTED SERIAL | EXPECTED LOCATION | COUNT RESULT\n';
-  output += '------------------------------------------------------------------------------------------\n';
-
-  if (serializedSheetRows.length === 0) {
-    output += `No on-hand serialized verification lines found for this count at ${selectedLocationName || 'the selected location'}.\n`;
-  } else {
-    serializedSheetRows.forEach(row => {
-      output +=
-        `${row.part_number || ''} | ` +
-        `${row.description || ''} | ` +
-        `${row.serial_number_raw || ''} | ` +
-        `${row.location_name || ''} | ` +
-        `_____\n`;
+        `${row.category || ''} | ` +
+        `${row.system_quantity ?? ''} | ` +
+        `${row.expected_serial_number || ''} | ` +
+        `${row.counted_quantity ?? ''} | ` +
+        `${row.notes || ''}\n`;
     });
   }
 
@@ -7143,6 +7146,397 @@ async function loadCycleCountSheet() {
   );
 }
 
+const COUNT_SHEET_COLUMNS = [
+  'Line Type',
+  'Location',
+  'Part Number',
+  'Description',
+  'Category',
+  'System Quantity',
+  'Expected Serial Number',
+  'Counted Quantity',
+  'Notes'
+];
+
+function getExpectedSerialNumberForCountSheet(row) {
+  return row?.expected_serial_number ||
+    row?.expected_serial_number_raw ||
+    row?.serial_number_raw ||
+    row?.serial_number ||
+    row?.serial_number_normalized ||
+    '';
+}
+
+function getLocationNameForCountSheet(row, fallbackLocationName = '') {
+  const directLocation = row?.location_name ||
+    row?.expected_location_name ||
+    row?.current_location ||
+    row?.current_location_name ||
+    row?.count_location_name ||
+    '';
+
+  if (directLocation) {
+    return directLocation;
+  }
+
+  const locationId = row?.location_id ||
+    row?.expected_location_id ||
+    row?.current_location_id ||
+    '';
+
+  if (locationId) {
+    return getLocationNameById(locationId) || locationId;
+  }
+
+  return fallbackLocationName || '';
+}
+
+function getCategoryForCountSheet(row, fallbackCategory = '') {
+  return row?.category || row?.cycle_count_category || fallbackCategory || '';
+}
+
+function normalizeLoadedCycleCountSheetRows(rows, options = {}) {
+  const fallbackLocationName = options.locationName || '';
+  const fallbackCategory = options.category || '';
+
+  return (rows || []).map(row => {
+    const lineType = row.line_type || (getExpectedSerialNumberForCountSheet(row) ? 'SERIALIZED' : 'QUANTITY');
+    const isSerialized = String(lineType).toUpperCase() === 'SERIALIZED';
+
+    return {
+      line_type: lineType,
+      location: getLocationNameForCountSheet(row, fallbackLocationName),
+      part_number: row.part_number || '',
+      description: row.description || '',
+      category: getCategoryForCountSheet(row, fallbackCategory),
+      system_quantity: row.quantity_on_hand ?? row.system_quantity ?? (isSerialized ? 1 : 0),
+      expected_serial_number: isSerialized ? getExpectedSerialNumberForCountSheet(row) : '',
+      counted_quantity: row.counted_quantity ?? '',
+      notes: row.notes || ''
+    };
+  });
+}
+
+function getOpenSessionFallbackLocationName(session, quantityLines = [], serializedLines = []) {
+  const explicitSessionLocation = session?.location_name ||
+    session?.count_location_name ||
+    session?.inventory_location_name ||
+    session?.location ||
+    '';
+
+  if (explicitSessionLocation) {
+    return explicitSessionLocation;
+  }
+
+  const allLines = [...(quantityLines || []), ...(serializedLines || [])];
+
+  for (const line of allLines) {
+    const locationName = getLocationNameForCountSheet(line, '');
+
+    if (locationName) {
+      return locationName;
+    }
+  }
+
+  if (String(session?.cycle_count_category || '').toUpperCase() !== WHOLE_LOCATION_CYCLE_COUNT_CATEGORY) {
+    return 'Main Warehouse';
+  }
+
+  return '';
+}
+
+function getSerializedCountedQuantityForCountSheet(line) {
+  const result = String(line?.count_result || '').trim().toUpperCase();
+
+  if (result === 'FOUND') {
+    return 1;
+  }
+
+  if (result) {
+    return 0;
+  }
+
+  return '';
+}
+
+function normalizeOpenCycleCountSheetRows(quantityLines, serializedLines, session = {}) {
+  const fallbackCategory = session?.cycle_count_category || '';
+  const fallbackLocationName = getOpenSessionFallbackLocationName(session, quantityLines, serializedLines);
+  const rows = [];
+
+  (quantityLines || []).forEach(line => {
+    const countedQuantity = line.counted_quantity === null || line.counted_quantity === undefined
+      ? ''
+      : line.counted_quantity;
+
+    rows.push({
+      line_type: 'QUANTITY',
+      location: getLocationNameForCountSheet(line, fallbackLocationName),
+      part_number: line.part_number || '',
+      description: line.description || '',
+      category: getCategoryForCountSheet(line, fallbackCategory),
+      system_quantity: line.system_quantity ?? 0,
+      expected_serial_number: '',
+      counted_quantity: countedQuantity,
+      notes: line.notes || ''
+    });
+  });
+
+  (serializedLines || []).forEach(line => {
+    const countResult = String(line.count_result || '').trim();
+    const existingNotes = String(line.notes || '').trim();
+    const notes = countResult
+      ? [existingNotes, `Count Result: ${countResult}`].filter(Boolean).join(' | ')
+      : existingNotes;
+
+    rows.push({
+      line_type: 'SERIALIZED',
+      location: getLocationNameForCountSheet(line, fallbackLocationName),
+      part_number: line.part_number || '',
+      description: line.description || '',
+      category: getCategoryForCountSheet(line, fallbackCategory),
+      system_quantity: 1,
+      expected_serial_number: getExpectedSerialNumberForCountSheet(line),
+      counted_quantity: getSerializedCountedQuantityForCountSheet(line),
+      notes: notes
+    });
+  });
+
+  return rows;
+}
+
+function buildCleanCountSheetCSV(rows) {
+  let csv = COUNT_SHEET_COLUMNS.join(',') + '\n';
+
+  (rows || []).forEach(row => {
+    csv +=
+      `"${cleanCSV(row.line_type)}",` +
+      `"${cleanCSV(row.location)}",` +
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description)}",` +
+      `"${cleanCSV(row.category)}",` +
+      `"${cleanCSV(row.system_quantity)}",` +
+      `"${cleanCSV(row.expected_serial_number)}",` +
+      `"${cleanCSV(row.counted_quantity)}",` +
+      `"${cleanCSV(row.notes)}"\n`;
+  });
+
+  return csv;
+}
+
+function buildCleanCountSheetHTML(title, metadata, rows) {
+  const generatedAt = formatDateTime(new Date().toISOString());
+  const metadataRows = [
+    ['Count Name', metadata.countName || ''],
+    ['Mode', metadata.mode || ''],
+    ['Location', metadata.location || ''],
+    ['Category', metadata.category || ''],
+    ['Cycle Count ID', metadata.cycleCountId || ''],
+    ['Generated At', generatedAt]
+  ];
+
+  const tableRows = (rows || []).map(row => `
+    <tr>
+      <td>${escapeHTML(row.line_type)}</td>
+      <td>${escapeHTML(row.location)}</td>
+      <td>${escapeHTML(row.part_number)}</td>
+      <td>${escapeHTML(row.description)}</td>
+      <td>${escapeHTML(row.category)}</td>
+      <td class="number-cell">${escapeHTML(row.system_quantity)}</td>
+      <td>${escapeHTML(row.expected_serial_number)}</td>
+      <td class="count-cell">${escapeHTML(row.counted_quantity)}</td>
+      <td>${escapeHTML(row.notes)}</td>
+    </tr>
+  `).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${escapeHTML(title)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, sans-serif;
+    color: #111827;
+    margin: 24px;
+    background: #ffffff;
+  }
+  h1 {
+    color: #0b3c5d;
+    margin: 0 0 8px;
+    font-size: 22px;
+  }
+  .subtitle {
+    margin: 0 0 16px;
+    color: #475569;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px 14px;
+    margin-bottom: 18px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 12px;
+    background: #f8fafc;
+  }
+  .meta-item {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .meta-label {
+    display: block;
+    color: #475569;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+  .meta-value {
+    display: block;
+    color: #111827;
+    font-weight: bold;
+    word-break: break-word;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 10.5px;
+  }
+  th,
+  td {
+    border: 1px solid #cbd5e1;
+    padding: 6px 6px;
+    vertical-align: top;
+    word-break: break-word;
+  }
+  th {
+    background: #e2e8f0;
+    color: #0b3c5d;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  th:nth-child(1), td:nth-child(1) { width: 8%; }
+  th:nth-child(2), td:nth-child(2) { width: 9%; }
+  th:nth-child(3), td:nth-child(3) { width: 13%; }
+  th:nth-child(4), td:nth-child(4) { width: 22%; }
+  th:nth-child(5), td:nth-child(5) { width: 11%; }
+  th:nth-child(6), td:nth-child(6) { width: 8%; }
+  th:nth-child(7), td:nth-child(7) { width: 14%; }
+  th:nth-child(8), td:nth-child(8) { width: 8%; }
+  th:nth-child(9), td:nth-child(9) { width: 7%; }
+  .number-cell,
+  .count-cell {
+    text-align: right;
+  }
+  .signature-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    margin-top: 28px;
+    font-size: 12px;
+  }
+  .signature-line {
+    border-top: 1px solid #111827;
+    padding-top: 6px;
+  }
+  @page {
+    size: landscape;
+    margin: 0.35in;
+  }
+  @media print {
+    body { margin: 0; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom: 14px;">
+    <button onclick="window.print()" style="padding: 10px 14px; border: 0; border-radius: 6px; background: #0b3c5d; color: white; font-weight: bold; cursor: pointer;">Print / Save as PDF</button>
+  </div>
+  <h1>${escapeHTML(title)}</h1>
+  <div class="subtitle">Molinari Pools Warehouse Cycle Count Sheet</div>
+  <div class="meta-grid">
+    ${metadataRows.map(([label, value]) => `
+      <div class="meta-item">
+        <span class="meta-label">${escapeHTML(label)}</span>
+        <span class="meta-value">${escapeHTML(value)}</span>
+      </div>
+    `).join('')}
+  </div>
+  <table>
+    <thead>
+      <tr>
+        ${COUNT_SHEET_COLUMNS.map(column => `<th>${escapeHTML(column)}</th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows || `<tr><td colspan="${COUNT_SHEET_COLUMNS.length}">No count lines found.</td></tr>`}
+    </tbody>
+  </table>
+  <div class="signature-row">
+    <div class="signature-line">Counted By</div>
+    <div class="signature-line">Reviewed By</div>
+    <div class="signature-line">Date</div>
+  </div>
+</body>
+</html>`;
+}
+
+function openCleanCountSheetPrintWindow(title, metadata, rows, autoPrint = true) {
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    return false;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(buildCleanCountSheetHTML(title, metadata, rows));
+  printWindow.document.close();
+
+  if (autoPrint) {
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+  }
+
+  return true;
+}
+
+function getCurrentCycleCountSheetMetadata() {
+  const selectedMode = getCycleCountMode();
+  const selectedCategory = selectedMode === CYCLE_COUNT_MODE_LOCATION
+    ? WHOLE_LOCATION_CYCLE_COUNT_CATEGORY
+    : document.getElementById('cycleCountCategory').value;
+  const selectedLocationName = getSelectedCycleCountLocationName();
+
+  return {
+    countName: document.getElementById('cycleCountName')?.value.trim() || '',
+    mode: getCycleCountModeLabel(),
+    location: selectedLocationName,
+    category: selectedCategory,
+    cycleCountId: activeCycleCountId || ''
+  };
+}
+
+async function ensureCycleCountSheetDataLoaded() {
+  if (!cycleCountSheetData || cycleCountSheetData.length === 0) {
+    await loadCycleCountSheet();
+  }
+
+  return cycleCountSheetData && cycleCountSheetData.length > 0;
+}
+
 async function exportCycleCountSheetCSV() {
   const selectedMode = getCycleCountMode();
   const selectedCategory = selectedMode === CYCLE_COUNT_MODE_LOCATION
@@ -7150,45 +7544,59 @@ async function exportCycleCountSheetCSV() {
     : document.getElementById('cycleCountCategory').value;
   const selectedLocationName = getSelectedCycleCountLocationName();
 
-  if (!cycleCountSheetData || cycleCountSheetData.length === 0) {
-    await loadCycleCountSheet();
-  }
+  const hasData = await ensureCycleCountSheetDataLoaded();
 
-  if (!cycleCountSheetData || cycleCountSheetData.length === 0) {
+  if (!hasData) {
     document.getElementById('cycleCountSheetReport').textContent =
       'Load a count sheet before exporting.';
     return;
   }
 
-  let csv =
-    'Line Type,Count Mode,Location,Part ID,Part Number,Description,Category,Cycle Count Category,System Quantity,Counted Quantity,Variance,Expected Serial Number,Expected Location,Expected Status,Count Result,Unit Cost,Inventory Value,Notes\n';
-
-  cycleCountSheetData.forEach(row => {
-    csv +=
-      `"${cleanCSV(row.line_type)}",` +
-      `"${cleanCSV(row.count_mode || selectedMode)}",` +
-      `"${cleanCSV(row.location_name || selectedLocationName)}",` +
-      `"${cleanCSV(row.part_id)}",` +
-      `"${cleanCSV(row.part_number)}",` +
-      `"${cleanCSV(row.description)}",` +
-      `"${cleanCSV(row.category)}",` +
-      `"${cleanCSV(row.cycle_count_category)}",` +
-      `"${cleanCSV(row.quantity_on_hand ?? 0)}",` +
-      `"",` +
-      `"",` +
-      `"${cleanCSV(row.serial_number_raw || '')}",` +
-      `"${cleanCSV(row.location_name)}",` +
-      `"${cleanCSV(row.expected_status || '')}",` +
-      `"",` +
-      `"${cleanCSV(row.unit_cost)}",` +
-      `"${cleanCSV(row.inventory_value)}",` +
-      `""\n`;
+  const rows = normalizeLoadedCycleCountSheetRows(cycleCountSheetData, {
+    locationName: selectedLocationName,
+    category: selectedCategory
   });
-
+  const csv = buildCleanCountSheetCSV(rows);
   const safeMode = selectedMode === CYCLE_COUNT_MODE_LOCATION ? 'whole_location' : 'main_warehouse_category';
   const safeSelection = cleanFilename(selectedMode === CYCLE_COUNT_MODE_LOCATION ? selectedLocationName : selectedCategory || 'category');
 
   downloadCSV(csv, `cycle_count_sheet_${safeMode}_${safeSelection}.csv`);
+}
+
+async function printCycleCountSheet() {
+  const selectedMode = getCycleCountMode();
+  const selectedCategory = selectedMode === CYCLE_COUNT_MODE_LOCATION
+    ? WHOLE_LOCATION_CYCLE_COUNT_CATEGORY
+    : document.getElementById('cycleCountCategory').value;
+  const selectedLocationName = getSelectedCycleCountLocationName();
+  const report = document.getElementById('cycleCountSheetReport');
+  const hasData = await ensureCycleCountSheetDataLoaded();
+
+  if (!hasData) {
+    if (report) {
+      report.textContent = 'Load a count sheet before printing.';
+    }
+
+    return;
+  }
+
+  const rows = normalizeLoadedCycleCountSheetRows(cycleCountSheetData, {
+    locationName: selectedLocationName,
+    category: selectedCategory
+  });
+  const metadata = getCurrentCycleCountSheetMetadata();
+  const title = metadata.countName || `${metadata.location || metadata.category || 'Cycle Count'} Count Sheet`;
+  const opened = openCleanCountSheetPrintWindow(title, metadata, rows, true);
+
+  if (report) {
+    report.textContent = opened
+      ? `Print count sheet opened.\nColumns: ${COUNT_SHEET_COLUMNS.join(' | ')}`
+      : 'Unable to open print window. Check browser pop-up blocker settings.';
+  }
+}
+
+async function exportCycleCountSheetPDF() {
+  await printCycleCountSheet();
 }
 
 async function createCycleCountSession() {
