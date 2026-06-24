@@ -361,7 +361,7 @@
 
     .warehouse-section-tabbar {
       display: grid;
-      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       align-items: stretch;
       background: #ffffff;
       width: 100%;
@@ -431,10 +431,10 @@
 
     @media (max-width: 1180px) {
       .warehouse-section-tabbar {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
-      .warehouse-section-tab:nth-child(4n) {
+      .warehouse-section-tab:nth-child(3n) {
         border-right: 0;
       }
     }
@@ -1746,20 +1746,136 @@
 </div>
 
 <div id="warehouseContent" class="main-layout hidden">
-<div id="warehouseReportsTab" class="warehouse-tab-pane active">
+
+  <div class="warehouse-section-tabs" role="tablist" aria-label="Warehouse report sections">
+    <div class="warehouse-section-tabbar">
+      <button
+        id="warehouseTransactionLogTabButton"
+        class="warehouse-section-tab active"
+        type="button"
+        role="tab"
+        aria-selected="true"
+        aria-controls="warehouseTransactionLogTab"
+        onclick="setWarehouseReportTab('warehouseTransactionLogTab')">
+        Warehouse Transaction Log
+      </button>
+
+      <button
+        id="uagBulkBatchUsageTabButton"
+        class="warehouse-section-tab"
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-controls="uagBulkBatchUsageTab"
+        onclick="setWarehouseReportTab('uagBulkBatchUsageTab')">
+        UAG Bulk Batch Usage
+      </button>
+
+      <button
+        id="reorderDashboardTabButton"
+        class="warehouse-section-tab"
+        type="button"
+        role="tab"
+        aria-selected="false"
+        aria-controls="reorderDashboardTab"
+        onclick="setWarehouseReportTab('reorderDashboardTab')">
+        Reorder Dashboard
+      </button>
+    </div>
+  </div>
+
+  <datalist id="partsList"></datalist>
+
+  <div id="warehouseTransactionLogTab" class="warehouse-tab-pane active" role="tabpanel" aria-labelledby="warehouseTransactionLogTabButton">
     <div class="card wide-card">
 
-    <h2>Warehouse Reports</h2>
-    <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
-    <datalist id="partsList"></datalist>
+      <h2>Warehouse Transaction Log</h2>
+      <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
 
-    <details class="cycle-panel" open>
-      <summary>Reorder Dashboard</summary>
-      <pre id="reorder"></pre>
-    </details>
+      <div class="warning-note">
+        Read-only transaction history for Warehouse review. This section does not allow editing, deleting, or reversing transactions.
+      </div>
 
-    <details class="cycle-panel">
-      <summary>UAG Bulk Batch Usage / Valuation</summary>
+      <div class="inventory-workflow-grid">
+        <div class="inventory-workflow-panel">
+          <h3>Filters</h3>
+
+          <label>Start Date:</label>
+          <input id="transactionStartDate" type="date">
+
+          <label>End Date:</label>
+          <input id="transactionEndDate" type="date">
+
+          <label>Part Number:</label>
+          <input id="transactionPartNumber" list="partsList" placeholder="Optional part number filter" autocomplete="off">
+        </div>
+
+        <div class="inventory-workflow-panel">
+          <h3>Transaction Type</h3>
+
+          <label>Type:</label>
+          <select id="transactionTypeFilter">
+            <option value="ALL">All Transaction Types</option>
+            <option value="RECEIVE">Received Inventory</option>
+            <option value="ISSUED">Issued Inventory</option>
+            <option value="ALL_TRANSFERS">Inventory Transfers</option>
+            <option value="ADJUSTMENT">Manual Adjustment</option>
+            <option value="CYCLE_COUNT_ADJUSTMENT">Cycle Count Adjustment</option>
+            <option value="ALL_ADJUSTMENTS">All Adjustments</option>
+            <option value="TRANSACTION_REVERSALS">Transaction Reversals</option>
+            <option value="OTHER_ACTIVITY">Other Activity</option>
+          </select>
+
+          <div class="button-row">
+            <button class="report-btn" onclick="loadTransactionLogReport()">RUN TRANSACTION REPORT</button>
+            <button class="export-btn" onclick="exportTransactionLogCSV()">EXPORT TRANSACTION CSV</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="transactionLogSummary" class="session-id-box">
+        Select filters and click RUN TRANSACTION REPORT.
+      </div>
+
+      <div class="count-table-wrapper">
+        <table class="transaction-log-table">
+          <thead>
+            <tr>
+              <th>Date / Time</th>
+              <th>Transaction Type</th>
+              <th>Transaction Label</th>
+              <th>Class Code</th>
+              <th>Part Number</th>
+              <th>Description</th>
+              <th>Serial Number</th>
+              <th>Quantity</th>
+              <th>Unit Cost</th>
+              <th>Total Value</th>
+              <th>Location</th>
+              <th>Vendor</th>
+              <th>PO #</th>
+              <th>Issued To</th>
+              <th>Work Order</th>
+              <th>Client</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="transactionLogTableBody">
+            <tr>
+              <td colspan="17">No transaction report loaded.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="uagBulkBatchUsageTab" class="warehouse-tab-pane" role="tabpanel" aria-labelledby="uagBulkBatchUsageTabButton">
+    <div class="card wide-card">
+
+      <h2>UAG Bulk Batch Usage</h2>
+      <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
 
       <h3>UAG Bulk Inventory Valuation</h3>
 
@@ -1867,96 +1983,24 @@
           </tbody>
         </table>
       </div>
-    </details>
-
-    <h3>Warehouse Transaction Log</h3>
-
-    <div class="warning-note">
-      Read-only transaction history for Warehouse review. This section does not allow editing, deleting, or reversing transactions.
-    </div>
-
-    <div class="inventory-workflow-grid">
-      <div class="inventory-workflow-panel">
-        <h3>Filters</h3>
-
-        <label>Start Date:</label>
-        <input id="transactionStartDate" type="date">
-
-        <label>End Date:</label>
-        <input id="transactionEndDate" type="date">
-
-        <label>Part Number:</label>
-        <input id="transactionPartNumber" list="partsList" placeholder="Optional part number filter" autocomplete="off">
-      </div>
-
-      <div class="inventory-workflow-panel">
-        <h3>Transaction Type</h3>
-
-        <label>Type:</label>
-        <select id="transactionTypeFilter">
-          <option value="ALL">All Transaction Types</option>
-          <option value="RECEIVE">Received Inventory</option>
-          <option value="ISSUED">Issued Inventory</option>
-          <option value="ALL_TRANSFERS">Inventory Transfers</option>
-          <option value="ADJUSTMENT">Manual Adjustment</option>
-          <option value="CYCLE_COUNT_ADJUSTMENT">Cycle Count Adjustment</option>
-          <option value="ALL_ADJUSTMENTS">All Adjustments</option>
-          <option value="TRANSACTION_REVERSALS">Transaction Reversals</option>
-          <option value="OTHER_ACTIVITY">Other Activity</option>
-        </select>
-
-        <div class="button-row">
-          <button class="report-btn" onclick="loadTransactionLogReport()">RUN TRANSACTION REPORT</button>
-          <button class="export-btn" onclick="exportTransactionLogCSV()">EXPORT TRANSACTION CSV</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="transactionLogSummary" class="session-id-box">
-      Select filters and click RUN TRANSACTION REPORT.
-    </div>
-
-    <div class="count-table-wrapper">
-      <table class="transaction-log-table">
-        <thead>
-          <tr>
-            <th>Date / Time</th>
-            <th>Transaction Type</th>
-            <th>Transaction Label</th>
-            <th>Class Code</th>
-            <th>Part Number</th>
-            <th>Description</th>
-            <th>Serial Number</th>
-            <th>Quantity</th>
-            <th>Unit Cost</th>
-            <th>Total Value</th>
-            <th>Location</th>
-            <th>Vendor</th>
-            <th>PO #</th>
-            <th>Issued To</th>
-            <th>Work Order</th>
-            <th>Client</th>
-            <th>Notes</th>
-          </tr>
-        </thead>
-        <tbody id="transactionLogTableBody">
-          <tr>
-            <td colspan="17">No transaction report loaded.</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
 
     </div>
   </div>
 
-  
+  <div id="reorderDashboardTab" class="warehouse-tab-pane" role="tabpanel" aria-labelledby="reorderDashboardTabButton">
+    <div class="card wide-card">
+
+      <h2>Reorder Dashboard</h2>
+      <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+      <pre id="reorder"></pre>
+
+    </div>
+  </div>
+
 </div>
 
 </div>
 </div>
-
 <script>
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
@@ -2095,6 +2139,35 @@ function initializeInventorySidebar() {
 }
 
 initializeInventorySidebar();
+
+function setWarehouseReportTab(tabId) {
+  const tabIds = [
+    'warehouseTransactionLogTab',
+    'uagBulkBatchUsageTab',
+    'reorderDashboardTab'
+  ];
+
+  tabIds.forEach(currentTabId => {
+    const pane = document.getElementById(currentTabId);
+    const button = document.getElementById(currentTabId + 'Button');
+    const isActive = currentTabId === tabId;
+
+    if (pane) {
+      pane.classList.toggle('active', isActive);
+    }
+
+    if (button) {
+      button.classList.toggle('active', isActive);
+      button.setAttribute('aria-selected', String(isActive));
+    }
+  });
+}
+
+function initializeWarehouseReportTabs() {
+  setWarehouseReportTab('warehouseTransactionLogTab');
+}
+
+initializeWarehouseReportTabs();
 
 window.addEventListener('load', async () => {
   const hasAccess = await enforceWarehouseAccess();
