@@ -1936,7 +1936,10 @@ async function refreshSelectedPayPeriodData() {
   await loadPayrollReviewRows();
 
   renderReviewTables();
-  setPPVStatus('Payroll review data loaded.', 'success');
+
+  if (currentPayrollReviewRows.length > 0) {
+    setPPVStatus(`Payroll review data loaded. ${currentPayrollReviewRows.length} RT row(s) ready for review.`, 'success');
+  }
 }
 
 async function loadPayrollReviewRows() {
@@ -1955,7 +1958,25 @@ async function loadPayrollReviewRows() {
     return;
   }
 
-  currentPayrollReviewRows = filterRowsForPPVRouteTechs(result.rows || []);
+  const rawRows = result.rows || [];
+  currentPayrollReviewRows = filterRowsForPPVRouteTechs(rawRows);
+
+  if (rawRows.length > 0 && currentPayrollReviewRows.length === 0) {
+    setPPVStatus(
+      `Loaded ${rawRows.length} row(s), but all were excluded as RTL / leader rows. Check row_type, rt_code, or route_tech_name in the source view.`,
+      'error'
+    );
+  } else if (currentPayrollReviewRows.length > 0) {
+    setPPVStatus(
+      `Loaded ${currentPayrollReviewRows.length} RT payroll review row(s). Source: ${result.source_detail || 'payroll submittal view'}.`,
+      'success'
+    );
+  } else {
+    setPPVStatus(
+      `No RT payroll review rows were returned for this pay period. Source checked: ${result.source_detail || 'ppv_biweekly_payroll_submittal_view'}.`,
+      'error'
+    );
+  }
 }
 
 async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = null) {
@@ -1964,6 +1985,9 @@ async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = 
     'ppv_pay_period_id',
     'period_id'
   ];
+
+  const successfulEmptyResults = [];
+  let lastError = null;
 
   for (const field of candidateFields) {
     let query = client
@@ -1977,12 +2001,108 @@ async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = 
 
     const { data, error } = await query;
 
-    if (!error) {
-      return { rows: data || [], error: null };
+    if (error) {
+      lastError = error;
+      continue;
+    }
+
+    if (data && data.length > 0) {
+      return {
+        rows: data,
+        error: null,
+        source_detail: `${sourceName}.${field}`
+      };
+    }
+
+    successfulEmptyResults.push({ field, rows: data || [] });
+  }
+
+  const periodStart = normalizeDateForCompare(getRecordValue(currentPayPeriodRecord, [
+    'pay_period_start_date',
+    'period_start_date',
+    'start_date',
+    'date_start'
+  ]));
+
+  const periodEnd = normalizeDateForCompare(getRecordValue(currentPayPeriodRecord, [
+    'pay_period_end_date',
+    'period_end_date',
+    'end_date',
+    'date_end'
+  ]));
+
+  const labelCandidates = [
+    getRecordValue(currentPayPeriodRecord, ['pay_period_label']),
+    currentPayPeriodRecord ? formatPayPeriodLabel(currentPayPeriodRecord).replace(/\s•\s.*$/, '') : ''
+  ].filter(Boolean);
+
+  const dateFieldPairs = [
+    ['period_start_date', 'period_end_date'],
+    ['pay_period_start_date', 'pay_period_end_date'],
+    ['start_date', 'end_date'],
+    ['date_start', 'date_end']
+  ];
+
+  if (periodStart && periodEnd) {
+    for (const [startField, endField] of dateFieldPairs) {
+      let query = client
+        .from(sourceName)
+        .select('*')
+        .eq(startField, periodStart)
+        .eq(endField, periodEnd);
+
+      if (orderField) {
+        query = query.order(orderField, { ascending: false });
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        lastError = error;
+        continue;
+      }
+
+      if (data && data.length > 0) {
+        return {
+          rows: data,
+          error: null,
+          source_detail: `${sourceName}.${startField}/${endField}`
+        };
+      }
+
+      successfulEmptyResults.push({ field: `${startField}/${endField}`, rows: data || [] });
     }
   }
 
-  let fallbackQuery = client.from(sourceName).select('*');
+  for (const label of labelCandidates) {
+    let query = client
+      .from(sourceName)
+      .select('*')
+      .eq('pay_period_label', label);
+
+    if (orderField) {
+      query = query.order(orderField, { ascending: false });
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      lastError = error;
+      continue;
+    }
+
+    if (data && data.length > 0) {
+      return {
+        rows: data,
+        error: null,
+        source_detail: `${sourceName}.pay_period_label`
+      };
+    }
+
+    successfulEmptyResults.push({ field: 'pay_period_label', rows: data || [] });
+  }
+
+  let fallbackQuery = client.from(sourceName).select('*').range(0, 4999);
 
   if (orderField) {
     fallbackQuery = fallbackQuery.order(orderField, { ascending: false });
@@ -1991,14 +2111,47 @@ async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = 
   const { data, error } = await fallbackQuery;
 
   if (error) {
-    return { rows: [], error };
+    return { rows: [], error: lastError || error };
   }
 
   const filteredRows = (data || []).filter(row => {
-    return candidateFields.some(field => String(row[field] || '') === String(payPeriodId));
+    const matchesId = candidateFields.some(field => String(row[field] || '') === String(payPeriodId));
+
+    const rowStart = normalizeDateForCompare(getRecordValue(row, [
+      'pay_period_start_date',
+      'period_start_date',
+      'start_date',
+      'date_start'
+    ]));
+
+    const rowEnd = normalizeDateForCompare(getRecordValue(row, [
+      'pay_period_end_date',
+      'period_end_date',
+      'end_date',
+      'date_end'
+    ]));
+
+    const matchesDateRange = periodStart && periodEnd && rowStart === periodStart && rowEnd === periodEnd;
+    const matchesLabel = labelCandidates.some(label => String(row.pay_period_label || '') === String(label));
+
+    return matchesId || matchesDateRange || matchesLabel;
   });
 
-  return { rows: filteredRows, error: null };
+  if (filteredRows.length > 0) {
+    return {
+      rows: filteredRows,
+      error: null,
+      source_detail: `${sourceName}.fallback_filtered`
+    };
+  }
+
+  return {
+    rows: [],
+    error: null,
+    source_detail: successfulEmptyResults.length > 0
+      ? `${sourceName}.no_matching_rows`
+      : `${sourceName}.no_supported_filter_fields`
+  };
 }
 
 function filterRowsForPPVRouteTechs(rows) {
@@ -2678,6 +2831,30 @@ function setText(id, value) {
 function getInputValue(id) {
   const element = document.getElementById(id);
   return String(element?.value || '').trim();
+}
+
+function normalizeDateForCompare(value) {
+  if (!value) {
+    return '';
+  }
+
+  const text = String(value);
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+    return text.slice(0, 10);
+  }
+
+  const date = new Date(text);
+
+  if (Number.isNaN(date.getTime())) {
+    return text;
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 function formatDate(value) {
