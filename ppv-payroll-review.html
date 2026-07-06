@@ -1251,7 +1251,7 @@
           <div class="metric-card">
             <div class="metric-label">Exceptions</div>
             <div id="metricExceptionCount" class="metric-value">0</div>
-            <div class="metric-help">Missing hours, low effective hourly, or safeguard/callback impacts</div>
+            <div class="metric-help">Missing hours, below-threshold effective hourly, or safeguard/callback review items</div>
           </div>
 
           <div class="metric-card">
@@ -1386,7 +1386,7 @@
                 </div>
 
                 <div class="help-text">
-                  Exceptions are generated on the page from confirmed payroll review columns. Route tech signatures are handled outside this page through Paylocity and are not treated as PPV exceptions.
+                  Exceptions are generated on the page from confirmed payroll review columns. They do not change database records.
                 </div>
 
                 <div class="table-wrap">
@@ -2001,7 +2001,6 @@ async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = 
   return { rows: filteredRows, error: null };
 }
 
-
 function filterRowsForPPVRouteTechs(rows) {
   return (rows || []).filter(row => !isRouteTechLeaderRow(row));
 }
@@ -2061,6 +2060,7 @@ function renderReviewTables() {
       return rowExceptions.some(exception => exception.exception_type === 'LOW_EFFECTIVE_HOURLY');
     }
 
+
     if (exceptionFilter === 'POSITIVE_SAFEGUARD_IMPACT') {
       return Number(row.safeguard_impact_total || 0) !== 0;
     }
@@ -2108,6 +2108,7 @@ function getRowExceptions(row, threshold) {
   const totalPaidHours = Number(row.total_paid_hours || 0);
   const effectiveHourly = Number(row.effective_hourly_rate || 0);
   const hasEffectiveHourly = row.effective_hourly_rate !== null && row.effective_hourly_rate !== undefined;
+
   if (finalGross > 0 && totalPaidHours <= 0) {
     exceptions.push({
       exception_type: 'MISSING_HOURS',
@@ -2213,25 +2214,43 @@ function renderChecklist() {
   const exceptions = currentExceptionRows.length;
   const missingHours = currentExceptionRows.filter(row => row.exception_type === 'MISSING_HOURS').length;
   const lowHourly = currentExceptionRows.filter(row => row.exception_type === 'LOW_EFFECTIVE_HOURLY').length;
+  const safeguardImpact = currentExceptionRows.filter(row => row.exception_type === 'SAFEGUARD_CALLBACK_IMPACT').length;
   const threshold = getMinimumWageThreshold();
 
   checklist.className = exceptions > 0 ? 'warning-note' : 'status-note';
 
   checklist.textContent =
-    `Pay Period Status: ${status}\n` +
-    `Route Tech Rows Loaded: ${rowsLoaded}\n` +
-    `Review Threshold: ${threshold > 0 ? formatCurrency(threshold) : 'Not entered'}\n\n` +
-    `Exception Summary:\n` +
-    `- Total Exceptions: ${exceptions}\n` +
-    `- Missing Hours: ${missingHours}\n` +
-    `- Below Threshold: ${lowHourly}\n` +
-    `- Signature Review: Handled in Paylocity after PDF delivery\n\n` +
-    `Checklist:\n` +
-    `1. Confirm Week 1 and Week 2 visits are loaded.\n` +
-    `2. Confirm HR hours are loaded before final effective hourly review.\n` +
-    `3. Review PPV pay, credits, safeguards/callbacks, adjustments, and commissions.\n` +
-    `4. Resolve exceptions before approval.\n` +
-    `5. Export payroll review/submittal after final approval workflow is complete.`;
+    `Pay Period Status: ${status}
+` +
+    `Route Tech Rows Loaded: ${rowsLoaded}
+` +
+    `Review Threshold: ${threshold > 0 ? formatCurrency(threshold) : 'Not entered'}
+
+` +
+    `Exception Summary:
+` +
+    `- Total Exceptions: ${exceptions}
+` +
+    `- Missing Hours: ${missingHours}
+` +
+    `- Below Threshold: ${lowHourly}
+` +
+    `- Safeguard / Callback Impact: ${safeguardImpact}
+
+` +
+    `Checklist:
+` +
+    `1. Confirm Week 1 and Week 2 visits are loaded.
+` +
+    `2. Confirm HR hours are loaded before final effective hourly review.
+` +
+    `3. Review PPV pay, credits, safeguards/callbacks, adjustments, and commissions.
+` +
+    `4. Resolve active exceptions before approval.
+` +
+    `5. Export payroll review/submittal after final approval workflow is complete.
+` +
+    `6. Print or export RT sheets for Paylocity signature workflow. Missing signatures are not PPV page exceptions.`;
 }
 
 function renderFilterInfo() {
