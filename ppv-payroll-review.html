@@ -1251,7 +1251,7 @@
           <div class="metric-card">
             <div class="metric-label">Exceptions</div>
             <div id="metricExceptionCount" class="metric-value">0</div>
-            <div class="metric-help">Missing hours, low effective hourly, missing signatures, or locked-status concerns</div>
+            <div class="metric-help">Missing hours, low effective hourly, or safeguard/callback impacts</div>
           </div>
 
           <div class="metric-card">
@@ -1302,8 +1302,6 @@
                 <option value="EXCEPTIONS_ONLY">Exceptions Only</option>
                 <option value="MISSING_HOURS">Missing Hours</option>
                 <option value="LOW_EFFECTIVE_HOURLY">Below Threshold</option>
-                <option value="MISSING_SIGNATURES">Missing Signatures</option>
-                <option value="UNLOCKED">Not Locked For Signature</option>
                 <option value="POSITIVE_SAFEGUARD_IMPACT">Safeguard / Callback Impact</option>
               </select>
 
@@ -1388,7 +1386,7 @@
                 </div>
 
                 <div class="help-text">
-                  Exceptions are generated on the page from confirmed payroll review columns. They do not change database records.
+                  Exceptions are generated on the page from confirmed payroll review columns. Route tech signatures are handled outside this page through Paylocity and are not treated as PPV exceptions.
                 </div>
 
                 <div class="table-wrap">
@@ -1957,7 +1955,7 @@ async function loadPayrollReviewRows() {
     return;
   }
 
-  currentPayrollReviewRows = result.rows || [];
+  currentPayrollReviewRows = filterRowsForPPVRouteTechs(result.rows || []);
 }
 
 async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = null) {
@@ -2003,6 +2001,40 @@ async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = 
   return { rows: filteredRows, error: null };
 }
 
+
+function filterRowsForPPVRouteTechs(rows) {
+  return (rows || []).filter(row => !isRouteTechLeaderRow(row));
+}
+
+function isRouteTechLeaderRow(row) {
+  if (!row) {
+    return false;
+  }
+
+  const rowType = normalize(row.row_type || row.route_tech_row_type || row.employee_type || row.tech_type || '');
+  const rtCode = normalize(row.rt_code || row.rt_code_normalized || row.route_tech_code || '');
+  const routeTechName = normalize(row.route_tech_name || row.tech_name || row.employee_name || '');
+
+  if (
+    rowType === 'RTL' ||
+    rowType.includes('ROUTE_TECH_LEADER') ||
+    rowType.includes('ROUTE_LEADER') ||
+    rowType.includes('LEADER')
+  ) {
+    return true;
+  }
+
+  if (rtCode.startsWith('RTL')) {
+    return true;
+  }
+
+  if (routeTechName.includes('VICTOR_ALMANZA') || routeTechName.includes('CRISTIAN_LOZANO')) {
+    return true;
+  }
+
+  return false;
+}
+
 function renderReviewTables() {
   const exceptionFilter = getInputValue('exceptionFilterSelect') || 'ALL';
   const threshold = getMinimumWageThreshold();
@@ -2027,14 +2059,6 @@ function renderReviewTables() {
 
     if (exceptionFilter === 'LOW_EFFECTIVE_HOURLY') {
       return rowExceptions.some(exception => exception.exception_type === 'LOW_EFFECTIVE_HOURLY');
-    }
-
-    if (exceptionFilter === 'MISSING_SIGNATURES') {
-      return rowExceptions.some(exception => exception.exception_type === 'MISSING_SIGNATURES');
-    }
-
-    if (exceptionFilter === 'UNLOCKED') {
-      return rowExceptions.some(exception => exception.exception_type === 'NOT_LOCKED_FOR_SIGNATURE');
     }
 
     if (exceptionFilter === 'POSITIVE_SAFEGUARD_IMPACT') {
@@ -2070,8 +2094,7 @@ function buildExceptionRows(rows, threshold) {
         final_gross_before_taxes_deductions: row.final_gross_before_taxes_deductions,
         total_paid_hours: row.total_paid_hours,
         effective_hourly_rate: row.effective_hourly_rate,
-        submittal_status: row.submittal_status,
-        locked_for_signature: row.locked_for_signature
+        submittal_status: row.submittal_status
       });
     });
   });
@@ -2085,9 +2108,6 @@ function getRowExceptions(row, threshold) {
   const totalPaidHours = Number(row.total_paid_hours || 0);
   const effectiveHourly = Number(row.effective_hourly_rate || 0);
   const hasEffectiveHourly = row.effective_hourly_rate !== null && row.effective_hourly_rate !== undefined;
-  const routeTechSignature = String(row.route_tech_signature || '').trim();
-  const reviewerSignature = String(row.reviewer_signature || '').trim();
-
   if (finalGross > 0 && totalPaidHours <= 0) {
     exceptions.push({
       exception_type: 'MISSING_HOURS',
@@ -2099,20 +2119,6 @@ function getRowExceptions(row, threshold) {
     exceptions.push({
       exception_type: 'LOW_EFFECTIVE_HOURLY',
       exception_detail: `Effective hourly ${formatCurrency(effectiveHourly)} is below review threshold ${formatCurrency(threshold)}.`
-    });
-  }
-
-  if (!routeTechSignature || !reviewerSignature) {
-    exceptions.push({
-      exception_type: 'MISSING_SIGNATURES',
-      exception_detail: 'Route tech and/or reviewer signature fields are blank.'
-    });
-  }
-
-  if (row.locked_for_signature !== true) {
-    exceptions.push({
-      exception_type: 'NOT_LOCKED_FOR_SIGNATURE',
-      exception_detail: 'Row is not locked for signature.'
     });
   }
 
@@ -2207,22 +2213,19 @@ function renderChecklist() {
   const exceptions = currentExceptionRows.length;
   const missingHours = currentExceptionRows.filter(row => row.exception_type === 'MISSING_HOURS').length;
   const lowHourly = currentExceptionRows.filter(row => row.exception_type === 'LOW_EFFECTIVE_HOURLY').length;
-  const missingSignatures = currentExceptionRows.filter(row => row.exception_type === 'MISSING_SIGNATURES').length;
-  const unlockedRows = currentExceptionRows.filter(row => row.exception_type === 'NOT_LOCKED_FOR_SIGNATURE').length;
   const threshold = getMinimumWageThreshold();
 
   checklist.className = exceptions > 0 ? 'warning-note' : 'status-note';
 
   checklist.textContent =
     `Pay Period Status: ${status}\n` +
-    `Rows Loaded: ${rowsLoaded}\n` +
+    `Route Tech Rows Loaded: ${rowsLoaded}\n` +
     `Review Threshold: ${threshold > 0 ? formatCurrency(threshold) : 'Not entered'}\n\n` +
     `Exception Summary:\n` +
     `- Total Exceptions: ${exceptions}\n` +
     `- Missing Hours: ${missingHours}\n` +
     `- Below Threshold: ${lowHourly}\n` +
-    `- Missing Signatures: ${missingSignatures}\n` +
-    `- Not Locked For Signature: ${unlockedRows}\n\n` +
+    `- Signature Review: Handled in Paylocity after PDF delivery\n\n` +
     `Checklist:\n` +
     `1. Confirm Week 1 and Week 2 visits are loaded.\n` +
     `2. Confirm HR hours are loaded before final effective hourly review.\n` +
@@ -2241,7 +2244,7 @@ function renderFilterInfo() {
 
   info.textContent =
     `Rows currently shown: ${currentFilteredReviewRows.length}\n` +
-    `Total review rows: ${currentPayrollReviewRows.length}\n` +
+    `Total route tech review rows: ${currentPayrollReviewRows.length}\n` +
     `Current exception count: ${currentExceptionRows.length}\n` +
     `Effective hourly threshold: ${threshold > 0 ? formatCurrency(threshold) : 'Not entered'}`;
 }
@@ -2362,7 +2365,7 @@ async function loadPayrollExportRows() {
     return;
   }
 
-  currentPayrollExportRows = result.rows || [];
+  currentPayrollExportRows = filterRowsForPPVRouteTechs(result.rows || []);
   renderRowsTable(currentPayrollExportRows, 'exportHead', 'exportBody', 'No payroll export rows found for this pay period.');
   setPPVStatus('Payroll export view loaded.', 'success');
 }
@@ -2473,11 +2476,6 @@ function buildDisplayColumns(rows) {
     'review_status',
     'exception_type',
     'exception_detail',
-    'route_tech_signature',
-    'route_tech_signature_date',
-    'reviewer_signature',
-    'reviewer_signature_date',
-    'locked_for_signature',
     'submittal_status',
     'notes'
   ];
@@ -2497,7 +2495,12 @@ function buildDisplayColumns(rows) {
       'route_tech_id',
       'snapshot_id',
       'created_by',
-      'updated_by'
+      'updated_by',
+      'route_tech_signature',
+      'route_tech_signature_date',
+      'reviewer_signature',
+      'reviewer_signature_date',
+      'locked_for_signature'
     ].includes(column))
     .sort((a, b) => a.localeCompare(b));
 
