@@ -1970,7 +1970,7 @@
               <div class="card manager-only">
                 <h2>HR Hours / PTO / Holiday Pay Review</h2>
                 <div class="warning-note">
-                  Internal payroll review only. Regular/overtime hours are used for minimum-wage/effective-hourly review. PTO, holiday, and other time convert to visit-equivalent credits at 1.5 visits per hour and pay at the pickup visit rate.
+                  Internal payroll review only. Regular/overtime hours are used for minimum-wage/effective-hourly review. PTO, holiday, and other time convert to visit-equivalent credits at 1.5 visits per hour. PTO/holiday credits pay at the final PPV rate. Other time credits pay at the pickup visit rate.
                 </div>
 
                 <label>Route Tech:</label>
@@ -3784,6 +3784,7 @@ function getPaidTimeCreditCalc() {
 
   const routeTechId = getInputValue('paidTimeCreditRouteTechSelect');
   const row = findLiveSummaryRowForRouteTech(routeTechId) || {};
+  const ppvRate = numberFromRecord(row, ['final_ppv_rate', 'ppv_rate']);
   const pickupRate = numberFromRecord(row, ['pickup_visit_rate']);
 
   return {
@@ -3793,8 +3794,9 @@ function getPaidTimeCreditCalc() {
     meetingMaintenanceCredit,
     ptoHolidayCredit,
     otherPaidCredit,
+    ppvRate,
     pickupRate,
-    ptoHolidayPay: roundNumber(ptoHolidayCredit * pickupRate, 2),
+    ptoHolidayPay: roundNumber(ptoHolidayCredit * ppvRate, 2),
     otherPaidPay: roundNumber(otherPaidCredit * pickupRate, 2),
     meetingMaintenancePay: roundNumber(meetingMaintenanceCredit * pickupRate, 2)
   };
@@ -3833,6 +3835,7 @@ function updatePaidTimeCreditPreview() {
     <div class="calc-line"><span>PTO + Holiday Hours</span><strong>${formatNumber(calc.ptoHours + calc.holidayHours)} × 1.5 = ${formatNumber(calc.ptoHolidayCredit)} credits</strong></div>
     <div class="calc-line"><span>Other Time Hours</span><strong>${formatNumber(calc.otherTimeHours)} × 1.5 = ${formatNumber(calc.otherPaidCredit)} credits</strong></div>
     <div class="calc-line"><span>Extra RT Meeting / Maintenance Credits</span><strong>${formatNumber(calc.meetingMaintenanceCredit)} credits</strong></div>
+    <div class="calc-line"><span>Final PPV Rate</span><strong>${formatCurrency(calc.ppvRate)}</strong></div>
     <div class="calc-line"><span>Pickup Visit Rate</span><strong>${formatCurrency(calc.pickupRate)}</strong></div>
     <div class="calc-line"><span>PTO / Holiday Pay</span><strong>${formatCurrency(calc.ptoHolidayPay)}</strong></div>
     <div class="calc-line"><span>Other Time Pay</span><strong>${formatCurrency(calc.otherPaidPay)}</strong></div>
@@ -3907,6 +3910,7 @@ function getHRHoursCalc() {
 
   const routeTechId = getInputValue('hrHoursRouteTechSelect');
   const row = findLiveSummaryRowForRouteTech(routeTechId) || {};
+  const ppvRate = numberFromRecord(row, ['final_ppv_rate', 'ppv_rate']);
   const pickupRate = numberFromRecord(row, ['pickup_visit_rate']);
   const currentGross = numberFromRecord(row, ['final_gross_before_taxes_deductions', 'net_ppv_pay']);
   const totalHRHours = regularHours + overtimeHours;
@@ -3920,8 +3924,9 @@ function getHRHoursCalc() {
     otherTimeHours,
     ptoHolidayCredit,
     otherPaidCredit,
+    ppvRate,
     pickupRate,
-    ptoHolidayPay: roundNumber(ptoHolidayCredit * pickupRate, 2),
+    ptoHolidayPay: roundNumber(ptoHolidayCredit * ppvRate, 2),
     otherPaidPay: roundNumber(otherPaidCredit * pickupRate, 2),
     totalHRHours,
     currentGross,
@@ -3952,6 +3957,7 @@ function updateHRHoursPreview() {
     <div class="calc-line"><span>Overtime Hours</span><strong>${formatNumber(calc.overtimeHours)}</strong></div>
     <div class="calc-line"><span>PTO + Holiday Hours</span><strong>${formatNumber(calc.ptoHours + calc.holidayHours)} × 1.5 = ${formatNumber(calc.ptoHolidayCredit)} credits</strong></div>
     <div class="calc-line"><span>Other Time Hours</span><strong>${formatNumber(calc.otherTimeHours)} × 1.5 = ${formatNumber(calc.otherPaidCredit)} credits</strong></div>
+    <div class="calc-line"><span>Final PPV Rate</span><strong>${formatCurrency(calc.ppvRate)}</strong></div>
     <div class="calc-line"><span>Pickup Visit Rate</span><strong>${formatCurrency(calc.pickupRate)}</strong></div>
     <div class="calc-line"><span>PTO / Holiday Pay Impact</span><strong>${formatCurrency(calc.ptoHolidayPay)}</strong></div>
     <div class="calc-line"><span>Other Time Pay Impact</span><strong>${formatCurrency(calc.otherPaidPay)}</strong></div>
@@ -5042,10 +5048,10 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
           </tr>
           <tr>
             <td>PTO / Holiday Taken</td>
-              <td>${formatCreditQuantity(row.pto_holiday_visit_credit)} credits</td>
-              <td>${formatCurrency(row.final_ppv_rate)}</td>
-              <td>${formatCurrency(row.pto_holiday_pay)}</td>
-              <td>Approved PTO / holiday credit paid at the final PPV rate.</td>
+            <td>${formatNumber(ptoHolidayCredit)} credits</td>
+            <td>${formatCurrency(ppvRate)}</td>
+            <td>${formatCurrency(ptoHolidayPay)}</td>
+            <td>Approved PTO / holiday credit paid at the final PPV rate.</td>
           </tr>
           <tr>
             <td>Other Time</td>
