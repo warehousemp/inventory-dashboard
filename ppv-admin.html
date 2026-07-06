@@ -293,10 +293,18 @@
     }
 
     .content-grid {
-      display: grid;
-      grid-template-columns: minmax(320px, 430px) minmax(0, 1fr);
+      display: flex;
+      flex-direction: column;
       gap: 18px;
-      align-items: start;
+      align-items: stretch;
+    }
+
+    .content-grid > section:first-child {
+      order: 2;
+    }
+
+    .content-grid > section:nth-child(2) {
+      order: 1;
     }
 
     .card {
@@ -844,7 +852,7 @@
 
     @media (max-width: 1120px) {
       .content-grid {
-        grid-template-columns: minmax(0, 1fr);
+        flex-direction: column;
       }
 
       .metric-grid {
@@ -1204,7 +1212,7 @@
 
           <section>
             <div class="card">
-              <h2>Route Tech Setup</h2>
+              <h2>Route Tech Setup / Changes</h2>
 
               <input id="routeTechIdInput" type="hidden">
 
@@ -1255,7 +1263,7 @@
                 </div>
 
                 <div>
-                  <label>End Date:</label>
+                  <label>Roster End Date:</label>
                   <input id="endDateInput" type="date">
                 </div>
               </div>
@@ -1278,7 +1286,7 @@
             </div>
 
             <div class="card manager-only">
-              <h3>Add Rate History Record</h3>
+              <h3>Rate Changes</h3>
 
               <label>Selected Route Tech:</label>
               <input id="rateRouteTechDisplayInput" class="readonly-field" readonly placeholder="Select a route tech from the roster table">
@@ -1325,11 +1333,11 @@
 
               <div class="button-row">
                 <button class="secondary-btn small-btn" type="button" onclick="calculateFinalRate()">CALCULATE FINAL RATE</button>
-                <button class="success-btn small-btn" type="button" onclick="addRateHistoryRecord()">ADD RATE HISTORY</button>
+                <button class="success-btn small-btn" type="button" onclick="addRateHistoryRecord()">ADD RATE CHANGE</button>
               </div>
 
               <div class="action-help">
-                This adds an approved historical rate record directly. Use this for effective-dated PPV rate changes.
+                This saves an approved effective-dated PPV rate change for the selected route tech.
               </div>
             </div>
 
@@ -1341,7 +1349,7 @@
               <div class="card-header-row">
                 <div>
                   <h2>PPV Admin Tables</h2>
-                  <div class="muted-text">Click a roster row to populate route tech and rate history forms.</div>
+                  <div class="muted-text">Click a roster row to populate the setup and rate change forms below.</div>
                 </div>
                 <span id="adminStatusBadge" class="badge badge-neutral">Loading</span>
               </div>
@@ -1785,7 +1793,7 @@ async function appLogout() {
 }
 
 async function loadInitialPPVAdminData() {
-  setPPVStatus('Loading PPV admin roster, current rates, and rate reviews...');
+  setPPVStatus('Loading PPV admin roster and current rates...');
   setAdminStatusBadge('Loading', 'neutral');
 
   setInputValue('reviewDateInput', getTodayISODate());
@@ -2454,7 +2462,6 @@ function renderRowsTable(rows, headId, bodyId, emptyMessage, rowClickHandler = n
 function buildDisplayColumns(rows) {
   const priority = [
     'rt_code',
-    'rt_code_normalized',
     'route_tech_name',
     'row_type',
     'active',
@@ -2485,7 +2492,6 @@ function buildDisplayColumns(rows) {
     'status',
     'approved_at',
     'applied_at',
-    'notes',
     'pay_period_label',
     'period_start_date',
     'period_end_date',
@@ -2505,6 +2511,11 @@ function buildDisplayColumns(rows) {
       'id',
       'route_tech_id',
       'rate_history_id',
+      'rt_code_normalized',
+      'notes',
+      'rate_notes',
+      'review_notes',
+      'route_tech_notes',
       'created_by',
       'updated_by',
       'approved_by',
@@ -2660,6 +2671,10 @@ function formatNumber(value) {
 }
 
 function formatColumnLabel(column) {
+  if (column === 'end_date') {
+    return 'Roster End Date';
+  }
+
   return String(column || '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, letter => letter.toUpperCase())
