@@ -1936,10 +1936,7 @@ async function refreshSelectedPayPeriodData() {
   await loadPayrollReviewRows();
 
   renderReviewTables();
-
-  if (currentPayrollReviewRows.length > 0) {
-    setPPVStatus(`Payroll review data loaded. ${currentPayrollReviewRows.length} RT row(s) ready for review.`, 'success');
-  }
+  setPPVStatus('Payroll review data loaded.', 'success');
 }
 
 async function loadPayrollReviewRows() {
@@ -1958,25 +1955,51 @@ async function loadPayrollReviewRows() {
     return;
   }
 
-  const rawRows = result.rows || [];
-  currentPayrollReviewRows = filterRowsForPPVRouteTechs(rawRows);
+  currentPayrollReviewRows = filterPPVPayrollReviewRows(result.rows || []);
+}
 
-  if (rawRows.length > 0 && currentPayrollReviewRows.length === 0) {
-    setPPVStatus(
-      `Loaded ${rawRows.length} row(s), but all were excluded as RTL / leader rows. Check row_type, rt_code, or route_tech_name in the source view.`,
-      'error'
-    );
-  } else if (currentPayrollReviewRows.length > 0) {
-    setPPVStatus(
-      `Loaded ${currentPayrollReviewRows.length} RT payroll review row(s). Source: ${result.source_detail || 'payroll submittal view'}.`,
-      'success'
-    );
-  } else {
-    setPPVStatus(
-      `No RT payroll review rows were returned for this pay period. Source checked: ${result.source_detail || 'ppv_biweekly_payroll_submittal_view'}.`,
-      'error'
-    );
-  }
+function filterPPVPayrollReviewRows(rows) {
+  return (rows || []).filter(row => !isRTLPayrollReviewRow(row));
+}
+
+function isRTLPayrollReviewRow(row) {
+  const rowType = normalizePayrollReviewText(getRecordValue(row, [
+    'row_type',
+    'route_tech_row_type',
+    'employee_type',
+    'tech_type'
+  ]));
+
+  const rtCode = normalizePayrollReviewText(getRecordValue(row, [
+    'rt_code',
+    'rt_code_normalized',
+    'route_tech_code',
+    'employee_code'
+  ]));
+
+  const routeTechName = normalizePayrollReviewText(getRecordValue(row, [
+    'route_tech_name',
+    'tech_name',
+    'employee_name',
+    'full_name'
+  ]));
+
+  return (
+    rowType.includes('RTL') ||
+    rowType.includes('ROUTE_TECH_LEADER') ||
+    rowType.includes('ROUTE TECH LEADER') ||
+    rowType.includes('LEADER') ||
+    rtCode.startsWith('RTL') ||
+    routeTechName.includes('VICTOR ALMANZA') ||
+    routeTechName.includes('CRISTIAN LOZANO')
+  );
+}
+
+function normalizePayrollReviewText(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, ' ');
 }
 
 async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = null) {
@@ -1985,9 +2008,6 @@ async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = 
     'ppv_pay_period_id',
     'period_id'
   ];
-
-  const successfulEmptyResults = [];
-  let lastError = null;
 
   for (const field of candidateFields) {
     let query = client
@@ -2001,108 +2021,12 @@ async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = 
 
     const { data, error } = await query;
 
-    if (error) {
-      lastError = error;
-      continue;
-    }
-
-    if (data && data.length > 0) {
-      return {
-        rows: data,
-        error: null,
-        source_detail: `${sourceName}.${field}`
-      };
-    }
-
-    successfulEmptyResults.push({ field, rows: data || [] });
-  }
-
-  const periodStart = normalizeDateForCompare(getRecordValue(currentPayPeriodRecord, [
-    'pay_period_start_date',
-    'period_start_date',
-    'start_date',
-    'date_start'
-  ]));
-
-  const periodEnd = normalizeDateForCompare(getRecordValue(currentPayPeriodRecord, [
-    'pay_period_end_date',
-    'period_end_date',
-    'end_date',
-    'date_end'
-  ]));
-
-  const labelCandidates = [
-    getRecordValue(currentPayPeriodRecord, ['pay_period_label']),
-    currentPayPeriodRecord ? formatPayPeriodLabel(currentPayPeriodRecord).replace(/\s•\s.*$/, '') : ''
-  ].filter(Boolean);
-
-  const dateFieldPairs = [
-    ['period_start_date', 'period_end_date'],
-    ['pay_period_start_date', 'pay_period_end_date'],
-    ['start_date', 'end_date'],
-    ['date_start', 'date_end']
-  ];
-
-  if (periodStart && periodEnd) {
-    for (const [startField, endField] of dateFieldPairs) {
-      let query = client
-        .from(sourceName)
-        .select('*')
-        .eq(startField, periodStart)
-        .eq(endField, periodEnd);
-
-      if (orderField) {
-        query = query.order(orderField, { ascending: false });
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        lastError = error;
-        continue;
-      }
-
-      if (data && data.length > 0) {
-        return {
-          rows: data,
-          error: null,
-          source_detail: `${sourceName}.${startField}/${endField}`
-        };
-      }
-
-      successfulEmptyResults.push({ field: `${startField}/${endField}`, rows: data || [] });
+    if (!error) {
+      return { rows: data || [], error: null };
     }
   }
 
-  for (const label of labelCandidates) {
-    let query = client
-      .from(sourceName)
-      .select('*')
-      .eq('pay_period_label', label);
-
-    if (orderField) {
-      query = query.order(orderField, { ascending: false });
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      lastError = error;
-      continue;
-    }
-
-    if (data && data.length > 0) {
-      return {
-        rows: data,
-        error: null,
-        source_detail: `${sourceName}.pay_period_label`
-      };
-    }
-
-    successfulEmptyResults.push({ field: 'pay_period_label', rows: data || [] });
-  }
-
-  let fallbackQuery = client.from(sourceName).select('*').range(0, 4999);
+  let fallbackQuery = client.from(sourceName).select('*');
 
   if (orderField) {
     fallbackQuery = fallbackQuery.order(orderField, { ascending: false });
@@ -2111,80 +2035,14 @@ async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = 
   const { data, error } = await fallbackQuery;
 
   if (error) {
-    return { rows: [], error: lastError || error };
+    return { rows: [], error };
   }
 
   const filteredRows = (data || []).filter(row => {
-    const matchesId = candidateFields.some(field => String(row[field] || '') === String(payPeriodId));
-
-    const rowStart = normalizeDateForCompare(getRecordValue(row, [
-      'pay_period_start_date',
-      'period_start_date',
-      'start_date',
-      'date_start'
-    ]));
-
-    const rowEnd = normalizeDateForCompare(getRecordValue(row, [
-      'pay_period_end_date',
-      'period_end_date',
-      'end_date',
-      'date_end'
-    ]));
-
-    const matchesDateRange = periodStart && periodEnd && rowStart === periodStart && rowEnd === periodEnd;
-    const matchesLabel = labelCandidates.some(label => String(row.pay_period_label || '') === String(label));
-
-    return matchesId || matchesDateRange || matchesLabel;
+    return candidateFields.some(field => String(row[field] || '') === String(payPeriodId));
   });
 
-  if (filteredRows.length > 0) {
-    return {
-      rows: filteredRows,
-      error: null,
-      source_detail: `${sourceName}.fallback_filtered`
-    };
-  }
-
-  return {
-    rows: [],
-    error: null,
-    source_detail: successfulEmptyResults.length > 0
-      ? `${sourceName}.no_matching_rows`
-      : `${sourceName}.no_supported_filter_fields`
-  };
-}
-
-function filterRowsForPPVRouteTechs(rows) {
-  return (rows || []).filter(row => !isRouteTechLeaderRow(row));
-}
-
-function isRouteTechLeaderRow(row) {
-  if (!row) {
-    return false;
-  }
-
-  const rowType = normalize(row.row_type || row.route_tech_row_type || row.employee_type || row.tech_type || '');
-  const rtCode = normalize(row.rt_code || row.rt_code_normalized || row.route_tech_code || '');
-  const routeTechName = normalize(row.route_tech_name || row.tech_name || row.employee_name || '');
-
-  if (
-    rowType === 'RTL' ||
-    rowType.includes('ROUTE_TECH_LEADER') ||
-    rowType.includes('ROUTE_LEADER') ||
-    rowType.includes('LEADER')
-  ) {
-    return true;
-  }
-
-  if (rtCode.startsWith('RTL')) {
-    return true;
-  }
-
-  if (routeTechName.includes('VICTOR_ALMANZA') || routeTechName.includes('CRISTIAN_LOZANO')) {
-    return true;
-  }
-
-  return false;
+  return { rows: filteredRows, error: null };
 }
 
 function renderReviewTables() {
@@ -2275,6 +2133,7 @@ function getRowExceptions(row, threshold) {
       exception_detail: `Effective hourly ${formatCurrency(effectiveHourly)} is below review threshold ${formatCurrency(threshold)}.`
     });
   }
+
 
   if (Number(row.safeguard_impact_total || 0) !== 0) {
     exceptions.push({
@@ -2367,43 +2226,25 @@ function renderChecklist() {
   const exceptions = currentExceptionRows.length;
   const missingHours = currentExceptionRows.filter(row => row.exception_type === 'MISSING_HOURS').length;
   const lowHourly = currentExceptionRows.filter(row => row.exception_type === 'LOW_EFFECTIVE_HOURLY').length;
-  const safeguardImpact = currentExceptionRows.filter(row => row.exception_type === 'SAFEGUARD_CALLBACK_IMPACT').length;
   const threshold = getMinimumWageThreshold();
 
   checklist.className = exceptions > 0 ? 'warning-note' : 'status-note';
 
   checklist.textContent =
-    `Pay Period Status: ${status}
-` +
-    `Route Tech Rows Loaded: ${rowsLoaded}
-` +
-    `Review Threshold: ${threshold > 0 ? formatCurrency(threshold) : 'Not entered'}
-
-` +
-    `Exception Summary:
-` +
-    `- Total Exceptions: ${exceptions}
-` +
-    `- Missing Hours: ${missingHours}
-` +
-    `- Below Threshold: ${lowHourly}
-` +
-    `- Safeguard / Callback Impact: ${safeguardImpact}
-
-` +
-    `Checklist:
-` +
-    `1. Confirm Week 1 and Week 2 visits are loaded.
-` +
-    `2. Confirm HR hours are loaded before final effective hourly review.
-` +
-    `3. Review PPV pay, credits, safeguards/callbacks, adjustments, and commissions.
-` +
-    `4. Resolve active exceptions before approval.
-` +
-    `5. Export payroll review/submittal after final approval workflow is complete.
-` +
-    `6. Print or export RT sheets for Paylocity signature workflow. Missing signatures are not PPV page exceptions.`;
+    `Pay Period Status: ${status}\n` +
+    `Rows Loaded: ${rowsLoaded}\n` +
+    `Review Threshold: ${threshold > 0 ? formatCurrency(threshold) : 'Not entered'}\n\n` +
+    `Exception Summary:\n` +
+    `- Total Exceptions: ${exceptions}\n` +
+    `- Missing Hours: ${missingHours}\n` +
+    `- Below Threshold: ${lowHourly}\n\n` +
+    `Checklist:\n` +
+    `1. Confirm Week 1 and Week 2 visits are loaded.\n` +
+    `2. Confirm HR hours are loaded before final effective hourly review.\n` +
+    `3. Review PPV pay, credits, safeguards/callbacks, adjustments, and commissions.\n` +
+    `4. Resolve exceptions before approval.\n` +
+    `5. Export payroll review/submittal after final approval workflow is complete.\n` +
+    `6. Print/send route tech sheets for signature in Paylocity. Missing signatures are not a PPV page exception.`;
 }
 
 function renderFilterInfo() {
@@ -2416,7 +2257,7 @@ function renderFilterInfo() {
 
   info.textContent =
     `Rows currently shown: ${currentFilteredReviewRows.length}\n` +
-    `Total route tech review rows: ${currentPayrollReviewRows.length}\n` +
+    `Total review rows: ${currentPayrollReviewRows.length}\n` +
     `Current exception count: ${currentExceptionRows.length}\n` +
     `Effective hourly threshold: ${threshold > 0 ? formatCurrency(threshold) : 'Not entered'}`;
 }
@@ -2537,7 +2378,7 @@ async function loadPayrollExportRows() {
     return;
   }
 
-  currentPayrollExportRows = filterRowsForPPVRouteTechs(result.rows || []);
+  currentPayrollExportRows = filterPPVPayrollReviewRows(result.rows || []);
   renderRowsTable(currentPayrollExportRows, 'exportHead', 'exportBody', 'No payroll export rows found for this pay period.');
   setPPVStatus('Payroll export view loaded.', 'success');
 }
@@ -2831,30 +2672,6 @@ function setText(id, value) {
 function getInputValue(id) {
   const element = document.getElementById(id);
   return String(element?.value || '').trim();
-}
-
-function normalizeDateForCompare(value) {
-  if (!value) {
-    return '';
-  }
-
-  const text = String(value);
-
-  if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
-    return text.slice(0, 10);
-  }
-
-  const date = new Date(text);
-
-  if (Number.isNaN(date.getTime())) {
-    return text;
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
 }
 
 function formatDate(value) {
