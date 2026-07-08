@@ -775,6 +775,46 @@
       font-size: 13px;
     }
 
+    .needs-shelf-location-table {
+      table-layout: fixed;
+      min-width: 1350px;
+    }
+
+    .needs-shelf-location-table th,
+    .needs-shelf-location-table td {
+      white-space: normal;
+      vertical-align: top;
+    }
+
+    .needs-shelf-location-table th:nth-child(1),
+    .needs-shelf-location-table td:nth-child(1) { width: 145px; }
+    .needs-shelf-location-table th:nth-child(2),
+    .needs-shelf-location-table td:nth-child(2) { width: 155px; word-break: break-word; }
+    .needs-shelf-location-table th:nth-child(3),
+    .needs-shelf-location-table td:nth-child(3) { width: 330px; line-height: 1.35; word-break: break-word; }
+    .needs-shelf-location-table th:nth-child(4),
+    .needs-shelf-location-table td:nth-child(4) { width: 150px; }
+    .needs-shelf-location-table th:nth-child(5),
+    .needs-shelf-location-table td:nth-child(5) { width: 150px; }
+    .needs-shelf-location-table th:nth-child(6),
+    .needs-shelf-location-table td:nth-child(6) { width: 115px; }
+    .needs-shelf-location-table th:nth-child(7),
+    .needs-shelf-location-table td:nth-child(7) { width: 125px; }
+    .needs-shelf-location-table th:nth-child(8),
+    .needs-shelf-location-table td:nth-child(8) { width: 160px; }
+    .needs-shelf-location-table th:nth-child(9),
+    .needs-shelf-location-table td:nth-child(9),
+    .needs-shelf-location-table th:nth-child(10),
+    .needs-shelf-location-table td:nth-child(10) { width: 130px; }
+
+    .needs-shelf-location-select {
+      width: 130px;
+      min-width: 130px;
+      margin-bottom: 0;
+      padding: 8px;
+      font-size: 13px;
+    }
+
 
 
     .transaction-log-table {
@@ -1926,7 +1966,7 @@
 <button class="warehouse-section-tab" data-warehouse-tab-button="warehouseVendorsTab" onclick="showWarehouseSection('warehouseVendorsTab')" type="button">VENDOR MANAGEMENT</button>
 <button class="warehouse-section-tab" data-warehouse-tab-button="warehouseCycleCountsTab" onclick="showWarehouseSection('warehouseCycleCountsTab')" type="button">CYCLE COUNTS</button>
 <button class="warehouse-section-tab" data-warehouse-tab-button="warehouseDeadStockTab" onclick="showWarehouseSection('warehouseDeadStockTab')" type="button">DEAD STOCK</button>
-<button class="warehouse-section-tab" data-warehouse-tab-button="warehouseNeedsCategoryTab" onclick="showWarehouseSection('warehouseNeedsCategoryTab')" type="button">NEEDS CATEGORY</button>
+<button class="warehouse-section-tab" data-warehouse-tab-button="warehouseNeedsCategoryTab" onclick="showWarehouseSection('warehouseNeedsCategoryTab')" type="button">PART CLEANUP</button>
 </div>
 </div>
 
@@ -2336,8 +2376,45 @@
 </div>
 <div class="warehouse-tab-pane" id="warehouseNeedsCategoryTab">
 <div class="card wide-card">
-<h2>Needs Category Queue</h2>
+<h2>Part Cleanup Queues</h2>
 <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+<h3>Needs Shelf Location</h3>
+<div class="warning-note">
+      This report shows active Main Warehouse parts with quantity on hand greater than zero and no assigned Shelf Location.
+      Select the correct Shelf Location directly on each row, then click SAVE SHELF. The row will disappear from this queue after the shelf is saved.
+    </div>
+<div class="button-row">
+<button class="report-btn" onclick="loadNeedsShelfLocationReport()">RUN NEEDS SHELF LOCATION REPORT</button>
+<button class="export-btn" onclick="exportNeedsShelfLocationCSV()">EXPORT NEEDS SHELF LOCATION CSV</button>
+</div>
+<div class="session-id-box" id="needsShelfLocationSummary">
+      Click RUN NEEDS SHELF LOCATION REPORT to load active Main Warehouse parts without a Shelf Location.
+    </div>
+<div class="count-table-wrapper">
+<table class="needs-shelf-location-table">
+<thead>
+<tr>
+<th>Action</th>
+<th>Part Number</th>
+<th>Description</th>
+<th>Category</th>
+<th>Location</th>
+<th>Qty On Hand</th>
+<th>Current Shelf</th>
+<th>New Shelf Location</th>
+<th>Unit Cost</th>
+<th>Inventory Value</th>
+</tr>
+</thead>
+<tbody id="needsShelfLocationTableBody">
+<tr>
+<td colspan="10">No Needs Shelf Location report loaded.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section-divider"></div>
+<h3>Needs Category</h3>
 <div class="warning-note">
       This report shows active parts with NULL or blank categories. Select the correct category directly on each row,
       then click UPDATE CATEGORY. The row will disappear from this queue after the category is saved.
@@ -2539,6 +2616,7 @@ let recountRequiredQueueData = [];
 let openCycleCountQueueData = [];
 let deadStockReportData = [];
 let needsCategoryReportData = [];
+let needsShelfLocationReportData = [];
 let transactionLogData = [];
 let categoryData = [];
 let inventoryLocationData = [];
@@ -2546,6 +2624,7 @@ let issueAvailableSerialRows = [];
 let uagBulkSummaryData = [];
 let uagBulkLineData = [];
 let inventoryVendorData = [];
+let mainWarehouseShelfLocationData = [];
 
 let currentWarehouseProfile = null;
 let currentWarehouseSession = null;
@@ -2597,6 +2676,7 @@ window.addEventListener('load', async () => {
   await loadParts();
   await loadCycleCountCategories();
   await loadCycleCountLocationDropdowns();
+  await loadMainWarehouseShelfLocations();
   handleCycleCountModeChange();
   await loadRecountRequiredQueue();
   await loadOpenCycleCountQueue();
@@ -5690,6 +5770,313 @@ async function exportDeadStockCSV() {
   const safeFilter = cleanFilename(filterLabel || 'dead_stock');
 
   downloadCSV(csv, `dead_stock_report_${safeFilter}.csv`);
+}
+
+
+async function loadMainWarehouseShelfLocations() {
+  try {
+    let query = client
+      .from('active_warehouse_shelf_locations_view')
+      .select('*')
+      .eq('parent_location_name', 'Main Warehouse')
+      .order('sort_order', { ascending: true });
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    mainWarehouseShelfLocationData = data || [];
+  } catch (viewError) {
+    console.warn('Main Warehouse shelf view load failed. Falling back to base table:', viewError);
+
+    const { data, error } = await client
+      .from('warehouse_shelf_locations')
+      .select('*')
+      .eq('parent_location_id', MAIN_WAREHOUSE_ID)
+      .eq('active', true)
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      mainWarehouseShelfLocationData = [];
+      console.error('Main Warehouse shelf location fallback load error:', error);
+      throw error;
+    }
+
+    mainWarehouseShelfLocationData = data || [];
+  }
+
+  console.log('Main Warehouse Shelf Locations loaded:', mainWarehouseShelfLocationData.length);
+}
+
+function getShelfLocationCode(row) {
+  return row?.shelf_code || row?.shelf_location || '';
+}
+
+function getShelfLocationOptionsHTML(currentValue = '') {
+  let options = '<option value="">Select shelf...</option>';
+  const selectedValue = String(currentValue || '').trim().toUpperCase();
+
+  mainWarehouseShelfLocationData.forEach(row => {
+    const shelfCode = getShelfLocationCode(row);
+
+    if (!shelfCode) {
+      return;
+    }
+
+    const selected = shelfCode.toUpperCase() === selectedValue ? ' selected' : '';
+    options += `<option value="${escapeHTML(shelfCode)}"${selected}>${escapeHTML(shelfCode)}</option>`;
+  });
+
+  return options;
+}
+
+async function fetchNeedsShelfLocationRows() {
+  if (!mainWarehouseShelfLocationData || mainWarehouseShelfLocationData.length === 0) {
+    await loadMainWarehouseShelfLocations();
+  }
+
+  let allRows = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    const { data, error } = await client
+      .from('main_warehouse_part_shelf_status_view')
+      .select('*')
+      .eq('shelf_assignment_status', 'UNASSIGNED')
+      .gt('main_warehouse_quantity_on_hand', 0)
+      .order('category', { ascending: true })
+      .order('part_number', { ascending: true })
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allRows = allRows.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  return allRows;
+}
+
+async function loadNeedsShelfLocationReport() {
+  const summary = document.getElementById('needsShelfLocationSummary');
+  const tableBody = document.getElementById('needsShelfLocationTableBody');
+
+  if (summary) {
+    summary.textContent = 'Loading Needs Shelf Location report...';
+  }
+
+  if (tableBody) {
+    tableBody.innerHTML = '<tr><td colspan="10">Loading Needs Shelf Location report...</td></tr>';
+  }
+
+  try {
+    needsShelfLocationReportData = await fetchNeedsShelfLocationRows();
+  } catch (error) {
+    needsShelfLocationReportData = [];
+
+    if (summary) {
+      summary.textContent = error.message;
+    }
+
+    if (tableBody) {
+      tableBody.innerHTML = `<tr><td colspan="10">${escapeHTML(error.message)}</td></tr>`;
+    }
+
+    return;
+  }
+
+  renderNeedsShelfLocationTable();
+  updateNeedsShelfLocationSummary();
+}
+
+function renderNeedsShelfLocationTable() {
+  const tableBody = document.getElementById('needsShelfLocationTableBody');
+
+  if (!tableBody) {
+    return;
+  }
+
+  tableBody.innerHTML = '';
+
+  if (!needsShelfLocationReportData || needsShelfLocationReportData.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="10">No active Main Warehouse parts currently need a Shelf Location.</td></tr>';
+    return;
+  }
+
+  needsShelfLocationReportData.forEach(row => {
+    const tr = document.createElement('tr');
+    const rowKey = cleanFilename(row.part_number || 'part');
+    const currentShelf = row.shelf_location || 'UNASSIGNED';
+    const qtyOnHand = Number(row.main_warehouse_quantity_on_hand || 0);
+    const unitCost = Number(row.unit_cost || 0);
+    const inventoryValue = row.main_warehouse_inventory_value !== undefined && row.main_warehouse_inventory_value !== null
+      ? Number(row.main_warehouse_inventory_value || 0)
+      : qtyOnHand * unitCost;
+
+    tr.innerHTML = `
+      <td>
+        <button class="category-btn small-btn" onclick="updateNeedsShelfLocationRow('${escapeJS(row.part_number)}', '${escapeJS(rowKey)}')">
+          SAVE SHELF
+        </button>
+      </td>
+      <td>${escapeHTML(row.part_number || '')}</td>
+      <td>${escapeHTML(row.description || '')}</td>
+      <td>${escapeHTML(row.category || row.cycle_count_category || 'NULL / BLANK')}</td>
+      <td>${escapeHTML(row.inventory_location_name || 'Main Warehouse')}</td>
+      <td>${formatNumber(qtyOnHand)}</td>
+      <td>${escapeHTML(currentShelf)}</td>
+      <td>
+        <select id="needsShelfLocationSelect_${escapeHTML(rowKey)}" class="needs-shelf-location-select">
+          ${getShelfLocationOptionsHTML()}
+        </select>
+      </td>
+      <td>${formatCurrency(unitCost)}</td>
+      <td>${formatCurrency(inventoryValue)}</td>
+    `;
+
+    tableBody.appendChild(tr);
+  });
+}
+
+async function updateNeedsShelfLocationRow(partNumber, rowKey) {
+  const select = document.getElementById(`needsShelfLocationSelect_${rowKey}`);
+  const summary = document.getElementById('needsShelfLocationSummary');
+
+  if (!select || !select.value) {
+    if (summary) {
+      summary.textContent = `Select a Shelf Location before saving ${partNumber}.`;
+    }
+
+    return;
+  }
+
+  const newShelfLocation = select.value;
+  const updatedBy = getCurrentUserDisplayName();
+
+  if (summary) {
+    summary.textContent = `Saving Shelf Location ${newShelfLocation} for ${partNumber}...`;
+  }
+
+  const { data, error } = await client.rpc('set_main_warehouse_part_shelf_location', {
+    p_part_number: partNumber,
+    p_shelf_code: newShelfLocation,
+    p_updated_by: updatedBy,
+    p_notes: 'Assigned from Warehouse Management Needs Shelf Location cleanup queue.'
+  });
+
+  if (error) {
+    if (summary) {
+      summary.textContent = error.message;
+    }
+
+    return;
+  }
+
+  const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+
+  if (summary) {
+    summary.textContent = result
+      ? `Shelf Location saved successfully.\n\nPart Number: ${result.part_number}\nDescription: ${result.description || ''}\nInventory Location: ${result.inventory_location_name || 'Main Warehouse'}\nShelf Location: ${result.shelf_code}\nResult: ${result.action_result || ''}`
+      : `Shelf Location saved successfully for ${partNumber}.`;
+  }
+
+  await loadNeedsShelfLocationReport();
+}
+
+function updateNeedsShelfLocationSummary() {
+  const summary = document.getElementById('needsShelfLocationSummary');
+
+  if (!summary) {
+    return;
+  }
+
+  if (!needsShelfLocationReportData || needsShelfLocationReportData.length === 0) {
+    summary.textContent = 'No active Main Warehouse parts currently need a Shelf Location.';
+    return;
+  }
+
+  let totalQty = 0;
+  let totalValue = 0;
+  const categories = new Set();
+
+  needsShelfLocationReportData.forEach(row => {
+    const qtyOnHand = Number(row.main_warehouse_quantity_on_hand || 0);
+    const unitCost = Number(row.unit_cost || 0);
+    const inventoryValue = row.main_warehouse_inventory_value !== undefined && row.main_warehouse_inventory_value !== null
+      ? Number(row.main_warehouse_inventory_value || 0)
+      : qtyOnHand * unitCost;
+
+    totalQty += qtyOnHand;
+    totalValue += inventoryValue;
+
+    if (row.category || row.cycle_count_category) {
+      categories.add(row.category || row.cycle_count_category);
+    }
+  });
+
+  summary.textContent =
+    `Active Main Warehouse Parts Needing Shelf Location: ${formatNumber(needsShelfLocationReportData.length)}\n` +
+    `Total Quantity On Hand: ${formatNumber(totalQty)}\n` +
+    `Total Inventory Value: ${formatCurrency(totalValue)}\n` +
+    `Categories Represented: ${formatNumber(categories.size)}\n\n` +
+    `Select a Shelf Location in the row and click SAVE SHELF to clean up the part immediately.`;
+}
+
+async function exportNeedsShelfLocationCSV() {
+  if (!needsShelfLocationReportData || needsShelfLocationReportData.length === 0) {
+    try {
+      needsShelfLocationReportData = await fetchNeedsShelfLocationRows();
+    } catch (error) {
+      document.getElementById('needsShelfLocationSummary').textContent = error.message;
+      return;
+    }
+  }
+
+  if (!needsShelfLocationReportData || needsShelfLocationReportData.length === 0) {
+    document.getElementById('needsShelfLocationSummary').textContent =
+      'No Needs Shelf Location records available to export.';
+    return;
+  }
+
+  let csv =
+    'Part Number,Description,Category,Location,Quantity On Hand,Current Shelf Location,Unit Cost,Inventory Value,Shelf Assignment Status,Shelf Updated By,Shelf Updated At\n';
+
+  needsShelfLocationReportData.forEach(row => {
+    const qtyOnHand = Number(row.main_warehouse_quantity_on_hand || 0);
+    const unitCost = Number(row.unit_cost || 0);
+    const inventoryValue = row.main_warehouse_inventory_value !== undefined && row.main_warehouse_inventory_value !== null
+      ? Number(row.main_warehouse_inventory_value || 0)
+      : qtyOnHand * unitCost;
+
+    csv +=
+      `"${cleanCSV(row.part_number)}",` +
+      `"${cleanCSV(row.description)}",` +
+      `"${cleanCSV(row.category || row.cycle_count_category)}",` +
+      `"${cleanCSV(row.inventory_location_name || 'Main Warehouse')}",` +
+      `"${cleanCSV(qtyOnHand)}",` +
+      `"${cleanCSV(row.shelf_location || 'UNASSIGNED')}",` +
+      `"${cleanCSV(unitCost)}",` +
+      `"${cleanCSV(inventoryValue)}",` +
+      `"${cleanCSV(row.shelf_assignment_status)}",` +
+      `"${cleanCSV(row.shelf_updated_by)}",` +
+      `"${cleanCSV(row.shelf_updated_at)}"\n`;
+  });
+
+  downloadCSV(csv, 'needs_shelf_location_queue.csv');
 }
 
 async function fetchNeedsCategoryRows() {
