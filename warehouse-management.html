@@ -8490,11 +8490,39 @@ async function markActiveCycleCountReadyForReview() {
     return;
   }
 
-  document.getElementById('cycleCountPostResult').textContent =
-    `Cycle count marked READY_FOR_REVIEW.\nCycle Count ID: ${activeCycleCountId}\n\nThis count is now ready for Admin review. No inventory quantities have been changed.` +
+  const submittedCycleCountId = activeCycleCountId;
+  const submittedMessage =
+    `Cycle count marked READY_FOR_REVIEW.\nCycle Count ID: ${submittedCycleCountId}\n\nThis count is now ready for Admin review. It has been removed from the Warehouse Management open count workspace. No inventory quantities have been changed.` +
     (serializedExceptionLines.length > 0
       ? `\n\nSerialized Exceptions: ${formatNumber(serializedExceptionLines.length)}. Admin must review/reconcile these before posting.`
       : '');
+
+  activeCycleCountId = null;
+  activeCycleCountLines = [];
+  activeCycleCountSerialLines = [];
+
+  document.getElementById('activeCycleCountIdBox').textContent =
+    'Active Cycle Count ID: None';
+
+  document.getElementById('cycleCountLinesSummary').textContent =
+    'No active count lines loaded. The submitted count is now waiting for Admin review.';
+
+  const quantityTableBody = document.getElementById('cycleCountLinesTableBody');
+  if (quantityTableBody) {
+    quantityTableBody.innerHTML =
+      '<tr><td colspan="11">Cycle count submitted for Admin review. Create, load, or open another cycle count to continue.</td></tr>';
+  }
+
+  const serialTableBody = document.getElementById('cycleCountSerialLinesTableBody');
+  if (serialTableBody) {
+    serialTableBody.innerHTML =
+      '<tr><td colspan="10">Cycle count submitted for Admin review. Create, load, or open another cycle count to continue.</td></tr>';
+  }
+
+  document.getElementById('cycleCountSaveResult').textContent =
+    'Submitted count cleared from the active Warehouse Management workspace.';
+
+  document.getElementById('cycleCountPostResult').textContent = submittedMessage;
 
   await loadRecountRequiredQueue();
   await loadOpenCycleCountQueue();
