@@ -511,6 +511,33 @@
       width: 190px;
     }
 
+    .shelf-location-input {
+      width: 92px;
+      min-width: 92px;
+      margin-bottom: 0;
+      font-size: 13px;
+      padding: 9px;
+      text-transform: uppercase;
+    }
+
+    .shelf-location-pill {
+      display: inline-block;
+      min-width: 72px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: #eef8fa;
+      border: 1px solid #c7eef2;
+      color: #0b3c5d;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .shelf-location-unassigned {
+      color: #9a3412;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
     .variance-positive {
       color: #0b3c5d;
       font-weight: bold;
@@ -2192,12 +2219,14 @@
 <table>
 <thead>
 <tr>
+<th>Expected Shelf</th>
 <th>Part Number</th>
 <th>Description</th>
 <th>System Qty</th>
 <th>Counted Qty</th>
 <th>Variance</th>
 <th>Variance Value</th>
+<th>Counted Shelf</th>
 <th>Notes</th>
 <th>Counted By</th>
 <th>Counted At</th>
@@ -2205,7 +2234,7 @@
 </thead>
 <tbody id="cycleCountLinesTableBody">
 <tr>
-<td colspan="9">Create, load, or open a cycle count session to enter quantity counts.</td>
+<td colspan="11">Create, load, or open a cycle count session to enter quantity counts.</td>
 </tr>
 </tbody>
 </table>
@@ -2219,6 +2248,7 @@
 <table class="serialized-verification-table">
 <thead>
 <tr>
+<th>Expected Shelf</th>
 <th>Part Number</th>
 <th>Description</th>
 <th>Expected Serial Number</th>
@@ -2232,7 +2262,7 @@
 </thead>
 <tbody id="cycleCountSerialLinesTableBody">
 <tr>
-<td colspan="9">Create, load, or open a cycle count session to verify serialized items.</td>
+<td colspan="10">Create, load, or open a cycle count session to verify serialized items.</td>
 </tr>
 </tbody>
 </table>
@@ -2502,6 +2532,7 @@ const EXCLUDED_OPERATIONAL_LOCATION_NAMES = [
 let partsData = [];
 let cycleCountSheetData = [];
 let activeCycleCountId = null;
+let activeCycleCountSessionMeta = null;
 let activeCycleCountLines = [];
 let activeCycleCountSerialLines = [];
 let recountRequiredQueueData = [];
@@ -6251,6 +6282,7 @@ async function fetchCycleCountLinesForExport(cycleCountId) {
     .from('inventory_cycle_count_lines')
     .select('*')
     .eq('cycle_count_id', cycleCountId)
+    .order('expected_shelf_sort_order', { ascending: true, nullsFirst: false })
     .order('part_number', { ascending: true });
 
   if (quantityError) {
@@ -6261,6 +6293,7 @@ async function fetchCycleCountLinesForExport(cycleCountId) {
     .from('inventory_cycle_count_serial_line_view')
     .select('*')
     .eq('cycle_count_id', cycleCountId)
+    .order('expected_shelf_sort_order', { ascending: true, nullsFirst: false })
     .order('part_number', { ascending: true })
     .order('serial_number_raw', { ascending: true });
 
@@ -6467,12 +6500,12 @@ async function voidOpenCycleCount(cycleCountId) {
     document.getElementById('cycleCountLinesSummary').textContent =
       'No active count lines loaded.';
     document.getElementById('cycleCountLinesTableBody').innerHTML =
-      '<tr><td colspan="9">Create, load, or open a cycle count session to enter quantity counts.</td></tr>';
+      '<tr><td colspan="11">Create, load, or open a cycle count session to enter quantity counts.</td></tr>';
 
     const serialTableBody = document.getElementById('cycleCountSerialLinesTableBody');
     if (serialTableBody) {
       serialTableBody.innerHTML =
-        '<tr><td colspan="9">Create, load, or open a cycle count session to verify serialized items.</td></tr>';
+        '<tr><td colspan="10">Create, load, or open a cycle count session to verify serialized items.</td></tr>';
     }
 
     document.getElementById('cycleCountSaveResult').textContent =
@@ -6852,8 +6885,8 @@ function renderCycleCountSheetPreview(selectedModeLabel, selectedCategory, selec
     `TOTAL NON-SERIALIZED SYSTEM VALUE: ${formatCurrency(totalSystemValue)}\n\n`;
 
   output += 'COUNT SHEET COLUMNS\n';
-  output += 'LINE TYPE | LOCATION | PART NUMBER | DESCRIPTION | CATEGORY | SYSTEM QTY | EXPECTED SERIAL NUMBER | COUNTED QTY | NOTES\n';
-  output += '------------------------------------------------------------------------------------------------------------------------------------\n';
+  output += 'LINE TYPE | LOCATION | SHELF LOCATION | PART NUMBER | DESCRIPTION | CATEGORY | SYSTEM QTY | EXPECTED SERIAL NUMBER | COUNTED QTY | NOTES\n';
+  output += '------------------------------------------------------------------------------------------------------------------------------------------------------\n';
 
   if (previewRows.length === 0) {
     output += 'No count lines found for this count sheet.\n';
@@ -6862,6 +6895,7 @@ function renderCycleCountSheetPreview(selectedModeLabel, selectedCategory, selec
       output +=
         `${row.line_type || ''} | ` +
         `${row.location || ''} | ` +
+        `${row.shelf_location || ''} | ` +
         `${row.part_number || ''} | ` +
         `${row.description || ''} | ` +
         `${row.category || ''} | ` +
@@ -6989,6 +7023,7 @@ async function loadCycleCountSheet() {
         .select('*')
         .eq('cycle_count_category', selectedCategory)
         .eq('location_name', 'Main Warehouse')
+        .order('shelf_sort_order', { ascending: true, nullsFirst: false })
         .order('part_number', { ascending: true });
 
       if (error) {
@@ -7040,7 +7075,11 @@ async function loadCycleCountSheet() {
             quantity_on_hand: viewRow.quantity_on_hand ?? 0,
             unit_cost: viewRow.unit_cost ?? part.unit_cost ?? 0,
             inventory_value: viewRow.inventory_value ?? 0,
-            location_name: 'Main Warehouse'
+            location_name: 'Main Warehouse',
+            shelf_location_id: viewRow.shelf_location_id || null,
+            shelf_location: viewRow.shelf_location || viewRow.shelf_code || null,
+            shelf_code: viewRow.shelf_code || viewRow.shelf_location || null,
+            shelf_sort_order: viewRow.shelf_sort_order ?? null
           };
         });
 
@@ -7051,6 +7090,9 @@ async function loadCycleCountSheet() {
         const matchedPart = partsInCategory.find(part =>
           String(part.part_number || '').trim().toUpperCase() === String(row.part_number || '').trim().toUpperCase()
         ) || {};
+        const viewRow = categoryRowsByPartId.get(String(matchedPart.id || '')) ||
+          categoryRowsByPartNumber.get(String(row.part_number || matchedPart.part_number || '').toUpperCase()) ||
+          {};
 
         return {
           line_type: 'SERIALIZED',
@@ -7067,7 +7109,11 @@ async function loadCycleCountSheet() {
           location_name: row.current_location || 'Main Warehouse',
           serial_number_raw: row.serial_number_raw || '',
           serial_number_normalized: row.serial_number_normalized || '',
-          expected_status: row.status || 'on_hand'
+          expected_status: row.status || 'on_hand',
+          shelf_location_id: viewRow.shelf_location_id || null,
+          shelf_location: viewRow.shelf_location || viewRow.shelf_code || null,
+          shelf_code: viewRow.shelf_code || viewRow.shelf_location || null,
+          shelf_sort_order: viewRow.shelf_sort_order ?? null
         };
       });
     } else {
@@ -7127,7 +7173,7 @@ async function loadCycleCountSheet() {
     return;
   }
 
-  cycleCountSheetData = [...quantityRows, ...serializedSheetRows];
+  cycleCountSheetData = sortCountSheetRows([...quantityRows, ...serializedSheetRows]);
 
   if (cycleCountSheetData.length === 0) {
     document.getElementById('cycleCountSheetReport').textContent =
@@ -7150,6 +7196,7 @@ async function loadCycleCountSheet() {
 const COUNT_SHEET_COLUMNS = [
   'Line Type',
   'Location',
+  'Shelf Location',
   'Part Number',
   'Description',
   'Category',
@@ -7162,6 +7209,7 @@ const COUNT_SHEET_COLUMNS = [
 const COUNT_SHEET_PRINT_COLUMNS = [
   'Type',
   'Location',
+  'Shelf',
   'Part #',
   'Description',
   'Category',
@@ -7170,6 +7218,74 @@ const COUNT_SHEET_PRINT_COLUMNS = [
   'Counted Qty',
   'Notes'
 ];
+
+function getShelfLocationForCountSheet(row) {
+  const locationName = String(
+    row?.location_name ||
+    row?.expected_location_name ||
+    row?.current_location ||
+    row?.current_location_name ||
+    ''
+  ).trim().toUpperCase();
+
+  const shelfCode = row?.shelf_location ||
+    row?.shelf_code ||
+    row?.expected_shelf_code ||
+    row?.counted_shelf_code ||
+    '';
+
+  if (shelfCode) {
+    return String(shelfCode).trim().toUpperCase();
+  }
+
+  return locationName && locationName !== 'MAIN WAREHOUSE' ? 'N/A' : 'UNASSIGNED';
+}
+
+function getShelfSortOrderForCountSheet(row) {
+  const rawSortOrder = row?.shelf_sort_order ??
+    row?.expected_shelf_sort_order ??
+    row?.shelf_location_sort_order ??
+    null;
+
+  const sortOrder = Number(rawSortOrder);
+
+  return Number.isFinite(sortOrder) ? sortOrder : 999999;
+}
+
+function sortCountSheetRows(rows) {
+  return [...(rows || [])].sort((a, b) => {
+    const shelfCompare = getShelfSortOrderForCountSheet(a) - getShelfSortOrderForCountSheet(b);
+
+    if (shelfCompare !== 0) {
+      return shelfCompare;
+    }
+
+    const shelfA = getShelfLocationForCountSheet(a);
+    const shelfB = getShelfLocationForCountSheet(b);
+
+    if (shelfA !== shelfB) {
+      if (shelfA === 'UNASSIGNED') {
+        return 1;
+      }
+
+      if (shelfB === 'UNASSIGNED') {
+        return -1;
+      }
+
+      return shelfA.localeCompare(shelfB);
+    }
+
+    const partCompare = String(a?.part_number || '').localeCompare(String(b?.part_number || ''));
+
+    if (partCompare !== 0) {
+      return partCompare;
+    }
+
+    return String(a?.expected_serial_number || a?.serial_number_raw || '').localeCompare(
+      String(b?.expected_serial_number || b?.serial_number_raw || '')
+    );
+  });
+}
 
 function getExpectedSerialNumberForCountSheet(row) {
   return row?.expected_serial_number ||
@@ -7212,13 +7328,15 @@ function normalizeLoadedCycleCountSheetRows(rows, options = {}) {
   const fallbackLocationName = options.locationName || '';
   const fallbackCategory = options.category || '';
 
-  return (rows || []).map(row => {
+  return sortCountSheetRows((rows || []).map(row => {
     const lineType = row.line_type || (getExpectedSerialNumberForCountSheet(row) ? 'SERIALIZED' : 'QUANTITY');
     const isSerialized = String(lineType).toUpperCase() === 'SERIALIZED';
 
     return {
       line_type: lineType,
       location: getLocationNameForCountSheet(row, fallbackLocationName),
+      shelf_location: getShelfLocationForCountSheet(row),
+      shelf_sort_order: getShelfSortOrderForCountSheet(row),
       part_number: row.part_number || '',
       description: row.description || '',
       category: getCategoryForCountSheet(row, fallbackCategory),
@@ -7227,7 +7345,7 @@ function normalizeLoadedCycleCountSheetRows(rows, options = {}) {
       counted_quantity: row.counted_quantity ?? '',
       notes: row.notes || ''
     };
-  });
+  }));
 }
 
 function getOpenSessionFallbackLocationName(session, quantityLines = [], serializedLines = []) {
@@ -7285,6 +7403,8 @@ function normalizeOpenCycleCountSheetRows(quantityLines, serializedLines, sessio
     rows.push({
       line_type: 'QUANTITY',
       location: getLocationNameForCountSheet(line, fallbackLocationName),
+      shelf_location: getShelfLocationForCountSheet(line),
+      shelf_sort_order: getShelfSortOrderForCountSheet(line),
       part_number: line.part_number || '',
       description: line.description || '',
       category: getCategoryForCountSheet(line, fallbackCategory),
@@ -7305,6 +7425,8 @@ function normalizeOpenCycleCountSheetRows(quantityLines, serializedLines, sessio
     rows.push({
       line_type: 'SERIALIZED',
       location: getLocationNameForCountSheet(line, fallbackLocationName),
+      shelf_location: getShelfLocationForCountSheet(line),
+      shelf_sort_order: getShelfSortOrderForCountSheet(line),
       part_number: line.part_number || '',
       description: line.description || '',
       category: getCategoryForCountSheet(line, fallbackCategory),
@@ -7315,7 +7437,7 @@ function normalizeOpenCycleCountSheetRows(quantityLines, serializedLines, sessio
     });
   });
 
-  return rows;
+  return sortCountSheetRows(rows);
 }
 
 function buildCleanCountSheetCSV(rows) {
@@ -7325,6 +7447,7 @@ function buildCleanCountSheetCSV(rows) {
     csv +=
       `"${cleanCSV(row.line_type)}",` +
       `"${cleanCSV(row.location)}",` +
+      `"${cleanCSV(row.shelf_location)}",` +
       `"${cleanCSV(row.part_number)}",` +
       `"${cleanCSV(row.description)}",` +
       `"${cleanCSV(row.category)}",` +
@@ -7352,6 +7475,7 @@ function buildCleanCountSheetHTML(title, metadata, rows) {
     <tr>
       <td>${escapeHTML(row.line_type)}</td>
       <td>${escapeHTML(row.location)}</td>
+      <td>${escapeHTML(row.shelf_location)}</td>
       <td>${escapeHTML(row.part_number)}</td>
       <td>${escapeHTML(row.description)}</td>
       <td>${escapeHTML(row.category)}</td>
@@ -7441,33 +7565,36 @@ function buildCleanCountSheetHTML(title, metadata, rows) {
     text-transform: uppercase;
     letter-spacing: 0.01em;
   }
-  th:nth-child(1), td:nth-child(1) { width: 6%; }
-  th:nth-child(2), td:nth-child(2) { width: 8.5%; }
-  th:nth-child(3), td:nth-child(3) { width: 8%; }
-  th:nth-child(4), td:nth-child(4) { width: 25%; }
-  th:nth-child(5), td:nth-child(5) { width: 8.5%; }
-  th:nth-child(6), td:nth-child(6) { width: 4.5%; }
-  th:nth-child(7), td:nth-child(7) { width: 18%; }
-  th:nth-child(8), td:nth-child(8) { width: 5%; }
-  th:nth-child(9), td:nth-child(9) { width: 16.5%; }
+  th:nth-child(1), td:nth-child(1) { width: 5.5%; }
+  th:nth-child(2), td:nth-child(2) { width: 8%; }
+  th:nth-child(3), td:nth-child(3) { width: 6%; }
+  th:nth-child(4), td:nth-child(4) { width: 8%; }
+  th:nth-child(5), td:nth-child(5) { width: 24%; }
+  th:nth-child(6), td:nth-child(6) { width: 8%; }
+  th:nth-child(7), td:nth-child(7) { width: 4.5%; }
+  th:nth-child(8), td:nth-child(8) { width: 17%; }
+  th:nth-child(9), td:nth-child(9) { width: 5%; }
+  th:nth-child(10), td:nth-child(10) { width: 14%; }
   th:nth-child(1),
   td:nth-child(1),
   th:nth-child(2),
   td:nth-child(2),
-  th:nth-child(6),
-  td:nth-child(6),
-  th:nth-child(8),
-  td:nth-child(8) {
-    white-space: nowrap;
-  }
   th:nth-child(3),
   td:nth-child(3),
-  th:nth-child(4),
-  td:nth-child(4),
   th:nth-child(7),
   td:nth-child(7),
   th:nth-child(9),
   td:nth-child(9) {
+    white-space: nowrap;
+  }
+  th:nth-child(4),
+  td:nth-child(4),
+  th:nth-child(5),
+  td:nth-child(5),
+  th:nth-child(8),
+  td:nth-child(8),
+  th:nth-child(10),
+  td:nth-child(10) {
     white-space: normal;
     word-break: normal;
     overflow-wrap: anywhere;
@@ -7736,10 +7863,24 @@ async function loadActiveCycleCountLines() {
   document.getElementById('cycleCountSaveResult').textContent =
     'Loading active cycle count lines...';
 
+  const { data: sessionData, error: sessionError } = await client
+    .from('inventory_cycle_count_session_summary')
+    .select('*')
+    .eq('cycle_count_id', activeCycleCountId)
+    .maybeSingle();
+
+  if (sessionError) {
+    console.warn('Active cycle count session metadata load warning:', sessionError);
+    activeCycleCountSessionMeta = null;
+  } else {
+    activeCycleCountSessionMeta = sessionData || null;
+  }
+
   const { data: quantityData, error: quantityError } = await client
     .from('inventory_cycle_count_lines')
     .select('*')
     .eq('cycle_count_id', activeCycleCountId)
+    .order('expected_shelf_sort_order', { ascending: true, nullsFirst: false })
     .order('part_number', { ascending: true });
 
   if (quantityError) {
@@ -7756,6 +7897,7 @@ async function loadActiveCycleCountLines() {
     .from('inventory_cycle_count_serial_line_view')
     .select('*')
     .eq('cycle_count_id', activeCycleCountId)
+    .order('expected_shelf_sort_order', { ascending: true, nullsFirst: false })
     .order('part_number', { ascending: true })
     .order('serial_number_raw', { ascending: true });
 
@@ -7769,8 +7911,8 @@ async function loadActiveCycleCountLines() {
     return;
   }
 
-  activeCycleCountLines = quantityData || [];
-  activeCycleCountSerialLines = serialData || [];
+  activeCycleCountLines = sortCountSheetRows(quantityData || []);
+  activeCycleCountSerialLines = sortCountSheetRows(serialData || []);
 
   renderCycleCountLinesTable();
   renderCycleCountSerialLinesTable();
@@ -7780,15 +7922,42 @@ async function loadActiveCycleCountLines() {
     `Loaded ${formatNumber(activeCycleCountLines.length)} quantity line(s) and ${formatNumber(activeCycleCountSerialLines.length)} serialized verification line(s).`;
 }
 
+function isActiveMainWarehouseCategoryCount() {
+  const locationName = String(activeCycleCountSessionMeta?.location_name || '').trim().toUpperCase();
+  const category = String(activeCycleCountSessionMeta?.cycle_count_category || '').trim().toUpperCase();
+
+  return locationName === 'MAIN WAREHOUSE' && category !== WHOLE_LOCATION_CYCLE_COUNT_CATEGORY;
+}
+
+function formatShelfLocationDisplay(shelfCode) {
+  const normalizedShelf = String(shelfCode || '').trim().toUpperCase();
+
+  if (!normalizedShelf) {
+    return '<span class="shelf-location-unassigned">UNASSIGNED</span>';
+  }
+
+  if (normalizedShelf === 'N/A') {
+    return '<span class="shelf-location-unassigned">N/A</span>';
+  }
+
+  return `<span class="shelf-location-pill">${escapeHTML(normalizedShelf)}</span>`;
+}
+
+function normalizeShelfInputValue(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
 function renderCycleCountLinesTable() {
   const tableBody = document.getElementById('cycleCountLinesTableBody');
   tableBody.innerHTML = '';
 
   if (!activeCycleCountLines || activeCycleCountLines.length === 0) {
     tableBody.innerHTML =
-      '<tr><td colspan="9">No non-serialized quantity lines loaded for this active count.</td></tr>';
+      '<tr><td colspan="11">No non-serialized quantity lines loaded for this active count.</td></tr>';
     return;
   }
+
+  const allowShelfEntry = isActiveMainWarehouseCategoryCount();
 
   activeCycleCountLines.forEach(line => {
     const tr = document.createElement('tr');
@@ -7797,6 +7966,9 @@ function renderCycleCountLinesTable() {
       line.counted_quantity === null || line.counted_quantity === undefined
         ? ''
         : line.counted_quantity;
+
+    const expectedShelfCode = normalizeShelfInputValue(line.expected_shelf_code);
+    const countedShelfCode = normalizeShelfInputValue(line.counted_shelf_code || line.expected_shelf_code || '');
 
     const variance = line.variance_quantity;
     const varianceClass =
@@ -7807,6 +7979,7 @@ function renderCycleCountLinesTable() {
           : 'variance-zero';
 
     tr.innerHTML = `
+      <td>${formatShelfLocationDisplay(expectedShelfCode)}</td>
       <td>${escapeHTML(line.part_number || '')}</td>
       <td>${escapeHTML(line.description || '')}</td>
       <td>${formatNumber(line.system_quantity)}</td>
@@ -7826,6 +7999,19 @@ function renderCycleCountLinesTable() {
       </td>
       <td id="variance_value_${line.id}">
         ${formatCurrency(line.variance_value)}
+      </td>
+      <td>
+        ${allowShelfEntry
+          ? `<input
+              class="shelf-location-input"
+              id="shelf_${line.id}"
+              value="${escapeHTML(countedShelfCode)}"
+              maxlength="2"
+              placeholder="A"
+              title="Enter counted Shelf Location, for example A, J, BB, or LL"
+              oninput="this.value = this.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2)"
+            >`
+          : '<span class="shelf-location-unassigned">N/A</span>'}
       </td>
       <td>
         <input
@@ -7854,7 +8040,7 @@ function renderCycleCountSerialLinesTable() {
 
   if (!activeCycleCountSerialLines || activeCycleCountSerialLines.length === 0) {
     tableBody.innerHTML =
-      '<tr><td colspan="9">No serialized verification lines loaded for this active count.</td></tr>';
+      '<tr><td colspan="10">No serialized verification lines loaded for this active count.</td></tr>';
     return;
   }
 
@@ -7868,6 +8054,7 @@ function renderCycleCountSerialLinesTable() {
     }
 
     tr.innerHTML = `
+      <td>${formatShelfLocationDisplay(isActiveMainWarehouseCategoryCount() ? line.expected_shelf_code : 'N/A')}</td>
       <td>${escapeHTML(line.part_number || '')}</td>
       <td>${escapeHTML(line.description || '')}</td>
       <td>${escapeHTML(line.serial_number_raw || '')}</td>
@@ -8022,6 +8209,8 @@ async function saveAllCycleCountLines() {
 
   let savedQuantityCount = 0;
   let skippedQuantityCount = 0;
+  let savedShelfCount = 0;
+  let skippedShelfCount = 0;
   let savedSerializedCount = 0;
   let skippedSerializedCount = 0;
   let errorMessages = [];
@@ -8032,6 +8221,41 @@ async function saveAllCycleCountLines() {
   for (const line of activeCycleCountLines) {
     const countedInput = document.getElementById(`counted_${line.id}`);
     const notesInput = document.getElementById(`notes_${line.id}`);
+    const shelfInput = document.getElementById(`shelf_${line.id}`);
+    const countedShelfCode = normalizeShelfInputValue(shelfInput ? shelfInput.value : '');
+
+    if (shelfInput && countedShelfCode) {
+      if (!/^[A-Z]{1,2}$/.test(countedShelfCode)) {
+        errorMessages.push(`${line.part_number}: invalid counted Shelf Location ${countedShelfCode}`);
+      } else {
+        const { error: shelfLineError } = await client.rpc('save_cycle_count_line_counted_shelf_location', {
+          p_line_id: line.id,
+          p_counted_shelf_code: countedShelfCode,
+          p_updated_by: countedBy
+        });
+
+        if (shelfLineError) {
+          errorMessages.push(`${line.part_number} shelf save: ${shelfLineError.message}`);
+        } else {
+          savedShelfCount++;
+
+          if (isActiveMainWarehouseCategoryCount()) {
+            const { error: shelfAssignmentError } = await client.rpc('set_main_warehouse_part_shelf_location', {
+              p_part_number: line.part_number,
+              p_shelf_code: countedShelfCode,
+              p_updated_by: countedBy,
+              p_notes: `Updated from cycle count ${activeCycleCountId}`
+            });
+
+            if (shelfAssignmentError) {
+              errorMessages.push(`${line.part_number} shelf assignment update: ${shelfAssignmentError.message}`);
+            }
+          }
+        }
+      }
+    } else if (shelfInput) {
+      skippedShelfCount++;
+    }
 
     if (!countedInput || countedInput.value === '') {
       skippedQuantityCount++;
@@ -8090,6 +8314,8 @@ async function saveAllCycleCountLines() {
     `Save complete.\n` +
     `Saved Quantity Lines: ${formatNumber(savedQuantityCount)}\n` +
     `Skipped Blank Quantity Lines: ${formatNumber(skippedQuantityCount)}\n` +
+    `Saved Counted Shelf Locations: ${formatNumber(savedShelfCount)}\n` +
+    `Skipped Blank Shelf Locations: ${formatNumber(skippedShelfCount)}\n` +
     `Saved Serialized Lines: ${formatNumber(savedSerializedCount)}\n` +
     `Skipped Blank Serialized Lines: ${formatNumber(skippedSerializedCount)}`;
 
@@ -8111,7 +8337,7 @@ function exportActiveCycleCountLinesCSV() {
   }
 
   let csv =
-    'Line Type,Cycle Count ID,Line ID,Part ID,Part Number,Description,System Quantity,Counted Quantity,Variance Quantity,Unit Cost,Variance Value,Expected Serial Number,Expected Location,Expected Status,Count Result,Counted By,Counted At,Notes\n';
+    'Line Type,Cycle Count ID,Line ID,Part ID,Expected Shelf Location,Counted Shelf Location,Part Number,Description,System Quantity,Counted Quantity,Variance Quantity,Unit Cost,Variance Value,Expected Serial Number,Expected Location,Expected Status,Count Result,Counted By,Counted At,Notes\n';
 
   activeCycleCountLines.forEach(line => {
     csv +=
@@ -8119,6 +8345,8 @@ function exportActiveCycleCountLinesCSV() {
       `"${cleanCSV(line.cycle_count_id)}",` +
       `"${cleanCSV(line.id)}",` +
       `"${cleanCSV(line.part_id)}",` +
+      `"${cleanCSV(line.expected_shelf_code)}",` +
+      `"${cleanCSV(line.counted_shelf_code)}",` +
       `"${cleanCSV(line.part_number)}",` +
       `"${cleanCSV(line.description)}",` +
       `"${cleanCSV(line.system_quantity)}",` +
@@ -8143,6 +8371,8 @@ function exportActiveCycleCountLinesCSV() {
       `"${cleanCSV(line.cycle_count_id)}",` +
       `"${cleanCSV(lineId)}",` +
       `"${cleanCSV(line.part_id)}",` +
+      `"${cleanCSV(line.expected_shelf_code)}",` +
+      `"${cleanCSV(line.counted_shelf_code)}",` +
       `"${cleanCSV(line.part_number)}",` +
       `"${cleanCSV(line.description)}",` +
       `"1",` +
