@@ -815,6 +815,26 @@
       font-size: 13px;
     }
 
+    .cleanup-filter-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 420px) auto;
+      gap: 12px;
+      align-items: end;
+      margin: 12px 0 14px;
+    }
+
+    .cleanup-filter-field input {
+      margin-bottom: 0;
+    }
+
+    .cleanup-clear-btn {
+      background: #64748b;
+      color: white;
+      width: auto;
+      min-width: 140px;
+      margin: 0;
+    }
+
 
 
     .transaction-log-table {
@@ -2387,6 +2407,16 @@
 <button class="report-btn" onclick="loadNeedsShelfLocationReport()">RUN NEEDS SHELF LOCATION REPORT</button>
 <button class="export-btn" onclick="exportNeedsShelfLocationCSV()">EXPORT NEEDS SHELF LOCATION CSV</button>
 </div>
+<div class="cleanup-filter-grid">
+<div class="cleanup-filter-field">
+<label>Part Number Search:</label>
+<input autocomplete="off" id="needsShelfLocationPartSearch" oninput="handleNeedsShelfLocationSearchChange()" placeholder="Search by part number, partial or exact..."/>
+</div>
+<button class="cleanup-clear-btn" onclick="clearNeedsShelfLocationSearch()" type="button">CLEAR SEARCH</button>
+</div>
+<div class="help-text">
+      Search filters the Needs Shelf Location queue by Part Number. Load the report first, then type a partial or exact part number.
+    </div>
 <div class="session-id-box" id="needsShelfLocationSummary">
       Click RUN NEEDS SHELF LOCATION REPORT to load active Main Warehouse parts without a Shelf Location.
     </div>
@@ -5903,6 +5933,44 @@ async function loadNeedsShelfLocationReport() {
   updateNeedsShelfLocationSummary();
 }
 
+function getNeedsShelfLocationSearchValue() {
+  const searchInput = document.getElementById('needsShelfLocationPartSearch');
+  return String(searchInput?.value || '').trim().toUpperCase();
+}
+
+function getFilteredNeedsShelfLocationRows() {
+  const searchValue = getNeedsShelfLocationSearchValue();
+
+  if (!needsShelfLocationReportData || needsShelfLocationReportData.length === 0) {
+    return [];
+  }
+
+  if (!searchValue) {
+    return needsShelfLocationReportData;
+  }
+
+  return needsShelfLocationReportData.filter(row =>
+    String(row.part_number || '').toUpperCase().includes(searchValue)
+  );
+}
+
+function handleNeedsShelfLocationSearchChange() {
+  renderNeedsShelfLocationTable();
+  updateNeedsShelfLocationSummary();
+}
+
+function clearNeedsShelfLocationSearch() {
+  const searchInput = document.getElementById('needsShelfLocationPartSearch');
+
+  if (searchInput) {
+    searchInput.value = '';
+    searchInput.focus();
+  }
+
+  renderNeedsShelfLocationTable();
+  updateNeedsShelfLocationSummary();
+}
+
 function renderNeedsShelfLocationTable() {
   const tableBody = document.getElementById('needsShelfLocationTableBody');
 
@@ -5917,7 +5985,17 @@ function renderNeedsShelfLocationTable() {
     return;
   }
 
-  needsShelfLocationReportData.forEach(row => {
+  const filteredRows = getFilteredNeedsShelfLocationRows();
+  const searchValue = getNeedsShelfLocationSearchValue();
+
+  if (filteredRows.length === 0) {
+    tableBody.innerHTML = searchValue
+      ? `<tr><td colspan="10">No Needs Shelf Location rows match Part Number search: ${escapeHTML(searchValue)}</td></tr>`
+      : '<tr><td colspan="10">No active Main Warehouse parts currently need a Shelf Location.</td></tr>';
+    return;
+  }
+
+  filteredRows.forEach(row => {
     const tr = document.createElement('tr');
     const rowKey = cleanFilename(row.part_number || 'part');
     const currentShelf = row.shelf_location || 'UNASSIGNED';
@@ -6009,11 +6087,14 @@ function updateNeedsShelfLocationSummary() {
     return;
   }
 
+  const filteredRows = getFilteredNeedsShelfLocationRows();
+  const searchValue = getNeedsShelfLocationSearchValue();
+
   let totalQty = 0;
   let totalValue = 0;
   const categories = new Set();
 
-  needsShelfLocationReportData.forEach(row => {
+  filteredRows.forEach(row => {
     const qtyOnHand = Number(row.main_warehouse_quantity_on_hand || 0);
     const unitCost = Number(row.unit_cost || 0);
     const inventoryValue = row.main_warehouse_inventory_value !== undefined && row.main_warehouse_inventory_value !== null
@@ -6028,12 +6109,17 @@ function updateNeedsShelfLocationSummary() {
     }
   });
 
+  const searchLine = searchValue
+    ? `Part Number Search: ${searchValue}\nFiltered Rows: ${formatNumber(filteredRows.length)} of ${formatNumber(needsShelfLocationReportData.length)}\n`
+    : `Part Number Search: none\n`;
+
   summary.textContent =
     `Active Main Warehouse Parts Needing Shelf Location: ${formatNumber(needsShelfLocationReportData.length)}\n` +
-    `Total Quantity On Hand: ${formatNumber(totalQty)}\n` +
-    `Total Inventory Value: ${formatCurrency(totalValue)}\n` +
-    `Categories Represented: ${formatNumber(categories.size)}\n\n` +
-    `Select a Shelf Location in the row and click SAVE SHELF to clean up the part immediately.`;
+    searchLine +
+    `Visible Quantity On Hand: ${formatNumber(totalQty)}\n` +
+    `Visible Inventory Value: ${formatCurrency(totalValue)}\n` +
+    `Visible Categories Represented: ${formatNumber(categories.size)}\n\n` +
+    `Search by Part Number, select a Shelf Location in the row, and click SAVE SHELF to clean up the part immediately.`;
 }
 
 async function exportNeedsShelfLocationCSV() {
@@ -6052,10 +6138,20 @@ async function exportNeedsShelfLocationCSV() {
     return;
   }
 
+  const rowsToExport = getFilteredNeedsShelfLocationRows();
+  const searchValue = getNeedsShelfLocationSearchValue();
+
+  if (!rowsToExport || rowsToExport.length === 0) {
+    document.getElementById('needsShelfLocationSummary').textContent = searchValue
+      ? `No Needs Shelf Location records match Part Number search: ${searchValue}`
+      : 'No Needs Shelf Location records available to export.';
+    return;
+  }
+
   let csv =
     'Part Number,Description,Category,Location,Quantity On Hand,Current Shelf Location,Unit Cost,Inventory Value,Shelf Assignment Status,Shelf Updated By,Shelf Updated At\n';
 
-  needsShelfLocationReportData.forEach(row => {
+  rowsToExport.forEach(row => {
     const qtyOnHand = Number(row.main_warehouse_quantity_on_hand || 0);
     const unitCost = Number(row.unit_cost || 0);
     const inventoryValue = row.main_warehouse_inventory_value !== undefined && row.main_warehouse_inventory_value !== null
@@ -6076,7 +6172,8 @@ async function exportNeedsShelfLocationCSV() {
       `"${cleanCSV(row.shelf_updated_at)}"\n`;
   });
 
-  downloadCSV(csv, 'needs_shelf_location_queue.csv');
+  const suffix = searchValue ? `_search_${cleanFilename(searchValue)}` : '';
+  downloadCSV(csv, `needs_shelf_location_queue${suffix}.csv`);
 }
 
 async function fetchNeedsCategoryRows() {
