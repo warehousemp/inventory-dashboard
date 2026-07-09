@@ -174,6 +174,14 @@
       color: white;
     }
 
+    .return-btn {
+      background: #15803d;
+      color: white;
+      width: 100%;
+      margin-top: 8px;
+      margin-right: 0;
+    }
+
     .adjustment-btn {
       background: #d97706;
       color: white;
@@ -800,6 +808,27 @@
       color: #64748b;
     }
 
+    .inventory-workflow-panel.return-panel {
+      grid-column: 1 / -1;
+    }
+
+    .inventory-workflow-panel.return-panel h3 {
+      color: #15803d;
+    }
+
+    .return-serial-detail-box {
+      margin-top: -4px;
+      margin-bottom: 15px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid #bbf7d0;
+      background: #ecfdf3;
+      color: #14532d;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
     .inventory-workflow-panel.adjustment-panel {
       grid-column: 1 / -1;
     }
@@ -818,7 +847,8 @@
 
     .inventory-workflow-panel .issue-btn,
     .inventory-workflow-panel .receive-btn,
-    .inventory-workflow-panel .transfer-btn {
+    .inventory-workflow-panel .transfer-btn,
+    .inventory-workflow-panel .return-btn {
       width: 100%;
       margin-top: 8px;
       margin-right: 0;
@@ -2001,6 +2031,63 @@
         <pre id="issueOutput" class="workflow-output">Issue status will appear here...</pre>
       </div>
 
+      <div class="inventory-workflow-panel return-panel">
+        <h3>RETURN ISSUED SERIALIZED PART TO STOCK</h3>
+
+        <div class="inventory-workflow-note">
+          Use this section when a serialized part was issued to a technician, client, job, or work order but was not used and needs to be returned back into inventory. This creates an audit-preserving ISSUE_REVERSAL through Supabase and returns the exact serial number to ON HAND status.
+        </div>
+
+        <div class="warning-note">
+          This workflow is only for serialized parts currently marked ISSUED. Do not use Warehouse Adjustments for serialized returns.
+        </div>
+
+        <label>Search Issued Serial / Part / Work Order / Client:</label>
+        <input
+          id="returnIssuedSerialSearch"
+          placeholder="Search serial number, part number, description, issued to, work order, or client..."
+          autocomplete="off"
+        >
+
+        <button class="report-btn" onclick="loadIssuedSerializedReturns()">SEARCH ISSUED SERIALIZED ITEMS</button>
+
+        <label>Issued Serialized Item:</label>
+        <select id="returnIssuedSerialSelect">
+          <option value="">Search issued serialized items first...</option>
+        </select>
+
+        <div id="returnIssuedSerialDetails" class="return-serial-detail-box">
+          Selected issued serial details will appear here.
+        </div>
+
+        <label>Return To Location:</label>
+        <select id="returnIssuedToLocation">
+          <option value="">Loading locations...</option>
+        </select>
+        <div class="help-text">
+          Select where the serialized part is physically being returned. Main Warehouse is the default unless another location is selected.
+        </div>
+
+        <label>Returned By:</label>
+        <input id="returnIssuedBy" placeholder="Warehouse team member name" autocomplete="off">
+
+        <label>Return Reason:</label>
+        <select id="returnIssuedReason">
+          <option value="ISSUED_BUT_NOT_USED">Issued but not used</option>
+          <option value="WRONG_PART_ISSUED">Wrong part issued</option>
+          <option value="JOB_CANCELED">Job canceled</option>
+          <option value="RETURNED_UNUSED">Returned unused</option>
+          <option value="OTHER">Other</option>
+        </select>
+
+        <label>Notes:</label>
+        <textarea id="returnIssuedNotes" placeholder="Optional return notes. Required if reason is Other."></textarea>
+
+        <button class="return-btn" onclick="returnIssuedSerializedPart()">RETURN SERIALIZED PART TO STOCK</button>
+
+        <pre id="returnIssuedOutput" class="workflow-output">Return status will appear here...</pre>
+      </div>
+
     </div>
 
   </div>
@@ -2318,6 +2405,7 @@ let transactionLogData = [];
 let categoryData = [];
 let inventoryLocationData = [];
 let issueAvailableSerialRows = [];
+let returnIssuedSerialRows = [];
 let uagBulkSummaryData = [];
 let uagBulkLineData = [];
 let serializedInventoryData = [];
@@ -2641,7 +2729,14 @@ async function loadInventoryLocationDropdowns() {
 
   const issueSelect = document.getElementById('issueSourceLocation');
   const adjustmentSelect = document.getElementById('adjustmentLocation');
-  const allSelects = [...transferSelects, issueSelect, adjustmentSelect].filter(Boolean);
+  const returnIssuedToSelect = document.getElementById('returnIssuedToLocation');
+
+  const allSelects = [
+    ...transferSelects,
+    issueSelect,
+    adjustmentSelect,
+    returnIssuedToSelect
+  ].filter(Boolean);
 
   allSelects.forEach(select => {
     select.innerHTML = '<option value="">Loading locations...</option>';
@@ -2693,12 +2788,15 @@ async function loadInventoryLocationDropdowns() {
 
   populateLocationSelect(issueSelect, 'Select issue source location...');
   populateLocationSelect(adjustmentSelect, 'Select adjustment target location...');
+  populateLocationSelect(returnIssuedToSelect, 'Select return location...');
 
   const fromSelect = document.getElementById('transferFromLocation');
   const issueSourceSelect = document.getElementById('issueSourceLocation');
   const adjustmentLocationSelect = document.getElementById('adjustmentLocation');
+  const returnIssuedToLocationSelect = document.getElementById('returnIssuedToLocation');
   const transferByElement = document.getElementById('transferBy');
   const adjustedByElement = document.getElementById('adjustedBy');
+  const returnIssuedByElement = document.getElementById('returnIssuedBy');
 
   if (fromSelect && operationalLocations.some(location => String(location.id) === MAIN_WAREHOUSE_ID)) {
     fromSelect.value = MAIN_WAREHOUSE_ID;
@@ -2712,12 +2810,20 @@ async function loadInventoryLocationDropdowns() {
     adjustmentLocationSelect.value = MAIN_WAREHOUSE_ID;
   }
 
+  if (returnIssuedToLocationSelect && operationalLocations.some(location => String(location.id) === MAIN_WAREHOUSE_ID)) {
+    returnIssuedToLocationSelect.value = MAIN_WAREHOUSE_ID;
+  }
+
   if (transferByElement && currentWarehouseProfile?.full_name && !transferByElement.value.trim()) {
     transferByElement.value = currentWarehouseProfile.full_name;
   }
 
   if (adjustedByElement && currentWarehouseProfile?.full_name && !adjustedByElement.value.trim()) {
     adjustedByElement.value = currentWarehouseProfile.full_name;
+  }
+
+  if (returnIssuedByElement && currentWarehouseProfile?.full_name && !returnIssuedByElement.value.trim()) {
+    returnIssuedByElement.value = currentWarehouseProfile.full_name;
   }
 
   await checkTransferSerialized();
@@ -3538,6 +3644,21 @@ if (adjustmentQtyElement) {
   adjustmentQtyElement.addEventListener('blur', updateAdjustmentQuantityRules);
 }
 
+const returnIssuedSerialSelectElement = document.getElementById('returnIssuedSerialSelect');
+if (returnIssuedSerialSelectElement) {
+  returnIssuedSerialSelectElement.addEventListener('change', updateReturnIssuedSerialDetails);
+}
+
+const returnIssuedSerialSearchElement = document.getElementById('returnIssuedSerialSearch');
+if (returnIssuedSerialSearchElement) {
+  returnIssuedSerialSearchElement.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      loadIssuedSerializedReturns();
+    }
+  });
+}
+
 updateAdjustmentQuantityRules();
 
 const changeSerializationPartNumberElement = document.getElementById('changeSerializationPartNumber');
@@ -3714,6 +3835,47 @@ function resetAdjustmentFields(options = {}) {
 }
 
 
+function resetReturnIssuedFields() {
+  const searchElement = document.getElementById('returnIssuedSerialSearch');
+  const selectElement = document.getElementById('returnIssuedSerialSelect');
+  const detailsElement = document.getElementById('returnIssuedSerialDetails');
+  const locationElement = document.getElementById('returnIssuedToLocation');
+  const returnedByElement = document.getElementById('returnIssuedBy');
+  const reasonElement = document.getElementById('returnIssuedReason');
+  const notesElement = document.getElementById('returnIssuedNotes');
+
+  if (searchElement) {
+    searchElement.value = '';
+  }
+
+  if (selectElement) {
+    selectElement.innerHTML = '<option value="">Search issued serialized items first...</option>';
+    selectElement.disabled = false;
+  }
+
+  if (detailsElement) {
+    detailsElement.textContent = 'Selected issued serial details will appear here.';
+  }
+
+  if (locationElement) {
+    locationElement.value = MAIN_WAREHOUSE_ID;
+  }
+
+  if (returnedByElement) {
+    returnedByElement.value = currentWarehouseProfile?.full_name || '';
+  }
+
+  if (reasonElement) {
+    reasonElement.value = 'ISSUED_BUT_NOT_USED';
+  }
+
+  if (notesElement) {
+    notesElement.value = '';
+  }
+
+  returnIssuedSerialRows = [];
+}
+
 function resetSerializationFields() {
   document.getElementById('changeSerializationPartNumber').value = '';
   document.getElementById('changePartSerialized').value = '';
@@ -3871,6 +4033,360 @@ async function transferInventory() {
 function getLocationNameById(locationId) {
   const location = inventoryLocationData.find(row => String(row.id) === String(locationId));
   return location?.location_name || locationId || '';
+}
+
+function getSelectedReturnIssuedSerialRow() {
+  const selectedId = document.getElementById('returnIssuedSerialSelect')?.value || '';
+
+  if (!selectedId) {
+    return null;
+  }
+
+  return returnIssuedSerialRows.find(row =>
+    String(row.id) === String(selectedId)
+  ) || null;
+}
+
+async function fetchIssuedSerializedReturnRows(searchText = '') {
+  if (!serializedPartsData || serializedPartsData.length === 0) {
+    serializedPartsData = await fetchSerializedPartsForBrowse();
+  }
+
+  const partMap = new Map();
+
+  serializedPartsData.forEach(part => {
+    partMap.set(String(part.id), part);
+  });
+
+  let allRows = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    const { data, error } = await client
+      .from('serialized_inventory')
+      .select(`
+        id,
+        part_id,
+        serial_number_raw,
+        serial_number_normalized,
+        status,
+        issued_to,
+        work_order,
+        client_name,
+        updated_at,
+        current_location_id,
+        last_transaction_id,
+        is_batch_tracked,
+        batch_code,
+        purchase_order_type,
+        vendor_name,
+        vendor_order_number
+      `)
+      .eq('status', 'issued')
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    allRows = allRows.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  const normalizedSearch = String(searchText || '').trim().toUpperCase();
+
+  return allRows
+    .map(row => {
+      const part = partMap.get(String(row.part_id));
+      const locationName = getLocationNameById(row.current_location_id);
+
+      if (!part) {
+        return null;
+      }
+
+      return {
+        id: row.id,
+        part_id: row.part_id,
+        part_number: part.part_number || '',
+        description: part.description || '',
+        category: part.category || '',
+        serial_number_raw: row.serial_number_raw || '',
+        serial_number_normalized: row.serial_number_normalized || '',
+        status: row.status || '',
+        current_location_id: row.current_location_id || '',
+        location_name: locationName || '',
+        issued_to: row.issued_to || '',
+        work_order: row.work_order || '',
+        client_name: row.client_name || '',
+        updated_at: row.updated_at || '',
+        last_transaction_id: row.last_transaction_id || '',
+        is_batch_tracked: row.is_batch_tracked === true,
+        batch_code: row.batch_code || '',
+        purchase_order_type: row.purchase_order_type || '',
+        vendor_name: row.vendor_name || '',
+        vendor_order_number: row.vendor_order_number || ''
+      };
+    })
+    .filter(row => {
+      if (!row) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const haystack = [
+        row.part_number,
+        row.description,
+        row.category,
+        row.serial_number_raw,
+        row.serial_number_normalized,
+        row.status,
+        row.location_name,
+        row.issued_to,
+        row.work_order,
+        row.client_name,
+        row.updated_at,
+        row.batch_code,
+        row.vendor_name,
+        row.vendor_order_number
+      ].join(' ').toUpperCase();
+
+      return haystack.includes(normalizedSearch);
+    })
+    .sort((a, b) =>
+      String(a.part_number || '').localeCompare(String(b.part_number || '')) ||
+      String(a.serial_number_raw || '').localeCompare(String(b.serial_number_raw || ''))
+    );
+}
+
+async function loadIssuedSerializedReturns() {
+  const searchText = document.getElementById('returnIssuedSerialSearch')?.value.trim() || '';
+  const selectElement = document.getElementById('returnIssuedSerialSelect');
+  const detailsElement = document.getElementById('returnIssuedSerialDetails');
+  const output = document.getElementById('returnIssuedOutput');
+
+  if (selectElement) {
+    selectElement.innerHTML = '<option value="">Loading issued serialized items...</option>';
+    selectElement.disabled = true;
+  }
+
+  if (detailsElement) {
+    detailsElement.textContent = 'Loading issued serialized items...';
+  }
+
+  if (output) {
+    output.textContent = 'Searching issued serialized items...';
+  }
+
+  try {
+    returnIssuedSerialRows = await fetchIssuedSerializedReturnRows(searchText);
+  } catch (error) {
+    returnIssuedSerialRows = [];
+
+    if (selectElement) {
+      selectElement.innerHTML = '<option value="">Issued serial load error</option>';
+      selectElement.disabled = false;
+    }
+
+    if (detailsElement) {
+      detailsElement.textContent = error.message;
+    }
+
+    if (output) {
+      output.textContent = error.message;
+    }
+
+    return;
+  }
+
+  if (!selectElement) {
+    return;
+  }
+
+  selectElement.innerHTML = '<option value="">Select issued serialized item...</option>';
+
+  returnIssuedSerialRows.forEach(row => {
+    const option = document.createElement('option');
+    option.value = row.id;
+    option.textContent =
+      `${row.serial_number_raw || 'No Serial'} — ${row.part_number || ''} — ${row.description || ''}` +
+      `${row.work_order ? ` — WO: ${row.work_order}` : ''}` +
+      `${row.client_name ? ` — Client: ${row.client_name}` : ''}` +
+      `${row.batch_code ? ` — Batch: ${row.batch_code}` : ''}`;
+
+    selectElement.appendChild(option);
+  });
+
+  selectElement.disabled = returnIssuedSerialRows.length === 0;
+
+  if (returnIssuedSerialRows.length === 0) {
+    if (detailsElement) {
+      detailsElement.textContent = searchText
+        ? 'No issued serialized items matched your search.'
+        : 'No issued serialized items are currently available to return.';
+    }
+
+    if (output) {
+      output.textContent = 'No issued serialized items found.';
+    }
+
+    return;
+  }
+
+  if (output) {
+    output.textContent = `Found ${formatNumber(returnIssuedSerialRows.length)} issued serialized item(s). Select one to return.`;
+  }
+
+  updateReturnIssuedSerialDetails();
+}
+
+function updateReturnIssuedSerialDetails() {
+  const row = getSelectedReturnIssuedSerialRow();
+  const detailsElement = document.getElementById('returnIssuedSerialDetails');
+  const locationElement = document.getElementById('returnIssuedToLocation');
+
+  if (!detailsElement) {
+    return;
+  }
+
+  if (!row) {
+    detailsElement.textContent = 'Selected issued serial details will appear here.';
+    return;
+  }
+
+  detailsElement.textContent =
+    `Part Number: ${row.part_number || ''}\n` +
+    `Description: ${row.description || ''}\n` +
+    `Category: ${row.category || 'UNCATEGORIZED'}\n` +
+    `Serial Number: ${row.serial_number_raw || ''}\n` +
+    `Current Status: ${row.status || ''}\n` +
+    `Current Location Record: ${row.location_name || ''}\n` +
+    `Issued To: ${row.issued_to || ''}\n` +
+    `Work Order: ${row.work_order || ''}\n` +
+    `Client: ${row.client_name || ''}\n` +
+    `Batch Code: ${row.batch_code || ''}\n` +
+    `Last Updated: ${formatDateTime(row.updated_at)}`;
+
+  if (locationElement) {
+    const currentLocationIsOperational =
+      row.current_location_id &&
+      inventoryLocationData.some(location =>
+        String(location.id) === String(row.current_location_id) &&
+        !EXCLUDED_OPERATIONAL_LOCATION_NAMES.includes(location.location_name)
+      );
+
+    locationElement.value = currentLocationIsOperational
+      ? row.current_location_id
+      : MAIN_WAREHOUSE_ID;
+  }
+}
+
+async function returnIssuedSerializedPart() {
+  const output = document.getElementById('returnIssuedOutput');
+  const selectedRow = getSelectedReturnIssuedSerialRow();
+  const returnLocationId = document.getElementById('returnIssuedToLocation')?.value || '';
+  const returnLocationName = getLocationNameById(returnLocationId);
+  const returnedBy = document.getElementById('returnIssuedBy')?.value.trim() || '';
+  const reason = document.getElementById('returnIssuedReason')?.value || '';
+  const notes = document.getElementById('returnIssuedNotes')?.value.trim() || '';
+
+  if (!output) {
+    return;
+  }
+
+  if (!selectedRow) {
+    output.textContent = 'Select an issued serialized item before returning to stock.';
+    return;
+  }
+
+  if (selectedRow.status !== 'issued') {
+    output.textContent = 'Only serialized items with ISSUED status can be returned using this workflow.';
+    return;
+  }
+
+  if (!returnLocationId) {
+    output.textContent = 'Return To Location is required.';
+    return;
+  }
+
+  if (EXCLUDED_OPERATIONAL_LOCATION_NAMES.includes(returnLocationName)) {
+    output.textContent = `Return To Location cannot be ${returnLocationName}. Select Main Warehouse, a van, or WARRANTY.`;
+    return;
+  }
+
+  if (!returnedBy) {
+    output.textContent = 'Returned By is required.';
+    return;
+  }
+
+  if (!reason) {
+    output.textContent = 'Return Reason is required.';
+    return;
+  }
+
+  if (reason === 'OTHER' && !notes) {
+    output.textContent = 'Notes are required when Return Reason is Other.';
+    return;
+  }
+
+  const confirmMessage =
+    `Return this serialized part to stock?\n\n` +
+    `Part Number: ${selectedRow.part_number}\n` +
+    `Serial Number: ${selectedRow.serial_number_raw}\n` +
+    `Return To: ${returnLocationName}\n\n` +
+    `This will create an ISSUE_REVERSAL transaction and set the serial back to ON HAND.`;
+
+  if (!window.confirm(confirmMessage)) {
+    output.textContent = 'Return canceled.';
+    return;
+  }
+
+  output.textContent = 'Returning serialized part to stock...';
+
+  const { data, error } = await client.rpc('return_issued_serial_to_stock', {
+    p_serial_inventory_id: selectedRow.id,
+    p_return_location_id: returnLocationId,
+    p_returned_by: returnedBy,
+    p_return_reason: reason,
+    p_notes: notes || null
+  });
+
+  if (error) {
+    output.textContent = error.message;
+    return;
+  }
+
+  const result = Array.isArray(data) ? (data[0] || {}) : (data || {});
+
+  output.textContent =
+    `Serialized part returned to stock successfully.\n\n` +
+    `Part Number: ${result.part_number || selectedRow.part_number}\n` +
+    `Description: ${result.description || selectedRow.description || ''}\n` +
+    `Serial Number: ${result.serial_number || selectedRow.serial_number_raw}\n` +
+    `Return Location: ${result.return_location_name || returnLocationName}\n` +
+    `Transaction Type: ${result.transaction_type || 'ISSUE_REVERSAL'}\n` +
+    `Transaction ID: ${result.transaction_id || ''}`;
+
+  resetReturnIssuedFields();
+
+  await loadParts();
+  await loadReorder();
+
+  if (document.getElementById('serializedReport')) {
+    await loadSerializedInventory();
+  }
 }
 
 async function issue() {
