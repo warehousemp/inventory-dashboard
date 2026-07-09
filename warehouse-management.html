@@ -815,6 +815,71 @@
       font-size: 13px;
     }
 
+    .current-shelf-change-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 420px) auto auto;
+      gap: 12px;
+      align-items: end;
+      margin: 12px 0 14px;
+    }
+
+    .current-shelf-change-grid input {
+      margin-bottom: 0;
+    }
+
+    .current-shelf-details-card {
+      border: 1px solid #d9e2ec;
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 12px 0 16px;
+    }
+
+    .current-shelf-details-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .current-shelf-detail-item {
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 72px;
+    }
+
+    .current-shelf-detail-label {
+      font-size: 11px;
+      color: #667085;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 6px;
+    }
+
+    .current-shelf-detail-value {
+      color: #0b3c5d;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    .current-shelf-change-select {
+      max-width: 260px;
+    }
+
+    @media (max-width: 900px) {
+      .current-shelf-change-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .current-shelf-details-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .cleanup-filter-grid {
       display: grid;
       grid-template-columns: minmax(260px, 420px) auto;
@@ -2444,6 +2509,35 @@
 </table>
 </div>
 <div class="section-divider"></div>
+<h3>Current Shelf / Change Shelf</h3>
+<div class="warning-note">
+      Use this tool for active parts that already have a Shelf Location assigned, or for any active part that needs a shelf correction.
+      This only updates the Main Warehouse shelf assignment. It does not affect quantities, stock balances, transfers, FIFO, receiving, issuing, valuation, or accounting.
+    </div>
+<div class="current-shelf-change-grid">
+<div>
+<label>Part Number Search:</label>
+<input autocomplete="off" id="currentShelfChangePartNumber" list="partsList" oninput="handleCurrentShelfChangePartInput()" placeholder="Enter exact active part number..."/>
+</div>
+<button class="report-btn" onclick="searchCurrentShelfChangePart()" type="button">SEARCH PART</button>
+<button class="cleanup-clear-btn" onclick="clearCurrentShelfChangeTool()" type="button">CLEAR</button>
+</div>
+<div class="help-text">
+      Search an active part number, review the current Main Warehouse Shelf Location, choose a new shelf, add optional notes, and save the shelf-only change.
+    </div>
+<div class="part-description-display" id="currentShelfChangePartDescription">Part description will appear here after a part number is selected.</div>
+<div class="current-shelf-details-card" id="currentShelfChangeDetails">
+      Search an active part number to view its current Main Warehouse Shelf Location.
+    </div>
+<label>New Shelf Location:</label>
+<select class="current-shelf-change-select" id="currentShelfChangeNewShelf">
+<option value="">Load / search a part first...</option>
+</select>
+<label>Notes:</label>
+<textarea id="currentShelfChangeNotes" placeholder="Optional notes. Example: Moved from G to H after shelf cleanup."></textarea>
+<button class="save-btn" onclick="saveCurrentShelfChange()" type="button">SAVE SHELF CHANGE</button>
+<pre class="workflow-output" id="currentShelfChangeResult">Current Shelf / Change Shelf status will appear here...</pre>
+<div class="section-divider"></div>
 <h3>Needs Category</h3>
 <div class="warning-note">
       This report shows active parts with NULL or blank categories. Select the correct category directly on each row,
@@ -2647,6 +2741,7 @@ let openCycleCountQueueData = [];
 let deadStockReportData = [];
 let needsCategoryReportData = [];
 let needsShelfLocationReportData = [];
+let currentShelfChangeSelectedPart = null;
 let transactionLogData = [];
 let categoryData = [];
 let inventoryLocationData = [];
@@ -3208,6 +3303,7 @@ async function loadParts() {
   updateIssuePartDescription();
   updateAdjustmentPartDescription();
   updateChangeSerializationPartDescription();
+  updateCurrentShelfChangePartDescription();
 
   console.log('Parts loaded into dropdown:', partsData.length);
 }
@@ -3270,6 +3366,10 @@ function updateAdjustmentPartDescription() {
 
 function updateChangeSerializationPartDescription() {
   updatePartDescription('changeSerializationPartNumber', 'changeSerializationPartDescription');
+}
+
+function updateCurrentShelfChangePartDescription() {
+  updatePartDescription('currentShelfChangePartNumber', 'currentShelfChangePartDescription');
 }
 
 async function checkIssueSerialized() {
@@ -3837,6 +3937,16 @@ if (adjustmentPartElement) {
 const changeSerializationPartNumberElement = document.getElementById('changeSerializationPartNumber');
 if (changeSerializationPartNumberElement) {
   changeSerializationPartNumberElement.addEventListener('input', updateChangeSerializationPartDescription);
+}
+
+const currentShelfChangePartNumberElement = document.getElementById('currentShelfChangePartNumber');
+if (currentShelfChangePartNumberElement) {
+  currentShelfChangePartNumberElement.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      searchCurrentShelfChangePart();
+    }
+  });
 }
 
 function resetIssueFields() {
@@ -5860,6 +5970,330 @@ function getShelfLocationOptionsHTML(currentValue = '') {
   });
 
   return options;
+}
+
+function getCurrentShelfFromPartShelfRow(row) {
+  return row?.shelf_location || row?.shelf_code || '';
+}
+
+function getMainWarehouseQtyFromPartShelfRow(row) {
+  if (!row) {
+    return 0;
+  }
+
+  return Number(
+    row.main_warehouse_quantity_on_hand ??
+    row.quantity_on_hand ??
+    row.qty_on_hand ??
+    0
+  );
+}
+
+function getMainWarehouseInventoryValueFromPartShelfRow(row) {
+  if (!row) {
+    return 0;
+  }
+
+  const existingValue = row.main_warehouse_inventory_value ?? row.inventory_value;
+
+  if (existingValue !== undefined && existingValue !== null && existingValue !== '') {
+    return Number(existingValue || 0);
+  }
+
+  return getMainWarehouseQtyFromPartShelfRow(row) * Number(row.unit_cost || 0);
+}
+
+function handleCurrentShelfChangePartInput() {
+  currentShelfChangeSelectedPart = null;
+  updateCurrentShelfChangePartDescription();
+  resetCurrentShelfChangeDetails(false);
+}
+
+function resetCurrentShelfChangeDetails(clearPartInput = true) {
+  const partInput = document.getElementById('currentShelfChangePartNumber');
+  const detailsBox = document.getElementById('currentShelfChangeDetails');
+  const shelfSelect = document.getElementById('currentShelfChangeNewShelf');
+  const notesInput = document.getElementById('currentShelfChangeNotes');
+  const resultBox = document.getElementById('currentShelfChangeResult');
+
+  currentShelfChangeSelectedPart = null;
+
+  if (clearPartInput && partInput) {
+    partInput.value = '';
+  }
+
+  if (detailsBox) {
+    detailsBox.innerHTML = 'Search an active part number to view its current Main Warehouse Shelf Location.';
+  }
+
+  if (shelfSelect) {
+    shelfSelect.innerHTML = '<option value="">Load / search a part first...</option>';
+  }
+
+  if (notesInput && clearPartInput) {
+    notesInput.value = '';
+  }
+
+  if (resultBox && clearPartInput) {
+    resultBox.textContent = 'Current Shelf / Change Shelf status will appear here...';
+  }
+}
+
+function clearCurrentShelfChangeTool() {
+  resetCurrentShelfChangeDetails(true);
+  updateCurrentShelfChangePartDescription();
+
+  const partInput = document.getElementById('currentShelfChangePartNumber');
+
+  if (partInput) {
+    partInput.focus();
+  }
+}
+
+async function fetchCurrentShelfChangePartRow(partNumber) {
+  const normalizedPartNumber = String(partNumber || '').trim().toUpperCase();
+
+  if (!normalizedPartNumber) {
+    throw new Error('Part Number is required.');
+  }
+
+  if (!partsData || partsData.length === 0) {
+    await loadParts();
+  }
+
+  const matchedPart = partsData.find(part =>
+    String(part.part_number || '').trim().toUpperCase() === normalizedPartNumber
+  );
+
+  if (!matchedPart) {
+    throw new Error(`Active part not found in dropdown: ${partNumber}`);
+  }
+
+  const { data, error } = await client
+    .from('main_warehouse_part_shelf_status_view')
+    .select('*')
+    .ilike('part_number', matchedPart.part_number)
+    .limit(10);
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = data || [];
+  const exactRow = rows.find(row =>
+    String(row.part_number || '').trim().toUpperCase() === String(matchedPart.part_number || '').trim().toUpperCase()
+  );
+
+  if (exactRow) {
+    return exactRow;
+  }
+
+  return {
+    part_number: matchedPart.part_number,
+    description: matchedPart.description || '',
+    category: matchedPart.category || matchedPart.cycle_count_category || '',
+    inventory_location_name: 'Main Warehouse',
+    main_warehouse_quantity_on_hand: 0,
+    unit_cost: matchedPart.unit_cost || 0,
+    main_warehouse_inventory_value: 0,
+    shelf_location: null,
+    shelf_assignment_status: 'UNASSIGNED',
+    shelf_updated_by: null,
+    shelf_updated_at: null
+  };
+}
+
+function renderCurrentShelfChangeDetails(row) {
+  const detailsBox = document.getElementById('currentShelfChangeDetails');
+  const shelfSelect = document.getElementById('currentShelfChangeNewShelf');
+  const currentShelf = getCurrentShelfFromPartShelfRow(row);
+  const displayShelf = currentShelf || 'UNASSIGNED';
+  const qtyOnHand = getMainWarehouseQtyFromPartShelfRow(row);
+  const inventoryValue = getMainWarehouseInventoryValueFromPartShelfRow(row);
+
+  currentShelfChangeSelectedPart = row || null;
+
+  if (detailsBox) {
+    detailsBox.innerHTML = `
+      <div class="current-shelf-details-grid">
+        <div class="current-shelf-detail-item">
+          <div class="current-shelf-detail-label">Part Number</div>
+          <div class="current-shelf-detail-value">${escapeHTML(row?.part_number || '')}</div>
+        </div>
+        <div class="current-shelf-detail-item">
+          <div class="current-shelf-detail-label">Current Shelf</div>
+          <div class="current-shelf-detail-value">${escapeHTML(displayShelf)}</div>
+        </div>
+        <div class="current-shelf-detail-item">
+          <div class="current-shelf-detail-label">Main Warehouse Qty</div>
+          <div class="current-shelf-detail-value">${formatNumber(qtyOnHand)}</div>
+        </div>
+        <div class="current-shelf-detail-item">
+          <div class="current-shelf-detail-label">Assignment Status</div>
+          <div class="current-shelf-detail-value">${escapeHTML(row?.shelf_assignment_status || (currentShelf ? 'ASSIGNED' : 'UNASSIGNED'))}</div>
+        </div>
+        <div class="current-shelf-detail-item">
+          <div class="current-shelf-detail-label">Description</div>
+          <div class="current-shelf-detail-value">${escapeHTML(row?.description || '')}</div>
+        </div>
+        <div class="current-shelf-detail-item">
+          <div class="current-shelf-detail-label">Category</div>
+          <div class="current-shelf-detail-value">${escapeHTML(row?.category || row?.cycle_count_category || 'NULL / BLANK')}</div>
+        </div>
+        <div class="current-shelf-detail-item">
+          <div class="current-shelf-detail-label">Inventory Value</div>
+          <div class="current-shelf-detail-value">${formatCurrency(inventoryValue)}</div>
+        </div>
+        <div class="current-shelf-detail-item">
+          <div class="current-shelf-detail-label">Last Shelf Update</div>
+          <div class="current-shelf-detail-value">${escapeHTML(row?.shelf_updated_by || '')}${row?.shelf_updated_at ? '<br>' + formatDateTime(row.shelf_updated_at) : ''}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (shelfSelect) {
+    shelfSelect.innerHTML = getShelfLocationOptionsHTML(currentShelf);
+  }
+}
+
+async function searchCurrentShelfChangePart(showLoadedMessage = true) {
+  const partInput = document.getElementById('currentShelfChangePartNumber');
+  const resultBox = document.getElementById('currentShelfChangeResult');
+  const partNumber = String(partInput?.value || '').trim();
+
+  if (!partNumber) {
+    if (resultBox) {
+      resultBox.textContent = 'Enter an active part number before searching.';
+    }
+
+    return null;
+  }
+
+  if (!mainWarehouseShelfLocationData || mainWarehouseShelfLocationData.length === 0) {
+    await loadMainWarehouseShelfLocations();
+  }
+
+  if (resultBox && showLoadedMessage) {
+    resultBox.textContent = `Searching Main Warehouse Shelf Location for ${partNumber}...`;
+  }
+
+  let row = null;
+
+  try {
+    row = await fetchCurrentShelfChangePartRow(partNumber);
+  } catch (error) {
+    currentShelfChangeSelectedPart = null;
+
+    if (resultBox) {
+      resultBox.textContent = error.message;
+    }
+
+    resetCurrentShelfChangeDetails(false);
+    updateCurrentShelfChangePartDescription();
+    return null;
+  }
+
+  if (partInput) {
+    partInput.value = row.part_number || partNumber;
+  }
+
+  updateCurrentShelfChangePartDescription();
+  renderCurrentShelfChangeDetails(row);
+
+  if (resultBox && showLoadedMessage) {
+    const currentShelf = getCurrentShelfFromPartShelfRow(row) || 'UNASSIGNED';
+    resultBox.textContent =
+      `Part loaded successfully.\n\n` +
+      `Part Number: ${row.part_number}\n` +
+      `Description: ${row.description || ''}\n` +
+      `Current Main Warehouse Shelf: ${currentShelf}\n` +
+      `Choose a new shelf location, add optional notes, and click SAVE SHELF CHANGE.`;
+  }
+
+  return row;
+}
+
+async function saveCurrentShelfChange() {
+  const resultBox = document.getElementById('currentShelfChangeResult');
+  const shelfSelect = document.getElementById('currentShelfChangeNewShelf');
+  const notesInput = document.getElementById('currentShelfChangeNotes');
+
+  if (!currentShelfChangeSelectedPart) {
+    if (resultBox) {
+      resultBox.textContent = 'Search and load an active part before saving a shelf change.';
+    }
+
+    return;
+  }
+
+  const partNumber = currentShelfChangeSelectedPart.part_number || '';
+  const oldShelf = getCurrentShelfFromPartShelfRow(currentShelfChangeSelectedPart) || 'UNASSIGNED';
+  const newShelf = String(shelfSelect?.value || '').trim().toUpperCase();
+  const userNotes = String(notesInput?.value || '').trim();
+  const updatedBy = getCurrentUserDisplayName();
+
+  if (!newShelf) {
+    if (resultBox) {
+      resultBox.textContent = `Select a new Shelf Location before saving ${partNumber}.`;
+    }
+
+    return;
+  }
+
+  if (oldShelf !== 'UNASSIGNED' && String(oldShelf || '').trim().toUpperCase() === newShelf) {
+    if (resultBox) {
+      resultBox.textContent = `The selected New Shelf Location matches the current shelf for ${partNumber}. Select a different shelf before saving.`;
+    }
+
+    return;
+  }
+
+  const notes = userNotes
+    ? `Current Shelf / Change Shelf tool. Old Shelf: ${oldShelf}. New Shelf: ${newShelf}. Notes: ${userNotes}`
+    : `Current Shelf / Change Shelf tool. Old Shelf: ${oldShelf}. New Shelf: ${newShelf}.`;
+
+  if (resultBox) {
+    resultBox.textContent = `Saving Shelf Location change for ${partNumber}: ${oldShelf} → ${newShelf}...`;
+  }
+
+  const { data, error } = await client.rpc('set_main_warehouse_part_shelf_location', {
+    p_part_number: partNumber,
+    p_shelf_code: newShelf,
+    p_updated_by: updatedBy,
+    p_notes: notes
+  });
+
+  if (error) {
+    if (resultBox) {
+      resultBox.textContent = error.message;
+    }
+
+    return;
+  }
+
+  const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+
+  try {
+    const refreshedRow = await fetchCurrentShelfChangePartRow(partNumber);
+    renderCurrentShelfChangeDetails(refreshedRow);
+  } catch (refreshError) {
+    console.warn('Shelf change saved, but refresh failed:', refreshError);
+  }
+
+  if (notesInput) {
+    notesInput.value = '';
+  }
+
+  if (needsShelfLocationReportData && needsShelfLocationReportData.length > 0) {
+    await loadNeedsShelfLocationReport();
+  }
+
+  if (resultBox) {
+    resultBox.textContent = result
+      ? `Shelf Location changed successfully.\n\nPart Number: ${result.part_number}\nDescription: ${result.description || ''}\nInventory Location: ${result.inventory_location_name || 'Main Warehouse'}\nOld Shelf: ${oldShelf}\nNew Shelf: ${result.shelf_code || newShelf}\nUpdated By: ${updatedBy}\nResult: ${result.action_result || ''}`
+      : `Shelf Location changed successfully.\n\nPart Number: ${partNumber}\nOld Shelf: ${oldShelf}\nNew Shelf: ${newShelf}\nUpdated By: ${updatedBy}`;
+  }
 }
 
 async function fetchNeedsShelfLocationRows() {
