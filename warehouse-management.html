@@ -2607,6 +2607,7 @@
 <button class="report-btn" onclick="loadDeadStockReport()" type="button">APPLY FILTERS / RUN REPORT</button>
 <button class="dead-stock-clear-btn" onclick="clearDeadStockFilters()" type="button">CLEAR FILTERS</button>
 <button class="export-btn" onclick="exportDeadStockCSV()" type="button">EXPORT FILTERED CSV</button>
+<button class="export-btn" onclick="exportDeadStockPDF()" type="button">EXPORT FILTERED PDF</button>
 </div>
 </div>
 <div class="session-id-box" id="deadStockSummary">
@@ -6425,6 +6426,345 @@ async function exportDeadStockCSV() {
   downloadCSV(csv, `dead_stock_report_${safeFilter}${partSuffix}.csv`);
 }
 
+
+
+function buildDeadStockPDFHTML(filterLabel, rows) {
+  const filters = getDeadStockFilterValues();
+  const sortedRows = [...(rows || [])].sort((a, b) => {
+    const categoryA = String(a.category || 'UNASSIGNED').trim().toUpperCase();
+    const categoryB = String(b.category || 'UNASSIGNED').trim().toUpperCase();
+    const categoryCompare = categoryA.localeCompare(categoryB);
+
+    if (categoryCompare !== 0) {
+      return categoryCompare;
+    }
+
+    return String(a.part_number || '').localeCompare(String(b.part_number || ''), undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    });
+  });
+
+  const groupedRows = new Map();
+
+  sortedRows.forEach(row => {
+    const category = String(row.category || '').trim() || 'UNASSIGNED';
+
+    if (!groupedRows.has(category)) {
+      groupedRows.set(category, []);
+    }
+
+    groupedRows.get(category).push(row);
+  });
+
+  const totalQty = sortedRows.reduce(
+    (sum, row) => sum + Number(row.quantity_on_hand || 0),
+    0
+  );
+  const totalValue = sortedRows.reduce(
+    (sum, row) => sum + Number(row.inventory_value || 0),
+    0
+  );
+  const generatedAt = formatDateTime(new Date().toISOString());
+  const title = `Dead Stock - ${filterLabel || 'Filtered Report'}`;
+  const documentTitle = cleanFilename(title || 'dead_stock_report');
+
+  const activeFilterLines = [
+    filters.partSearch ? `Part Number: ${filters.partSearch}` : '',
+    filters.category !== 'ALL'
+      ? `Category: ${filters.category === '__BLANK__' ? 'NULL / BLANK' : filters.category}`
+      : '',
+    filters.location !== 'ALL' ? `Location: ${filters.location}` : '',
+    filters.verification !== 'ALL' ? `Review Status: ${formatDeadStockOptionLabel(filters.verification)}` : '',
+    filters.recommendedAction !== 'ALL'
+      ? `Recommended Action: ${formatDeadStockOptionLabel(filters.recommendedAction)}`
+      : ''
+  ].filter(Boolean);
+
+  const tableSections = [...groupedRows.entries()].map(([category, categoryRows]) => {
+    const bodyRows = categoryRows.map(row => {
+      const displayValues = getDeadStockDisplayValues(row);
+
+      return `
+        <tr>
+          <td>${escapeHTML(row.part_number || '')}</td>
+          <td>${escapeHTML(row.description || '')}</td>
+          <td>${escapeHTML(row.location_name || '')}</td>
+          <td class="number-cell">${escapeHTML(formatNumber(row.quantity_on_hand))}</td>
+          <td class="number-cell">${escapeHTML(formatCurrency(row.unit_cost))}</td>
+          <td class="number-cell">${escapeHTML(formatCurrency(row.inventory_value))}</td>
+          <td class="center-cell">${escapeHTML(displayValues.daysSinceDisplay || '')}</td>
+        </tr>
+      `;
+    }).join('');
+
+    return `
+      <section class="category-section">
+        <div class="category-heading">${escapeHTML(category)} (${formatNumber(categoryRows.length)} parts)</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Part Number</th>
+              <th>Description</th>
+              <th>Current Location</th>
+              <th>Qty On Hand</th>
+              <th>Unit Cost</th>
+              <th>Inventory Value</th>
+              <th>Days Since Last Issued</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyRows}
+          </tbody>
+        </table>
+      </section>
+    `;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${escapeHTML(documentTitle)}</title>
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: Arial, sans-serif;
+    color: #1f2933;
+    margin: 14px;
+    background: #ffffff;
+  }
+
+  h1 {
+    color: #0b3c5d;
+    margin: 0 0 5px;
+    font-size: 19px;
+    line-height: 1.15;
+  }
+
+  .subtitle {
+    margin: 0 0 9px;
+    color: #475569;
+    font-size: 9px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.035em;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px 10px;
+    margin-bottom: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    padding: 8px 10px;
+    background: #f8fafc;
+  }
+
+  .summary-item {
+    min-width: 0;
+    font-size: 8.5px;
+    line-height: 1.25;
+  }
+
+  .summary-label {
+    display: block;
+    color: #64748b;
+    font-size: 7px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 1px;
+  }
+
+  .summary-value {
+    display: block;
+    color: #111827;
+    font-weight: bold;
+    overflow-wrap: anywhere;
+  }
+
+  .active-filters {
+    margin: -2px 0 10px;
+    color: #475569;
+    font-size: 8px;
+    line-height: 1.35;
+  }
+
+  .category-section {
+    margin: 0 0 8px;
+    page-break-inside: auto;
+  }
+
+  .category-heading {
+    background: #eaf3f8;
+    border: 1px solid #b8cad8;
+    color: #0b3c5d;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 5px 7px;
+    page-break-after: avoid;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 8px;
+    line-height: 1.2;
+  }
+
+  th,
+  td {
+    border: 1px solid #cbd5e1;
+    padding: 3.5px 4px;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+  }
+
+  th {
+    background: #0b3c5d;
+    color: #ffffff;
+    font-size: 7.2px;
+    line-height: 1.05;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    text-align: center;
+  }
+
+  tbody tr:nth-child(even) td {
+    background: #f8fafc;
+  }
+
+  th:nth-child(1), td:nth-child(1) { width: 12%; }
+  th:nth-child(2), td:nth-child(2) { width: 38%; }
+  th:nth-child(3), td:nth-child(3) { width: 14%; }
+  th:nth-child(4), td:nth-child(4) { width: 8%; }
+  th:nth-child(5), td:nth-child(5) { width: 9%; }
+  th:nth-child(6), td:nth-child(6) { width: 10%; }
+  th:nth-child(7), td:nth-child(7) { width: 9%; }
+
+  .number-cell { text-align: right; white-space: nowrap; }
+  .center-cell { text-align: center; }
+
+  @page {
+    size: letter landscape;
+    margin: 0.3in;
+  }
+
+  @media print {
+    body { margin: 0; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
+    .category-heading { page-break-after: avoid; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom: 14px;">
+    <button onclick="window.print()" style="padding: 10px 14px; border: 0; border-radius: 6px; background: #0b3c5d; color: white; font-weight: bold; cursor: pointer;">Print / Save as PDF</button>
+  </div>
+
+  <h1>${escapeHTML(title)}</h1>
+  <div class="subtitle">Molinari Pools Warehouse Dead Stock Report | Sorted by Category A-Z, then Part Number</div>
+
+  <div class="summary-grid">
+    <div class="summary-item">
+      <span class="summary-label">Records</span>
+      <span class="summary-value">${escapeHTML(formatNumber(sortedRows.length))}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">Total Qty On Hand</span>
+      <span class="summary-value">${escapeHTML(formatNumber(totalQty))}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">Total Inventory Value</span>
+      <span class="summary-value">${escapeHTML(formatCurrency(totalValue))}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">Source Filter</span>
+      <span class="summary-value">${escapeHTML(filterLabel || 'Filtered Report')}</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-label">Generated</span>
+      <span class="summary-value">${escapeHTML(generatedAt)}</span>
+    </div>
+  </div>
+
+  ${activeFilterLines.length > 0
+    ? `<div class="active-filters"><strong>Additional Filters:</strong> ${activeFilterLines.map(escapeHTML).join(' | ')}</div>`
+    : ''}
+
+  ${tableSections || '<div>No records found for the current filters.</div>'}
+</body>
+</html>`;
+}
+
+function openDeadStockPDFWindow(filterLabel, rows, autoPrint = true) {
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    return false;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(buildDeadStockPDFHTML(filterLabel, rows));
+  printWindow.document.close();
+
+  if (autoPrint) {
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+  }
+
+  return true;
+}
+
+async function exportDeadStockPDF() {
+  const filterValue = document.getElementById('deadStockFilter')?.value || 'all_candidates';
+  const filterLabel = document.getElementById('deadStockFilter')?.selectedOptions?.[0]?.textContent || 'Dead Stock';
+  const summary = document.getElementById('deadStockSummary');
+
+  if (!deadStockReportData || deadStockReportData.length === 0 || deadStockLoadedSourceFilter !== filterValue) {
+    if (summary) {
+      summary.textContent = 'Loading filtered Dead Stock data for PDF...';
+    }
+
+    try {
+      deadStockReportData = await fetchDeadStockRows(filterValue);
+      deadStockLoadedSourceFilter = filterValue;
+      populateDeadStockFilterOptions();
+    } catch (error) {
+      if (summary) {
+        summary.textContent = 'PDF report load failed: ' + error.message;
+      }
+
+      return;
+    }
+  }
+
+  deadStockFilteredData = getFilteredDeadStockRows();
+
+  if (!deadStockFilteredData || deadStockFilteredData.length === 0) {
+    if (summary) {
+      summary.textContent = 'No records available for the filtered PDF report.';
+    }
+
+    return;
+  }
+
+  const opened = openDeadStockPDFWindow(filterLabel, deadStockFilteredData, true);
+
+  if (summary) {
+    summary.textContent = opened
+      ? `Landscape PDF report opened for ${formatNumber(deadStockFilteredData.length)} filtered record(s).\nChoose Save as PDF in the browser print dialog.`
+      : 'Unable to open the PDF report. Check the browser pop-up blocker and try again.';
+  }
+}
 
 async function loadMainWarehouseShelfLocations() {
   try {
