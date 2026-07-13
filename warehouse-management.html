@@ -1198,6 +1198,85 @@
     }
 
 
+
+    .part-cost-tool-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 420px) auto;
+      gap: 12px;
+      align-items: end;
+      margin: 12px 0 14px;
+    }
+
+    .part-cost-tool-grid input {
+      margin-bottom: 0;
+    }
+
+    .part-cost-details-card {
+      border: 1px solid #d9e2ec;
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 12px 0 16px;
+    }
+
+    .part-cost-details-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .part-cost-detail-item {
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 72px;
+    }
+
+    .part-cost-detail-label {
+      font-size: 11px;
+      color: #667085;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 6px;
+    }
+
+    .part-cost-detail-value {
+      color: #0b3c5d;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    .part-cost-update-fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(220px, 1fr));
+      gap: 12px 14px;
+      align-items: start;
+    }
+
+    .part-cost-update-fields textarea {
+      min-height: 88px;
+    }
+
+    .part-cost-reason-field {
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 900px) {
+      .part-cost-tool-grid,
+      .part-cost-update-fields,
+      .part-cost-details-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .part-cost-reason-field {
+        grid-column: auto;
+      }
+    }
+
     .inventory-workflow-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(280px, 1fr));
@@ -2231,6 +2310,37 @@
 </select>
 <button class="category-btn" onclick="changePartCategory()">CHANGE PART CATEGORY</button>
 <pre id="changeCategoryResult">Change an existing part category here...</pre>
+<h3>Change Existing Part Unit Cost</h3>
+<div class="warning-note">
+      Use this tool to add a missing unit cost or correct the current unit cost for an existing active part.
+      This changes current-cost inventory valuation only. It does not receive stock, change quantities, create an inventory transaction, or rewrite FIFO layers.
+    </div>
+<div class="part-cost-tool-grid">
+<div>
+<label>Part Number Search:</label>
+<input autocomplete="off" id="changeCostPartNumber" list="partsList" oninput="handlePartCostInput()" onkeydown="handlePartCostKeydown(event)" placeholder="Enter exact active part number..."/>
+</div>
+<button class="report-btn" onclick="loadPartCostDetails()" type="button">LOAD CURRENT COST</button>
+</div>
+<div class="part-cost-details-card" id="changeCostDetails">
+      Load an active part number to review its current unit cost and total quantity on hand.
+    </div>
+<div class="part-cost-update-fields">
+<div>
+<label>New Unit Cost:</label>
+<input id="changeCostNewUnitCost" min="0" placeholder="Enter new unit cost" step="0.01" type="number"/>
+</div>
+<div>
+<label>Updated By:</label>
+<input autocomplete="off" id="changeCostUpdatedBy" placeholder="Warehouse team member name"/>
+</div>
+<div class="part-cost-reason-field">
+<label>Reason:</label>
+<textarea id="changeCostReason" placeholder="Required. Example: Missing cost added from current vendor invoice AP12345."></textarea>
+</div>
+</div>
+<button class="save-btn" onclick="updateExistingPartUnitCost()" type="button">UPDATE UNIT COST</button>
+<pre id="changeCostResult">Load a part to review and update its unit cost...</pre>
 <h3>Change Part Serialization Requirement</h3>
 <div class="warning-note">
       Use this section to correct whether an existing active part requires serial-number tracking.
@@ -2926,6 +3036,7 @@ let activeDeadStockEditorKey = null;
 let needsCategoryReportData = [];
 let needsShelfLocationReportData = [];
 let currentShelfChangeSelectedPart = null;
+let currentCostUpdateSelectedPart = null;
 let transactionLogData = [];
 let categoryData = [];
 let inventoryLocationData = [];
@@ -4121,6 +4232,16 @@ if (adjustmentPartElement) {
 const changeSerializationPartNumberElement = document.getElementById('changeSerializationPartNumber');
 if (changeSerializationPartNumberElement) {
   changeSerializationPartNumberElement.addEventListener('input', updateChangeSerializationPartDescription);
+}
+
+const changeCostPartNumberElement = document.getElementById('changeCostPartNumber');
+if (changeCostPartNumberElement) {
+  changeCostPartNumberElement.addEventListener('change', () => {
+    const matchedPart = getMatchedPart('changeCostPartNumber');
+    if (matchedPart) {
+      loadPartCostDetails();
+    }
+  });
 }
 
 const currentShelfChangePartNumberElement = document.getElementById('currentShelfChangePartNumber');
@@ -5570,6 +5691,331 @@ async function changePartCategory() {
   if (needsCategoryReportData && needsCategoryReportData.length > 0) {
     await loadNeedsCategoryReport();
   }
+}
+
+
+function resetPartCostTool(clearPartInput = false) {
+  const partInput = document.getElementById('changeCostPartNumber');
+  const detailsBox = document.getElementById('changeCostDetails');
+  const newCostInput = document.getElementById('changeCostNewUnitCost');
+  const reasonInput = document.getElementById('changeCostReason');
+  const resultBox = document.getElementById('changeCostResult');
+
+  currentCostUpdateSelectedPart = null;
+
+  if (clearPartInput && partInput) {
+    partInput.value = '';
+  }
+
+  if (detailsBox) {
+    detailsBox.textContent = 'Load an active part number to review its current unit cost and total quantity on hand.';
+  }
+
+  if (newCostInput) {
+    newCostInput.value = '';
+  }
+
+  if (reasonInput) {
+    reasonInput.value = '';
+  }
+
+  if (resultBox) {
+    resultBox.textContent = 'Load a part to review and update its unit cost...';
+  }
+}
+
+function handlePartCostInput() {
+  currentCostUpdateSelectedPart = null;
+
+  const detailsBox = document.getElementById('changeCostDetails');
+  const newCostInput = document.getElementById('changeCostNewUnitCost');
+
+  if (detailsBox) {
+    detailsBox.textContent = 'Load an active part number to review its current unit cost and total quantity on hand.';
+  }
+
+  if (newCostInput) {
+    newCostInput.value = '';
+  }
+}
+
+function handlePartCostKeydown(event) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    loadPartCostDetails();
+  }
+}
+
+function renderPartCostDetails(part) {
+  const detailsBox = document.getElementById('changeCostDetails');
+
+  if (!detailsBox || !part) {
+    return;
+  }
+
+  const hasCurrentCost = part.unit_cost !== null && part.unit_cost !== undefined && part.unit_cost !== '';
+  const currentCostText = hasCurrentCost ? formatCurrency(part.unit_cost) : 'NOT SET';
+  const currentValue = Number(part.total_quantity_on_hand || 0) * Number(part.unit_cost || 0);
+
+  detailsBox.innerHTML = `
+    <div class="part-cost-details-grid">
+      <div class="part-cost-detail-item">
+        <div class="part-cost-detail-label">Part Number</div>
+        <div class="part-cost-detail-value">${escapeHTML(part.part_number || '')}</div>
+      </div>
+      <div class="part-cost-detail-item">
+        <div class="part-cost-detail-label">Description</div>
+        <div class="part-cost-detail-value">${escapeHTML(part.description || '')}</div>
+      </div>
+      <div class="part-cost-detail-item">
+        <div class="part-cost-detail-label">Current Unit Cost</div>
+        <div class="part-cost-detail-value">${escapeHTML(currentCostText)}</div>
+      </div>
+      <div class="part-cost-detail-item">
+        <div class="part-cost-detail-label">Total Qty On Hand</div>
+        <div class="part-cost-detail-value">${formatNumber(part.total_quantity_on_hand || 0)}</div>
+      </div>
+      <div class="part-cost-detail-item">
+        <div class="part-cost-detail-label">Current Inventory Value</div>
+        <div class="part-cost-detail-value">${formatCurrency(currentValue)}</div>
+      </div>
+      <div class="part-cost-detail-item">
+        <div class="part-cost-detail-label">Category</div>
+        <div class="part-cost-detail-value">${escapeHTML(part.category || 'NULL / BLANK')}</div>
+      </div>
+    </div>
+  `;
+}
+
+async function loadPartCostDetails() {
+  const partInput = document.getElementById('changeCostPartNumber');
+  const detailsBox = document.getElementById('changeCostDetails');
+  const resultBox = document.getElementById('changeCostResult');
+  const updatedByInput = document.getElementById('changeCostUpdatedBy');
+  const newCostInput = document.getElementById('changeCostNewUnitCost');
+  const enteredPartNumber = partInput?.value.trim() || '';
+
+  currentCostUpdateSelectedPart = null;
+
+  if (!enteredPartNumber) {
+    if (resultBox) {
+      resultBox.textContent = 'Part number is required.';
+    }
+    return;
+  }
+
+  const matchedPart = getMatchedPart('changeCostPartNumber');
+
+  if (!matchedPart) {
+    if (detailsBox) {
+      detailsBox.textContent = `Active part not found: ${enteredPartNumber}`;
+    }
+    if (resultBox) {
+      resultBox.textContent = `Select an exact active part number from the list: ${enteredPartNumber}`;
+    }
+    return;
+  }
+
+  if (detailsBox) {
+    detailsBox.textContent = `Loading current cost for ${matchedPart.part_number}...`;
+  }
+
+  const { data: partData, error: partError } = await client
+    .from('parts')
+    .select('id, part_number, description, category, unit_cost, active')
+    .eq('part_number', matchedPart.part_number)
+    .eq('active', true)
+    .single();
+
+  if (partError) {
+    if (detailsBox) {
+      detailsBox.textContent = partError.message;
+    }
+    if (resultBox) {
+      resultBox.textContent = 'Unable to load current part cost: ' + partError.message;
+    }
+    return;
+  }
+
+  const { data: balanceData, error: balanceError } = await client
+    .from('stock_balances')
+    .select('quantity_on_hand')
+    .eq('part_id', partData.id);
+
+  if (balanceError) {
+    if (detailsBox) {
+      detailsBox.textContent = balanceError.message;
+    }
+    if (resultBox) {
+      resultBox.textContent = 'Unable to load quantity on hand: ' + balanceError.message;
+    }
+    return;
+  }
+
+  const totalQuantityOnHand = (balanceData || []).reduce(
+    (sum, row) => sum + Number(row.quantity_on_hand || 0),
+    0
+  );
+
+  currentCostUpdateSelectedPart = {
+    ...partData,
+    total_quantity_on_hand: totalQuantityOnHand
+  };
+
+  renderPartCostDetails(currentCostUpdateSelectedPart);
+
+  if (partInput) {
+    partInput.value = partData.part_number;
+  }
+
+  if (updatedByInput && !updatedByInput.value.trim()) {
+    updatedByInput.value = getCurrentUserDisplayName();
+  }
+
+  if (newCostInput) {
+    newCostInput.value = partData.unit_cost === null || partData.unit_cost === undefined
+      ? ''
+      : Number(partData.unit_cost).toFixed(2);
+    newCostInput.focus();
+    newCostInput.select();
+  }
+
+  if (resultBox) {
+    resultBox.textContent =
+      `Part loaded successfully.\n\n` +
+      `Part Number: ${partData.part_number}\n` +
+      `Current Unit Cost: ${partData.unit_cost === null || partData.unit_cost === undefined ? 'NOT SET' : formatCurrency(partData.unit_cost)}\n` +
+      `Total Quantity On Hand: ${formatNumber(totalQuantityOnHand)}\n\n` +
+      `Enter the new unit cost and a required reason, then click UPDATE UNIT COST.`;
+  }
+}
+
+async function updateExistingPartUnitCost() {
+  const partInput = document.getElementById('changeCostPartNumber');
+  const newCostInput = document.getElementById('changeCostNewUnitCost');
+  const updatedByInput = document.getElementById('changeCostUpdatedBy');
+  const reasonInput = document.getElementById('changeCostReason');
+  const resultBox = document.getElementById('changeCostResult');
+  const partNumber = partInput?.value.trim() || '';
+  const newCostRaw = newCostInput?.value.trim() || '';
+  const updatedBy = updatedByInput?.value.trim() || '';
+  const reason = reasonInput?.value.trim() || '';
+
+  if (!currentCostUpdateSelectedPart || !partNumber) {
+    if (resultBox) {
+      resultBox.textContent = 'Load the part and review its current cost before updating.';
+    }
+    return;
+  }
+
+  if (String(currentCostUpdateSelectedPart.part_number || '').toUpperCase() !== partNumber.toUpperCase()) {
+    if (resultBox) {
+      resultBox.textContent = 'The part number changed after loading. Load the part again before updating.';
+    }
+    return;
+  }
+
+  if (newCostRaw === '' || !Number.isFinite(Number(newCostRaw)) || Number(newCostRaw) < 0) {
+    if (resultBox) {
+      resultBox.textContent = 'Enter a valid New Unit Cost of zero or greater.';
+    }
+    return;
+  }
+
+  if (!updatedBy) {
+    if (resultBox) {
+      resultBox.textContent = 'Updated By is required.';
+    }
+    return;
+  }
+
+  if (!reason) {
+    if (resultBox) {
+      resultBox.textContent = 'Reason is required so the cost change has a clear audit trail.';
+    }
+    return;
+  }
+
+  const newUnitCost = Number(newCostRaw);
+  const oldUnitCost = currentCostUpdateSelectedPart.unit_cost;
+  const oldCostText = oldUnitCost === null || oldUnitCost === undefined
+    ? 'NOT SET'
+    : formatCurrency(oldUnitCost);
+  const totalQty = Number(currentCostUpdateSelectedPart.total_quantity_on_hand || 0);
+  const oldValue = totalQty * Number(oldUnitCost || 0);
+  const newValue = totalQty * newUnitCost;
+
+  const confirmed = window.confirm(
+    `Update unit cost?\n\n` +
+    `Part: ${partNumber}\n` +
+    `Old Unit Cost: ${oldCostText}\n` +
+    `New Unit Cost: ${formatCurrency(newUnitCost)}\n` +
+    `Current-Cost Inventory Value: ${formatCurrency(oldValue)} → ${formatCurrency(newValue)}\n\n` +
+    `This will not change quantity on hand or FIFO layers.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  if (resultBox) {
+    resultBox.textContent = `Updating unit cost for ${partNumber}...`;
+  }
+
+  const { data, error } = await client.rpc('update_inventory_part_unit_cost', {
+    p_part_number: partNumber,
+    p_new_unit_cost: newUnitCost,
+    p_updated_by: updatedBy,
+    p_reason: reason
+  });
+
+  if (error) {
+    if (resultBox) {
+      resultBox.textContent = 'Unit cost update failed: ' + error.message;
+    }
+    return;
+  }
+
+  const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
+
+  if (!result) {
+    if (resultBox) {
+      resultBox.textContent = 'Unit cost update completed, but no result was returned.';
+    }
+    return;
+  }
+
+  currentCostUpdateSelectedPart = {
+    ...currentCostUpdateSelectedPart,
+    unit_cost: result.new_unit_cost,
+    total_quantity_on_hand: result.total_quantity_on_hand
+  };
+
+  renderPartCostDetails(currentCostUpdateSelectedPart);
+
+  if (newCostInput) {
+    newCostInput.value = Number(result.new_unit_cost || 0).toFixed(2);
+  }
+
+  if (reasonInput) {
+    reasonInput.value = '';
+  }
+
+  if (resultBox) {
+    resultBox.textContent =
+      `Unit cost updated successfully.\n\n` +
+      `Part Number: ${result.part_number}\n` +
+      `Description: ${result.description || ''}\n` +
+      `Old Unit Cost: ${result.old_unit_cost === null || result.old_unit_cost === undefined ? 'NOT SET' : formatCurrency(result.old_unit_cost)}\n` +
+      `New Unit Cost: ${formatCurrency(result.new_unit_cost)}\n` +
+      `Total Quantity On Hand: ${formatNumber(result.total_quantity_on_hand)}\n` +
+      `Old Current-Cost Value: ${formatCurrency(result.old_inventory_value)}\n` +
+      `New Current-Cost Value: ${formatCurrency(result.new_inventory_value)}\n` +
+      `Updated By: ${updatedBy}\n` +
+      `Reason: ${reason}`;
+  }
+
+  await loadParts();
 }
 
 async function changePartSerializationStatus() {
