@@ -2547,8 +2547,9 @@
 <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
 <div class="warning-note">
       This report shows on-hand inventory from stock balances and compares it to issue history.
-      Since the inventory transaction ledger currently has limited history, items with no matching issue history
-      will display as No Issue History Yet.
+      Items with no matching issue history display as No Issue History Yet. Legacy parts that were already
+      identified as dead stock on the March 20, 2026 Scrap Inventory report and verified in the database display
+      as Legacy Verified Dead Stock — 120+ Days.
     </div>
 <div class="dead-stock-filter-panel">
 <div class="dead-stock-filter-grid">
@@ -2561,6 +2562,7 @@
 <select id="deadStockFilter">
 <option value="all_candidates">All Dead Stock Candidates</option>
 <option selected="" value="no_issue">No Issue History Yet</option>
+<option value="legacy_verified_120">Legacy Verified Dead Stock — 120+ Days</option>
 <option value="days90">90+ Days No Movement</option>
 <option value="days180">180+ Days No Movement</option>
 <option value="days365">365+ Days No Movement</option>
@@ -5716,8 +5718,17 @@ async function fetchDeadStockRows(filterValue) {
       query = query.eq('dead_stock_status', 'No Issue History Yet');
     }
 
-    if (filterValue === 'days90') {
-      query = query.gte('days_since_last_issued', 90);
+    /*
+      The 90+ filter must also include the manually verified March 2026 legacy
+      dead-stock records. Those rows have no ledger-based days value, so the
+      final 90+/legacy distinction is applied in getFilteredDeadStockRows().
+    */
+    if (
+      filterValue === 'days90'
+      || filterValue === 'legacy_verified_120'
+      || filterValue === 'all_candidates'
+    ) {
+      query = query.neq('dead_stock_status', 'Recently Issued');
     }
 
     if (filterValue === 'days180') {
@@ -5726,10 +5737,6 @@ async function fetchDeadStockRows(filterValue) {
 
     if (filterValue === 'days365') {
       query = query.gte('days_since_last_issued', 365);
-    }
-
-    if (filterValue === 'all_candidates') {
-      query = query.neq('dead_stock_status', 'Recently Issued');
     }
 
     const { data, error } = await query
@@ -5830,6 +5837,51 @@ function getFilteredDeadStockRows() {
     const location = String(row.location_name || '').trim();
     const verifiedStatus = String(row.verified_status || '').trim();
     const recommendedAction = String(row.recommended_action || '').trim();
+    const isLegacyVerified = isLegacyVerifiedDeadStock(row);
+    const rawDays = row.days_since_last_issued;
+    const hasCalculatedDays = rawDays !== null && rawDays !== undefined && rawDays !== '';
+    const calculatedDays = hasCalculatedDays ? Number(rawDays) : null;
+
+    if (filters.sourceFilter === 'legacy_verified_120' && !isLegacyVerified) {
+      return false;
+    }
+
+    if (
+      filters.sourceFilter === 'days90'
+      && !isLegacyVerified
+      && !(calculatedDays !== null && calculatedDays >= 90)
+    ) {
+      return false;
+    }
+
+    if (
+      filters.sourceFilter === 'days180'
+      && !(calculatedDays !== null && calculatedDays >= 180)
+    ) {
+      return false;
+    }
+
+    if (
+      filters.sourceFilter === 'days365'
+      && !(calculatedDays !== null && calculatedDays >= 365)
+    ) {
+      return false;
+    }
+
+    if (
+      filters.sourceFilter === 'no_issue'
+      && String(row.dead_stock_status || '').trim() !== 'No Issue History Yet'
+    ) {
+      return false;
+    }
+
+    if (
+      filters.sourceFilter === 'all_candidates'
+      && String(row.dead_stock_status || '').trim() === 'Recently Issued'
+      && !isLegacyVerified
+    ) {
+      return false;
+    }
 
     if (filters.partSearch && !partNumber.includes(filters.partSearch)) {
       return false;
@@ -5955,6 +6007,50 @@ function formatDeadStockOptionLabel(value) {
     .trim();
 }
 
+function isLegacyVerifiedDeadStock(row) {
+  const verifiedStatus = String(row?.verified_status || '').trim().toUpperCase();
+
+  if (verifiedStatus !== 'VERIFIED_DEAD_STOCK') {
+    return false;
+  }
+
+  const recommendedAction = String(row?.recommended_action || '').trim().toUpperCase();
+  const reasonText = String(row?.verification_reason || '').trim().toUpperCase();
+  const notesText = String(row?.verification_notes || '').trim().toUpperCase();
+  const combinedVerificationText = `${reasonText} ${notesText}`;
+
+  const hasLegacyMarker =
+    combinedVerificationText.includes('LEGACY DEAD STOCK')
+    || combinedVerificationText.includes('MINIMUM 120 DAYS')
+    || combinedVerificationText.includes('120+ DAYS');
+
+  const matchesLegacyFallback =
+    recommendedAction === 'REVIEW_LATER'
+    && !row?.last_issued_at
+    && String(row?.dead_stock_status || '').trim() === 'No Issue History Yet';
+
+  return hasLegacyMarker || matchesLegacyFallback;
+}
+
+function getDeadStockDisplayValues(row) {
+  const isLegacyVerified = isLegacyVerifiedDeadStock(row);
+  const rawDays = row?.days_since_last_issued;
+  const hasCalculatedDays = rawDays !== null && rawDays !== undefined && rawDays !== '';
+
+  return {
+    isLegacyVerified,
+    lastIssuedDisplay: isLegacyVerified && !row?.last_issued_at
+      ? 'No Recorded Issue'
+      : formatDateTime(row?.last_issued_at),
+    daysSinceDisplay: isLegacyVerified
+      ? '120+'
+      : (hasCalculatedDays ? formatNumber(rawDays) : '—'),
+    statusDisplay: isLegacyVerified
+      ? 'Legacy Verified Dead Stock — 120+ Days'
+      : String(row?.dead_stock_status || '')
+  };
+}
+
 function getDeadStockReviewStatusHTML(row) {
   const verifiedStatus = String(row.verified_status || '').trim();
 
@@ -6059,6 +6155,7 @@ function renderDeadStockTable() {
     const rowKey = getDeadStockRowKey(row, index);
     const mainRow = document.createElement('tr');
     const isReviewed = Boolean(String(row.verified_status || '').trim());
+    const displayValues = getDeadStockDisplayValues(row);
 
     mainRow.className = 'dead-stock-main-row';
     mainRow.innerHTML = `
@@ -6074,9 +6171,9 @@ function renderDeadStockTable() {
       <td>${formatNumber(row.quantity_on_hand)}</td>
       <td>${formatCurrency(row.unit_cost)}</td>
       <td>${formatCurrency(row.inventory_value)}</td>
-      <td>${formatDateTime(row.last_issued_at)}</td>
-      <td>${formatNumber(row.days_since_last_issued)}</td>
-      <td>${escapeHTML(row.dead_stock_status || '')}</td>
+      <td>${escapeHTML(displayValues.lastIssuedDisplay)}</td>
+      <td>${escapeHTML(displayValues.daysSinceDisplay)}</td>
+      <td>${escapeHTML(displayValues.statusDisplay)}</td>
       <td>${getDeadStockReviewStatusHTML(row)}</td>
     `;
 
@@ -6226,6 +6323,7 @@ function updateDeadStockSummary() {
   let totalQty = 0;
   let totalValue = 0;
   let noIssueCount = 0;
+  let legacyVerifiedCount = 0;
   let blankCategoryCount = 0;
   let reviewedCount = 0;
 
@@ -6235,6 +6333,10 @@ function updateDeadStockSummary() {
 
     if (row.dead_stock_status === 'No Issue History Yet') {
       noIssueCount++;
+    }
+
+    if (isLegacyVerifiedDeadStock(row)) {
+      legacyVerifiedCount++;
     }
 
     if (!row.category || String(row.category).trim() === '') {
@@ -6258,6 +6360,7 @@ function updateDeadStockSummary() {
     `Not Reviewed: ${formatNumber(deadStockFilteredData.length - reviewedCount)}\n` +
     `Total Quantity On Hand: ${formatNumber(totalQty)}\n` +
     `Total Inventory Value: ${formatCurrency(totalValue)}\n` +
+    `Legacy Verified 120+ Count: ${formatNumber(legacyVerifiedCount)}\n` +
     `No Issue History Yet Count: ${formatNumber(noIssueCount)}\n` +
     `NULL / BLANK Category Count: ${formatNumber(blankCategoryCount)}`;
 }
@@ -6293,6 +6396,8 @@ async function exportDeadStockCSV() {
     'Part Number,Description,Category,Location,Quantity On Hand,Unit Cost,Inventory Value,Last Issued At,Days Since Last Issued,Last Received At,Dead Stock Status,Verified Status,Recommended Action,Verified By,Verified At,Verification Reason,Verification Notes\n';
 
   deadStockFilteredData.forEach(row => {
+    const displayValues = getDeadStockDisplayValues(row);
+
     csv +=
       `"${cleanCSV(row.part_number)}",` +
       `"${cleanCSV(row.description)}",` +
@@ -6302,9 +6407,9 @@ async function exportDeadStockCSV() {
       `"${cleanCSV(row.unit_cost)}",` +
       `"${cleanCSV(row.inventory_value)}",` +
       `"${cleanCSV(row.last_issued_at)}",` +
-      `"${cleanCSV(row.days_since_last_issued)}",` +
+      `"${cleanCSV(displayValues.daysSinceDisplay)}",` +
       `"${cleanCSV(row.last_received_at)}",` +
-      `"${cleanCSV(row.dead_stock_status)}",` +
+      `"${cleanCSV(displayValues.statusDisplay)}",` +
       `"${cleanCSV(row.verified_status)}",` +
       `"${cleanCSV(row.recommended_action)}",` +
       `"${cleanCSV(row.verified_by)}",` +
