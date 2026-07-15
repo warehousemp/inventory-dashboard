@@ -980,6 +980,89 @@
     .badge-cancelled { background: #fef3f2; color: var(--danger); border-color: #fecdca; }
     .badge-neutral { background: #f2f4f7; color: #344054; border-color: #eaecf0; }
 
+
+    .mechanical-assessment-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .mechanical-assessment-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .mechanical-assessment-card .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+
+    .mechanical-assessment-card .value {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--header);
+    }
+
+    .mechanical-assessment-card .sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .mechanical-assessment-filters {
+      display: grid;
+      grid-template-columns: minmax(240px, 1.2fr) repeat(3, minmax(170px, 0.8fr)) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+
+    .mechanical-assessment-table-wrap {
+      width: 100%;
+      max-width: 100%;
+      max-height: 760px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 12px;
+      margin-bottom: 18px;
+    }
+
+    .mechanical-assessment-table {
+      width: 100%;
+      min-width: 1450px;
+      border-collapse: collapse;
+      background: white;
+      table-layout: auto;
+    }
+
+    .mechanical-assessment-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #f8fafc;
+      color: var(--header);
+    }
+
+    .mechanical-assessment-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .mechanical-assessment-actions button {
+      width: auto;
+      min-width: 150px;
+      margin: 0;
+    }
+
     @media (max-width: 1000px) {
       .info-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
       .three-column-form,
@@ -990,7 +1073,9 @@
       .inspection-summary-grid,
       .inspection-detail-grid,
       .inspection-detail-section-body,
-      .inspection-office-form { grid-template-columns: 1fr; }
+      .inspection-office-form,
+      .mechanical-assessment-summary-grid,
+      .mechanical-assessment-filters { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 820px) {
@@ -1356,7 +1441,7 @@
           <button class="client-services-tab" id="weeklyRevenueTab" type="button" role="tab" aria-selected="false" onclick="showClientServicesSection('weeklyRevenue')">Weekly Revenue</button>
           <button class="client-services-tab active" id="missingDataTab" type="button" role="tab" aria-selected="true" onclick="showClientServicesSection('missingData')">Missing Data</button>
           <button class="client-services-tab" id="inspectionQueueTab" type="button" role="tab" aria-selected="false" onclick="showClientServicesSection('inspectionQueue')">Inspection Queue</button>
-          <button class="client-services-tab" id="payrollSubmittalTab" type="button" role="tab" aria-selected="false" onclick="showClientServicesSection('payrollSubmittal')">Payroll Submittal</button>
+          <button class="client-services-tab" id="mechanicalAssessmentTab" type="button" role="tab" aria-selected="false" onclick="showClientServicesSection('mechanicalAssessment')">Mechanical Assessment Tracking</button>
           <button class="client-services-tab" id="onCallScheduleTab" type="button" role="tab" aria-selected="false" onclick="showClientServicesSection('onCallSchedule')">On Call Schedule</button>
           <button class="client-services-tab" id="weeklySamsaraTab" type="button" role="tab" aria-selected="false" onclick="showClientServicesSection('weeklySamsara')">Weekly Samsara</button>
         </div>
@@ -1879,17 +1964,51 @@
           <div class="footer-note" id="inspectionResultCount">0 requests loaded.</div>
         </section>
 
-        <section id="payrollSubmittalPanel" class="task-panel" role="tabpanel" aria-labelledby="payrollSubmittalTab">
+        <section id="mechanicalAssessmentPanel" class="task-panel" role="tabpanel" aria-labelledby="mechanicalAssessmentTab">
           <div class="task-section-header">
             <div>
-              <h2>Payroll Submittal</h2>
-              <p>Future Client Services section for payroll submittal tracking.</p>
+              <h2>Mechanical Assessment Tracking</h2>
+              <p>CSC tracking for route clients who have or have not completed a Mechanical Assessment.</p>
+            </div>
+            <div class="task-section-actions">
+              <button class="collapse-section-btn" id="mechanicalAssessmentRefreshBtn" type="button" onclick="loadMechanicalAssessmentData(true)">Refresh Data</button>
+              <button class="collapse-section-btn" id="mechanicalAssessmentExportBtn" type="button" onclick="exportMechanicalAssessmentCsv()">Export CSV</button>
             </div>
           </div>
-          <div class="placeholder-card">
-            <h3>Coming Soon</h3>
-            <p>This section is reserved for payroll submittal workflow tasks.</p>
+
+          <div class="status-note">
+            This section reads from <strong>public.client_mechanical_assessment_tracking_view</strong>. Each row should represent one route-cleaning customer location with its assigned Route Tech and Mechanical Assessment completion status.
           </div>
+
+          <div id="mechanicalAssessmentMessage" class="message"></div>
+
+          <section class="mechanical-assessment-summary-grid" aria-label="Mechanical Assessment summary">
+            <div class="mechanical-assessment-summary-card"><div class="label">Route Customers</div><div class="value" id="mechanicalAssessmentCustomerCount">0</div><div class="sub">Customers loaded</div></div>
+            <div class="mechanical-assessment-summary-card"><div class="label">Completed</div><div class="value" id="mechanicalAssessmentCompletedCount">0</div><div class="sub">Assessment completed</div></div>
+            <div class="mechanical-assessment-summary-card"><div class="label">Not Completed</div><div class="value" id="mechanicalAssessmentNeededCount">0</div><div class="sub">Assessment needed</div></div>
+            <div class="mechanical-assessment-summary-card"><div class="label">Needs Review</div><div class="value" id="mechanicalAssessmentReviewCount">0</div><div class="sub">Missing or conflicting data</div></div>
+          </section>
+
+          <div class="mechanical-assessment-filter-grid">
+            <div><label for="mechanicalAssessmentSearch">Search</label><input id="mechanicalAssessmentSearch" type="search" placeholder="Customer, address, or Route Tech..." oninput="applyMechanicalAssessmentFilters()"></div>
+            <div><label for="mechanicalAssessmentTechFilter">Route Tech</label><select id="mechanicalAssessmentTechFilter" onchange="applyMechanicalAssessmentFilters()"><option value="">All Route Techs</option></select></div>
+            <div><label for="mechanicalAssessmentCompletionFilter">Mechanical Assessment</label><select id="mechanicalAssessmentCompletionFilter" onchange="applyMechanicalAssessmentFilters()"><option value="">All</option><option value="YES">Completed</option><option value="NO">Not Completed</option><option value="REVIEW">Needs Review</option></select></div>
+            <div><label>&nbsp;</label><button class="secondary-btn" type="button" onclick="clearMechanicalAssessmentFilters()">Clear Filters</button></div>
+          </div>
+
+          <div class="small-action-row">
+            <button class="warning-btn" type="button" onclick="showMechanicalAssessmentNeeded()">SHOW ASSESSMENT NEEDED</button>
+            <button class="admin-btn" type="button" onclick="showMechanicalAssessmentCompleted()">SHOW COMPLETED</button>
+            <button class="secondary-btn" type="button" onclick="showMechanicalAssessmentNeedsReview()">SHOW NEEDS REVIEW</button>
+          </div>
+
+          <div class="mechanical-assessment-table-wrap">
+            <table class="mechanical-assessment-table">
+              <thead><tr><th>Customer</th><th>Location</th><th>Route Tech</th><th>Mechanical Assessment Completed</th><th>Assessment Date</th><th>Status</th></tr></thead>
+              <tbody id="mechanicalAssessmentTbody"><tr><td colspan="6">Mechanical Assessment data will load here.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="footer-note" id="mechanicalAssessmentResultCount">0 customer records loaded.</div>
         </section>
 
         <section id="onCallSchedulePanel" class="task-panel" role="tabpanel" aria-labelledby="onCallScheduleTab">
@@ -2038,6 +2157,11 @@ let filteredInspectionRequests = [];
 let selectedInspectionRequest = null;
 let inspectionRequestsLoaded = false;
 
+const MECHANICAL_ASSESSMENT_VIEW = 'client_mechanical_assessment_tracking_view';
+let allMechanicalAssessmentRows = [];
+let filteredMechanicalAssessmentRows = [];
+let mechanicalAssessmentLoaded = false;
+
 window.addEventListener('load', async () => {
   initializeSidebar();
 
@@ -2058,6 +2182,11 @@ window.addEventListener('load', async () => {
   const activeInspectionTab = document.getElementById('inspectionQueueTab');
   if (activeInspectionTab && activeInspectionTab.classList.contains('active')) {
     await loadInspectionRequests();
+  }
+
+  const activeMechanicalAssessmentTab = document.getElementById('mechanicalAssessmentTab');
+  if (activeMechanicalAssessmentTab && activeMechanicalAssessmentTab.classList.contains('active')) {
+    await loadMechanicalAssessmentData(false);
   }
 });
 
@@ -2175,7 +2304,7 @@ function initializeClientServicesTabs() {
 }
 
 function showClientServicesSection(sectionKey, saveState = true) {
-  const allowedSections = ['clientChanges', 'weeklyRevenue', 'missingData', 'inspectionQueue', 'payrollSubmittal', 'onCallSchedule', 'weeklySamsara'];
+  const allowedSections = ['clientChanges', 'weeklyRevenue', 'missingData', 'inspectionQueue', 'mechanicalAssessment', 'onCallSchedule', 'weeklySamsara'];
   const activeSection = allowedSections.includes(sectionKey) ? sectionKey : 'missingData';
 
   allowedSections.forEach(key => {
@@ -2206,6 +2335,10 @@ function showClientServicesSection(sectionKey, saveState = true) {
 
   if (activeSection === 'inspectionQueue' && currentSession && !inspectionRequestsLoaded) {
     loadInspectionRequests();
+  }
+
+  if (activeSection === 'mechanicalAssessment' && currentSession && !mechanicalAssessmentLoaded) {
+    loadMechanicalAssessmentData(false);
   }
 }
 
@@ -3516,6 +3649,160 @@ function truncateText(value, maxLength) {
 function csvEscape(value) {
   const text = value === null || value === undefined ? '' : String(value);
   return `"${text.replace(/"/g, '""')}"`;
+}
+
+
+async function loadMechanicalAssessmentData(showSuccessMessage = true) {
+  const tbody = document.getElementById('mechanicalAssessmentTbody');
+  const refreshBtn = document.getElementById('mechanicalAssessmentRefreshBtn');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6">Loading Mechanical Assessment data...</td></tr>';
+  if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = 'Refreshing...'; }
+  setMessage('mechanicalAssessmentMessage', 'info', 'Loading Mechanical Assessment data...');
+
+  const { data, error } = await client
+    .from(MECHANICAL_ASSESSMENT_VIEW)
+    .select('*')
+    .order('customer_name', { ascending: true });
+
+  if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = 'Refresh Data'; }
+
+  if (error) {
+    allMechanicalAssessmentRows = [];
+    filteredMechanicalAssessmentRows = [];
+    mechanicalAssessmentLoaded = false;
+    renderMechanicalAssessmentTable([]);
+    renderMechanicalAssessmentSummary([]);
+    setMessage('mechanicalAssessmentMessage', 'error', 'Unable to load Mechanical Assessment data from public.client_mechanical_assessment_tracking_view: ' + error.message);
+    return;
+  }
+
+  allMechanicalAssessmentRows = Array.isArray(data) ? data : [];
+  mechanicalAssessmentLoaded = true;
+  populateMechanicalAssessmentFilterOptions();
+  applyMechanicalAssessmentFilters(false);
+  setMessage('mechanicalAssessmentMessage', 'success', `${allMechanicalAssessmentRows.length.toLocaleString()} Mechanical Assessment customer record(s) loaded.`);
+}
+
+function populateMechanicalAssessmentFilterOptions() {
+  const techSelect = document.getElementById('mechanicalAssessmentTechFilter');
+  if (!techSelect) return;
+  const techs = [...new Set(allMechanicalAssessmentRows.map(row => mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech)).filter(Boolean))].sort();
+  techSelect.innerHTML = '<option value="">All Route Techs</option>' + techs.map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join('');
+}
+
+function applyMechanicalAssessmentFilters(showMessage = true) {
+  const search = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentSearch')?.value).toLowerCase();
+  const routeTech = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentTechFilter')?.value);
+  const completion = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentCompletionFilter')?.value).toUpperCase();
+
+  filteredMechanicalAssessmentRows = allMechanicalAssessmentRows.filter(row => {
+    const tech = mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech);
+    const completed = mechanicalAssessmentComplete(row);
+    const needsReview = mechanicalAssessmentNeedsReview(row);
+    if (routeTech && tech !== routeTech) return false;
+    if (completion === 'YES' && !completed) return false;
+    if (completion === 'NO' && (completed || needsReview)) return false;
+    if (completion === 'REVIEW' && !needsReview) return false;
+    if (search) {
+      const haystack = [row.customer_name, row.customer, row.location, row.full_location_address, row.location_address, tech]
+        .map(mechanicalAssessmentSafe).join(' ').toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+
+  filteredMechanicalAssessmentRows.sort((a, b) => {
+    const techCompare = mechanicalAssessmentSafe(a.assigned_route_tech || a.route_tech).localeCompare(mechanicalAssessmentSafe(b.assigned_route_tech || b.route_tech));
+    if (techCompare) return techCompare;
+    return mechanicalAssessmentSafe(a.customer_name || a.customer).localeCompare(mechanicalAssessmentSafe(b.customer_name || b.customer));
+  });
+
+  renderMechanicalAssessmentTable(filteredMechanicalAssessmentRows);
+  renderMechanicalAssessmentSummary(allMechanicalAssessmentRows);
+  if (showMessage) setMessage('mechanicalAssessmentMessage', 'success', `${filteredMechanicalAssessmentRows.length.toLocaleString()} customer record(s) shown.`);
+}
+
+function renderMechanicalAssessmentTable(rows) {
+  const tbody = document.getElementById('mechanicalAssessmentTbody');
+  const resultCount = document.getElementById('mechanicalAssessmentResultCount');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (resultCount) resultCount.textContent = `${rows.length.toLocaleString()} customer record${rows.length === 1 ? '' : 's'} shown.`;
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6">No Mechanical Assessment records match the current filters.</td></tr>'; return; }
+
+  rows.forEach(row => {
+    const customer = mechanicalAssessmentSafe(row.customer_name || row.customer);
+    const location = mechanicalAssessmentSafe(row.location || row.full_location_address || row.location_address);
+    const tech = mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech);
+    const completed = mechanicalAssessmentComplete(row);
+    const needsReview = mechanicalAssessmentNeedsReview(row);
+    const date = row.mechanical_assessment_date || row.assessment_date || row.completed_at || '';
+    const status = needsReview ? 'Needs Review' : completed ? 'Completed' : 'Not Completed';
+    const badgeClass = needsReview ? 'orange' : completed ? 'green' : 'red';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="wrap-cell"><strong>${escapeHTML(customer || '—')}</strong></td>
+      <td class="wrap-cell">${escapeHTML(location || '—')}</td>
+      <td>${escapeHTML(tech || '—')}</td>
+      <td><span class="badge ${completed ? 'green' : 'red'}">${completed ? 'Yes' : 'No'}</span></td>
+      <td>${escapeHTML(date ? formatShortDate(String(date).slice(0,10)) : '—')}</td>
+      <td><span class="badge ${badgeClass}">${escapeHTML(status)}</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderMechanicalAssessmentSummary(rows) {
+  const completed = rows.filter(mechanicalAssessmentComplete).length;
+  const review = rows.filter(mechanicalAssessmentNeedsReview).length;
+  const needed = rows.length - completed - review;
+  setText('mechanicalAssessmentCustomerCount', rows.length.toLocaleString());
+  setText('mechanicalAssessmentCompletedCount', completed.toLocaleString());
+  setText('mechanicalAssessmentNeededCount', Math.max(needed, 0).toLocaleString());
+  setText('mechanicalAssessmentReviewCount', review.toLocaleString());
+}
+
+function clearMechanicalAssessmentFilters() {
+  setValue('mechanicalAssessmentSearch', '');
+  setValue('mechanicalAssessmentTechFilter', '');
+  setValue('mechanicalAssessmentCompletionFilter', '');
+  applyMechanicalAssessmentFilters();
+}
+function showMechanicalAssessmentNeeded() { setValue('mechanicalAssessmentCompletionFilter', 'NO'); applyMechanicalAssessmentFilters(); }
+function showMechanicalAssessmentCompleted() { setValue('mechanicalAssessmentCompletionFilter', 'YES'); applyMechanicalAssessmentFilters(); }
+function showMechanicalAssessmentNeedsReview() { setValue('mechanicalAssessmentCompletionFilter', 'REVIEW'); applyMechanicalAssessmentFilters(); }
+
+function mechanicalAssessmentComplete(row) {
+  const value = row.mechanical_assessment_completed ?? row.assessment_completed ?? row.completed;
+  return value === true || ['yes','true','1','completed'].includes(mechanicalAssessmentSafe(value).toLowerCase());
+}
+function mechanicalAssessmentNeedsReview(row) {
+  return !mechanicalAssessmentSafe(row.customer_name || row.customer) || !mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech) || mechanicalAssessmentSafe(row.match_status).toLowerCase().includes('review');
+}
+function mechanicalAssessmentSafe(value) { return value === null || value === undefined ? '' : String(value).trim(); }
+
+function exportMechanicalAssessmentCsv() {
+  if (!filteredMechanicalAssessmentRows.length) { setMessage('mechanicalAssessmentMessage', 'error', 'There are no Mechanical Assessment records to export.'); return; }
+  const headers = ['Customer','Location','Route Tech','Mechanical Assessment Completed','Assessment Date','Status'];
+  const rows = filteredMechanicalAssessmentRows.map(row => {
+    const completed = mechanicalAssessmentComplete(row);
+    const review = mechanicalAssessmentNeedsReview(row);
+    return [
+      row.customer_name || row.customer || '',
+      row.location || row.full_location_address || row.location_address || '',
+      row.assigned_route_tech || row.route_tech || '',
+      completed ? 'Yes' : 'No',
+      row.mechanical_assessment_date || row.assessment_date || row.completed_at || '',
+      review ? 'Needs Review' : completed ? 'Completed' : 'Not Completed'
+    ];
+  });
+  const csv = [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `mechanical-assessment-tracking-${getLocalDateISO()}.csv`;
+  document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+  setMessage('mechanicalAssessmentMessage', 'success', 'Mechanical Assessment CSV export created.');
 }
 
 async function loadInspectionRequests() {
