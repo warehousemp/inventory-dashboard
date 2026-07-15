@@ -1,1 +1,1564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Client Changes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="google" content="notranslate">
 
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --danger: #b42318;
+      --warning: #dd6b20;
+      --success: #027a48;
+      --sidebar-width: 300px;
+      --sidebar-collapsed-width: 66px;
+    }
+
+    html, body { max-width: 100%; overflow-x: hidden; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      margin: 0;
+      color: var(--text);
+    }
+
+    .hidden { display: none !important; }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      min-height: 100vh;
+      transition: grid-template-columns 0.2s ease;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      z-index: 1000;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 70px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    .brand-text { line-height: 1.1; white-space: nowrap; }
+    .brand-text strong { display: block; font-size: 15px; letter-spacing: 1px; }
+    .brand-text span { font-size: 11px; opacity: 0.82; letter-spacing: 2px; }
+
+    .sidebar-toggle-wrap { padding: 12px 12px 4px; display: flex; justify-content: flex-end; }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      width: 17px;
+      height: 2px;
+      border-radius: 999px;
+      background: white;
+    }
+
+    .side-nav { padding: 8px 10px 14px; }
+
+    .side-nav a,
+    .side-nav button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 4px;
+      white-space: nowrap;
+      min-height: 44px;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font-family: Arial, sans-serif;
+      text-align: left;
+    }
+
+    .side-nav a:hover,
+    .side-nav button:hover,
+    .side-nav a.active {
+      background: rgba(26,163,176,0.30);
+      color: white;
+    }
+
+    .nav-section {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.72);
+      font-weight: 800;
+      padding: 14px 12px 4px;
+      white-space: nowrap;
+    }
+
+    .nav-icon {
+      width: 20px;
+      min-width: 20px;
+      text-align: center;
+    }
+
+    .nav-group { margin-bottom: 4px; }
+    .nav-group-toggle .nav-group-symbol { margin-left: auto; font-size: 18px; }
+    .nav-submenu { display: none; padding-bottom: 4px; }
+    .nav-group.open .nav-submenu { display: block; }
+    .nav-submenu a { padding-left: 34px; min-height: 38px; font-size: 13px; }
+
+    .sidebar-footer {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      padding: 10px;
+    }
+
+    .app-shell.sidebar-collapsed .brand { justify-content: center; padding-left: 10px; padding-right: 10px; }
+    .app-shell.sidebar-collapsed .brand-text,
+    .app-shell.sidebar-collapsed .nav-label,
+    .app-shell.sidebar-collapsed .nav-section,
+    .app-shell.sidebar-collapsed .nav-group-symbol {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap { justify-content: center; }
+    .app-shell.sidebar-collapsed .side-nav a,
+    .app-shell.sidebar-collapsed .side-nav button {
+      justify-content: center;
+      gap: 0;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+    .app-shell.sidebar-collapsed .nav-submenu { display: none !important; }
+
+    .main { min-width: 0; max-width: 100%; overflow-x: hidden; }
+
+    .header-bar {
+      background: var(--header);
+      color: white;
+      padding: 18px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title { font-size: 20px; font-weight: bold; }
+    .header-subtitle { font-size: 13px; opacity: 0.9; font-weight: 600; margin-top: 4px; }
+
+    .main-layout {
+      max-width: 1500px;
+      margin: 28px auto;
+      padding: 0 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+      margin-bottom: 20px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    h2 { margin: 0 0 8px; color: var(--header); font-size: 22px; }
+    h3 { margin: 0 0 12px; color: var(--header); font-size: 17px; }
+    .section-description { margin: 0 0 18px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+    label {
+      display: block;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 5px;
+      font-size: 13px;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 14px;
+      font-family: Arial, sans-serif;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(26,163,176,0.15);
+    }
+
+    button {
+      padding: 11px 15px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 13px;
+      font-family: Arial, sans-serif;
+    }
+
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-primary { background: var(--header); color: white; }
+    .btn-accent { background: var(--accent); color: white; }
+    .btn-secondary { background: #eef4f7; color: var(--header); border: 1px solid var(--border); }
+    .btn-danger { background: #fef3f2; color: var(--danger); border: 1px solid #fecdca; }
+
+    .access-layout { max-width: 680px; margin: 30px auto; padding: 0 20px; }
+    .access-card { background: white; padding: 26px; border-radius: 14px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+    .warning-note, .danger-note, .status-note {
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+    .warning-note { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+    .danger-note { background: #fef3f2; border: 1px solid #fecdca; color: var(--danger); }
+    .status-note { background: #ecfdf3; border: 1px solid #bbf7d0; color: var(--success); }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) auto auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .summary-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .summary-card .label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      margin-bottom: 7px;
+    }
+
+    .summary-card .value {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--header);
+    }
+
+    .summary-card.added { background: #f6fef9; border-color: #abefc6; }
+    .summary-card.dropped { background: #fffbfa; border-color: #fecdca; }
+    .summary-card.replacement { background: #fffcf5; border-color: #fedf89; }
+    .summary-card.skipped { background: #eff8ff; border-color: #b2ddff; }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 18px;
+      background: white;
+    }
+
+    .tab-btn {
+      flex: 1 1 auto;
+      border: 0;
+      border-right: 1px solid var(--border);
+      border-radius: 0;
+      background: white;
+      color: var(--nav-dark);
+      padding: 13px 16px;
+      min-height: 44px;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+    }
+
+    .tab-btn.active {
+      background: #f8fafc;
+      box-shadow: inset 0 -3px 0 var(--accent);
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .panel-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .panel-actions .left,
+    .panel-actions .right {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .search-box { min-width: 280px; }
+
+    .table-wrap {
+      width: 100%;
+      max-height: 650px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 900px;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #f8fafc;
+      color: var(--header);
+      text-align: left;
+      padding: 10px;
+      font-size: 12px;
+      white-space: nowrap;
+      border-bottom: 1px solid #d9e2ec;
+    }
+
+    td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px;
+      font-size: 12px;
+      vertical-align: top;
+      white-space: normal;
+    }
+
+    tr:hover td { background: #f8fafc; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge-added { background: #dcfce7; color: #166534; }
+    .badge-dropped { background: #fee2e2; color: #991b1b; }
+    .badge-replacement { background: #ffedd5; color: #9a3412; }
+    .badge-skipped { background: #dbeafe; color: #1d4ed8; }
+
+    .message {
+      display: none;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .message.show { display: block; }
+    .message.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+    .message.success { background: #ecfdf3; border: 1px solid #bbf7d0; color: var(--success); }
+    .message.error { background: #fef3f2; border: 1px solid #fecdca; color: var(--danger); }
+
+    .import-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    .import-grid .full { grid-column: 1 / -1; }
+
+    .import-preview {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .import-stat {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .import-stat .label { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .import-stat .value { margin-top: 5px; color: var(--header); font-size: 20px; font-weight: 800; }
+
+    @media (max-width: 1200px) {
+      .summary-grid { grid-template-columns: repeat(4, minmax(140px, 1fr)); }
+      .import-preview { grid-template-columns: repeat(3, minmax(120px, 1fr)); }
+    }
+
+    @media (max-width: 900px) {
+      .toolbar, .import-grid { grid-template-columns: 1fr 1fr; }
+      .summary-grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell, .app-shell.sidebar-collapsed { grid-template-columns: 1fr; }
+      .sidebar { position: relative; height: auto; }
+      .sidebar-toggle-wrap { display: none; }
+      .side-nav { display: grid; grid-template-columns: repeat(2, 1fr); }
+      .app-shell.sidebar-collapsed .brand { justify-content: flex-start; padding: 18px; }
+      .app-shell.sidebar-collapsed .brand-text,
+      .app-shell.sidebar-collapsed .nav-label,
+      .app-shell.sidebar-collapsed .nav-section {
+        opacity: 1; width: auto;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .main-layout { padding: 0 12px; margin: 18px auto; }
+      .card { padding: 18px; }
+      .toolbar, .import-grid, .summary-grid, .import-preview { grid-template-columns: 1fr; }
+      .side-nav { grid-template-columns: 1fr; }
+      .tabs { display: block; }
+      .tab-btn { width: 100%; border-right: 0; border-bottom: 1px solid var(--border); }
+      .panel-actions, .panel-actions .left, .panel-actions .right { display: block; }
+      .panel-actions button, .search-box { width: 100%; margin-bottom: 8px; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="app-shell" id="appShell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">MP</div>
+      <div class="brand-text">
+        <strong>MOLINARI</strong>
+        <span>OPERATIONS</span>
+      </div>
+    </div>
+
+    <div class="sidebar-toggle-wrap">
+      <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+
+    <nav class="side-nav">
+      <a href="dashboard.html">
+        <span class="nav-icon">⌂</span><span class="nav-label">Dashboard</span>
+      </a>
+
+      <div class="nav-group open">
+        <button class="nav-group-toggle" type="button">
+          <span class="nav-icon">◆</span><span class="nav-label">Service</span><span class="nav-group-symbol">−</span>
+        </button>
+        <div class="nav-submenu">
+          <a href="client-services.html"><span class="nav-icon">•</span><span class="nav-label">CSC Dashboard</span></a>
+          <a href="client-changes.html" class="active"><span class="nav-icon">•</span><span class="nav-label">Client Changes</span></a>
+          <a href="service-department-admin.html"><span class="nav-icon">•</span><span class="nav-label">Service Admin</span></a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-group-toggle" type="button">
+          <span class="nav-icon">▦</span><span class="nav-label">Warehouse</span><span class="nav-group-symbol">+</span>
+        </button>
+        <div class="nav-submenu">
+          <a href="warehouse-dashboard.html"><span class="nav-icon">•</span><span class="nav-label">Warehouse Dashboard</span></a>
+          <a href="warehouse.html"><span class="nav-icon">•</span><span class="nav-label">Warehouse Operations</span></a>
+          <a href="warehouse-management.html"><span class="nav-icon">•</span><span class="nav-label">Warehouse Management</span></a>
+          <a href="warehouse-reports.html"><span class="nav-icon">•</span><span class="nav-label">Warehouse Reports</span></a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button type="button" onclick="logoutUser()">
+        <span class="nav-icon">↪</span><span class="nav-label">Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <div>
+        <div class="header-title">Client Changes</div>
+        <div class="header-subtitle">Weekly additions, drops, replacements, skipped stops, and Tech Details imports</div>
+      </div>
+      <div id="userDisplay" class="header-subtitle"></div>
+    </div>
+
+    <div id="accessGate" class="access-layout">
+      <div class="access-card">
+        <h2>Client Changes Access</h2>
+        <div id="accessMessage" class="warning-note">Checking access...</div>
+        <button class="btn-secondary" type="button" onclick="logoutUser()">Return to Login</button>
+      </div>
+    </div>
+
+    <div id="pageContent" class="main-layout hidden">
+      <section class="card">
+        <div class="toolbar">
+          <div>
+            <label for="weekSelect">Completed Week</label>
+            <select id="weekSelect"></select>
+          </div>
+          <div>
+            <label for="globalSearch">Search Current Tab</label>
+            <input id="globalSearch" type="search" placeholder="Customer, location, or route tech">
+          </div>
+          <button id="refreshBtn" class="btn-primary" type="button">Refresh</button>
+          <button id="exportCurrentBtn" class="btn-secondary" type="button">Export Current Tab</button>
+        </div>
+
+        <div id="incompleteWeekWarning" class="warning-note hidden"></div>
+
+        <div class="summary-grid">
+          <div class="summary-card"><div class="label">Route Rows</div><div id="sumRouteRows" class="value">0</div></div>
+          <div class="summary-card"><div class="label">Cleanings</div><div id="sumCleanings" class="value">0</div></div>
+          <div class="summary-card skipped"><div class="label">Skipped Stops</div><div id="sumSkipped" class="value">0</div></div>
+          <div class="summary-card"><div class="label">Customer Locations</div><div id="sumLocations" class="value">0</div></div>
+          <div class="summary-card"><div class="label">Existing</div><div id="sumExisting" class="value">0</div></div>
+          <div class="summary-card added"><div class="label">True Added</div><div id="sumAdded" class="value">0</div></div>
+          <div class="summary-card dropped"><div class="label">True Dropped</div><div id="sumDropped" class="value">0</div></div>
+          <div class="summary-card replacement"><div class="label">Replacements</div><div id="sumReplacements" class="value">0</div></div>
+        </div>
+
+        <div id="pageMessage" class="message"></div>
+      </section>
+
+      <section class="card">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="added" type="button">Added Clients</button>
+          <button class="tab-btn" data-tab="dropped" type="button">Dropped Clients</button>
+          <button class="tab-btn" data-tab="replacements" type="button">Replacements</button>
+          <button class="tab-btn" data-tab="skipped" type="button">Skipped Stops</button>
+          <button class="tab-btn" data-tab="techTotals" type="button">Skipped by Tech</button>
+          <button class="tab-btn" data-tab="import" type="button">Tech Details Import</button>
+        </div>
+
+        <div id="panel-added" class="tab-panel active">
+          <div class="panel-actions">
+            <div class="left"><h2>True Added Clients</h2></div>
+            <div class="right"><button class="btn-secondary" type="button" onclick="exportDataset('added')">Export CSV</button></div>
+          </div>
+          <p class="section-description">New customer-location combinations, excluding same-location customer replacements.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Week</th><th>Customer</th><th>Service Location</th><th>Route Tech</th><th>Status</th></tr></thead>
+              <tbody id="addedTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="panel-dropped" class="tab-panel">
+          <div class="panel-actions">
+            <div class="left"><h2>True Dropped Clients</h2></div>
+            <div class="right"><button class="btn-secondary" type="button" onclick="exportDataset('dropped')">Export CSV</button></div>
+          </div>
+          <p class="section-description">Customer-locations absent from the selected completed week, excluding same-location replacements. Reno Hold exclusions will be added after that workflow is built.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Week</th><th>Customer</th><th>Service Location</th><th>Prior Route Tech</th><th>Status</th></tr></thead>
+              <tbody id="droppedTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="panel-replacements" class="tab-panel">
+          <div class="panel-actions">
+            <div class="left"><h2>Same-Location Client Replacements</h2></div>
+            <div class="right"><button class="btn-secondary" type="button" onclick="exportDataset('replacements')">Export CSV</button></div>
+          </div>
+          <p class="section-description">Likely customer-name or ownership changes at the same service location.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Week</th><th>Service Location</th><th>Dropped Customer</th><th>Added Customer</th><th>Prior Tech</th><th>Current Tech</th><th>Status</th></tr></thead>
+              <tbody id="replacementsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="panel-skipped" class="tab-panel">
+          <div class="panel-actions">
+            <div class="left"><h2>Skipped Stops</h2></div>
+            <div class="right"><button class="btn-secondary" type="button" onclick="exportDataset('skipped')">Export CSV</button></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Service Date</th><th>Week</th><th>Customer</th><th>Service Location</th><th>Route Tech</th><th>Service Type</th></tr></thead>
+              <tbody id="skippedTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="panel-techTotals" class="tab-panel">
+          <div class="panel-actions">
+            <div class="left"><h2>Skipped Stops by Route Tech</h2></div>
+            <div class="right"><button class="btn-secondary" type="button" onclick="exportDataset('techTotals')">Export CSV</button></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Week</th><th>Route Tech</th><th>Skipped Stop Count</th></tr></thead>
+              <tbody id="techTotalsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="panel-import" class="tab-panel">
+          <h2>Tech Details Import</h2>
+          <p class="section-description">Upload a Skimmer Tech Details CSV. Only Cleaning and Skipped Stop rows are inserted. Molinari Pools rows are flagged as internal and excluded from client-change reporting.</p>
+
+          <div class="import-grid">
+            <div class="full">
+              <label for="importFile">Tech Details CSV</label>
+              <input id="importFile" type="file" accept=".csv,text/csv">
+            </div>
+            <div>
+              <label for="importStartDate">First Service Date</label>
+              <input id="importStartDate" type="date">
+            </div>
+            <div>
+              <label for="importEndDate">Last Service Date</label>
+              <input id="importEndDate" type="date">
+            </div>
+            <div>
+              <label for="importedBy">Imported By</label>
+              <input id="importedBy" type="text">
+            </div>
+            <div>
+              <label for="importNotes">Notes</label>
+              <input id="importNotes" type="text" placeholder="Optional import notes">
+            </div>
+          </div>
+
+          <div class="panel-actions" style="margin-top:14px;">
+            <div class="left">
+              <button id="previewImportBtn" class="btn-secondary" type="button">Preview Import</button>
+              <button id="runImportBtn" class="btn-accent" type="button" disabled>Run Import</button>
+            </div>
+          </div>
+
+          <div id="importPreview" class="import-preview hidden">
+            <div class="import-stat"><div class="label">Source Rows</div><div id="previewSourceRows" class="value">0</div></div>
+            <div class="import-stat"><div class="label">Prepared Rows</div><div id="previewPreparedRows" class="value">0</div></div>
+            <div class="import-stat"><div class="label">Cleaning</div><div id="previewCleaningRows" class="value">0</div></div>
+            <div class="import-stat"><div class="label">Skipped</div><div id="previewSkippedRows" class="value">0</div></div>
+            <div class="import-stat"><div class="label">Internal</div><div id="previewInternalRows" class="value">0</div></div>
+            <div class="import-stat"><div class="label">Excluded</div><div id="previewExcludedRows" class="value">0</div></div>
+          </div>
+
+          <div id="importMessage" class="message"></div>
+
+          <h3 style="margin-top:22px;">Import History</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Imported At</th><th>Source File</th><th>Date Range</th><th>Imported By</th><th>Source Rows</th><th>Cleaning</th><th>Skipped</th><th>Internal</th><th>Notes</th></tr></thead>
+              <tbody id="importHistoryTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
+const ACTIVE_TAB_STORAGE_KEY = 'clientChangesActiveTab';
+
+let currentSession = null;
+let currentProfile = null;
+let selectedWeekStart = '';
+let activeTab = 'added';
+let latestServiceDate = null;
+let parsedImport = null;
+
+const datasets = {
+  added: [],
+  dropped: [],
+  replacements: [],
+  skipped: [],
+  techTotals: []
+};
+
+document.addEventListener('DOMContentLoaded', initializePage);
+
+async function initializePage() {
+  initializeSidebar();
+  initializeTabs();
+  bindEvents();
+
+  const allowed = await enforceAccess();
+  if (!allowed) return;
+
+  const importedBy = document.getElementById('importedBy');
+  if (importedBy) importedBy.value = currentProfile?.full_name || currentSession?.user?.email || '';
+
+  await loadAllData();
+}
+
+function initializeSidebar() {
+  const shell = document.getElementById('appShell');
+  const toggle = document.getElementById('sidebarToggle');
+
+  try {
+    if (localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true') shell.classList.add('sidebar-collapsed');
+  } catch (_) {}
+
+  toggle?.addEventListener('click', () => {
+    shell.classList.toggle('sidebar-collapsed');
+    try {
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(shell.classList.contains('sidebar-collapsed')));
+    } catch (_) {}
+  });
+
+  document.querySelectorAll('.nav-group-toggle').forEach(button => {
+    button.addEventListener('click', () => {
+      const group = button.closest('.nav-group');
+      group.classList.toggle('open');
+      const symbol = button.querySelector('.nav-group-symbol');
+      if (symbol) symbol.textContent = group.classList.contains('open') ? '−' : '+';
+    });
+  });
+}
+
+function initializeTabs() {
+  try {
+    activeTab = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY) || 'added';
+  } catch (_) {
+    activeTab = 'added';
+  }
+
+  switchTab(activeTab);
+
+  document.querySelectorAll('.tab-btn').forEach(button => {
+    button.addEventListener('click', () => switchTab(button.dataset.tab));
+  });
+}
+
+function switchTab(tabName) {
+  activeTab = tabName || 'added';
+
+  document.querySelectorAll('.tab-btn').forEach(button => {
+    button.classList.toggle('active', button.dataset.tab === activeTab);
+  });
+
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === `panel-${activeTab}`);
+  });
+
+  try { localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab); } catch (_) {}
+
+  applySearch();
+}
+
+function bindEvents() {
+  document.getElementById('refreshBtn')?.addEventListener('click', loadAllData);
+  document.getElementById('weekSelect')?.addEventListener('change', async event => {
+    selectedWeekStart = event.target.value;
+    await loadSelectedWeek();
+  });
+  document.getElementById('globalSearch')?.addEventListener('input', applySearch);
+  document.getElementById('exportCurrentBtn')?.addEventListener('click', () => exportDataset(activeTab));
+  document.getElementById('previewImportBtn')?.addEventListener('click', previewImport);
+  document.getElementById('runImportBtn')?.addEventListener('click', runImport);
+}
+
+function showAccessGate(message, type = 'warning') {
+  document.getElementById('accessGate')?.classList.remove('hidden');
+  document.getElementById('pageContent')?.classList.add('hidden');
+  const box = document.getElementById('accessMessage');
+  if (box) {
+    box.className = type === 'danger' ? 'danger-note' : type === 'success' ? 'status-note' : 'warning-note';
+    box.textContent = message;
+  }
+}
+
+function showPageContent() {
+  document.getElementById('accessGate')?.classList.add('hidden');
+  document.getElementById('pageContent')?.classList.remove('hidden');
+  const display = document.getElementById('userDisplay');
+  if (display) display.textContent = `${currentProfile?.full_name || currentSession?.user?.email || ''} · ${currentProfile?.role || ''}`;
+}
+
+async function enforceAccess() {
+  showAccessGate('Checking Client Changes access...');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+  if (!session?.user) {
+    showAccessGate('You must be logged in to access Client Changes.', 'danger');
+    return false;
+  }
+
+  currentSession = session;
+
+  const { data: profile, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showAccessGate('Login found, but the user profile could not be loaded: ' + profileError.message, 'danger');
+    return false;
+  }
+
+  if (!profile || profile.active !== true) {
+    showAccessGate('This user profile is inactive or unavailable.', 'danger');
+    return false;
+  }
+
+  const allowedRoles = ['SYSTEM_ADMIN', 'ADMIN', 'SERVICE'];
+  if (!allowedRoles.includes(profile.role)) {
+    showAccessGate(`Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profile.role}\n\nThis page requires SYSTEM_ADMIN, ADMIN, or SERVICE access.`, 'danger');
+    return false;
+  }
+
+  currentProfile = profile;
+  showPageContent();
+  return true;
+}
+
+async function logoutUser() {
+  try { await client.auth.signOut(); } catch (_) {}
+  window.location.href = 'login.html';
+}
+
+async function loadAllData() {
+  setMessage('pageMessage', 'info', 'Loading Client Changes data...');
+  setButtonLoading('refreshBtn', true, 'Refreshing...');
+
+  try {
+    await Promise.all([
+      loadCompletedWeeks(),
+      loadLatestServiceDate(),
+      loadImportHistory()
+    ]);
+
+    await loadSelectedWeek();
+    setMessage('pageMessage', 'success', 'Client Changes data loaded.');
+  } catch (error) {
+    setMessage('pageMessage', 'error', error.message || String(error));
+  } finally {
+    setButtonLoading('refreshBtn', false, 'Refresh');
+  }
+}
+
+async function loadCompletedWeeks() {
+  const { data, error } = await client
+    .from('client_changes_true_weekly_summary_view')
+    .select('week_start_date, week_end_date')
+    .order('week_start_date', { ascending: false });
+
+  if (error) throw new Error('Unable to load completed weeks: ' + error.message);
+
+  const select = document.getElementById('weekSelect');
+  const priorSelection = selectedWeekStart || select?.value || '';
+  select.innerHTML = '';
+
+  (data || []).forEach(row => {
+    const option = document.createElement('option');
+    option.value = row.week_start_date;
+    option.textContent = `${formatDate(row.week_start_date)} – ${formatDate(row.week_end_date)}`;
+    select.appendChild(option);
+  });
+
+  if (priorSelection && (data || []).some(row => row.week_start_date === priorSelection)) {
+    select.value = priorSelection;
+  }
+
+  selectedWeekStart = select.value || '';
+}
+
+async function loadLatestServiceDate() {
+  const { data, error } = await client
+    .from('client_changes_weekly_details')
+    .select('service_date')
+    .order('service_date', { ascending: false })
+    .limit(1);
+
+  if (error) throw new Error('Unable to determine latest imported service date: ' + error.message);
+
+  latestServiceDate = data?.[0]?.service_date || null;
+  renderIncompleteWeekWarning();
+}
+
+function renderIncompleteWeekWarning() {
+  const warning = document.getElementById('incompleteWeekWarning');
+  if (!warning) return;
+
+  if (!latestServiceDate) {
+    warning.classList.add('hidden');
+    return;
+  }
+
+  const latest = new Date(latestServiceDate + 'T00:00:00');
+  const day = latest.getDay();
+  const daysToSaturday = (6 - day + 7) % 7;
+
+  if (daysToSaturday === 0) {
+    warning.classList.add('hidden');
+    return;
+  }
+
+  const weekEnd = new Date(latest);
+  weekEnd.setDate(latest.getDate() + daysToSaturday);
+
+  warning.textContent = `Current activity data is loaded through ${formatDate(latestServiceDate)}. The week ending ${formatDate(toIsoDate(weekEnd))} is incomplete and is excluded from finalized added/dropped reporting.`;
+  warning.classList.remove('hidden');
+}
+
+async function loadSelectedWeek() {
+  if (!selectedWeekStart) {
+    clearTables();
+    return;
+  }
+
+  setMessage('pageMessage', 'info', 'Loading selected week...');
+
+  const [
+    summaryResult,
+    activityResult,
+    trueChangeResult,
+    replacementResult,
+    skippedResult,
+    techTotalsResult
+  ] = await Promise.all([
+    client.from('client_changes_true_weekly_summary_view').select('*').eq('week_start_date', selectedWeekStart).maybeSingle(),
+    client.from('client_changes_weekly_summary_view').select('*').eq('week_start_date', selectedWeekStart).maybeSingle(),
+    client.from('client_changes_true_change_detail_view').select('*').eq('week_start_date', selectedWeekStart).order('customer_name'),
+    client.from('client_changes_replacement_candidates_view').select('*').eq('week_start_date', selectedWeekStart).order('service_location'),
+    client.from('client_changes_skipped_stops_view').select('*').eq('week_start_date', selectedWeekStart).order('service_date').order('customer_name'),
+    client.from('client_changes_skipped_stops_by_tech_view').select('*').eq('week_start_date', selectedWeekStart).order('skipped_stop_count', { ascending: false })
+  ]);
+
+  const errors = [
+    summaryResult.error,
+    activityResult.error,
+    trueChangeResult.error,
+    replacementResult.error,
+    skippedResult.error,
+    techTotalsResult.error
+  ].filter(Boolean);
+
+  if (errors.length) throw new Error(errors.map(error => error.message).join('\n'));
+
+  const trueChanges = trueChangeResult.data || [];
+  datasets.added = trueChanges.filter(row => row.change_status === 'ADDED');
+  datasets.dropped = trueChanges.filter(row => row.change_status === 'DROPPED');
+  datasets.replacements = replacementResult.data || [];
+  datasets.skipped = skippedResult.data || [];
+  datasets.techTotals = techTotalsResult.data || [];
+
+  renderSummary(summaryResult.data, activityResult.data);
+  applySearch();
+  setMessage('pageMessage', 'success', `Loaded week beginning ${formatDate(selectedWeekStart)}.`);
+}
+
+function renderSummary(changeSummary, activitySummary) {
+  setText('sumRouteRows', activitySummary?.total_route_rows || 0);
+  setText('sumCleanings', activitySummary?.completed_cleanings || 0);
+  setText('sumSkipped', activitySummary?.skipped_stops || 0);
+  setText('sumLocations', activitySummary?.unique_customer_locations || 0);
+  setText('sumExisting', changeSummary?.existing_customer_locations || 0);
+  setText('sumAdded', changeSummary?.true_added_locations || 0);
+  setText('sumDropped', changeSummary?.true_dropped_locations || 0);
+  setText('sumReplacements', changeSummary?.replacement_count || 0);
+}
+
+function applySearch() {
+  const term = safe(document.getElementById('globalSearch')?.value).toLowerCase();
+
+  const filterRows = rows => {
+    if (!term) return rows;
+    return rows.filter(row => Object.values(row || {}).map(safe).join(' ').toLowerCase().includes(term));
+  };
+
+  renderAdded(filterRows(datasets.added));
+  renderDropped(filterRows(datasets.dropped));
+  renderReplacements(filterRows(datasets.replacements));
+  renderSkipped(filterRows(datasets.skipped));
+  renderTechTotals(filterRows(datasets.techTotals));
+}
+
+function renderAdded(rows) {
+  renderRows('addedTbody', rows, row => `
+    <td>${escapeHtml(formatWeek(row.week_start_date, row.week_end_date))}</td>
+    <td><strong>${escapeHtml(row.customer_name)}</strong></td>
+    <td>${escapeHtml(row.service_location)}</td>
+    <td>${escapeHtml(row.route_tech || row.current_week_route_tech || '')}</td>
+    <td><span class="badge badge-added">ADDED</span></td>
+  `, 5, 'No true added clients for this week.');
+}
+
+function renderDropped(rows) {
+  renderRows('droppedTbody', rows, row => `
+    <td>${escapeHtml(formatWeek(row.week_start_date, row.week_end_date))}</td>
+    <td><strong>${escapeHtml(row.customer_name)}</strong></td>
+    <td>${escapeHtml(row.service_location)}</td>
+    <td>${escapeHtml(row.route_tech || row.prior_week_route_tech || '')}</td>
+    <td><span class="badge badge-dropped">DROPPED</span></td>
+  `, 5, 'No true dropped clients for this week.');
+}
+
+function renderReplacements(rows) {
+  renderRows('replacementsTbody', rows, row => `
+    <td>${escapeHtml(formatWeek(row.week_start_date, row.week_end_date))}</td>
+    <td>${escapeHtml(row.service_location)}</td>
+    <td><strong>${escapeHtml(row.dropped_customer_name)}</strong></td>
+    <td><strong>${escapeHtml(row.added_customer_name)}</strong></td>
+    <td>${escapeHtml(row.dropped_route_tech)}</td>
+    <td>${escapeHtml(row.added_route_tech)}</td>
+    <td><span class="badge badge-replacement">${escapeHtml(row.replacement_status)}</span></td>
+  `, 7, 'No same-location replacements for this week.');
+}
+
+function renderSkipped(rows) {
+  renderRows('skippedTbody', rows, row => `
+    <td>${escapeHtml(formatDate(row.service_date))}</td>
+    <td>${escapeHtml(formatWeek(row.week_start_date, row.week_end_date))}</td>
+    <td><strong>${escapeHtml(row.customer_name)}</strong></td>
+    <td>${escapeHtml(row.service_location)}</td>
+    <td>${escapeHtml(row.route_tech)}</td>
+    <td><span class="badge badge-skipped">${escapeHtml(row.service_type || 'Skipped Stop')}</span></td>
+  `, 6, 'No skipped stops for this week.');
+}
+
+function renderTechTotals(rows) {
+  renderRows('techTotalsTbody', rows, row => `
+    <td>${escapeHtml(formatWeek(row.week_start_date, row.week_end_date))}</td>
+    <td><strong>${escapeHtml(row.route_tech || 'Unassigned')}</strong></td>
+    <td>${Number(row.skipped_stop_count || 0).toLocaleString()}</td>
+  `, 3, 'No skipped-stop Route Tech totals for this week.');
+}
+
+function renderRows(tbodyId, rows, template, colspan, emptyText) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="${colspan}">${escapeHtml(emptyText)}</td></tr>`;
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = template(row);
+    tbody.appendChild(tr);
+  });
+}
+
+function clearTables() {
+  renderAdded([]);
+  renderDropped([]);
+  renderReplacements([]);
+  renderSkipped([]);
+  renderTechTotals([]);
+  renderSummary(null, null);
+}
+
+async function loadImportHistory() {
+  const { data, error } = await client
+    .from('client_changes_weekly_imports')
+    .select('*')
+    .order('imported_at', { ascending: false })
+    .limit(100);
+
+  if (error) throw new Error('Unable to load import history: ' + error.message);
+
+  renderRows('importHistoryTbody', data || [], row => `
+    <td>${escapeHtml(formatDateTime(row.imported_at))}</td>
+    <td>${escapeHtml(row.source_file_name)}</td>
+    <td>${escapeHtml(formatWeek(row.week_start_date, row.week_end_date))}</td>
+    <td>${escapeHtml(row.imported_by)}</td>
+    <td>${Number(row.total_source_rows || 0).toLocaleString()}</td>
+    <td>${Number(row.cleaning_rows || 0).toLocaleString()}</td>
+    <td>${Number(row.skipped_stop_rows || 0).toLocaleString()}</td>
+    <td>${Number(row.excluded_internal_rows || 0).toLocaleString()}</td>
+    <td>${escapeHtml(row.notes)}</td>
+  `, 9, 'No imports found.');
+}
+
+async function previewImport() {
+  const file = document.getElementById('importFile')?.files?.[0];
+  const startDate = document.getElementById('importStartDate')?.value;
+  const endDate = document.getElementById('importEndDate')?.value;
+
+  parsedImport = null;
+  document.getElementById('runImportBtn').disabled = true;
+
+  if (!file) {
+    setMessage('importMessage', 'error', 'Select a Tech Details CSV first.');
+    return;
+  }
+
+  if (!startDate || !endDate) {
+    setMessage('importMessage', 'error', 'Enter the first and last service dates to import.');
+    return;
+  }
+
+  if (endDate < startDate) {
+    setMessage('importMessage', 'error', 'The last service date cannot be before the first service date.');
+    return;
+  }
+
+  setButtonLoading('previewImportBtn', true, 'Reading...');
+  setMessage('importMessage', 'info', 'Reading and validating the CSV...');
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: results => {
+      try {
+        const rows = Array.isArray(results.data) ? results.data : [];
+        const fields = results.meta?.fields || [];
+        const required = ['Service Date', 'Service Type', 'Customer', 'Service Location', 'Tech Name'];
+        const missing = required.filter(field => !fields.includes(field));
+
+        if (missing.length) {
+          throw new Error('Missing required CSV columns: ' + missing.join(', '));
+        }
+
+        let cleaningRows = 0;
+        let skippedRows = 0;
+        let internalRows = 0;
+        let outsideRows = 0;
+        let otherTypeRows = 0;
+        let invalidDateRows = 0;
+        const preparedRows = [];
+
+        rows.forEach((row, index) => {
+          const serviceDate = parseCsvDate(row['Service Date']);
+
+          if (!serviceDate) {
+            invalidDateRows++;
+            return;
+          }
+
+          if (serviceDate < startDate || serviceDate > endDate) {
+            outsideRows++;
+            return;
+          }
+
+          const serviceType = safe(row['Service Type']).trim();
+          const serviceTypeLower = serviceType.toLowerCase();
+
+          if (!['cleaning', 'skipped stop'].includes(serviceTypeLower)) {
+            otherTypeRows++;
+            return;
+          }
+
+          const customer = safe(row['Customer']).trim();
+          const serviceLocation = safe(row['Service Location']).trim();
+          const routeTech = safe(row['Tech Name']).trim();
+
+          const isInternal = normalizeName(customer) === 'molinari pools';
+          const isCleaning = serviceTypeLower === 'cleaning';
+          const isSkipped = serviceTypeLower === 'skipped stop';
+
+          if (isCleaning) cleaningRows++;
+          if (isSkipped) skippedRows++;
+          if (isInternal) internalRows++;
+
+          preparedRows.push({
+            service_date: serviceDate,
+            service_type: serviceType,
+            customer_name: customer,
+            customer_name_normalized: normalizeName(customer),
+            service_location: serviceLocation,
+            service_location_normalized: normalizeAddress(serviceLocation),
+            route_tech: routeTech,
+            is_internal_molinari: isInternal,
+            is_cleaning: isCleaning,
+            is_skipped_stop: isSkipped,
+            source_row_number: index + 2
+          });
+        });
+
+        parsedImport = {
+          file,
+          sourceRows: rows.length,
+          preparedRows,
+          cleaningRows,
+          skippedRows,
+          internalRows,
+          outsideRows,
+          otherTypeRows,
+          invalidDateRows,
+          excludedRows: outsideRows + otherTypeRows + invalidDateRows,
+          startDate,
+          endDate
+        };
+
+        setText('previewSourceRows', rows.length);
+        setText('previewPreparedRows', preparedRows.length);
+        setText('previewCleaningRows', cleaningRows);
+        setText('previewSkippedRows', skippedRows);
+        setText('previewInternalRows', internalRows);
+        setText('previewExcludedRows', parsedImport.excludedRows);
+
+        document.getElementById('importPreview')?.classList.remove('hidden');
+        document.getElementById('runImportBtn').disabled = preparedRows.length === 0;
+
+        setMessage(
+          'importMessage',
+          'success',
+          `Preview ready. ${preparedRows.length.toLocaleString()} rows will be imported. ` +
+          `${outsideRows.toLocaleString()} outside the date range, ${otherTypeRows.toLocaleString()} other service types, ` +
+          `and ${invalidDateRows.toLocaleString()} invalid-date rows will be excluded.`
+        );
+      } catch (error) {
+        setMessage('importMessage', 'error', error.message || String(error));
+      } finally {
+        setButtonLoading('previewImportBtn', false, 'Preview Import');
+      }
+    },
+    error: error => {
+      setButtonLoading('previewImportBtn', false, 'Preview Import');
+      setMessage('importMessage', 'error', error.message || String(error));
+    }
+  });
+}
+
+async function runImport() {
+  if (!parsedImport?.preparedRows?.length) {
+    setMessage('importMessage', 'error', 'Preview a valid import before running it.');
+    return;
+  }
+
+  const importedBy = safe(document.getElementById('importedBy')?.value).trim();
+  const notes = safe(document.getElementById('importNotes')?.value).trim();
+
+  if (!importedBy) {
+    setMessage('importMessage', 'error', 'Imported By is required.');
+    return;
+  }
+
+  if (!confirm(`Import ${parsedImport.preparedRows.length.toLocaleString()} prepared rows from ${parsedImport.file.name}?`)) return;
+
+  setButtonLoading('runImportBtn', true, 'Importing...');
+  setMessage('importMessage', 'info', 'Creating import batch...');
+
+  let importId = null;
+
+  try {
+    const { data: rpcData, error: rpcError } = await client.rpc(
+      'start_client_changes_tech_details_import',
+      {
+        p_source_file_name: parsedImport.file.name,
+        p_imported_by: importedBy,
+        p_first_service_date: parsedImport.startDate,
+        p_last_service_date: parsedImport.endDate,
+        p_notes: notes || null
+      }
+    );
+
+    if (rpcError) throw new Error('Unable to start import: ' + rpcError.message);
+
+    importId = rpcData;
+
+    const rowsWithImport = parsedImport.preparedRows.map(row => ({
+      ...row,
+      import_id: importId
+    }));
+
+    const chunkSize = 500;
+    for (let start = 0; start < rowsWithImport.length; start += chunkSize) {
+      const chunk = rowsWithImport.slice(start, start + chunkSize);
+      const { error: insertError } = await client
+        .from('client_changes_weekly_details')
+        .insert(chunk);
+
+      if (insertError) {
+        throw new Error(`Detail insert failed at rows ${start + 1}-${start + chunk.length}: ${insertError.message}`);
+      }
+
+      setMessage(
+        'importMessage',
+        'info',
+        `Imported ${Math.min(start + chunk.length, rowsWithImport.length).toLocaleString()} of ${rowsWithImport.length.toLocaleString()} detail rows...`
+      );
+    }
+
+    const { error: updateError } = await client
+      .from('client_changes_weekly_imports')
+      .update({
+        total_source_rows: parsedImport.sourceRows,
+        cleaning_rows: parsedImport.cleaningRows,
+        skipped_stop_rows: parsedImport.skippedRows,
+        excluded_internal_rows: parsedImport.internalRows
+      })
+      .eq('id', importId);
+
+    if (updateError) throw new Error('Rows imported, but the import summary update failed: ' + updateError.message);
+
+    setMessage(
+      'importMessage',
+      'success',
+      `Import complete. ${rowsWithImport.length.toLocaleString()} detail rows were inserted under batch ${importId}.`
+    );
+
+    parsedImport = null;
+    document.getElementById('runImportBtn').disabled = true;
+    document.getElementById('importFile').value = '';
+
+    await loadAllData();
+  } catch (error) {
+    const batchNote = importId ? `\nImport batch created: ${importId}` : '';
+    setMessage('importMessage', 'error', (error.message || String(error)) + batchNote);
+  } finally {
+    setButtonLoading('runImportBtn', false, 'Run Import');
+  }
+}
+
+function exportDataset(name) {
+  if (name === 'import') {
+    setMessage('pageMessage', 'error', 'Import history export is not configured on this button.');
+    return;
+  }
+
+  const rows = datasets[name] || [];
+  const term = safe(document.getElementById('globalSearch')?.value).toLowerCase();
+  const filteredRows = term
+    ? rows.filter(row => Object.values(row || {}).map(safe).join(' ').toLowerCase().includes(term))
+    : rows;
+
+  if (!filteredRows.length) {
+    setMessage('pageMessage', 'error', 'There are no rows to export for the current tab and filter.');
+    return;
+  }
+
+  const csv = Papa.unparse(filteredRows);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `client_changes_${name}_${selectedWeekStart || 'all'}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function parseCsvDate(value) {
+  const text = safe(value).trim();
+  if (!text) return '';
+
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+  const usMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (usMatch) {
+    const month = String(usMatch[1]).padStart(2, '0');
+    const day = String(usMatch[2]).padStart(2, '0');
+    return `${usMatch[3]}-${month}-${day}`;
+  }
+
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return '';
+  return toIsoDate(date);
+}
+
+function normalizeName(value) {
+  return safe(value)
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeAddress(value) {
+  const replacements = {
+    street: 'st',
+    road: 'rd',
+    drive: 'dr',
+    lane: 'ln',
+    court: 'ct',
+    boulevard: 'blvd',
+    avenue: 'ave',
+    place: 'pl',
+    circle: 'cir',
+    trail: 'trl',
+    parkway: 'pkwy',
+    highway: 'hwy',
+    terrace: 'ter'
+  };
+
+  return safe(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(word => replacements[word] || word)
+    .join(' ');
+}
+
+function setButtonLoading(id, loading, text) {
+  const button = document.getElementById(id);
+  if (!button) return;
+  button.disabled = Boolean(loading);
+  button.textContent = text;
+}
+
+function setMessage(id, type, text) {
+  const box = document.getElementById(id);
+  if (!box) return;
+
+  if (!text) {
+    box.className = 'message';
+    box.textContent = '';
+    return;
+  }
+
+  box.className = `message show ${type}`;
+  box.textContent = text;
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = Number.isFinite(Number(value)) ? Number(value).toLocaleString() : safe(value);
+}
+
+function safe(value) {
+  return value === null || value === undefined ? '' : String(value);
+}
+
+function escapeHtml(value) {
+  return safe(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatDate(value) {
+  if (!value) return '';
+  const date = new Date(String(value).slice(0, 10) + 'T00:00:00');
+  if (Number.isNaN(date.getTime())) return safe(value);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return safe(value);
+  return date.toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit'
+  });
+}
+
+function formatWeek(start, end) {
+  if (!start && !end) return '';
+  return `${formatDate(start)} – ${formatDate(end)}`;
+}
+
+function toIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+</script>
+</body>
+</html>
