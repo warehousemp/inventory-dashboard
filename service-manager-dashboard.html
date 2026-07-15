@@ -1,1 +1,2289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Service Manager Dashboard - Molinari Pools</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Molinari Operations">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --accent-soft: #e8f7f8;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --success: #15803d;
+      --success-soft: #ecfdf3;
+      --warning: #b45309;
+      --warning-soft: #fff7ed;
+      --danger: #b91c1c;
+      --danger-soft: #fef2f2;
+      --info-soft: #eef6ff;
+      --sidebar-width: 300px;
+      --sidebar-collapsed-width: 66px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      max-width: 100%;
+      min-height: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      min-height: 100vh;
+      transition: grid-template-columns 0.2s ease;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      z-index: 1000;
+    }
+
+    .brand {
+      min-height: 70px;
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -1px;
+      flex: 0 0 auto;
+    }
+
+    .brand-text {
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity 0.15s ease, width 0.15s ease;
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: 1px;
+    }
+
+    .brand-text span {
+      font-size: 11px;
+      opacity: 0.82;
+      letter-spacing: 2px;
+    }
+
+    .sidebar-toggle-wrap {
+      padding: 12px 12px 4px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.24);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 0;
+      margin: 0;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(26,163,176,0.34);
+    }
+
+    .sidebar-toggle span {
+      display: block;
+      width: 17px;
+      height: 2px;
+      border-radius: 999px;
+      background: white;
+    }
+
+    .side-nav {
+      padding: 8px 10px 14px;
+    }
+
+    .main-menu-nav {
+      padding-top: 10px;
+      padding-bottom: 4px;
+    }
+
+    .grouped-side-nav {
+      padding-top: 4px;
+    }
+
+    .side-nav a,
+    .side-nav button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 44px;
+      margin: 0 0 4px;
+      padding: 12px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: rgba(255,255,255,0.86);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .side-nav a:hover,
+    .side-nav button:hover,
+    .side-nav a.active {
+      background: rgba(26,163,176,0.28);
+      color: white;
+    }
+
+    .nav-icon {
+      width: 20px;
+      min-width: 20px;
+      text-align: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .nav-label {
+      overflow: hidden;
+      transition: opacity 0.15s ease, width 0.15s ease;
+    }
+
+    .nav-group {
+      margin-bottom: 4px;
+    }
+
+    .nav-group-toggle .nav-group-symbol {
+      margin-left: auto;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .nav-group.open .nav-group-toggle {
+      background: rgba(26,163,176,0.18);
+      color: white;
+    }
+
+    .nav-submenu {
+      display: none;
+      padding-bottom: 4px;
+    }
+
+    .nav-group.open .nav-submenu {
+      display: block;
+    }
+
+    .nav-submenu a {
+      min-height: 38px;
+      padding-left: 34px;
+      margin-bottom: 2px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid rgba(255,255,255,0.12);
+      padding: 10px;
+      margin-top: auto;
+    }
+
+    .app-shell.sidebar-collapsed .brand {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .app-shell.sidebar-collapsed .brand-text,
+    .app-shell.sidebar-collapsed .nav-label {
+      opacity: 0;
+      width: 0;
+    }
+
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap {
+      justify-content: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav,
+    .app-shell.sidebar-collapsed .sidebar-footer {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .app-shell.sidebar-collapsed .side-nav a,
+    .app-shell.sidebar-collapsed .side-nav button {
+      justify-content: center;
+      padding-left: 10px;
+      padding-right: 10px;
+      gap: 0;
+    }
+
+    .app-shell.sidebar-collapsed .nav-group-symbol,
+    .app-shell.sidebar-collapsed .nav-submenu {
+      display: none !important;
+    }
+
+    .page-shell {
+      min-width: 0;
+      min-height: 100vh;
+    }
+
+    .header-bar {
+      background: var(--header);
+      color: white;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title {
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+
+    .header-subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0.84;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .header-button {
+      border: 1px solid rgba(255,255,255,0.28);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.14);
+      color: white;
+      padding: 10px 14px;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .header-button:hover {
+      background: rgba(255,255,255,0.22);
+    }
+
+    .access-layout {
+      max-width: 680px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .access-card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      border: 1px solid #e6edf3;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    }
+
+    .access-card h2 {
+      margin: 0 0 16px;
+      color: var(--header);
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .access-actions a,
+    .access-actions button {
+      min-width: 160px;
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 18px;
+      background: var(--header);
+      color: white;
+      text-decoration: none;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .access-actions .danger-button {
+      background: var(--danger);
+    }
+
+    .status-note,
+    .warning-note,
+    .danger-note {
+      padding: 12px 14px;
+      border-radius: 9px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .status-note {
+      background: var(--success-soft);
+      border: 1px solid #bbf7d0;
+      color: #14532d;
+    }
+
+    .warning-note {
+      background: var(--warning-soft);
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+    }
+
+    .danger-note {
+      background: var(--danger-soft);
+      border: 1px solid #fecaca;
+      color: #991b1b;
+    }
+
+    .dashboard {
+      width: 100%;
+      max-width: 1660px;
+      margin: 0 auto;
+      padding: 22px;
+    }
+
+    .dashboard-status {
+      margin-bottom: 16px;
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: white;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .dashboard-status.success {
+      background: var(--success-soft);
+      border-color: #bbf7d0;
+      color: #14532d;
+    }
+
+    .dashboard-status.warning {
+      background: var(--warning-soft);
+      border-color: #fed7aa;
+      color: #9a3412;
+    }
+
+    .section {
+      margin-bottom: 22px;
+    }
+
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 14px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .section-title {
+      margin: 0;
+      color: var(--header);
+      font-size: 20px;
+      font-weight: 850;
+    }
+
+    .section-description {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .section-link {
+      color: var(--header);
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .section-link:hover {
+      text-decoration: underline;
+    }
+
+    .filter-panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(150px, 0.6fr) minmax(150px, 0.6fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .filter-field label {
+      display: block;
+      margin-bottom: 5px;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .filter-field select,
+    .filter-field input {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: white;
+      padding: 9px 11px;
+      color: var(--text);
+    }
+
+    .primary-button {
+      min-height: 42px;
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      background: var(--header);
+      color: white;
+      font-weight: 850;
+    }
+
+    .primary-button:hover {
+      opacity: 0.92;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(210px, 1fr));
+      gap: 14px;
+    }
+
+    .metric-grid.five {
+      grid-template-columns: repeat(5, minmax(190px, 1fr));
+    }
+
+    .metric-card {
+      min-width: 0;
+      min-height: 142px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 16px;
+      box-shadow: 0 4px 14px rgba(11,60,93,0.055);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .metric-card.goal-below {
+      border-top: 4px solid var(--danger);
+    }
+
+    .metric-card.goal-near {
+      border-top: 4px solid var(--warning);
+    }
+
+    .metric-card.goal-met {
+      border-top: 4px solid var(--success);
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.045em;
+      line-height: 1.35;
+    }
+
+    .metric-value {
+      margin-top: 9px;
+      color: var(--header);
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1.08;
+      overflow-wrap: anywhere;
+    }
+
+    .metric-value.compact {
+      font-size: 23px;
+    }
+
+    .metric-sub {
+      margin-top: auto;
+      padding-top: 9px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .metric-sub strong {
+      color: #334155;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      margin-top: 10px;
+      border-radius: 999px;
+      background: #e8eef3;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0;
+      border-radius: 999px;
+      background: var(--accent);
+      transition: width 0.25s ease;
+    }
+
+    .progress-fill.below {
+      background: var(--danger);
+    }
+
+    .progress-fill.near {
+      background: var(--warning);
+    }
+
+    .progress-fill.met {
+      background: var(--success);
+    }
+
+    .split-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(330px, 0.65fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 17px;
+      box-shadow: 0 4px 14px rgba(11,60,93,0.045);
+    }
+
+    .panel h3 {
+      margin: 0 0 5px;
+      color: var(--header);
+      font-size: 17px;
+    }
+
+    .panel-subtitle {
+      margin: 0 0 13px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .attention-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .attention-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 11px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 9px;
+      background: #f8fafc;
+    }
+
+    .attention-title {
+      color: #334155;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .attention-detail {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .count-badge {
+      min-width: 48px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--header);
+      text-align: center;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .count-badge.warning {
+      background: var(--warning-soft);
+      color: #9a3412;
+    }
+
+    .count-badge.danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .count-badge.success {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .source-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .source-table th,
+    .source-table td {
+      padding: 9px 8px;
+      border-bottom: 1px solid #e2e8f0;
+      text-align: left;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .source-table th {
+      color: var(--header);
+      background: #f8fafc;
+      font-weight: 850;
+    }
+
+    .source-table td {
+      color: #475569;
+    }
+
+    .source-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .error-text {
+      color: var(--danger) !important;
+    }
+
+    .restricted-note {
+      margin-top: 11px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--info-soft);
+      border: 1px solid #cfe3ff;
+      color: #1e4d7a;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 1380px) {
+      .metric-grid,
+      .metric-grid.five {
+        grid-template-columns: repeat(3, minmax(210px, 1fr));
+      }
+    }
+
+    @media (max-width: 1060px) {
+      .metric-grid,
+      .metric-grid.five {
+        grid-template-columns: repeat(2, minmax(210px, 1fr));
+      }
+
+      .split-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .filter-panel {
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+      }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell,
+      .app-shell.sidebar-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .sidebar {
+        position: relative;
+        height: auto;
+      }
+
+      .brand {
+        min-height: auto;
+      }
+
+      .sidebar-toggle-wrap {
+        display: none;
+      }
+
+      .app-shell.sidebar-collapsed .brand {
+        justify-content: flex-start;
+        padding: 18px 18px 16px;
+      }
+
+      .app-shell.sidebar-collapsed .brand-text,
+      .app-shell.sidebar-collapsed .nav-label {
+        opacity: 1;
+        width: auto;
+      }
+
+      .app-shell.sidebar-collapsed .nav-group-symbol {
+        display: inline-block !important;
+      }
+
+      .app-shell.sidebar-collapsed .nav-group.open .nav-submenu {
+        display: block !important;
+      }
+
+      .side-nav,
+      .app-shell.sidebar-collapsed .side-nav {
+        padding: 10px;
+      }
+
+      .app-shell.sidebar-collapsed .side-nav a,
+      .app-shell.sidebar-collapsed .side-nav button {
+        justify-content: flex-start;
+        gap: 10px;
+        padding: 12px;
+      }
+
+      .dashboard {
+        padding: 16px 12px 24px;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .header-bar {
+        padding: 16px 18px;
+      }
+
+      .header-actions,
+      .header-button {
+        width: 100%;
+      }
+
+      .metric-grid,
+      .metric-grid.five,
+      .filter-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .metric-card {
+        min-height: 132px;
+      }
+
+      .metric-value {
+        font-size: 25px;
+      }
+
+      .section-heading {
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+
+<body>
+<div class="app-shell" id="appShell">
+
+  <aside class="sidebar" aria-label="Inventory navigation">
+    <div class="brand">
+      <div class="brand-mark">MP</div>
+      <div class="brand-text">
+        <strong>MOLINARI</strong>
+        <span>OPERATIONS</span>
+      </div>
+    </div>
+
+    <div class="sidebar-toggle-wrap">
+      <button class="sidebar-toggle" id="inventorySidebarToggle" type="button" title="Collapse" aria-label="Collapse sidebar" aria-expanded="true">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+
+    <nav class="side-nav main-menu-nav" aria-label="Main navigation">
+      <a href="index.html" title="Main Menu" data-page="index.html">
+        <span class="nav-icon">↩</span>
+        <span class="nav-label">Main Menu</span>
+      </a>
+    </nav>
+
+    <nav class="side-nav grouped-side-nav" aria-label="System navigation">
+
+      <div class="nav-group">
+        <button class="nav-group-toggle" type="button" aria-expanded="false">
+          <span class="nav-icon">⚙</span>
+          <span class="nav-label">Admin</span>
+          <span class="nav-group-symbol">+</span>
+        </button>
+        <div class="nav-submenu">
+          <a href="users.html" title="System/Admin Tools" data-page="users.html">
+            <span class="nav-icon">⚙</span>
+            <span class="nav-label">System/Admin Tools</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-group-toggle" type="button" aria-expanded="false">
+          <span class="nav-icon">$</span>
+          <span class="nav-label">Accounting</span>
+          <span class="nav-group-symbol">+</span>
+        </button>
+        <div class="nav-submenu">
+          <a href="accounting.html" title="Accounting Warehouse" data-page="accounting.html">
+            <span class="nav-icon">$</span>
+            <span class="nav-label">Accounting Warehouse</span>
+          </a>
+          <a href="project-accounting.html" title="Accounting Projects" data-page="project-accounting.html">
+            <span class="nav-icon">$</span>
+            <span class="nav-label">Accounting Projects</span>
+          </a>
+          <a href="ppv-tracker.html" title="PPV Tracker" data-page="ppv-tracker.html">
+            <span class="nav-icon">$</span>
+            <span class="nav-label">PPV Tracker</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-group-toggle" type="button" aria-expanded="false">
+          <span class="nav-icon">◆</span>
+          <span class="nav-label">Projects</span>
+          <span class="nav-group-symbol">+</span>
+        </button>
+        <div class="nav-submenu">
+          <a href="projects-command.html" title="Projects Command Center" data-page="projects-command.html">
+            <span class="nav-icon">◆</span>
+            <span class="nav-label">Projects Command Center</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-group-toggle" type="button" aria-expanded="false">
+          <span class="nav-icon">✓</span>
+          <span class="nav-label">Service</span>
+          <span class="nav-group-symbol">+</span>
+        </button>
+        <div class="nav-submenu">
+          <a class="active" href="service-manager-dashboard.html" title="Service Manager Dashboard" data-page="service-manager-dashboard.html">
+            <span class="nav-icon">▦</span>
+            <span class="nav-label">Service Manager Dashboard</span>
+          </a>
+          <a href="service.html" title="Service Parts Lookup" data-page="service.html">
+            <span class="nav-icon">⌕</span>
+            <span class="nav-label">Service Parts Lookup</span>
+          </a>
+          <a href="client-services.html" title="Client Services Dashboard" data-page="client-services.html">
+            <span class="nav-icon">✓</span>
+            <span class="nav-label">Client Services Dashboard</span>
+          </a>
+          <a href="inspection-requests-office.html" title="Inspection Requests" data-page="inspection-requests-office.html">
+            <span class="nav-icon">▣</span>
+            <span class="nav-label">Inspection Requests</span>
+          </a>
+          <a href="client-marketing-sync.html" title="Client Marketing Sync" data-page="client-marketing-sync.html">
+            <span class="nav-icon">⇄</span>
+            <span class="nav-label">Client Marketing Sync</span>
+          </a>
+          <a href="service-department-admin.html" title="Service Admin" data-page="service-department-admin.html">
+            <span class="nav-icon">⚙</span>
+            <span class="nav-label">Service Admin</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-group-toggle" type="button" aria-expanded="false">
+          <span class="nav-icon">▣</span>
+          <span class="nav-label">Warehouse</span>
+          <span class="nav-group-symbol">+</span>
+        </button>
+        <div class="nav-submenu">
+          <a href="warehouse.html" title="Warehouse Operations" data-page="warehouse.html">
+            <span class="nav-icon">▣</span>
+            <span class="nav-label">Warehouse Operations</span>
+          </a>
+          <a href="warehouse-management.html" title="Warehouse Management" data-page="warehouse-management.html">
+            <span class="nav-icon">⚙</span>
+            <span class="nav-label">Warehouse Management</span>
+          </a>
+          <a href="warehouse-reports.html" title="Warehouse Reports" data-page="warehouse-reports.html">
+            <span class="nav-icon">▤</span>
+            <span class="nav-label">Warehouse Reports</span>
+          </a>
+          <a href="admin.html" title="Warehouse Admin" data-page="admin.html">
+            <span class="nav-icon">⚙</span>
+            <span class="nav-label">Warehouse Admin</span>
+          </a>
+        </div>
+      </div>
+
+    </nav>
+
+    <div class="sidebar-footer">
+      <nav class="side-nav" aria-label="Utility navigation">
+        <button type="button" onclick="appLogout()" title="Logout">
+          <span class="nav-icon">⇥</span>
+          <span class="nav-label">Logout</span>
+        </button>
+      </nav>
+    </div>
+  </aside>
+
+  <main class="page-shell">
+    <header class="header-bar">
+      <div>
+        <div class="header-title">Molinari Pools – Service Manager Dashboard</div>
+        <div class="header-subtitle">Service production, route operations, inventory, and PPV payroll overview</div>
+      </div>
+      <div class="header-actions">
+        <button id="refreshDashboardButton" class="header-button" type="button" onclick="refreshDashboard()">REFRESH DASHBOARD</button>
+      </div>
+    </header>
+
+    <div id="dashboardAccessGate" class="access-layout">
+      <div class="access-card">
+        <h2>Service Manager Dashboard Access Required</h2>
+        <div id="dashboardAccessMessage" class="warning-note">Checking dashboard access...</div>
+        <div class="access-actions">
+          <a href="login.html">GO TO LOGIN</a>
+          <a href="index.html">BACK TO MAIN MENU</a>
+          <button class="danger-button" type="button" onclick="appLogout()">LOGOUT</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="dashboardContent" class="dashboard hidden">
+
+      <div id="dashboardStatus" class="dashboard-status">Loading dashboard data...</div>
+
+      <section class="section">
+        <div class="section-heading">
+          <div>
+            <h2 class="section-title">Revenue Performance</h2>
+            <p class="section-description" id="revenuePeriodDescription">Quarter-to-date performance against Service Department goals.</p>
+          </div>
+          <a class="section-link" href="client-services.html">Open Client Services →</a>
+        </div>
+
+        <div class="filter-panel">
+          <div class="filter-field">
+            <label for="revenuePeriodFilter">Revenue Period</label>
+            <select id="revenuePeriodFilter" onchange="handleRevenuePeriodChange()">
+              <option value="this_week">This Week</option>
+              <option value="last_week">Last Week</option>
+              <option value="mtd">Month to Date</option>
+              <option value="last_month">Previous Month</option>
+              <option value="qtd" selected>Quarter to Date</option>
+              <option value="last_quarter">Previous Quarter</option>
+              <option value="fytd">Fiscal Year to Date</option>
+              <option value="custom">Custom Date Range</option>
+            </select>
+          </div>
+
+          <div class="filter-field">
+            <label for="revenueStartDate">Start Date</label>
+            <input id="revenueStartDate" type="date" disabled>
+          </div>
+
+          <div class="filter-field">
+            <label for="revenueEndDate">End Date</label>
+            <input id="revenueEndDate" type="date" disabled>
+          </div>
+
+          <button class="primary-button" id="runRevenueButton" type="button" onclick="loadSelectedRevenuePeriod()">RUN PERIOD</button>
+        </div>
+
+        <div class="metric-grid five">
+          <article class="metric-card" id="revenueGoalCard">
+            <div class="metric-label">Total Revenue vs. Goal</div>
+            <div class="metric-value compact" id="revenueGoalValue">$0.00 / $0.00</div>
+            <div class="progress-track"><div class="progress-fill" id="revenueGoalProgress"></div></div>
+            <div class="metric-sub" id="revenueGoalSub">Selected period</div>
+          </article>
+
+          <article class="metric-card" id="quotedGoalCard">
+            <div class="metric-label">Total Quoted vs. Goal</div>
+            <div class="metric-value compact" id="quotedGoalValue">$0.00 / $0.00</div>
+            <div class="progress-track"><div class="progress-fill" id="quotedGoalProgress"></div></div>
+            <div class="metric-sub" id="quotedGoalSub">Selected period</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Project Work</div>
+            <div class="metric-value" id="projectWorkValue">$0.00</div>
+            <div class="metric-sub">Project-related service revenue</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Repair Tech Revenue</div>
+            <div class="metric-value" id="repairTechRevenueValue">$0.00</div>
+            <div class="metric-sub">Repair technician revenue</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Leak Detection</div>
+            <div class="metric-value" id="leakDetectionValue">$0.00</div>
+            <div class="metric-sub" id="revenueLastUpdatedSub">Last transaction: —</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <div>
+            <h2 class="section-title">Route Operations</h2>
+            <p class="section-description">Current route-client count and Mechanical Assessment completion.</p>
+          </div>
+          <a class="section-link" href="client-services.html">Open Mechanical Assessments →</a>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric-card">
+            <div class="metric-label">Total Route Clients</div>
+            <div class="metric-value" id="routeClientCount">0</div>
+            <div class="metric-sub">Customer-location records in the assessment tracking view</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Mechanical Assessments Completed</div>
+            <div class="metric-value" id="assessmentCompletedValue">0 / 0</div>
+            <div class="metric-sub">Completed assessments versus total route clients</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Assessment Completion</div>
+            <div class="metric-value" id="assessmentCompletionPercent">0%</div>
+            <div class="progress-track"><div class="progress-fill" id="assessmentProgress"></div></div>
+            <div class="metric-sub" id="assessmentCompletionSub">0 assessments still needed</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Assessment Needs Review</div>
+            <div class="metric-value" id="assessmentReviewCount">0</div>
+            <div class="metric-sub">Missing assignment/customer match or flagged review status</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <div>
+            <h2 class="section-title">Inventory & UAG</h2>
+            <p class="section-description">Current-cost inventory valuation and UAG bulk-batch usage.</p>
+          </div>
+          <a class="section-link" href="accounting.html">Open Accounting →</a>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric-card">
+            <div class="metric-label">Serialized Inventory On Hand</div>
+            <div class="metric-value" id="serializedInventoryValue">$0.00</div>
+            <div class="metric-sub" id="serializedInventorySub">0 serialized units on hand</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Total Inventory Value</div>
+            <div class="metric-value" id="totalInventoryValue">$0.00</div>
+            <div class="metric-sub">Current-cost valuation across inventory locations</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">UAG Batch Usage</div>
+            <div class="metric-value" id="uagUsagePercent">0%</div>
+            <div class="progress-track"><div class="progress-fill" id="uagUsageProgress"></div></div>
+            <div class="metric-sub" id="uagUsageSub">$0.00 issued of $0.00 original value</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">UAG Remaining Value</div>
+            <div class="metric-value" id="uagRemainingValue">$0.00</div>
+            <div class="metric-sub" id="uagRemainingSub">0 UAG bulk batches</div>
+          </article>
+        </div>
+
+        <div class="restricted-note">
+          Inventory values use the same current-cost and UAG valuation sources used by Accounting. WARRANTY inventory is treated as zero-value in the serialized total. Database permissions remain the final access control.
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <div>
+            <h2 class="section-title">PPV Pay Period Payroll</h2>
+            <p class="section-description">Choose a pay period to review route production and payroll totals.</p>
+          </div>
+          <a class="section-link" href="ppv-tracker.html">Open PPV Tracker →</a>
+        </div>
+
+        <div class="filter-panel" style="grid-template-columns:minmax(260px,1fr) auto;">
+          <div class="filter-field">
+            <label for="ppvPayPeriodSelect">Pay Period</label>
+            <select id="ppvPayPeriodSelect" onchange="loadSelectedPPVSummary()">
+              <option value="">Loading pay periods...</option>
+            </select>
+          </div>
+          <button class="primary-button" type="button" onclick="loadSelectedPPVSummary()">REFRESH PAY PERIOD</button>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric-card">
+            <div class="metric-label">Total Visits Completed</div>
+            <div class="metric-value" id="ppvTotalVisits">0</div>
+            <div class="metric-sub" id="ppvTotalVisitsSub">Route Tech and Route Tech Leader cleanings</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Pickup Visits Completed</div>
+            <div class="metric-value" id="ppvPickupVisits">0</div>
+            <div class="metric-sub">Payroll-eligible Route Tech pickup visits</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Payroll Total</div>
+            <div class="metric-value" id="ppvPayrollTotal">$0.00</div>
+            <div class="metric-sub">Eligible Route Tech gross before taxes and deductions</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Selected Pay Period</div>
+            <div class="metric-value compact" id="ppvSelectedPeriod">—</div>
+            <div class="metric-sub" id="ppvSelectedPeriodSub">No pay period selected</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="split-layout">
+          <div class="panel">
+            <h3>Management Attention</h3>
+            <p class="panel-subtitle">Items that may require follow-up or data cleanup.</p>
+
+            <div class="attention-list">
+              <div class="attention-row">
+                <div>
+                  <div class="attention-title">Mechanical Assessments Still Needed</div>
+                  <div class="attention-detail">Route clients not completed and not already flagged for review.</div>
+                </div>
+                <div class="count-badge warning" id="attentionAssessmentPending">0</div>
+              </div>
+
+              <div class="attention-row">
+                <div>
+                  <div class="attention-title">Mechanical Assessments Needing Review</div>
+                  <div class="attention-detail">Customer/tech match or assignment problems.</div>
+                </div>
+                <div class="count-badge danger" id="attentionAssessmentReview">0</div>
+              </div>
+
+              <div class="attention-row">
+                <div>
+                  <div class="attention-title">Serialized Units With Zero Cost</div>
+                  <div class="attention-detail">Excludes WARRANTY; review current-cost setup.</div>
+                </div>
+                <div class="count-badge" id="attentionZeroCostSerialized">0</div>
+              </div>
+
+              <div class="attention-row">
+                <div>
+                  <div class="attention-title">UAG Batches Needing Review</div>
+                  <div class="attention-detail">Inactive/review batch status returned by the UAG summary source.</div>
+                </div>
+                <div class="count-badge" id="attentionUagReview">0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Dashboard Sources</h3>
+            <p class="panel-subtitle">Read-only live sources used by this page.</p>
+
+            <table class="source-table">
+              <thead>
+                <tr><th>Area</th><th>Live Source</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Assessments</td><td>client_mechanical_assessment_tracking_view</td></tr>
+                <tr><td>Revenue</td><td>Revenue summary and goal RPCs</td></tr>
+                <tr><td>Inventory</td><td>inventory_fifo_vs_current_valuation_view</td></tr>
+                <tr><td>Serialized Value</td><td>inventory_part_lookup_view</td></tr>
+                <tr><td>UAG</td><td>uag_bulk_batch_summary_all_view</td></tr>
+                <tr><td>PPV</td><td>ppv_pay_periods and ppv_live_pay_period_summary_view</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
+const ALLOWED_ROLES = ['SYSTEM_ADMIN', 'ADMIN', 'SERVICE'];
+
+const REVENUE_SUMMARY_RPC = 'get_client_services_revenue_transaction_summary';
+const REVENUE_GOAL_RPC = 'get_client_services_revenue_goal_targets';
+const MECHANICAL_ASSESSMENT_VIEW = 'client_mechanical_assessment_tracking_view';
+const INVENTORY_VALUATION_VIEW = 'inventory_fifo_vs_current_valuation_view';
+const SERIALIZED_VALUATION_VIEW = 'inventory_part_lookup_view';
+const UAG_SUMMARY_VIEW = 'uag_bulk_batch_summary_all_view';
+const PPV_PAY_PERIODS_TABLE = 'ppv_pay_periods';
+const PPV_SUMMARY_VIEW = 'ppv_live_pay_period_summary_view';
+
+let currentProfile = null;
+let currentSession = null;
+let currentPayPeriods = [];
+
+const dashboardAttention = {
+  assessmentPending: 0,
+  assessmentReview: 0,
+  zeroCostSerialized: 0,
+  uagReview: 0
+};
+
+window.addEventListener('load', async () => {
+  initializeSidebar();
+
+  const hasAccess = await enforceDashboardAccess();
+  if (!hasAccess) return;
+
+  initializeRevenuePeriod();
+  await refreshDashboard();
+});
+
+function initializeSidebar() {
+  const appShell = document.getElementById('appShell');
+  const toggleButton = document.getElementById('inventorySidebarToggle');
+  const groupButtons = document.querySelectorAll('.nav-group-toggle');
+  const navLinks = document.querySelectorAll('.side-nav a[data-page]');
+
+  function applyCollapsedState(collapsed) {
+    if (!appShell || !toggleButton) return;
+
+    appShell.classList.toggle('sidebar-collapsed', collapsed);
+    toggleButton.title = collapsed ? 'Expand' : 'Collapse';
+    toggleButton.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    toggleButton.setAttribute('aria-expanded', String(!collapsed));
+  }
+
+  function setGroupOpen(group, open) {
+    if (!group) return;
+
+    const button = group.querySelector('.nav-group-toggle');
+    const symbol = group.querySelector('.nav-group-symbol');
+
+    group.classList.toggle('open', open);
+    if (button) button.setAttribute('aria-expanded', String(open));
+    if (symbol) symbol.textContent = open ? '−' : '+';
+  }
+
+  document.querySelectorAll('.nav-group').forEach(group => setGroupOpen(group, false));
+
+  const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+
+  navLinks.forEach(link => {
+    const active = link.getAttribute('data-page') === currentPage;
+    link.classList.toggle('active', active);
+
+    if (active) setGroupOpen(link.closest('.nav-group'), true);
+  });
+
+  groupButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const group = button.closest('.nav-group');
+      setGroupOpen(group, !group.classList.contains('open'));
+    });
+  });
+
+  let collapsed = false;
+
+  try {
+    collapsed = localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true';
+  } catch (error) {
+    collapsed = false;
+  }
+
+  applyCollapsedState(collapsed);
+
+  if (toggleButton) {
+    toggleButton.addEventListener('click', () => {
+      const nextCollapsed = !appShell.classList.contains('sidebar-collapsed');
+      applyCollapsedState(nextCollapsed);
+
+      try {
+        localStorage.setItem(SIDEBAR_STORAGE_KEY, String(nextCollapsed));
+      } catch (error) {
+        // Sidebar remains functional when storage is unavailable.
+      }
+    });
+  }
+}
+
+function showAccessGate(message, type = 'warning') {
+  const gate = document.getElementById('dashboardAccessGate');
+  const content = document.getElementById('dashboardContent');
+  const box = document.getElementById('dashboardAccessMessage');
+
+  if (gate) gate.classList.remove('hidden');
+  if (content) content.classList.add('hidden');
+
+  if (box) {
+    box.className =
+      type === 'danger' ? 'danger-note' :
+      type === 'success' ? 'status-note' :
+      'warning-note';
+
+    box.textContent = message;
+  }
+}
+
+function showDashboardContent() {
+  document.getElementById('dashboardAccessGate')?.classList.add('hidden');
+  document.getElementById('dashboardContent')?.classList.remove('hidden');
+}
+
+async function enforceDashboardAccess() {
+  showAccessGate('Checking Service Manager Dashboard access...');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session?.user) {
+    showAccessGate('You must be logged in to access the Service Manager Dashboard.', 'danger');
+    return false;
+  }
+
+  currentSession = session;
+
+  const { data: profile, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showAccessGate('Login found, but the user profile could not be loaded: ' + profileError.message, 'danger');
+    return false;
+  }
+
+  if (!profile || profile.active !== true) {
+    showAccessGate('This user profile is inactive or unavailable. Contact an administrator.', 'danger');
+    return false;
+  }
+
+  if (!ALLOWED_ROLES.includes(profile.role)) {
+    showAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profile.role}\n\nThis page requires SYSTEM_ADMIN, ADMIN, or SERVICE access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentProfile = profile;
+  showDashboardContent();
+  return true;
+}
+
+async function appLogout() {
+  try {
+    await client.auth.signOut();
+  } catch (error) {
+    console.error('Logout error:', error);
+  }
+
+  currentProfile = null;
+  currentSession = null;
+  window.location.href = 'login.html';
+}
+
+function setDashboardStatus(message, type = '') {
+  const element = document.getElementById('dashboardStatus');
+  if (!element) return;
+
+  element.textContent = message;
+  element.className = 'dashboard-status' + (type ? ` ${type}` : '');
+}
+
+async function refreshDashboard() {
+  const refreshButton = document.getElementById('refreshDashboardButton');
+
+  if (refreshButton) {
+    refreshButton.disabled = true;
+    refreshButton.textContent = 'REFRESHING...';
+  }
+
+  setDashboardStatus('Refreshing live Service Manager Dashboard data...');
+
+  const results = await Promise.allSettled([
+    loadSelectedRevenuePeriod(),
+    loadMechanicalAssessmentSummary(),
+    loadInventorySummary(),
+    loadUagSummary(),
+    loadPayPeriodsAndSummary()
+  ]);
+
+  const failures = results.filter(result => result.status === 'rejected');
+
+  renderAttentionPanel();
+
+  if (failures.length === 0) {
+    setDashboardStatus(`Dashboard refreshed successfully at ${new Date().toLocaleString()}.`, 'success');
+  } else {
+    console.error('Dashboard load failures:', failures);
+    setDashboardStatus(
+      `Dashboard refreshed with ${failures.length} unavailable section${failures.length === 1 ? '' : 's'}. Review any cards marked unavailable and confirm database permissions.`,
+      'warning'
+    );
+  }
+
+  if (refreshButton) {
+    refreshButton.disabled = false;
+    refreshButton.textContent = 'REFRESH DASHBOARD';
+  }
+}
+
+function initializeRevenuePeriod() {
+  const filter = document.getElementById('revenuePeriodFilter');
+  if (filter) filter.value = 'qtd';
+  updateRevenueDateInputs('qtd');
+}
+
+function handleRevenuePeriodChange() {
+  const periodKey = document.getElementById('revenuePeriodFilter')?.value || 'qtd';
+  updateRevenueDateInputs(periodKey);
+
+  if (periodKey !== 'custom') {
+    loadSelectedRevenuePeriod();
+  }
+}
+
+function updateRevenueDateInputs(periodKey) {
+  const startInput = document.getElementById('revenueStartDate');
+  const endInput = document.getElementById('revenueEndDate');
+  const isCustom = periodKey === 'custom';
+
+  if (!startInput || !endInput) return;
+
+  startInput.disabled = !isCustom;
+  endInput.disabled = !isCustom;
+
+  if (!isCustom) {
+    const range = getRevenuePeriodRange(periodKey);
+    startInput.value = range.startDate;
+    endInput.value = range.endDate;
+  }
+}
+
+function getRevenuePeriodRange(periodKey) {
+  const today = startOfDay(new Date());
+
+  if (periodKey === 'this_week') {
+    return getWeekRange(today);
+  }
+
+  if (periodKey === 'last_week') {
+    const currentWeek = getWeekRange(today);
+    const priorSunday = addDays(parseDateISO(currentWeek.startDate), -1);
+    return getWeekRange(priorSunday);
+  }
+
+  if (periodKey === 'mtd') {
+    return {
+      startDate: toDateISO(new Date(today.getFullYear(), today.getMonth(), 1)),
+      endDate: toDateISO(today)
+    };
+  }
+
+  if (periodKey === 'last_month') {
+    return {
+      startDate: toDateISO(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
+      endDate: toDateISO(new Date(today.getFullYear(), today.getMonth(), 0))
+    };
+  }
+
+  if (periodKey === 'last_quarter') {
+    const currentQuarter = getFiscalQuarterRange(today);
+    return getFiscalQuarterRange(addDays(parseDateISO(currentQuarter.startDate), -1));
+  }
+
+  if (periodKey === 'fytd') {
+    const fiscalStartYear = today.getMonth() >= 6 ? today.getFullYear() : today.getFullYear() - 1;
+
+    return {
+      startDate: toDateISO(new Date(fiscalStartYear, 6, 1)),
+      endDate: toDateISO(today)
+    };
+  }
+
+  return getFiscalQuarterRange(today, true);
+}
+
+function getFiscalQuarterRange(dateValue, throughToday = false) {
+  const date = startOfDay(dateValue);
+  const month = date.getMonth();
+  let startMonth;
+
+  if (month >= 6 && month <= 8) {
+    startMonth = 6;
+  } else if (month >= 9) {
+    startMonth = 9;
+  } else if (month <= 2) {
+    startMonth = 0;
+  } else {
+    startMonth = 3;
+  }
+
+  const start = new Date(date.getFullYear(), startMonth, 1);
+  const end = new Date(date.getFullYear(), startMonth + 3, 0);
+
+  return {
+    startDate: toDateISO(start),
+    endDate: toDateISO(throughToday ? date : end)
+  };
+}
+
+function getWeekRange(dateValue) {
+  const date = startOfDay(dateValue);
+  const day = date.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = addDays(date, mondayOffset);
+  const sunday = addDays(monday, 6);
+
+  return {
+    startDate: toDateISO(monday),
+    endDate: toDateISO(sunday)
+  };
+}
+
+function startOfDay(value) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+function addDays(value, days) {
+  const result = new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function toDateISO(value) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateISO(value) {
+  const parts = String(value || '').slice(0, 10).split('-').map(Number);
+  return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
+async function loadSelectedRevenuePeriod() {
+  const periodKey = document.getElementById('revenuePeriodFilter')?.value || 'qtd';
+  const startInput = document.getElementById('revenueStartDate');
+  const endInput = document.getElementById('revenueEndDate');
+
+  if (periodKey !== 'custom') {
+    updateRevenueDateInputs(periodKey);
+  }
+
+  const startDate = startInput?.value || '';
+  const endDate = endInput?.value || '';
+
+  if (!startDate || !endDate) {
+    setRevenueUnavailable('Select both a start date and end date.');
+    throw new Error('Revenue date range is incomplete.');
+  }
+
+  if (startDate > endDate) {
+    setRevenueUnavailable('Revenue start date cannot be after the end date.');
+    throw new Error('Revenue date range is invalid.');
+  }
+
+  document.getElementById('revenuePeriodDescription').textContent =
+    `${formatDate(startDate)} – ${formatDate(endDate)} performance against Service Department goals.`;
+
+  const [summaryResponse, goalResponse] = await Promise.all([
+    client.rpc(REVENUE_SUMMARY_RPC, {
+      p_start_date: startDate,
+      p_end_date: endDate
+    }),
+    client.rpc(REVENUE_GOAL_RPC, {
+      p_start_date: startDate,
+      p_end_date: endDate
+    })
+  ]);
+
+  if (summaryResponse.error) {
+    setRevenueUnavailable(summaryResponse.error.message);
+    throw summaryResponse.error;
+  }
+
+  if (goalResponse.error) {
+    setRevenueUnavailable(goalResponse.error.message);
+    throw goalResponse.error;
+  }
+
+  const summary = getFirstRow(summaryResponse.data) || {};
+  const goals = getFirstRow(goalResponse.data) || {};
+
+  const totalRevenue = numberValue(summary.total_revenue);
+  const totalQuoted = numberValue(summary.total_quoted);
+  const revenueGoal = numberValue(goals.revenue_period_goal);
+  const quotedGoal = numberValue(goals.quoted_period_goal);
+
+  renderGoalMetric({
+    cardId: 'revenueGoalCard',
+    valueId: 'revenueGoalValue',
+    progressId: 'revenueGoalProgress',
+    subId: 'revenueGoalSub',
+    actual: totalRevenue,
+    goal: revenueGoal,
+    detail: `${formatNumber(goals.period_business_days)} business days`
+  });
+
+  renderGoalMetric({
+    cardId: 'quotedGoalCard',
+    valueId: 'quotedGoalValue',
+    progressId: 'quotedGoalProgress',
+    subId: 'quotedGoalSub',
+    actual: totalQuoted,
+    goal: quotedGoal,
+    detail: `Service ${formatCurrency(summary.total_service_quoted)} | CRM ${formatCurrency(summary.total_crm_quoted)}`
+  });
+
+  setText('projectWorkValue', formatCurrency(summary.total_project_work));
+  setText('repairTechRevenueValue', formatCurrency(summary.total_repair_tech_revenue));
+  setText('leakDetectionValue', formatCurrency(summary.total_leak_detection));
+
+  const lastTransactionDate = summary.last_transaction_date
+    ? formatDate(summary.last_transaction_date)
+    : '—';
+
+  setText(
+    'revenueLastUpdatedSub',
+    `Last transaction: ${lastTransactionDate} | ${formatNumber(summary.transaction_count)} transaction${numberValue(summary.transaction_count) === 1 ? '' : 's'}`
+  );
+}
+
+function renderGoalMetric(config) {
+  const actual = numberValue(config.actual);
+  const goal = numberValue(config.goal);
+  const percent = goal > 0 ? (actual / goal) * 100 : 0;
+  const status =
+    goal <= 0 ? '' :
+    percent >= 100 ? 'goal-met' :
+    percent >= 85 ? 'goal-near' :
+    'goal-below';
+
+  const card = document.getElementById(config.cardId);
+  const progress = document.getElementById(config.progressId);
+
+  if (card) {
+    card.classList.remove('goal-below', 'goal-near', 'goal-met');
+    if (status) card.classList.add(status);
+  }
+
+  if (progress) {
+    progress.className = 'progress-fill';
+
+    if (status === 'goal-met') progress.classList.add('met');
+    if (status === 'goal-near') progress.classList.add('near');
+    if (status === 'goal-below') progress.classList.add('below');
+
+    progress.style.width = `${Math.max(0, Math.min(percent, 100))}%`;
+  }
+
+  setText(config.valueId, `${formatCurrency(actual)} / ${formatCurrency(goal)}`);
+
+  const paceText = goal > 0 ? `${percent.toFixed(1)}% of period goal` : 'No goal returned';
+  setText(config.subId, `${paceText}${config.detail ? ` | ${config.detail}` : ''}`);
+}
+
+function setRevenueUnavailable(message) {
+  setText('revenueGoalValue', 'Unavailable');
+  setText('quotedGoalValue', 'Unavailable');
+  setText('projectWorkValue', 'Unavailable');
+  setText('repairTechRevenueValue', 'Unavailable');
+  setText('leakDetectionValue', 'Unavailable');
+  setText('revenueGoalSub', message || 'Revenue source unavailable');
+  setText('quotedGoalSub', message || 'Goal source unavailable');
+  setText('revenueLastUpdatedSub', 'Unable to load revenue data');
+}
+
+async function loadMechanicalAssessmentSummary() {
+  const { data, error } = await client
+    .from(MECHANICAL_ASSESSMENT_VIEW)
+    .select('*')
+    .order('customer_name', { ascending: true });
+
+  if (error) {
+    setText('routeClientCount', 'Unavailable');
+    setText('assessmentCompletedValue', 'Unavailable');
+    setText('assessmentCompletionPercent', 'Unavailable');
+    setText('assessmentReviewCount', 'Unavailable');
+    throw error;
+  }
+
+  const rows = data || [];
+  const total = rows.length;
+
+  let completed = 0;
+  let needsReview = 0;
+
+  rows.forEach(row => {
+    if (assessmentIsComplete(row)) {
+      completed += 1;
+    } else if (assessmentNeedsReview(row)) {
+      needsReview += 1;
+    }
+  });
+
+  const pending = Math.max(total - completed - needsReview, 0);
+  const completionPercent = total > 0 ? (completed / total) * 100 : 0;
+
+  setText('routeClientCount', formatNumber(total));
+  setText('assessmentCompletedValue', `${formatNumber(completed)} / ${formatNumber(total)}`);
+  setText('assessmentCompletionPercent', `${completionPercent.toFixed(1)}%`);
+  setText('assessmentCompletionSub', `${formatNumber(pending)} still needed | ${formatNumber(needsReview)} needs review`);
+  setText('assessmentReviewCount', formatNumber(needsReview));
+
+  const progress = document.getElementById('assessmentProgress');
+  if (progress) {
+    progress.style.width = `${Math.max(0, Math.min(completionPercent, 100))}%`;
+  }
+
+  dashboardAttention.assessmentPending = pending;
+  dashboardAttention.assessmentReview = needsReview;
+  renderAttentionPanel();
+}
+
+function assessmentIsComplete(row) {
+  const value =
+    row.mechanical_assessment_completed ??
+    row.assessment_completed ??
+    row.completed;
+
+  if (value === true || value === 1) return true;
+
+  return ['yes', 'true', '1', 'completed', 'complete']
+    .includes(String(value || '').trim().toLowerCase());
+}
+
+function assessmentNeedsReview(row) {
+  const customer =
+    row.customer_name ??
+    row.customer ??
+    row.client_name;
+
+  const assignedTech =
+    row.assigned_route_tech ??
+    row.route_tech ??
+    row.assigned_tech;
+
+  const matchStatus = String(row.match_status || '').trim().toUpperCase();
+
+  return !String(customer || '').trim()
+    || !String(assignedTech || '').trim()
+    || ['MULTIPLE_TECHS', 'NO_CUSTOMER_MATCH', 'NEEDS_REVIEW'].includes(matchStatus);
+}
+
+async function loadInventorySummary() {
+  try {
+    const [valuationRows, serializedRows] = await Promise.all([
+      fetchAllRows(
+        INVENTORY_VALUATION_VIEW,
+        'current_cost_value'
+      ),
+      fetchAllRows(
+        SERIALIZED_VALUATION_VIEW,
+        'part_number, is_serialized, location_name, quantity_on_hand, unit_cost, inventory_value',
+        query => query.eq('is_serialized', true).gt('quantity_on_hand', 0)
+      )
+    ]);
+
+    const totalInventoryValue = valuationRows.reduce(
+      (sum, row) => sum + numberValue(row.current_cost_value),
+      0
+    );
+
+    let serializedValue = 0;
+    let serializedUnits = 0;
+    let zeroCostUnits = 0;
+
+    serializedRows.forEach(row => {
+      const location = String(row.location_name || '').trim().toUpperCase();
+      const quantity = numberValue(row.quantity_on_hand);
+      const unitCost = numberValue(row.unit_cost);
+
+      serializedUnits += quantity;
+
+      if (location !== 'WARRANTY') {
+        serializedValue += numberValue(row.inventory_value);
+
+        if (unitCost <= 0) {
+          zeroCostUnits += quantity;
+        }
+      }
+    });
+
+    setText('totalInventoryValue', formatCurrency(totalInventoryValue));
+    setText('serializedInventoryValue', formatCurrency(serializedValue));
+    setText('serializedInventorySub', `${formatNumber(serializedUnits)} serialized units on hand | WARRANTY valued at $0.00`);
+
+    dashboardAttention.zeroCostSerialized = zeroCostUnits;
+    renderAttentionPanel();
+  } catch (error) {
+    setText('totalInventoryValue', 'Unavailable');
+    setText('serializedInventoryValue', 'Unavailable');
+    setText('serializedInventorySub', error.message || 'Inventory valuation source unavailable');
+    dashboardAttention.zeroCostSerialized = 0;
+    renderAttentionPanel();
+    throw error;
+  }
+}
+
+async function loadUagSummary() {
+  try {
+    const rows = await fetchAllRows(
+      UAG_SUMMARY_VIEW,
+      'batch_code, original_value, issued_value, remaining_value, batch_status'
+    );
+
+    let originalValue = 0;
+    let issuedValue = 0;
+    let remainingValue = 0;
+    let reviewCount = 0;
+
+    rows.forEach(row => {
+      originalValue += numberValue(row.original_value);
+      issuedValue += numberValue(row.issued_value);
+      remainingValue += numberValue(row.remaining_value);
+
+      const status = String(row.batch_status || '').toUpperCase();
+      if (status.includes('INACTIVE') || status.includes('REVIEW')) {
+        reviewCount += 1;
+      }
+    });
+
+    const usagePercent = originalValue > 0 ? (issuedValue / originalValue) * 100 : 0;
+
+    setText('uagUsagePercent', `${usagePercent.toFixed(1)}%`);
+    setText('uagUsageSub', `${formatCurrency(issuedValue)} issued of ${formatCurrency(originalValue)} original value`);
+    setText('uagRemainingValue', formatCurrency(remainingValue));
+    setText('uagRemainingSub', `${formatNumber(rows.length)} UAG bulk batch${rows.length === 1 ? '' : 'es'}`);
+
+    const progress = document.getElementById('uagUsageProgress');
+    if (progress) {
+      progress.style.width = `${Math.max(0, Math.min(usagePercent, 100))}%`;
+    }
+
+    dashboardAttention.uagReview = reviewCount;
+    renderAttentionPanel();
+  } catch (error) {
+    setText('uagUsagePercent', 'Unavailable');
+    setText('uagUsageSub', error.message || 'UAG summary source unavailable');
+    setText('uagRemainingValue', 'Unavailable');
+    setText('uagRemainingSub', 'Unable to load UAG batch data');
+    dashboardAttention.uagReview = 0;
+    renderAttentionPanel();
+    throw error;
+  }
+}
+
+async function loadPayPeriodsAndSummary() {
+  const select = document.getElementById('ppvPayPeriodSelect');
+
+  if (select) {
+    select.innerHTML = '<option value="">Loading pay periods...</option>';
+  }
+
+  const { data, error } = await client
+    .from(PPV_PAY_PERIODS_TABLE)
+    .select('*')
+    .order('period_start_date', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (select) select.innerHTML = '<option value="">Pay periods unavailable</option>';
+    setPPVUnavailable(error.message);
+    throw error;
+  }
+
+  currentPayPeriods = (data || []).slice().sort((a, b) => {
+    const aStart = String(a.period_start_date || '');
+    const bStart = String(b.period_start_date || '');
+
+    if (aStart !== bStart) return bStart.localeCompare(aStart);
+
+    return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+  });
+
+  if (!select) return;
+
+  select.innerHTML = '<option value="">Select pay period...</option>';
+
+  currentPayPeriods.forEach(period => {
+    const option = document.createElement('option');
+    option.value = period.id;
+    option.textContent = formatPayPeriodOption(period);
+    select.appendChild(option);
+  });
+
+  if (currentPayPeriods.length === 0) {
+    select.innerHTML = '<option value="">No pay periods found</option>';
+    setPPVUnavailable('No pay periods found.');
+    return;
+  }
+
+  const selectedPeriod =
+    currentPayPeriods.find(period => {
+      const status = String(period.status || '').trim().toUpperCase();
+      return !['APPROVED', 'VOIDED', 'CLOSED'].includes(status);
+    })
+    || currentPayPeriods[0];
+
+  select.value = selectedPeriod.id;
+  await loadSelectedPPVSummary();
+}
+
+async function loadSelectedPPVSummary() {
+  const select = document.getElementById('ppvPayPeriodSelect');
+  const payPeriodId = select?.value || '';
+
+  if (!payPeriodId) {
+    setPPVUnavailable('Select a pay period.');
+    return;
+  }
+
+  const period = currentPayPeriods.find(row => String(row.id) === String(payPeriodId)) || null;
+  const rows = await fetchPPVSummaryRows(payPeriodId);
+
+  let totalVisits = 0;
+  let pickupVisits = 0;
+  let payrollTotal = 0;
+  let eligibleRouteTechCount = 0;
+  let rtlVisits = 0;
+
+  rows.forEach(row => {
+    const visits = firstNumberFrom(row, [
+      'total_pay_period_visits',
+      'total_visits',
+      'ppv_total_visits',
+      'visit_total',
+      'cleanings_total'
+    ]);
+
+    totalVisits += visits;
+
+    if (isRTLRow(row)) {
+      rtlVisits += visits;
+    }
+
+    if (isEligibleRouteTechRow(row)) {
+      eligibleRouteTechCount += 1;
+
+      pickupVisits += firstNumberFrom(row, [
+        'pickup_visits',
+        'pickup_ppv_visits',
+        'overage_visits',
+        'paid_pickup_visits'
+      ]);
+
+      payrollTotal += firstNumberFrom(row, [
+        'final_gross_before_taxes_deductions',
+        'net_ppv_pay',
+        'gross_ppv_pay',
+        'pre_safeguard_pay',
+        'total_pay',
+        'total_pay_amount',
+        'payroll_total',
+        'total_ppv_pay',
+        'net_pay_total',
+        'biweekly_pay_total'
+      ]);
+    }
+  });
+
+  setText('ppvTotalVisits', formatNumber(totalVisits));
+  setText('ppvPickupVisits', formatNumber(pickupVisits));
+  setText('ppvPayrollTotal', formatCurrency(payrollTotal));
+  setText(
+    'ppvTotalVisitsSub',
+    `RT + RTL cleanings | RTL visits: ${formatNumber(rtlVisits)}`
+  );
+
+  const periodLabel = period?.pay_period_label || getFirstValue(rows[0] || {}, ['pay_period_label']) || 'Selected Pay Period';
+  const startDate = period?.period_start_date || getFirstValue(rows[0] || {}, ['period_start_date']);
+  const endDate = period?.period_end_date || getFirstValue(rows[0] || {}, ['period_end_date']);
+  const status = period?.status || getFirstValue(rows[0] || {}, ['pay_period_status']);
+
+  setText('ppvSelectedPeriod', periodLabel);
+  setText(
+    'ppvSelectedPeriodSub',
+    `${formatDate(startDate)} – ${formatDate(endDate)} | ${status || 'Status unavailable'} | ${formatNumber(eligibleRouteTechCount)} eligible RTs`
+  );
+}
+
+async function fetchPPVSummaryRows(payPeriodId) {
+  const candidateColumns = ['pay_period_id', 'ppv_pay_period_id', 'period_id'];
+  let lastError = null;
+
+  for (const column of candidateColumns) {
+    const { data, error } = await client
+      .from(PPV_SUMMARY_VIEW)
+      .select('*')
+      .eq(column, payPeriodId);
+
+    if (!error) return data || [];
+    lastError = error;
+  }
+
+  setPPVUnavailable(lastError?.message || 'Unable to load PPV summary.');
+  throw lastError || new Error('Unable to load PPV summary.');
+}
+
+function isRTLRow(row) {
+  const rowType = String(row.row_type || '').trim().toUpperCase();
+  const code = String(row.rt_code_normalized || row.rt_code || '').trim().toUpperCase();
+
+  return rowType === 'RTL' || code.startsWith('RTL');
+}
+
+function isEligibleRouteTechRow(row) {
+  if (isRTLRow(row)) return false;
+  if (row.ppv_eligible === false) return false;
+
+  const rowType = String(row.row_type || '').trim().toUpperCase();
+
+  if (rowType && rowType !== 'RT') return false;
+
+  return true;
+}
+
+function setPPVUnavailable(message) {
+  setText('ppvTotalVisits', 'Unavailable');
+  setText('ppvPickupVisits', 'Unavailable');
+  setText('ppvPayrollTotal', 'Unavailable');
+  setText('ppvSelectedPeriod', 'Unavailable');
+  setText('ppvSelectedPeriodSub', message || 'PPV source unavailable');
+}
+
+function renderAttentionPanel() {
+  setAttentionBadge('attentionAssessmentPending', dashboardAttention.assessmentPending, 'warning');
+  setAttentionBadge('attentionAssessmentReview', dashboardAttention.assessmentReview, dashboardAttention.assessmentReview > 0 ? 'danger' : 'success');
+  setAttentionBadge('attentionZeroCostSerialized', dashboardAttention.zeroCostSerialized, dashboardAttention.zeroCostSerialized > 0 ? 'danger' : 'success');
+  setAttentionBadge('attentionUagReview', dashboardAttention.uagReview, dashboardAttention.uagReview > 0 ? 'warning' : 'success');
+}
+
+function setAttentionBadge(id, value, status) {
+  const element = document.getElementById(id);
+  if (!element) return;
+
+  element.textContent = formatNumber(value);
+  element.className = `count-badge ${status || ''}`.trim();
+}
+
+async function fetchAllRows(viewName, columns = '*', configureQuery = null) {
+  const rows = [];
+  const batchSize = 1000;
+  let from = 0;
+
+  while (true) {
+    let query = client.from(viewName).select(columns);
+
+    if (typeof configureQuery === 'function') {
+      query = configureQuery(query);
+    }
+
+    const { data, error } = await query.range(from, from + batchSize - 1);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    rows.push(...data);
+
+    if (data.length < batchSize) break;
+    from += batchSize;
+  }
+
+  return rows;
+}
+
+function getFirstRow(value) {
+  if (Array.isArray(value)) return value[0] || null;
+  return value || null;
+}
+
+function getFirstValue(row, keys) {
+  for (const key of keys) {
+    if (row && row[key] !== undefined && row[key] !== null && row[key] !== '') {
+      return row[key];
+    }
+  }
+
+  return null;
+}
+
+function firstNumberFrom(row, keys) {
+  return numberValue(getFirstValue(row, keys));
+}
+
+function numberValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function formatCurrency(value) {
+  return numberValue(value).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  });
+}
+
+function formatNumber(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) return value ?? '';
+
+  return number.toLocaleString('en-US', {
+    maximumFractionDigits: 2
+  });
+}
+
+function formatDate(value) {
+  if (!value) return '—';
+
+  const raw = String(value);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw.slice(0, 10))) {
+    const date = parseDateISO(raw.slice(0, 10));
+
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return raw;
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
+function formatPayPeriodOption(period) {
+  const label = period.pay_period_label
+    || `${formatDate(period.period_start_date)} – ${formatDate(period.period_end_date)}`;
+
+  const status = period.status ? ` — ${period.status}` : '';
+  return `${label}${status}`;
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = value;
+}
+</script>
+</body>
+</html>
