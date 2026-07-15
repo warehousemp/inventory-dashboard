@@ -1720,7 +1720,7 @@ async function loadSelectedRevenuePeriod() {
   }
 
   const summary = getFirstRow(summaryResponse.data) || {};
-  const goals = getFirstRow(goalResponse.data) || {};
+  const goals = normalizeRevenueGoalTargets(goalResponse.data, startDate, endDate);
 
   const totalRevenue = numberValue(summary.total_revenue);
   const totalQuoted = numberValue(summary.total_quoted);
@@ -1734,7 +1734,11 @@ async function loadSelectedRevenuePeriod() {
     subId: 'revenueGoalSub',
     actual: totalRevenue,
     goal: revenueGoal,
-    detail: `${formatNumber(goals.period_business_days)} business days`
+    detail:
+      `${formatNumber(goals.period_business_days)} business days` +
+      ` | Daily ${formatCurrency(goals.revenue_daily_goal)}` +
+      ` | Weekly ${formatCurrency(goals.revenue_week_goal)}` +
+      ` | Expected by today ${formatCurrency(goals.revenue_expected_by_today)}`
   });
 
   renderGoalMetric({
@@ -1744,7 +1748,13 @@ async function loadSelectedRevenuePeriod() {
     subId: 'quotedGoalSub',
     actual: totalQuoted,
     goal: quotedGoal,
-    detail: `Service ${formatCurrency(summary.total_service_quoted)} | CRM ${formatCurrency(summary.total_crm_quoted)}`
+    detail:
+      `${formatNumber(goals.period_business_days)} business days` +
+      ` | Daily ${formatCurrency(goals.quoted_daily_goal)}` +
+      ` | Weekly ${formatCurrency(goals.quoted_week_goal)}` +
+      ` | Expected by today ${formatCurrency(goals.quoted_expected_by_today)}` +
+      ` | Service ${formatCurrency(summary.total_service_quoted)}` +
+      ` | CRM ${formatCurrency(summary.total_crm_quoted)}`
   });
 
   setText('projectWorkValue', formatCurrency(summary.total_project_work));
@@ -2208,6 +2218,129 @@ async function fetchAllRows(viewName, columns = '*', configureQuery = null) {
 function getFirstRow(value) {
   if (Array.isArray(value)) return value[0] || null;
   return value || null;
+}
+
+function compareDateISO(a, b) {
+  return String(a || '').slice(0, 10).localeCompare(String(b || '').slice(0, 10));
+}
+
+function clampDateISO(value, minValue, maxValue) {
+  let result = String(value || '').slice(0, 10);
+
+  if (minValue && compareDateISO(result, minValue) < 0) {
+    result = String(minValue).slice(0, 10);
+  }
+
+  if (maxValue && compareDateISO(result, maxValue) > 0) {
+    result = String(maxValue).slice(0, 10);
+  }
+
+  return result;
+}
+
+function countBusinessDaysInclusive(startISO, endISO) {
+  const start = parseDateISO(startISO);
+  const end = parseDateISO(endISO);
+
+  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return 0;
+  }
+
+  let count = 0;
+  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+
+  while (cursor <= end) {
+    const day = cursor.getDay();
+    if (day !== 0 && day !== 6) count += 1;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return count;
+}
+
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+
+  return 0;
+}
+
+function normalizeRevenueGoalTargets(goalData, startDate, endDate) {
+  const source = Array.isArray(goalData) ? (goalData[0] || {}) : (goalData || {});
+  const periodBusinessDays = firstFiniteNumber(
+    source.period_business_days,
+    source.business_days,
+    source.total_business_days,
+    countBusinessDaysInclusive(startDate, endDate)
+  );
+  const quotedDailyGoal = firstFiniteNumber(
+    source.quoted_daily_goal,
+    source.daily_quoted_goal
+  );
+  const revenueDailyGoal = firstFiniteNumber(
+    source.revenue_daily_goal,
+    source.daily_revenue_goal
+  );
+
+  const todayISO = toDateISO(new Date());
+  const weekReferenceDate =
+    compareDateISO(todayISO, startDate) >= 0 && compareDateISO(todayISO, endDate) <= 0
+      ? todayISO
+      : startDate;
+  const weekRange = getWeekRange(parseDateISO(weekReferenceDate));
+  const weekBusinessDays = countBusinessDaysInclusive(weekRange.startDate, weekRange.endDate);
+  const paceThroughDate = clampDateISO(
+    compareDateISO(todayISO, weekRange.startDate) >= 0 && compareDateISO(todayISO, weekRange.endDate) <= 0
+      ? todayISO
+      : endDate,
+    weekRange.startDate,
+    weekRange.endDate
+  );
+  const elapsedWeekBusinessDays = countBusinessDaysInclusive(weekRange.startDate, paceThroughDate);
+
+  const quotedPeriodGoal = firstFiniteNumber(
+    source.quoted_period_goal,
+    source.quoted_goal,
+    source.total_quoted_goal,
+    periodBusinessDays * quotedDailyGoal
+  );
+  const revenuePeriodGoal = firstFiniteNumber(
+    source.revenue_period_goal,
+    source.revenue_goal,
+    source.total_revenue_goal,
+    periodBusinessDays * revenueDailyGoal
+  );
+
+  return {
+    ...source,
+    period_business_days: periodBusinessDays,
+    quoted_period_goal: quotedPeriodGoal,
+    revenue_period_goal: revenuePeriodGoal,
+    quoted_daily_goal: quotedDailyGoal,
+    revenue_daily_goal: revenueDailyGoal,
+    week_start_date: weekRange.startDate,
+    week_end_date: weekRange.endDate,
+    week_business_days: weekBusinessDays,
+    elapsed_week_business_days: elapsedWeekBusinessDays,
+    quoted_week_goal: firstFiniteNumber(
+      source.quoted_week_goal,
+      weekBusinessDays * quotedDailyGoal
+    ),
+    revenue_week_goal: firstFiniteNumber(
+      source.revenue_week_goal,
+      weekBusinessDays * revenueDailyGoal
+    ),
+    quoted_expected_by_today: firstFiniteNumber(
+      source.quoted_expected_by_today,
+      elapsedWeekBusinessDays * quotedDailyGoal
+    ),
+    revenue_expected_by_today: firstFiniteNumber(
+      source.revenue_expected_by_today,
+      elapsedWeekBusinessDays * revenueDailyGoal
+    )
+  };
 }
 
 function getFirstValue(row, keys) {
