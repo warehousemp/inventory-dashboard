@@ -13,6 +13,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -477,13 +478,57 @@
     .import-stat .label { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
     .import-stat .value { margin-top: 5px; color: var(--header); font-size: 20px; font-weight: 800; }
 
+
+    .growth-controls {
+      display:grid;
+      grid-template-columns:minmax(180px,.8fr) minmax(170px,.7fr) minmax(170px,.7fr) auto;
+      gap:12px;
+      align-items:end;
+      margin-bottom:18px;
+    }
+    .growth-layout {
+      display:grid;
+      grid-template-columns:minmax(0,1.6fr) minmax(260px,.7fr);
+      gap:18px;
+      align-items:stretch;
+    }
+    .growth-chart-card,.growth-kpi-card {
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:13px;
+      padding:16px;
+      min-width:0;
+    }
+    .growth-chart-wrap { position:relative; min-height:320px; height:320px; }
+    .growth-kpi-stack { display:grid; gap:12px; }
+    .growth-kpi {
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:16px;
+      background:#f8fafc;
+    }
+    .growth-kpi .label {
+      font-size:12px;
+      color:var(--muted);
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.03em;
+      margin-bottom:8px;
+    }
+    .growth-kpi .value { font-size:32px; font-weight:900; color:var(--header); }
+    .growth-kpi .sub { margin-top:5px; color:var(--muted); font-size:12px; line-height:1.4; }
+    .growth-kpi.positive { background:#f6fef9; border-color:#abefc6; }
+    .growth-kpi.negative { background:#fffbfa; border-color:#fecdca; }
+    .growth-period-label { font-size:13px; color:var(--muted); margin-bottom:14px; font-weight:700; }
+
     @media (max-width: 1200px) {
       .summary-grid { grid-template-columns: repeat(4, minmax(140px, 1fr)); }
       .import-preview { grid-template-columns: repeat(3, minmax(120px, 1fr)); }
+      .growth-layout { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 900px) {
-      .toolbar, .import-grid { grid-template-columns: 1fr 1fr; }
+      .toolbar, .import-grid, .growth-controls { grid-template-columns: 1fr 1fr; }
       .summary-grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
     }
 
@@ -503,7 +548,7 @@
     @media (max-width: 600px) {
       .main-layout { padding: 0 12px; margin: 18px auto; }
       .card { padding: 18px; }
-      .toolbar, .import-grid, .summary-grid, .import-preview { grid-template-columns: 1fr; }
+      .toolbar, .import-grid, .summary-grid, .import-preview, .growth-controls { grid-template-columns: 1fr; }
       .side-nav { grid-template-columns: 1fr; }
       .tabs { display: block; }
       .tab-btn { width: 100%; border-right: 0; border-bottom: 1px solid var(--border); }
@@ -675,6 +720,56 @@
     </div>
 
     <div id="pageContent" class="main-layout hidden">
+      <section class="card">
+        <h2>Client Growth &amp; Retention</h2>
+        <p class="section-description">Official totals based on First Clean Dates, Last Clean Dates, cancellation codes, and retained-home status.</p>
+
+        <div class="growth-controls">
+          <div>
+            <label for="growthPeriod">Reporting Period</label>
+            <select id="growthPeriod">
+              <option value="MONTH">Current Month</option>
+              <option value="QUARTER">Current Quarter</option>
+              <option value="YEAR" selected>Year to Date</option>
+              <option value="CUSTOM">Custom Date Range</option>
+            </select>
+          </div>
+          <div>
+            <label for="growthStartDate">Start Date</label>
+            <input id="growthStartDate" type="date">
+          </div>
+          <div>
+            <label for="growthEndDate">End Date</label>
+            <input id="growthEndDate" type="date">
+          </div>
+          <button id="applyGrowthPeriodBtn" class="btn-primary" type="button">Apply</button>
+        </div>
+
+        <div id="growthPeriodLabel" class="growth-period-label"></div>
+
+        <div class="growth-layout">
+          <div class="growth-chart-card">
+            <div class="growth-chart-wrap"><canvas id="growthRetentionChart"></canvas></div>
+          </div>
+          <div class="growth-kpi-card">
+            <div class="growth-kpi-stack">
+              <div id="netClientKpi" class="growth-kpi">
+                <div class="label">Net Client Change</div>
+                <div id="netClientChangeValue" class="value">0</div>
+                <div class="sub">New client accounts minus canceled client accounts.</div>
+              </div>
+              <div id="netHomeKpi" class="growth-kpi">
+                <div class="label">Net Serviced-Home Change</div>
+                <div id="netServicedHomeChangeValue" class="value">0</div>
+                <div class="sub">New clients minus homes actually lost. Retained homes remain in service.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="growthMessage" class="message"></div>
+      </section>
+
       <section class="card">
         <div class="toolbar">
           <div>
@@ -854,6 +949,7 @@ let selectedWeekStart = '';
 let activeTab = 'added';
 let latestServiceDate = null;
 let parsedImport = null;
+let growthRetentionChart = null;
 
 const datasets = {
   added: [],
@@ -876,6 +972,7 @@ async function initializePage() {
   const importedBy = document.getElementById('importedBy');
   if (importedBy) importedBy.value = currentProfile?.full_name || currentSession?.user?.email || '';
 
+  initializeGrowthPeriodControls();
   await loadAllData();
 }
 
@@ -946,6 +1043,8 @@ function bindEvents() {
   document.getElementById('exportCurrentBtn')?.addEventListener('click', () => exportDataset(activeTab));
   document.getElementById('previewImportBtn')?.addEventListener('click', previewImport);
   document.getElementById('runImportBtn')?.addEventListener('click', runImport);
+  document.getElementById('growthPeriod')?.addEventListener('change', handleGrowthPeriodChange);
+  document.getElementById('applyGrowthPeriodBtn')?.addEventListener('click', loadGrowthRetentionSummary);
 }
 
 function showAccessGate(message, type = 'warning') {
@@ -1015,6 +1114,135 @@ async function logoutUser() {
   window.location.href = 'login.html';
 }
 
+
+function initializeGrowthPeriodControls() {
+  const today = new Date();
+  const endInput = document.getElementById('growthEndDate');
+  if (endInput) endInput.value = toIsoDate(today);
+  applyGrowthPreset('YEAR');
+}
+
+function handleGrowthPeriodChange() {
+  const period = document.getElementById('growthPeriod')?.value || 'YEAR';
+  applyGrowthPreset(period);
+  const custom = period === 'CUSTOM';
+  document.getElementById('growthStartDate').disabled = !custom;
+  document.getElementById('growthEndDate').disabled = !custom;
+}
+
+function applyGrowthPreset(period) {
+  const today = new Date();
+  let start = new Date(today);
+  let end = new Date(today);
+
+  if (period === 'MONTH') start = new Date(today.getFullYear(), today.getMonth(), 1);
+  if (period === 'QUARTER') start = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+  if (period === 'YEAR') start = new Date(today.getFullYear(), 0, 1);
+  if (period === 'CUSTOM') return;
+
+  const startInput = document.getElementById('growthStartDate');
+  const endInput = document.getElementById('growthEndDate');
+  if (startInput) startInput.value = toIsoDate(start);
+  if (endInput) endInput.value = toIsoDate(end);
+  if (startInput) startInput.disabled = true;
+  if (endInput) endInput.disabled = true;
+}
+
+async function loadGrowthRetentionSummary() {
+  const startDate = document.getElementById('growthStartDate')?.value;
+  const endDate = document.getElementById('growthEndDate')?.value;
+
+  if (!startDate || !endDate) {
+    setMessage('growthMessage', 'error', 'Start and end dates are required.');
+    return;
+  }
+  if (endDate < startDate) {
+    setMessage('growthMessage', 'error', 'End date cannot be before start date.');
+    return;
+  }
+
+  setButtonLoading('applyGrowthPeriodBtn', true, 'Loading...');
+  setMessage('growthMessage', 'info', 'Loading Client Growth & Retention totals...');
+
+  try {
+    const { data, error } = await client.rpc('get_client_growth_retention_summary', {
+      p_start_date: startDate,
+      p_end_date: endDate
+    });
+    if (error) throw new Error(error.message);
+
+    const summary = Array.isArray(data) ? data[0] : data;
+    renderGrowthRetentionSummary(summary || {}, startDate, endDate);
+    setMessage('growthMessage', 'success', 'Client Growth & Retention totals loaded.');
+  } catch (error) {
+    setMessage('growthMessage', 'error', 'Unable to load Client Growth & Retention totals: ' + (error.message || String(error)));
+  } finally {
+    setButtonLoading('applyGrowthPeriodBtn', false, 'Apply');
+  }
+}
+
+function renderGrowthRetentionSummary(summary, startDate, endDate) {
+  const canvas = document.getElementById('growthRetentionChart');
+  if (!canvas) return;
+
+  if (growthRetentionChart) growthRetentionChart.destroy();
+
+  growthRetentionChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: ['New Clients Added', 'Canceled Client Accounts', 'Homes Lost', 'Retained Homes'],
+      datasets: [{
+        label: 'Count',
+        data: [
+          Number(summary.new_clients_added || 0),
+          Number(summary.canceled_clients || 0),
+          Number(summary.homes_lost || 0),
+          Number(summary.retained_homes || 0)
+        ],
+        borderWidth: 1,
+        borderRadius: 7,
+        barThickness: 30
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: context => ` ${Number(context.raw || 0).toLocaleString()}` } }
+      },
+      scales: {
+        x: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Clients or homes' } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+
+  const netClient = Number(summary.net_client_change || 0);
+  const netHomes = Number(summary.net_serviced_home_change || 0);
+  document.getElementById('netClientChangeValue').textContent = signedNumber(netClient);
+  document.getElementById('netServicedHomeChangeValue').textContent = signedNumber(netHomes);
+  applyKpiState('netClientKpi', netClient);
+  applyKpiState('netHomeKpi', netHomes);
+
+  const label = document.getElementById('growthPeriodLabel');
+  if (label) label.textContent = `${formatDate(startDate)} through ${formatDate(endDate)}`;
+}
+
+function applyKpiState(id, value) {
+  const element = document.getElementById(id);
+  if (!element) return;
+  element.classList.remove('positive', 'negative');
+  if (value > 0) element.classList.add('positive');
+  if (value < 0) element.classList.add('negative');
+}
+
+function signedNumber(value) {
+  const number = Number(value || 0);
+  return number > 0 ? `+${number.toLocaleString()}` : number.toLocaleString();
+}
+
 async function loadAllData() {
   setMessage('pageMessage', 'info', 'Loading Client Changes data...');
   setButtonLoading('refreshBtn', true, 'Refreshing...');
@@ -1023,7 +1251,8 @@ async function loadAllData() {
     await Promise.all([
       loadCompletedWeeks(),
       loadLatestServiceDate(),
-      loadImportHistory()
+      loadImportHistory(),
+      loadGrowthRetentionSummary()
     ]);
 
     await loadSelectedWeek();
