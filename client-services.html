@@ -983,7 +983,7 @@
 
     .mechanical-assessment-summary-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      grid-template-columns: repeat(4, minmax(170px, 1fr));
       gap: 12px;
       margin-bottom: 18px;
     }
@@ -1021,6 +1021,35 @@
       gap: 12px;
       align-items: end;
       margin-bottom: 16px;
+    }
+
+    .mechanical-assessment-card.completed { border-color: #abefc6; background: #f6fef9; }
+    .mechanical-assessment-card.not-completed { border-color: #fecdca; background: #fffbfa; }
+    .mechanical-assessment-card.review { border-color: #fedf89; background: #fffcf5; }
+
+    .mechanical-assessment-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 0 0 16px;
+    }
+
+    .mechanical-assessment-actions button {
+      width: auto;
+      min-width: 170px;
+      margin: 0;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+
+    .mechanical-review-reason {
+      display: block;
+      margin-top: 5px;
+      color: #9a3412;
+      font-size: 11px;
+      white-space: normal;
+      max-width: 260px;
     }
 
     .mechanical-assessment-table-wrap {
@@ -1972,7 +2001,7 @@
             </div>
             <div class="task-section-actions">
               <button class="collapse-section-btn" id="mechanicalAssessmentRefreshBtn" type="button" onclick="loadMechanicalAssessmentData(true)">Refresh Data</button>
-              <button class="collapse-section-btn" id="mechanicalAssessmentExportBtn" type="button" onclick="exportMechanicalAssessmentCsv()">Export CSV</button>
+              <button class="collapse-section-btn" id="mechanicalAssessmentExportBtn" type="button" onclick="exportMechanicalAssessmentCsv()">Export Current View</button>
             </div>
           </div>
 
@@ -1983,23 +2012,24 @@
           <div id="mechanicalAssessmentMessage" class="message"></div>
 
           <section class="mechanical-assessment-summary-grid" aria-label="Mechanical Assessment summary">
-            <div class="mechanical-assessment-summary-card"><div class="label">Route Customers</div><div class="value" id="mechanicalAssessmentCustomerCount">0</div><div class="sub">Customers loaded</div></div>
-            <div class="mechanical-assessment-summary-card"><div class="label">Completed</div><div class="value" id="mechanicalAssessmentCompletedCount">0</div><div class="sub">Assessment completed</div></div>
-            <div class="mechanical-assessment-summary-card"><div class="label">Not Completed</div><div class="value" id="mechanicalAssessmentNeededCount">0</div><div class="sub">Assessment needed</div></div>
-            <div class="mechanical-assessment-summary-card"><div class="label">Needs Review</div><div class="value" id="mechanicalAssessmentReviewCount">0</div><div class="sub">Missing or conflicting data</div></div>
+            <div class="mechanical-assessment-card"><div class="label">Route Customers</div><div class="value" id="mechanicalAssessmentCustomerCount">0</div><div class="sub">Customers loaded</div></div>
+            <div class="mechanical-assessment-card completed"><div class="label">Completed</div><div class="value" id="mechanicalAssessmentCompletedCount">0</div><div class="sub">Assessment completed</div></div>
+            <div class="mechanical-assessment-card not-completed"><div class="label">Not Completed</div><div class="value" id="mechanicalAssessmentNeededCount">0</div><div class="sub">Assessment needed</div></div>
+            <div class="mechanical-assessment-card review"><div class="label">Needs Review</div><div class="value" id="mechanicalAssessmentReviewCount">0</div><div class="sub">Missing or conflicting data</div></div>
           </section>
 
-          <div class="mechanical-assessment-filter-grid">
+          <div class="mechanical-assessment-filters">
             <div><label for="mechanicalAssessmentSearch">Search</label><input id="mechanicalAssessmentSearch" type="search" placeholder="Customer, address, or Route Tech..." oninput="applyMechanicalAssessmentFilters()"></div>
             <div><label for="mechanicalAssessmentTechFilter">Route Tech</label><select id="mechanicalAssessmentTechFilter" onchange="applyMechanicalAssessmentFilters()"><option value="">All Route Techs</option></select></div>
             <div><label for="mechanicalAssessmentCompletionFilter">Mechanical Assessment</label><select id="mechanicalAssessmentCompletionFilter" onchange="applyMechanicalAssessmentFilters()"><option value="">All</option><option value="YES">Completed</option><option value="NO">Not Completed</option><option value="REVIEW">Needs Review</option></select></div>
             <div><label>&nbsp;</label><button class="secondary-btn" type="button" onclick="clearMechanicalAssessmentFilters()">Clear Filters</button></div>
           </div>
 
-          <div class="small-action-row">
-            <button class="warning-btn" type="button" onclick="showMechanicalAssessmentNeeded()">SHOW ASSESSMENT NEEDED</button>
-            <button class="admin-btn" type="button" onclick="showMechanicalAssessmentCompleted()">SHOW COMPLETED</button>
-            <button class="secondary-btn" type="button" onclick="showMechanicalAssessmentNeedsReview()">SHOW NEEDS REVIEW</button>
+          <div class="mechanical-assessment-actions">
+            <button class="warning-btn" type="button" onclick="showMechanicalAssessmentNeeded()">Show Not Completed</button>
+            <button class="admin-btn" type="button" onclick="showMechanicalAssessmentCompleted()">Show Completed</button>
+            <button class="secondary-btn" type="button" onclick="showMechanicalAssessmentNeedsReview()">Show Needs Review</button>
+            <button class="secondary-btn" id="mechanicalAssessmentExportNotCompletedBtn" type="button" onclick="exportMechanicalAssessmentNotCompletedCsv()">Export Not Completed</button>
           </div>
 
           <div class="mechanical-assessment-table-wrap">
@@ -3746,7 +3776,10 @@ function renderMechanicalAssessmentTable(rows) {
       <td>${escapeHTML(tech || '—')}</td>
       <td><span class="badge ${completed ? 'green' : 'red'}">${completed ? 'Yes' : 'No'}</span></td>
       <td>${escapeHTML(date ? formatShortDate(String(date).slice(0,10)) : '—')}</td>
-      <td><span class="badge ${badgeClass}">${escapeHTML(status)}</span></td>`;
+      <td>
+        <span class="badge ${badgeClass}">${escapeHTML(status)}</span>
+        ${needsReview ? `<span class="mechanical-review-reason">${escapeHTML(mechanicalAssessmentReviewReason(row))}</span>` : ''}
+      </td>`;
     tbody.appendChild(tr);
   });
 }
@@ -3776,14 +3809,59 @@ function mechanicalAssessmentComplete(row) {
   return value === true || ['yes','true','1','completed'].includes(mechanicalAssessmentSafe(value).toLowerCase());
 }
 function mechanicalAssessmentNeedsReview(row) {
-  return !mechanicalAssessmentSafe(row.customer_name || row.customer) || !mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech) || mechanicalAssessmentSafe(row.match_status).toLowerCase().includes('review');
+  const customer = mechanicalAssessmentSafe(row.customer_name || row.customer);
+  const tech = mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech);
+  const matchStatus = mechanicalAssessmentSafe(row.match_status).toUpperCase();
+  return !customer || !tech || ['MULTIPLE_TECHS', 'NO_CUSTOMER_MATCH', 'NEEDS_REVIEW'].includes(matchStatus);
+}
+
+function mechanicalAssessmentReviewReason(row) {
+  const customer = mechanicalAssessmentSafe(row.customer_name || row.customer);
+  const tech = mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech);
+  const matchStatus = mechanicalAssessmentSafe(row.match_status).toUpperCase();
+  if (!customer) return 'Customer name is missing.';
+  if (!tech) return 'Assigned Route Tech is missing.';
+  if (matchStatus === 'MULTIPLE_TECHS') return 'More than one Route Tech was found in Service History.';
+  if (matchStatus === 'NO_CUSTOMER_MATCH') return 'Customer could not be matched exactly.';
+  if (matchStatus === 'NEEDS_REVIEW') return 'Record was marked for manual review.';
+  return 'Missing or conflicting tracking data.';
 }
 function mechanicalAssessmentSafe(value) { return value === null || value === undefined ? '' : String(value).trim(); }
 
-function exportMechanicalAssessmentCsv() {
-  if (!filteredMechanicalAssessmentRows.length) { setMessage('mechanicalAssessmentMessage', 'error', 'There are no Mechanical Assessment records to export.'); return; }
-  const headers = ['Customer','Location','Route Tech','Mechanical Assessment Completed','Assessment Date','Status'];
-  const rows = filteredMechanicalAssessmentRows.map(row => {
+function exportMechanicalAssessmentNotCompletedCsv() {
+  const search = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentSearch')?.value).toLowerCase();
+  const routeTech = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentTechFilter')?.value);
+
+  const rowsToExport = allMechanicalAssessmentRows.filter(row => {
+    const tech = mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech);
+    const completed = mechanicalAssessmentComplete(row);
+    const needsReview = mechanicalAssessmentNeedsReview(row);
+    if (completed || needsReview) return false;
+    if (routeTech && tech !== routeTech) return false;
+    if (search) {
+      const haystack = [row.customer_name, row.customer, row.location, row.full_location_address, row.location_address, tech]
+        .map(mechanicalAssessmentSafe).join(' ').toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  }).sort((a, b) => {
+    const techCompare = mechanicalAssessmentSafe(a.assigned_route_tech || a.route_tech).localeCompare(mechanicalAssessmentSafe(b.assigned_route_tech || b.route_tech));
+    if (techCompare) return techCompare;
+    return mechanicalAssessmentSafe(a.customer_name || a.customer).localeCompare(mechanicalAssessmentSafe(b.customer_name || b.customer));
+  });
+
+  if (!rowsToExport.length) {
+    setMessage('mechanicalAssessmentMessage', 'error', 'There are no Not Completed records matching the current Search and Route Tech filters.');
+    return;
+  }
+
+  exportMechanicalAssessmentRows(rowsToExport, `mechanical-assessment-not-completed-${getLocalDateISO()}.csv`);
+  setMessage('mechanicalAssessmentMessage', 'success', `${rowsToExport.length.toLocaleString()} Not Completed customer record(s) exported.`);
+}
+
+function exportMechanicalAssessmentRows(rowsToExport, filename) {
+  const headers = ['Customer','Location','Route Tech','Mechanical Assessment Completed','Assessment Date','Status','Review Reason'];
+  const rows = rowsToExport.map(row => {
     const completed = mechanicalAssessmentComplete(row);
     const review = mechanicalAssessmentNeedsReview(row);
     return [
@@ -3792,7 +3870,8 @@ function exportMechanicalAssessmentCsv() {
       row.assigned_route_tech || row.route_tech || '',
       completed ? 'Yes' : 'No',
       row.mechanical_assessment_date || row.assessment_date || row.completed_at || '',
-      review ? 'Needs Review' : completed ? 'Completed' : 'Not Completed'
+      review ? 'Needs Review' : completed ? 'Completed' : 'Not Completed',
+      review ? mechanicalAssessmentReviewReason(row) : ''
     ];
   });
   const csv = [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\n');
@@ -3800,9 +3879,20 @@ function exportMechanicalAssessmentCsv() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `mechanical-assessment-tracking-${getLocalDateISO()}.csv`;
-  document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
-  setMessage('mechanicalAssessmentMessage', 'success', 'Mechanical Assessment CSV export created.');
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function exportMechanicalAssessmentCsv() {
+  if (!filteredMechanicalAssessmentRows.length) {
+    setMessage('mechanicalAssessmentMessage', 'error', 'There are no Mechanical Assessment records to export.');
+    return;
+  }
+  exportMechanicalAssessmentRows(filteredMechanicalAssessmentRows, `mechanical-assessment-current-view-${getLocalDateISO()}.csv`);
+  setMessage('mechanicalAssessmentMessage', 'success', `${filteredMechanicalAssessmentRows.length.toLocaleString()} record(s) from the current filtered view exported.`);
 }
 
 async function loadInspectionRequests() {
