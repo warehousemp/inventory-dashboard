@@ -754,14 +754,14 @@
           <div class="growth-kpi-card">
             <div class="growth-kpi-stack">
               <div id="netClientKpi" class="growth-kpi">
-                <div class="label">Net Client Change</div>
+                <div class="label">Overall Client Growth</div>
                 <div id="netClientChangeValue" class="value">0</div>
-                <div class="sub">New client accounts minus canceled client accounts.</div>
+                <div class="sub">New clients added minus canceled clients.</div>
               </div>
               <div id="netHomeKpi" class="growth-kpi">
-                <div class="label">Net Serviced-Home Change</div>
+                <div class="label">New Service Locations Gained</div>
                 <div id="netServicedHomeChangeValue" class="value">0</div>
-                <div class="sub">New clients minus homes actually lost. Retained homes remain in service.</div>
+                <div class="sub">Brand-new service locations added minus homes actually lost.</div>
               </div>
             </div>
           </div>
@@ -1219,12 +1219,19 @@ function renderGrowthRetentionSummary(summary, startDate, endDate) {
     }
   });
 
-  const netClient = Number(summary.net_client_change || 0);
-  const netHomes = Number(summary.net_serviced_home_change || 0);
-  document.getElementById('netClientChangeValue').textContent = signedNumber(netClient);
-  document.getElementById('netServicedHomeChangeValue').textContent = signedNumber(netHomes);
-  applyKpiState('netClientKpi', netClient);
-  applyKpiState('netHomeKpi', netHomes);
+  const newClientsAdded = Number(summary.new_clients_added || 0);
+  const canceledClients = Number(summary.canceled_clients || 0);
+  const retainedHomes = Number(summary.retained_homes || 0);
+  const homesLost = Number(summary.homes_lost || 0);
+
+  const overallClientGrowth = newClientsAdded - canceledClients;
+  const brandNewServiceLocations = newClientsAdded - retainedHomes;
+  const newServiceLocationsGained = brandNewServiceLocations - homesLost;
+
+  document.getElementById('netClientChangeValue').textContent = signedNumber(overallClientGrowth);
+  document.getElementById('netServicedHomeChangeValue').textContent = signedNumber(newServiceLocationsGained);
+  applyKpiState('netClientKpi', overallClientGrowth);
+  applyKpiState('netHomeKpi', newServiceLocationsGained);
 
   const label = document.getElementById('growthPeriodLabel');
   if (label) label.textContent = `${formatDate(startDate)} through ${formatDate(endDate)}`;
