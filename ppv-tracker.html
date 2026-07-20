@@ -1046,6 +1046,93 @@
       border-bottom: none;
     }
 
+
+    .payroll-report-shell {
+      border: 1px solid #0b3c5d;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #ffffff;
+      margin-top: 14px;
+    }
+
+    .payroll-report-title {
+      background: #4f86c6;
+      color: #ffffff;
+      font-weight: 900;
+      padding: 8px 10px;
+      font-size: 13px;
+      border-bottom: 1px solid #0b3c5d;
+    }
+
+    .payroll-report-table {
+      width: 100%;
+      min-width: 980px;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .payroll-report-table th,
+    .payroll-report-table td {
+      border: 1px solid #1f2933;
+      padding: 4px 6px;
+      white-space: nowrap;
+      position: static;
+    }
+
+    .payroll-report-table th {
+      background: #4f86c6;
+      color: #ffffff;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 12px;
+      text-align: center;
+      vertical-align: bottom;
+    }
+
+    .payroll-report-table td {
+      background: #ffffff;
+      color: #111827;
+    }
+
+    .payroll-report-table .payroll-report-date-label {
+      background: #4f86c6;
+      color: #ffffff;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .payroll-report-table .payroll-report-date-value {
+      background: #ffffff;
+      color: #000000;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .payroll-report-table .payroll-report-money {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .payroll-report-table .payroll-report-center {
+      text-align: center;
+    }
+
+    .payroll-report-table .payroll-report-training {
+      background: #ffff00;
+    }
+
+    .payroll-report-table .payroll-report-total-label {
+      font-weight: 900;
+      text-align: right;
+      background: #ffffff;
+    }
+
+    .payroll-report-table .payroll-report-total-value {
+      font-weight: 900;
+      text-align: right;
+      background: #ffffff;
+    }
+
     .pay-sheet-shell {
       border: 2px solid #0b3c5d;
       border-radius: 12px;
@@ -2197,8 +2284,26 @@
 
                 <div class="button-row">
                   <button class="primary-btn small-btn" type="button" onclick="calculateFinalPayrollAndOpenNext()">CALCULATE / REFRESH FINAL PAYROLL</button>
-                  <button class="secondary-btn small-btn" type="button" onclick="exportRowsToCSV(currentLivePayrollRows, 'ppv_live_summary.csv')">EXPORT SUMMARY CSV</button>
+                  <button class="secondary-btn small-btn" type="button" onclick="exportRowsToCSV(currentPayrollReportingRows, 'ppv_payroll_reporting_sheet.csv')">EXPORT PAYROLL REPORT CSV</button>
+                  <button class="secondary-btn small-btn" type="button" onclick="exportRowsToCSV(currentLivePayrollRows, 'ppv_live_summary_detail.csv')">EXPORT DETAIL CSV</button>
                 </div>
+
+                <div class="payroll-report-shell">
+                  <div class="payroll-report-title">Payroll Reporting Sheet (Auto-Populated)</div>
+                  <div class="table-wrap" style="margin-top:0; border:0; border-radius:0;">
+                    <table class="payroll-report-table">
+                      <thead id="payrollReportHead"></thead>
+                      <tbody id="payrollReportBody">
+                        <tr>
+                          <td>No pay period selected.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <h3 style="margin-top: 18px;">Detailed Payroll Data</h3>
+                <div class="muted-text">Detailed system rows used for troubleshooting and export.</div>
 
                 <div class="table-wrap">
                   <table>
@@ -2405,6 +2510,7 @@ let suggestedPayPeriod = null;
 let currentRouteTechRows = [];
 let currentLiveSummaryRows = [];
 let currentLivePayrollRows = [];
+let currentPayrollReportingRows = [];
 let currentSafeguardEventRows = [];
 let currentImportBatchRows = [];
 let currentPayrollExportRows = [];
@@ -3168,6 +3274,8 @@ async function loadLiveSummaryRows() {
   if (result.error) {
     currentLiveSummaryRows = [];
     currentLivePayrollRows = [];
+    currentPayrollReportingRows = [];
+    renderPayrollReportingSheet([]);
     renderRowsTable([], 'liveSummaryHead', 'liveSummaryBody', 'Unable to load live summary: ' + result.error.message);
     resetMetrics();
     return;
@@ -3175,6 +3283,8 @@ async function loadLiveSummaryRows() {
 
   currentLiveSummaryRows = result.rows || [];
   currentLivePayrollRows = getPayrollReportRows(currentLiveSummaryRows);
+  currentPayrollReportingRows = buildPayrollReportingRows(currentLivePayrollRows);
+  renderPayrollReportingSheet(currentPayrollReportingRows);
   renderRowsTable(currentLivePayrollRows, 'liveSummaryHead', 'liveSummaryBody', 'No route tech payroll rows found for this pay period.');
   renderMetrics(currentLiveSummaryRows);
 }
@@ -3425,6 +3535,111 @@ async function selectFromViewForPayPeriod(sourceName, payPeriodId, orderField = 
   return { rows: filteredRows, error: null };
 }
 
+
+function getPayrollReportDateRange() {
+  const start = getRecordValue(currentPayPeriodRecord, ['period_start_date', 'pay_period_start_date', 'start_date', 'date_start'])
+    || getRecordValue((currentLiveSummaryRows || [])[0], ['period_start_date', 'pay_period_start_date', 'start_date', 'date_start']);
+  const end = getRecordValue(currentPayPeriodRecord, ['period_end_date', 'pay_period_end_date', 'end_date', 'date_end'])
+    || getRecordValue((currentLiveSummaryRows || [])[0], ['period_end_date', 'pay_period_end_date', 'end_date', 'date_end']);
+
+  return {
+    start: start || '',
+    end: end || ''
+  };
+}
+
+function buildPayrollReportingRows(rows) {
+  return (rows || [])
+    .filter(isRouteTechPayrollReportRow)
+    .map(row => {
+      const rtCode = getRecordValue(row, ['rt_code']) || '';
+      const routeTechName = getRecordValue(row, ['route_tech_name']) || '';
+      const ppvRate = numberFromRecord(row, ['final_ppv_rate', 'ppv_rate']);
+      const regularVisits = numberFromRecord(row, ['regular_ppv_visits', 'regular_visits', 'baseline_visits', 'paid_regular_visits']);
+      const pickupVisits = numberFromRecord(row, ['pickup_visits', 'pickup_ppv_visits', 'overage_visits', 'paid_pickup_visits']);
+      const pickupRate = numberFromRecord(row, ['pickup_visit_rate']);
+      const ppvBasePay = numberFromRecord(row, ['base_ppv_pay', 'regular_ppv_pay']) || roundNumber(regularVisits * ppvRate, 2);
+      const pickupPay = numberFromRecord(row, ['pickup_pay', 'pickup_visit_pay']) || roundNumber(pickupVisits * pickupRate, 2);
+      const ptoHolidayPay = numberFromRecord(row, ['pto_holiday_pay']);
+      const meetingMaintenancePay = numberFromRecord(row, ['meeting_maintenance_pay']);
+      const safeguardPenalties = numberFromRecord(row, ['safeguard_impact_total']);
+      const trainingWagesLabor = numberFromRecord(row, ['training_wages_labor', 'training_wages_pay', 'training_labor_pay']);
+      const grossPay = numberFromRecord(row, ['final_gross_before_taxes_deductions', 'net_ppv_pay', 'gross_pay']);
+
+      return {
+        name: `${rtCode}${rtCode && routeTechName ? ' - ' : ''}${routeTechName}`,
+        ppv_rate: ppvRate,
+        ppv_base_pay: ppvBasePay,
+        pickup_pay: pickupPay,
+        pto_holiday_pay: ptoHolidayPay,
+        extra_rt_meetings_maint: meetingMaintenancePay,
+        safeguard_penalties: safeguardPenalties,
+        training_wages_labor: trainingWagesLabor,
+        gross_pay: grossPay
+      };
+    });
+}
+
+function renderPayrollReportingSheet(rows) {
+  const head = document.getElementById('payrollReportHead');
+  const body = document.getElementById('payrollReportBody');
+
+  if (!head || !body) {
+    return;
+  }
+
+  const dateRange = getPayrollReportDateRange();
+
+  head.innerHTML = `
+    <tr>
+      <th class="payroll-report-date-label">Payroll Start</th>
+      <th class="payroll-report-date-value">${escapeHTML(formatDate(dateRange.start) || '-')}</th>
+      <th class="payroll-report-date-label">Payroll End</th>
+      <th class="payroll-report-date-value">${escapeHTML(formatDate(dateRange.end) || '-')}</th>
+      <th colspan="5"></th>
+    </tr>
+    <tr>
+      <th>Name</th>
+      <th>PPV Rate</th>
+      <th>PPV Base Pay</th>
+      <th>Pickup Pay</th>
+      <th>PTO / Holiday Pay</th>
+      <th>Extra RT<br>Meetings / Maint.</th>
+      <th>Safeguard<br>Penalties</th>
+      <th class="payroll-report-training">Training<br>Wages / Labor</th>
+      <th>Gross Pay</th>
+    </tr>
+  `;
+
+  if (!rows || rows.length === 0) {
+    body.innerHTML = '<tr><td colspan="9">No payroll reporting rows found for this pay period.</td></tr>';
+    return;
+  }
+
+  const totalGross = rows.reduce((sum, row) => sum + Number(row.gross_pay || 0), 0);
+
+  body.innerHTML = rows.map(row => `
+    <tr>
+      <td>${escapeHTML(row.name || '')}</td>
+      <td class="payroll-report-money">${formatCurrency(row.ppv_rate || 0)}</td>
+      <td class="payroll-report-money">${formatCurrency(row.ppv_base_pay || 0)}</td>
+      <td class="payroll-report-money">${formatCurrency(row.pickup_pay || 0)}</td>
+      <td class="payroll-report-money">${formatCurrency(row.pto_holiday_pay || 0)}</td>
+      <td class="payroll-report-money">${formatCurrency(row.extra_rt_meetings_maint || 0)}</td>
+      <td class="payroll-report-money">${formatCurrency(row.safeguard_penalties || 0)}</td>
+      <td class="payroll-report-money payroll-report-training">${Number(row.training_wages_labor || 0) ? formatCurrency(row.training_wages_labor) : '$ -'}</td>
+      <td class="payroll-report-money"><strong>${formatCurrency(row.gross_pay || 0)}</strong></td>
+    </tr>
+  `).join('') + `
+    <tr>
+      <td colspan="7"></td>
+      <td class="payroll-report-total-label">Total $</td>
+      <td class="payroll-report-total-value">${formatCurrency(totalGross)}</td>
+    </tr>
+  `;
+}
+
+
 function renderMetrics(rows) {
   const totals = {
     totalVisits: 0,
@@ -3496,6 +3711,8 @@ function resetMetrics() {
   setText('metricPickupVisits', '0');
   setText('metricPayrollTotal', '$0.00');
   currentLivePayrollRows = [];
+  currentPayrollReportingRows = [];
+  renderPayrollReportingSheet([]);
   renderRowsTable([], 'liveSummaryHead', 'liveSummaryBody', 'No pay period selected.');
 }
 
@@ -3723,11 +3940,16 @@ async function saveExtraCompletedVisits() {
   const routeTechId = getInputValue('extraVisitRouteTechSelect');
   const visitCount = integerInputValue('extraCompletedVisitsInput');
   const reason = getInputValue('extraCompletedVisitsReasonInput');
+  const selectedRouteTech = currentRouteTechRows.find(row => String(row.id || row.route_tech_id || '') === String(routeTechId));
+  const routeTechLabel = selectedRouteTech ? formatRouteTechLabel(selectedRouteTech) : routeTechId;
+  const fullReason = `Extra Completed Visits - ${reason}`;
 
   if (!routeTechId || visitCount <= 0 || !reason) {
     setPPVStatus('Select a route tech, enter a positive whole-number visit count, and provide a reason.', 'error');
     return;
   }
+
+  setPPVStatus(`Saving ${visitCount} extra completed visit(s) for ${routeTechLabel}...`);
 
   const { error } = await client.rpc('upsert_ppv_adjustment', {
     p_pay_period_id: currentPayPeriodId,
@@ -3735,9 +3957,9 @@ async function saveExtraCompletedVisits() {
     p_adjustment_type: 'CORRECTION',
     p_adjustment_amount: 0,
     p_visit_adjustment_count: visitCount,
-    p_reason: reason,
+    p_reason: fullReason,
     p_status: 'APPROVED',
-    p_notes: reason,
+    p_notes: fullReason,
     p_adjustment_id: null
   });
 
@@ -3746,10 +3968,79 @@ async function saveExtraCompletedVisits() {
     return;
   }
 
-  setPPVStatus('Extra completed visits saved as an approved correction.', 'success');
+  let verified = await verifyExtraVisitCorrectionSaved(routeTechId, fullReason);
+
+  if (!verified) {
+    const fallbackPayload = {
+      pay_period_id: currentPayPeriodId,
+      route_tech_id: routeTechId,
+      adjustment_type: 'CORRECTION',
+      adjustment_amount: 0,
+      visit_adjustment_count: visitCount,
+      reason: fullReason,
+      status: 'APPROVED',
+      notes: fullReason
+    };
+
+    const { error: insertError } = await client
+      .from('ppv_adjustments')
+      .insert(fallbackPayload);
+
+    if (insertError) {
+      setPPVStatus(
+        'The extra visit RPC returned success, but no ppv_adjustments row was found. Fallback insert also failed: ' + insertError.message,
+        'error'
+      );
+      return;
+    }
+
+    verified = await verifyExtraVisitCorrectionSaved(routeTechId, fullReason);
+  }
+
+  if (!verified) {
+    setPPVStatus(
+      'Extra completed visits may not have saved. No matching ppv_adjustments row was found after save. Do not rely on this entry until verified.',
+      'error'
+    );
+    return;
+  }
+
+  setPPVStatus(
+    `Extra completed visits saved and verified for ${routeTechLabel}. Refreshing payroll calculations...`,
+    'success'
+  );
+
   setInputValue('extraCompletedVisitsInput', '');
   setInputValue('extraCompletedVisitsReasonInput', '');
   await refreshSelectedPayPeriodData();
+}
+
+async function verifyExtraVisitCorrectionSaved(routeTechId, reasonText) {
+  if (!currentPayPeriodId || !routeTechId) {
+    return false;
+  }
+
+  const { data, error } = await client
+    .from('ppv_adjustments')
+    .select('id, pay_period_id, route_tech_id, adjustment_type, adjustment_amount, visit_adjustment_count, reason, notes, status, created_at')
+    .eq('pay_period_id', currentPayPeriodId)
+    .eq('route_tech_id', routeTechId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error) {
+    console.warn('Extra visit correction verification failed:', error.message);
+    return false;
+  }
+
+  return (data || []).some(row => {
+    const visitCount = Number(row.visit_adjustment_count || 0);
+    const status = String(row.status || '').toUpperCase();
+    const combinedText = `${row.reason || ''} ${row.notes || ''}`;
+    return visitCount > 0
+      && !['VOIDED', 'CANCELLED', 'DELETED'].includes(status)
+      && (!reasonText || combinedText.includes(reasonText));
+  });
 }
 
 async function saveManualDollarAdjustment() {
