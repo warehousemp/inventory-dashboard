@@ -4138,137 +4138,124 @@ async function saveQuarterlyCommission() {
     return;
   }
 
-  const routeTechId = getInputValue('quarterlyCommissionRouteTechSelect');
-  const periodLabel = getInputValue('quarterlyCommissionPeriodInput');
-  const amount = numberInputValue('quarterlyCommissionAmountInput');
-  const notes = getInputValue('quarterlyCommissionNotesInput');
+  if (!currentPayPeriodId) {
+    setPPVStatus(
+      'Select a pay period before saving a quarterly commission.',
+      'error'
+    );
+    return;
+  }
+
+  const routeTechId = getInputValue(
+    'quarterlyCommissionRouteTechSelect'
+  );
+
+  const periodLabel = getInputValue(
+    'quarterlyCommissionPeriodInput'
+  ).trim();
+
+  const amount = numberInputValue(
+    'quarterlyCommissionAmountInput'
+  );
+
+  const notes = getInputValue(
+    'quarterlyCommissionNotesInput'
+  ).trim();
 
   if (!routeTechId || !periodLabel || amount <= 0) {
-    setPPVStatus('Select a route tech, enter the quarter / commission period, and enter a positive commission amount.', 'error');
+    setPPVStatus(
+      'Select a route tech, enter the fiscal quarter, and enter a positive commission amount.',
+      'error'
+    );
     return;
   }
 
-  const baseNotes = notes || `Quarterly commission earned for ${periodLabel}.`;
-  const rpcAttempts = [
-    {
-      p_pay_period_id: currentPayPeriodId,
-      p_route_tech_id: routeTechId,
-      p_commission_period_label: periodLabel,
-      p_commission_amount: amount,
-      p_status: 'APPROVED',
-      p_notes: baseNotes,
-      p_quarterly_commission_id: null
-    },
-    {
-      p_pay_period_id: currentPayPeriodId,
-      p_route_tech_id: routeTechId,
-      p_quarter_label: periodLabel,
-      p_commission_amount: amount,
-      p_status: 'APPROVED',
-      p_notes: baseNotes,
-      p_commission_id: null
-    },
-    {
-      p_pay_period_id: currentPayPeriodId,
-      p_route_tech_id: routeTechId,
-      p_commission_quarter: periodLabel,
-      p_commission_pay: amount,
-      p_status: 'APPROVED',
-      p_notes: baseNotes,
-      p_quarterly_commission_id: null
-    }
-  ];
+  const periodMatch = periodLabel.match(
+    /^(?:FY\s*)?(\d{2}|\d{4})\s*[- ]?\s*Q([1-4])$/i
+  );
 
-  const errors = [];
-
-  for (const payload of rpcAttempts) {
-    const { error } = await client.rpc('upsert_ppv_quarterly_commission', payload);
-
-    if (!error) {
-      setPPVStatus('Quarterly commission saved.', 'success');
-      setInputValue('quarterlyCommissionAmountInput', '');
-      setInputValue('quarterlyCommissionNotesInput', '');
-      await refreshSelectedPayPeriodData();
-      return;
-    }
-
-    errors.push(error.message);
+  if (!periodMatch) {
+    setPPVStatus(
+      'Enter the commission period as FY26 Q4 or FY2026 Q4.',
+      'error'
+    );
+    return;
   }
 
-  const insertAttempts = [
-    {
-      pay_period_id: currentPayPeriodId,
-      route_tech_id: routeTechId,
-      commission_period_label: periodLabel,
-      commission_amount: amount,
-      status: 'APPROVED',
-      notes: baseNotes
-    },
-    {
-      pay_period_id: currentPayPeriodId,
-      route_tech_id: routeTechId,
-      quarter_label: periodLabel,
-      commission_amount: amount,
-      status: 'APPROVED',
-      notes: baseNotes
-    }
-  ];
+  let fiscalYear = Number(periodMatch[1]);
 
-  for (const payload of insertAttempts) {
-    const { error } = await client.from('ppv_quarterly_commissions').insert(payload);
-
-    if (!error) {
-      setPPVStatus('Quarterly commission saved.', 'success');
-      setInputValue('quarterlyCommissionAmountInput', '');
-      setInputValue('quarterlyCommissionNotesInput', '');
-      await refreshSelectedPayPeriodData();
-      return;
-    }
-
-    errors.push(error.message);
+  if (fiscalYear < 100) {
+    fiscalYear += 2000;
   }
 
-  setPPVStatus('Quarterly commission save error. Last database response: ' + (errors[errors.length - 1] || 'Unknown error'), 'error');
+  const quarterNumber = Number(periodMatch[2]);
+  const fiscalQuarter = `Q${quarterNumber}`;
+
+  const quarterDates = {
+    Q1: {
+      start: `${fiscalYear - 1}-07-01`,
+      end: `${fiscalYear - 1}-09-30`
+    },
+    Q2: {
+      start: `${fiscalYear - 1}-10-01`,
+      end: `${fiscalYear - 1}-12-31`
+    },
+    Q3: {
+      start: `${fiscalYear}-01-01`,
+      end: `${fiscalYear}-03-31`
+    },
+    Q4: {
+      start: `${fiscalYear}-04-01`,
+      end: `${fiscalYear}-06-30`
+    }
+  };
+
+  const selectedQuarterDates = quarterDates[fiscalQuarter];
+
+  const payload = {
+    p_route_tech_id: routeTechId,
+    p_fiscal_year: fiscalYear,
+    p_fiscal_quarter: fiscalQuarter,
+    p_commission_amount: roundNumber(amount, 2),
+    p_quarter_start_date: selectedQuarterDates.start,
+    p_quarter_end_date: selectedQuarterDates.end,
+    p_earned_start_date: selectedQuarterDates.start,
+    p_earned_end_date: selectedQuarterDates.end,
+    p_pay_period_id: currentPayPeriodId,
+    p_commission_type: 'ROUTE_TECH_SALES',
+    p_source_reference: periodLabel,
+    p_notes:
+      notes ||
+      `Quarterly commission earned for FY${fiscalYear} ${fiscalQuarter}.`,
+    p_status: 'APPROVED',
+    p_commission_id: null
+  };
+
+  const { error } = await client.rpc(
+    'upsert_ppv_quarterly_commission',
+    payload
+  );
+
+  if (error) {
+    setPPVStatus(
+      'Quarterly commission save error: ' + error.message,
+      'error'
+    );
+    return;
+  }
+
+  setInputValue('quarterlyCommissionAmountInput', '');
+  setInputValue('quarterlyCommissionNotesInput', '');
+
+  setPPVStatus(
+    `Quarterly commission saved for FY${fiscalYear} ${fiscalQuarter}: ${formatCurrency(amount)}.`,
+    'success'
+  );
+
+  await refreshSelectedPayPeriodData();
+  await loadPayrollExportRows();
 }
-
-function updateSafeguardCalculatedAmount() {
-  const preview = document.getElementById('safeguardPreview');
-  const routeTechId = getInputValue('safeguardRouteTechSelect');
-  const safeguardType = getInputValue('safeguardTypeInput') || 'FAILED_QC_CHECK';
-
-  if (!preview) {
-    return;
-  }
-
-  if (!routeTechId) {
-    preview.textContent = 'Select a route tech and safeguard type to preview the calculated penalty.';
-    return;
-  }
-
-  const row = findLiveSummaryRowForRouteTech(routeTechId) || {};
-  const weeklyBase = numberFromRecord(row, ['baseline_weekly_visits', 'base_weekly_visits']) || 62;
-  const biweeklyBase = numberFromRecord(row, ['assigned_base_visits', 'baseline_biweekly_visits']) || 124;
-  const currentSafeguardTotal = numberFromRecord(row, ['safeguard_impact_total']);
-
-  let amount = -weeklyBase;
-  let description = 'One weekly base penalty.';
-
-  if (safeguardType === 'LOST_CLIENT') {
-    amount = -biweeklyBase;
-    description = 'Current pay-period lost-client penalty. Review next-period impact separately.';
-  }
-
-  setInputValue('safeguardPenaltyAmountInput', decimalForInput(amount, 2));
-
-  preview.innerHTML = `
-    <div class="calc-line"><span>Weekly Base Visits</span><strong>${formatNumber(weeklyBase)}</strong></div>
-    <div class="calc-line"><span>Bi-Weekly Assigned Base Visits</span><strong>${formatNumber(biweeklyBase)}</strong></div>
-    <div class="calc-line"><span>Current Safeguard Total on Live Summary</span><strong>${formatCurrency(currentSafeguardTotal)}</strong></div>
-    <div class="calc-line"><span>Calculated Penalty</span><strong>${formatCurrency(amount)}</strong></div>
-    <div class="calc-line"><span>Policy Note</span><strong>${escapeHTML(description)}</strong></div>
-  `;
-}
-
+  
 async function saveTemporarySafeguard() {
   if (!validateManualEntryAccess()) {
     return;
