@@ -608,7 +608,7 @@
 
     .transaction-log-table {
       table-layout: fixed;
-      min-width: 2250px;
+      min-width: 2390px;
     }
 
     .transaction-log-table th,
@@ -624,21 +624,21 @@
     .transaction-log-table th:nth-child(3),
     .transaction-log-table td:nth-child(3) { width: 160px; }
     .transaction-log-table th:nth-child(4),
-    .transaction-log-table td:nth-child(4) { width: 145px; }
+    .transaction-log-table td:nth-child(4) { width: 140px; }
     .transaction-log-table th:nth-child(5),
-    .transaction-log-table td:nth-child(5) { width: 330px; word-break: break-word; line-height: 1.35; }
+    .transaction-log-table td:nth-child(5) { width: 145px; }
     .transaction-log-table th:nth-child(6),
-    .transaction-log-table td:nth-child(6) { width: 170px; word-break: break-word; line-height: 1.35; }
+    .transaction-log-table td:nth-child(6) { width: 330px; word-break: break-word; line-height: 1.35; }
     .transaction-log-table th:nth-child(7),
-    .transaction-log-table td:nth-child(7),
+    .transaction-log-table td:nth-child(7) { width: 170px; word-break: break-word; line-height: 1.35; }
     .transaction-log-table th:nth-child(8),
     .transaction-log-table td:nth-child(8),
     .transaction-log-table th:nth-child(9),
-    .transaction-log-table td:nth-child(9) { width: 110px; }
+    .transaction-log-table td:nth-child(9),
     .transaction-log-table th:nth-child(10),
-    .transaction-log-table td:nth-child(10) { width: 150px; }
+    .transaction-log-table td:nth-child(10) { width: 110px; }
     .transaction-log-table th:nth-child(11),
-    .transaction-log-table td:nth-child(11),
+    .transaction-log-table td:nth-child(11) { width: 150px; }
     .transaction-log-table th:nth-child(12),
     .transaction-log-table td:nth-child(12),
     .transaction-log-table th:nth-child(13),
@@ -648,9 +648,43 @@
     .transaction-log-table th:nth-child(15),
     .transaction-log-table td:nth-child(15),
     .transaction-log-table th:nth-child(16),
-    .transaction-log-table td:nth-child(16) { width: 145px; }
+    .transaction-log-table td:nth-child(16),
     .transaction-log-table th:nth-child(17),
-    .transaction-log-table td:nth-child(17) { width: 280px; word-break: break-word; line-height: 1.35; }
+    .transaction-log-table td:nth-child(17) { width: 145px; }
+    .transaction-log-table th:nth-child(18),
+    .transaction-log-table td:nth-child(18) { width: 280px; word-break: break-word; line-height: 1.35; }
+
+    .transaction-status-badge {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    .transaction-status-active {
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    .transaction-status-reversed {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+    }
+
+    .transaction-status-reversal-entry {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+    }
+
+    .transaction-row-reversed td {
+      background: #fffafa;
+    }
 
 
     .dead-stock-table {
@@ -2014,6 +2048,7 @@
               <th>Date / Time</th>
               <th>Transaction Type</th>
               <th>Transaction Label</th>
+              <th>Status</th>
               <th>Class Code</th>
               <th>Part Number</th>
               <th>Description</th>
@@ -2032,7 +2067,7 @@
           </thead>
           <tbody id="transactionLogTableBody">
             <tr>
-              <td colspan="17">No transaction report loaded.</td>
+              <td colspan="18">No transaction report loaded.</td>
             </tr>
           </tbody>
         </table>
@@ -2609,6 +2644,85 @@ function getTransactionClassCodeLabel(classCode) {
   return classCode;
 }
 
+async function fetchReversalStatusMap() {
+  const reversalStatusMap = new Map();
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    const { data, error } = await client
+      .from('inventory_transactions')
+      .select('id, created_at, transaction_type, notes')
+      .ilike('transaction_type', '%REVERSAL%')
+      .order('created_at', { ascending: false })
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    data.forEach(row => {
+      const notes = String(row.notes || '');
+      const match = notes.match(/Original transaction id:\s*([0-9a-fA-F-]{36})/i);
+
+      if (match && match[1]) {
+        reversalStatusMap.set(String(match[1]), {
+          reversal_transaction_id: row.id || '',
+          reversed_at: row.created_at || '',
+          reversal_transaction_type: row.transaction_type || '',
+          reversal_notes: row.notes || ''
+        });
+      }
+    });
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  return reversalStatusMap;
+}
+
+function getTransactionStatus(row, reversalStatusMap) {
+  const type = String(row.transaction_type || '').toUpperCase();
+
+  if (TRANSACTION_REVERSAL_TYPES.includes(type) || type.includes('REVERSAL')) {
+    return {
+      code: 'REVERSAL_ENTRY',
+      label: 'REVERSAL ENTRY'
+    };
+  }
+
+  if (reversalStatusMap.has(String(row.id || ''))) {
+    return {
+      code: 'REVERSED',
+      label: 'REVERSED'
+    };
+  }
+
+  return {
+    code: 'ACTIVE',
+    label: 'ACTIVE'
+  };
+}
+
+function getTransactionStatusBadge(row) {
+  const statusCode = String(row.transaction_status_code || 'ACTIVE').toUpperCase();
+  const statusLabel = row.transaction_status || 'ACTIVE';
+  const cssClass =
+    statusCode === 'REVERSED' ? 'transaction-status-reversed' :
+    statusCode === 'REVERSAL_ENTRY' ? 'transaction-status-reversal-entry' :
+    'transaction-status-active';
+
+  return `<span class="transaction-status-badge ${cssClass}">${escapeHTML(statusLabel)}</span>`;
+}
+
 async function fetchTransactionLogRows() {
   const filters = getTransactionFilterValues();
 
@@ -2682,10 +2796,26 @@ async function fetchTransactionLogRows() {
     });
   }
 
-  return allRows.map(row => ({
-    ...row,
-    transaction_label: getTransactionDisplayType(row)
-  }));
+  let reversalStatusMap = new Map();
+
+  try {
+    reversalStatusMap = await fetchReversalStatusMap();
+  } catch (error) {
+    console.warn('Unable to load original transaction reversal status:', error);
+  }
+
+  return allRows.map(row => {
+    const status = getTransactionStatus(row, reversalStatusMap);
+    const reversalDetails = reversalStatusMap.get(String(row.id || '')) || {};
+
+    return {
+      ...row,
+      ...reversalDetails,
+      transaction_label: getTransactionDisplayType(row),
+      transaction_status_code: status.code,
+      transaction_status: status.label
+    };
+  });
 }
 
 async function loadTransactionLogReport() {
@@ -2693,14 +2823,14 @@ async function loadTransactionLogReport() {
   const tableBody = document.getElementById('transactionLogTableBody');
 
   summary.textContent = 'Loading transaction log...';
-  tableBody.innerHTML = '<tr><td colspan="17">Loading transaction log...</td></tr>';
+  tableBody.innerHTML = '<tr><td colspan="18">Loading transaction log...</td></tr>';
 
   try {
     transactionLogData = await fetchTransactionLogRows();
   } catch (error) {
     transactionLogData = [];
     summary.textContent = error.message;
-    tableBody.innerHTML = `<tr><td colspan="17">${escapeHTML(error.message)}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="18">${escapeHTML(error.message)}</td></tr>`;
     return;
   }
 
@@ -2713,7 +2843,7 @@ function renderTransactionLogTable() {
   tableBody.innerHTML = '';
 
   if (!transactionLogData || transactionLogData.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="17">No transactions found for the selected filters.</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="18">No transactions found for the selected filters.</td></tr>';
     return;
   }
 
@@ -2724,10 +2854,15 @@ function renderTransactionLogTable() {
     const quantity = Number(getFirstValue(row, ['quantity', 'transaction_quantity']) || 0);
     const totalValue = getTransactionTotalValue(row, quantity, unitCost);
 
+    if (row.transaction_status_code === 'REVERSED') {
+      tr.classList.add('transaction-row-reversed');
+    }
+
     tr.innerHTML = `
       <td>${formatDateTime(transactionDate)}</td>
       <td>${escapeHTML(row.transaction_type || '')}</td>
       <td>${escapeHTML(row.transaction_label || getTransactionDisplayType(row))}</td>
+      <td>${getTransactionStatusBadge(row)}</td>
       <td>${escapeHTML(row.job_type || '')}</td>
       <td>${escapeHTML(row.part_number || '')}</td>
       <td>${escapeHTML(row.description || row.part_description || '')}</td>
@@ -2773,6 +2908,7 @@ function updateTransactionLogSummary() {
   let adjustmentCount = 0;
   let transferCount = 0;
   let reversalCount = 0;
+  let reversedOriginalCount = 0;
   let totalQuantity = 0;
   let totalValue = 0;
 
@@ -2780,6 +2916,10 @@ function updateTransactionLogSummary() {
     const type = String(row.transaction_type || '').toUpperCase();
     const quantity = Number(getFirstValue(row, ['quantity', 'transaction_quantity']) || 0);
     const unitCost = getFirstValue(row, ['unit_cost', 'transaction_unit_cost']);
+
+    if (row.transaction_status_code === 'REVERSED') {
+      reversedOriginalCount++;
+    }
 
     totalQuantity += quantity;
     totalValue += Number(getTransactionTotalValue(row, quantity, unitCost) || 0);
@@ -2804,7 +2944,8 @@ function updateTransactionLogSummary() {
     `Issue Count: ${formatNumber(issueCount)}\n` +
     `Transfer Count: ${formatNumber(transferCount)}\n` +
     `Adjustment Count: ${formatNumber(adjustmentCount)}\n` +
-    `Reversal Count: ${formatNumber(reversalCount)}\n` +
+    `Reversed Original Count: ${formatNumber(reversedOriginalCount)}\n` +
+    `Reversal Entry Count: ${formatNumber(reversalCount)}\n` +
     `Net Quantity: ${formatNumber(totalQuantity)}\n` +
     `Net Transaction Value: ${formatCurrency(totalValue)}`;
 }
@@ -2832,7 +2973,7 @@ async function exportTransactionLogCSV() {
   const startDate = filters.startDate || 'all_dates';
   const endDate = filters.endDate || 'all_dates';
 
-  let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,CLASS CODE,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PO NUMBER,CLIENT NAME,WORK ORDER,ISSUED TO,NOTES,ID\n';
+  let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,STATUS,CLASS CODE,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PO NUMBER,CLIENT NAME,WORK ORDER,ISSUED TO,NOTES,ID\n';
 
   transactionLogData.forEach(row => {
     const transactionDate = getFirstValue(row, ['created_at', 'transaction_date', 'transaction_at']);
@@ -2844,6 +2985,7 @@ async function exportTransactionLogCSV() {
       `"${cleanCSV(formatDateTime(transactionDate))}",` +
       `"${cleanCSV(row.transaction_type)}",` +
       `"${cleanCSV(row.transaction_label || getTransactionDisplayType(row))}",` +
+      `"${cleanCSV(row.transaction_status || 'ACTIVE')}",` +
       `"${cleanCSV(row.job_type)}",` +
       `"${cleanCSV(row.part_number)}",` +
       `"${cleanCSV(row.description || row.part_description)}",` +
@@ -2887,7 +3029,7 @@ function clearTransactionLogFilters() {
     'Filters cleared. Select filters and click RUN TRANSACTION REPORT.';
 
   document.getElementById('transactionLogTableBody').innerHTML =
-    '<tr><td colspan="17">No transaction report loaded.</td></tr>';
+    '<tr><td colspan="18">No transaction report loaded.</td></tr>';
 }
 
 function getFirstValue(row, keys) {
