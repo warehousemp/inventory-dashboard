@@ -1967,6 +1967,16 @@
 
           <label>Part Number:</label>
           <input id="transactionPartNumber" list="partsList" placeholder="Optional part number filter" autocomplete="off">
+
+          <label>Client:</label>
+          <input id="transactionClientName" type="text" placeholder="Search all or part of a client name" autocomplete="off">
+
+          <label>Class Code:</label>
+          <select id="transactionClassCodeFilter">
+            <option value="ALL">All Class Codes</option>
+            <option value="PROJECTS">Projects</option>
+            <option value="REPAIR">Repair</option>
+          </select>
         </div>
 
         <div class="inventory-workflow-panel">
@@ -1988,6 +1998,7 @@
           <div class="button-row">
             <button class="report-btn" onclick="loadTransactionLogReport()">RUN TRANSACTION REPORT</button>
             <button class="export-btn" onclick="exportTransactionLogCSV()">EXPORT TRANSACTION CSV</button>
+            <button class="transfer-btn" onclick="clearTransactionLogFilters()">CLEAR FILTERS</button>
           </div>
         </div>
       </div>
@@ -2569,11 +2580,37 @@ async function loadParts() {
   console.log('Parts loaded into report dropdown:', partsData.length);
 }
 
+function getTransactionFilterValues() {
+  return {
+    startDate: document.getElementById('transactionStartDate')?.value || '',
+    endDate: document.getElementById('transactionEndDate')?.value || '',
+    partNumber: document.getElementById('transactionPartNumber')?.value.trim() || '',
+    clientName: document.getElementById('transactionClientName')?.value.trim() || '',
+    classCode: document.getElementById('transactionClassCodeFilter')?.value || 'ALL',
+    transactionType: document.getElementById('transactionTypeFilter')?.value || 'ALL'
+  };
+}
+
+function getTransactionClassCodeLabel(classCode) {
+  const normalizedCode = String(classCode || '').toUpperCase();
+
+  if (normalizedCode === 'PROJECTS' || normalizedCode === 'PROJECT') {
+    return 'Projects';
+  }
+
+  if (normalizedCode === 'REPAIR') {
+    return 'Repair';
+  }
+
+  if (normalizedCode === 'ALL' || !normalizedCode) {
+    return 'All Class Codes';
+  }
+
+  return classCode;
+}
+
 async function fetchTransactionLogRows() {
-  const startDate = document.getElementById('transactionStartDate').value;
-  const endDate = document.getElementById('transactionEndDate').value;
-  const partNumber = document.getElementById('transactionPartNumber').value.trim();
-  const transactionType = document.getElementById('transactionTypeFilter').value;
+  const filters = getTransactionFilterValues();
 
   let allRows = [];
   let from = 0;
@@ -2584,26 +2621,37 @@ async function fetchTransactionLogRows() {
       .from('inventory_transaction_log_view')
       .select('*');
 
-    if (startDate) {
-      query = query.gte('created_at', `${startDate}T00:00:00`);
+    if (filters.startDate) {
+      query = query.gte('created_at', `${filters.startDate}T00:00:00`);
     }
 
-    if (endDate) {
-      query = query.lte('created_at', `${endDate}T23:59:59`);
+    if (filters.endDate) {
+      query = query.lte('created_at', `${filters.endDate}T23:59:59`);
     }
 
-    if (partNumber) {
-      query = query.ilike('part_number', `%${partNumber}%`);
+    if (filters.partNumber) {
+      query = query.ilike('part_number', `%${filters.partNumber}%`);
     }
 
-    if (transactionType === 'ALL_ADJUSTMENTS') {
+    if (filters.clientName) {
+      query = query.ilike('client_name', `%${filters.clientName}%`);
+    }
+
+    if (filters.classCode === 'PROJECTS') {
+      // Supports either PROJECT or PROJECTS if historical rows use both forms.
+      query = query.ilike('job_type', 'PROJECT%');
+    } else if (filters.classCode && filters.classCode !== 'ALL') {
+      query = query.ilike('job_type', filters.classCode);
+    }
+
+    if (filters.transactionType === 'ALL_ADJUSTMENTS') {
       query = query.in('transaction_type', ['ADJUSTMENT', 'CYCLE_COUNT_ADJUSTMENT']);
-    } else if (transactionType === 'ALL_TRANSFERS') {
+    } else if (filters.transactionType === 'ALL_TRANSFERS') {
       query = query.in('transaction_type', TRANSFER_TRANSACTION_TYPES);
-    } else if (transactionType === 'TRANSACTION_REVERSALS') {
+    } else if (filters.transactionType === 'TRANSACTION_REVERSALS') {
       query = query.in('transaction_type', TRANSACTION_REVERSAL_TYPES);
-    } else if (transactionType && transactionType !== 'ALL' && transactionType !== 'OTHER_ACTIVITY') {
-      query = query.eq('transaction_type', transactionType);
+    } else if (filters.transactionType && filters.transactionType !== 'ALL' && filters.transactionType !== 'OTHER_ACTIVITY') {
+      query = query.eq('transaction_type', filters.transactionType);
     }
 
     const { data, error } = await query
@@ -2627,7 +2675,7 @@ async function fetchTransactionLogRows() {
     from += batchSize;
   }
 
-  if (transactionType === 'OTHER_ACTIVITY') {
+  if (filters.transactionType === 'OTHER_ACTIVITY') {
     allRows = allRows.filter(row => {
       const rowType = String(row.transaction_type || '').toUpperCase();
       return !KNOWN_TRANSACTION_TYPES.includes(rowType);
@@ -2702,13 +2750,23 @@ function renderTransactionLogTable() {
 
 function updateTransactionLogSummary() {
   const summary = document.getElementById('transactionLogSummary');
+  const filters = getTransactionFilterValues();
+
+  const filterSummary =
+    `Report Type: ${getTransactionTypeLabel(filters.transactionType)}\n` +
+    `Start Date: ${filters.startDate || 'All Dates'}\n` +
+    `End Date: ${filters.endDate || 'All Dates'}\n` +
+    `Part Number: ${filters.partNumber || 'All Parts'}\n` +
+    `Class Code: ${getTransactionClassCodeLabel(filters.classCode)}\n` +
+    `Client: ${filters.clientName || 'All Clients'}\n`;
 
   if (!transactionLogData || transactionLogData.length === 0) {
-    summary.textContent = 'No transactions found for the selected filters.';
+    summary.textContent =
+      filterSummary +
+      `Transactions Returned: 0\n` +
+      `No transactions found for the selected filters.`;
     return;
   }
-
-  const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
 
   let receiveCount = 0;
   let issueCount = 0;
@@ -2740,7 +2798,7 @@ function updateTransactionLogSummary() {
   });
 
   summary.textContent =
-    `Report Type: ${getTransactionTypeLabel(selectedTransactionType)}\n` +
+    filterSummary +
     `Transactions Returned: ${formatNumber(transactionLogData.length)}\n` +
     `Receive Count: ${formatNumber(receiveCount)}\n` +
     `Issue Count: ${formatNumber(issueCount)}\n` +
@@ -2752,23 +2810,27 @@ function updateTransactionLogSummary() {
 }
 
 async function exportTransactionLogCSV() {
-  if (!transactionLogData || transactionLogData.length === 0) {
-    try {
-      transactionLogData = await fetchTransactionLogRows();
-    } catch (error) {
-      document.getElementById('transactionLogSummary').textContent = error.message;
-      return;
-    }
-  }
+  const summary = document.getElementById('transactionLogSummary');
 
-  if (!transactionLogData || transactionLogData.length === 0) {
-    document.getElementById('transactionLogSummary').textContent = 'No transactions available to export for the selected filters.';
+  // Always reload using the current screen filters so the CSV cannot contain stale results.
+  try {
+    transactionLogData = await fetchTransactionLogRows();
+  } catch (error) {
+    summary.textContent = error.message;
     return;
   }
 
-  const startDate = document.getElementById('transactionStartDate').value || 'all_dates';
-  const endDate = document.getElementById('transactionEndDate').value || 'all_dates';
-  const selectedTransactionType = document.getElementById('transactionTypeFilter').value;
+  renderTransactionLogTable();
+  updateTransactionLogSummary();
+
+  if (!transactionLogData || transactionLogData.length === 0) {
+    summary.textContent = 'No transactions available to export for the selected filters.';
+    return;
+  }
+
+  const filters = getTransactionFilterValues();
+  const startDate = filters.startDate || 'all_dates';
+  const endDate = filters.endDate || 'all_dates';
 
   let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,CLASS CODE,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PO NUMBER,CLIENT NAME,WORK ORDER,ISSUED TO,NOTES,ID\n';
 
@@ -2799,8 +2861,33 @@ async function exportTransactionLogCSV() {
       `"${cleanCSV(row.id)}"\n`;
   });
 
-  const filenamePrefix = getReportFilenamePrefix(selectedTransactionType);
-  downloadCSV(csv, `${filenamePrefix}_${cleanFilename(startDate)}_to_${cleanFilename(endDate)}.csv`);
+  const filenameParts = [
+    getReportFilenamePrefix(filters.transactionType),
+    filters.classCode !== 'ALL' ? `class_${cleanFilename(getTransactionClassCodeLabel(filters.classCode))}` : '',
+    filters.clientName ? `client_${cleanFilename(filters.clientName)}` : '',
+    cleanFilename(startDate),
+    'to',
+    cleanFilename(endDate)
+  ].filter(Boolean);
+
+  downloadCSV(csv, `${filenameParts.join('_')}.csv`);
+}
+
+function clearTransactionLogFilters() {
+  document.getElementById('transactionStartDate').value = '';
+  document.getElementById('transactionEndDate').value = '';
+  document.getElementById('transactionPartNumber').value = '';
+  document.getElementById('transactionClientName').value = '';
+  document.getElementById('transactionClassCodeFilter').value = 'ALL';
+  document.getElementById('transactionTypeFilter').value = 'ALL';
+
+  transactionLogData = [];
+
+  document.getElementById('transactionLogSummary').textContent =
+    'Filters cleared. Select filters and click RUN TRANSACTION REPORT.';
+
+  document.getElementById('transactionLogTableBody').innerHTML =
+    '<tr><td colspan="17">No transaction report loaded.</td></tr>';
 }
 
 function getFirstValue(row, keys) {
