@@ -1092,6 +1092,21 @@
       margin: 0;
     }
 
+
+    .mechanical-import-card { background:#fff; border:1px solid var(--border); border-radius:13px; padding:16px; margin:0 0 18px; overflow:hidden; }
+    .mechanical-import-card h3 { margin:0 0 10px; color:var(--header); font-size:17px; }
+    .mechanical-import-grid { display:grid; grid-template-columns:minmax(260px,1.3fr) minmax(190px,.8fr) auto; gap:12px; align-items:end; }
+    .mechanical-import-summary-grid { display:grid; grid-template-columns:repeat(6,minmax(130px,1fr)); gap:10px; margin:14px 0; }
+    .mechanical-import-summary-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:11px; }
+    .mechanical-import-summary-box .label { color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; margin-bottom:5px; }
+    .mechanical-import-summary-box .value { color:var(--header); font-size:20px; font-weight:800; }
+    .mechanical-import-table { min-width:1120px; }
+    .mechanical-import-history-table { min-width:1180px; }
+    .mechanical-import-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .mechanical-import-actions button { width:auto; min-width:170px; margin:0; }
+    .mechanical-import-file-note { color:var(--muted); font-size:12px; line-height:1.45; margin-top:-4px; }
+    .mechanical-import-status-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0 0; }
+
     @media (max-width: 1000px) {
       .info-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
       .three-column-form,
@@ -1104,7 +1119,9 @@
       .inspection-detail-section-body,
       .inspection-office-form,
       .mechanical-assessment-summary-grid,
-      .mechanical-assessment-filters { grid-template-columns: 1fr; }
+      .mechanical-assessment-filters,
+      .mechanical-import-grid,
+      .mechanical-import-summary-grid { grid-template-columns: 1fr; }
     }
 
     @media (max-width: 820px) {
@@ -2011,6 +2028,33 @@
 
           <div id="mechanicalAssessmentMessage" class="message"></div>
 
+
+          <section class="mechanical-import-card">
+            <h3>Import Completed Mechanical Assessments</h3>
+            <div class="status-note">Upload the Skimmer Tech Details CSV. The page previews matches before anything is applied. Only <strong>Newly Completed</strong> rows can update existing tracking records.</div>
+            <div class="mechanical-import-grid">
+              <div><label for="mechanicalAssessmentImportFile">Tech Details CSV</label><input id="mechanicalAssessmentImportFile" type="file" accept=".csv,text/csv"><div class="mechanical-import-file-note" id="mechanicalAssessmentImportFileNote">No file selected.</div></div>
+              <div><label for="mechanicalAssessmentImportedBy">Imported By</label><input id="mechanicalAssessmentImportedBy" type="text" placeholder="CSC team member"></div>
+              <div><label>&nbsp;</label><button class="admin-btn" id="mechanicalAssessmentPreviewImportBtn" type="button" onclick="previewMechanicalAssessmentImport()">Preview Import</button></div>
+            </div>
+            <div id="mechanicalAssessmentImportMessage" class="message"></div>
+            <div id="mechanicalAssessmentImportResults" class="hidden">
+              <div class="mechanical-import-status-row"><span class="section-summary-pill" id="mechanicalAssessmentImportBatchStatus">Status: —</span><span class="section-summary-pill" id="mechanicalAssessmentImportBatchFile">File: —</span></div>
+              <div class="mechanical-import-summary-grid">
+                <div class="mechanical-import-summary-box"><div class="label">Assessment Rows</div><div class="value" id="mechanicalImportAssessmentRows">0</div></div>
+                <div class="mechanical-import-summary-box"><div class="label">Matched</div><div class="value" id="mechanicalImportMatchedRows">0</div></div>
+                <div class="mechanical-import-summary-box"><div class="label">Newly Completed</div><div class="value" id="mechanicalImportNewRows">0</div></div>
+                <div class="mechanical-import-summary-box"><div class="label">Already Completed</div><div class="value" id="mechanicalImportAlreadyRows">0</div></div>
+                <div class="mechanical-import-summary-box"><div class="label">No Match</div><div class="value" id="mechanicalImportUnmatchedRows">0</div></div>
+                <div class="mechanical-import-summary-box"><div class="label">Needs Review</div><div class="value" id="mechanicalImportReviewRows">0</div></div>
+              </div>
+              <div class="mechanical-import-actions"><button class="admin-btn" id="mechanicalAssessmentConfirmImportBtn" type="button" onclick="confirmMechanicalAssessmentImport()" disabled>Confirm Import</button><button class="secondary-btn" type="button" onclick="clearMechanicalAssessmentImport()">Clear Preview</button></div>
+              <div class="mechanical-assessment-table-wrap"><table class="mechanical-assessment-table mechanical-import-table"><thead><tr><th>Row</th><th>Date</th><th>Customer</th><th>Service Location</th><th>Tech</th><th>Work Order Type</th><th>Preview Status</th><th>Review Reason</th></tr></thead><tbody id="mechanicalAssessmentImportTbody"><tr><td colspan="8">Import preview details will appear here.</td></tr></tbody></table></div>
+            </div>
+            <details style="margin-top:14px;"><summary style="cursor:pointer;font-weight:800;color:var(--header);">Recent Import History</summary><div class="mechanical-import-actions" style="margin-top:12px;"><button class="secondary-btn" type="button" onclick="loadMechanicalAssessmentImportHistory()">Refresh Import History</button></div><div class="mechanical-assessment-table-wrap"><table class="mechanical-assessment-table mechanical-import-history-table"><thead><tr><th>Created</th><th>File</th><th>Imported By</th><th>Status</th><th>Rows</th><th>Matched</th><th>New</th><th>Already Completed</th><th>No Match</th><th>Needs Review</th><th>Completed</th></tr></thead><tbody id="mechanicalAssessmentImportHistoryTbody"><tr><td colspan="11">Import history has not been loaded.</td></tr></tbody></table></div></details>
+          </section>
+
+
           <section class="mechanical-assessment-summary-grid" aria-label="Mechanical Assessment summary">
             <div class="mechanical-assessment-card"><div class="label">Route Customers</div><div class="value" id="mechanicalAssessmentCustomerCount">0</div><div class="sub">Customers loaded</div></div>
             <div class="mechanical-assessment-card completed"><div class="label">Completed</div><div class="value" id="mechanicalAssessmentCompletedCount">0</div><div class="sub">Assessment completed</div></div>
@@ -2188,9 +2232,19 @@ let selectedInspectionRequest = null;
 let inspectionRequestsLoaded = false;
 
 const MECHANICAL_ASSESSMENT_VIEW = 'client_mechanical_assessment_tracking_view';
+const MECHANICAL_ASSESSMENT_IMPORT_START_RPC = 'start_client_mechanical_assessment_import';
+const MECHANICAL_ASSESSMENT_IMPORT_LOAD_RPC = 'load_client_mechanical_assessment_import_rows';
+const MECHANICAL_ASSESSMENT_IMPORT_PREVIEW_RPC = 'preview_client_mechanical_assessment_import';
+const MECHANICAL_ASSESSMENT_IMPORT_CONFIRM_RPC = 'confirm_client_mechanical_assessment_import';
+const MECHANICAL_ASSESSMENT_IMPORT_DETAILS_RPC = 'get_client_mechanical_assessment_import_details';
+const MECHANICAL_ASSESSMENT_IMPORT_HISTORY_RPC = 'get_client_mechanical_assessment_import_history';
 let allMechanicalAssessmentRows = [];
 let filteredMechanicalAssessmentRows = [];
 let mechanicalAssessmentLoaded = false;
+let currentMechanicalAssessmentImportBatchId = null;
+let currentMechanicalAssessmentImportStatus = '';
+let currentMechanicalAssessmentImportFileName = '';
+let currentMechanicalAssessmentImportDetails = [];
 
 window.addEventListener('load', async () => {
   initializeSidebar();
@@ -2201,6 +2255,7 @@ window.addEventListener('load', async () => {
   const hasAccess = await enforceClientServicesAccess();
   if (!hasAccess) return;
 
+  initializeMechanicalAssessmentImportControls();
   await loadClientWorklist();
 
   const activeWeeklyRevenueTab = document.getElementById('weeklyRevenueTab');
@@ -2367,8 +2422,9 @@ function showClientServicesSection(sectionKey, saveState = true) {
     loadInspectionRequests();
   }
 
-  if (activeSection === 'mechanicalAssessment' && currentSession && !mechanicalAssessmentLoaded) {
-    loadMechanicalAssessmentData(false);
+  if (activeSection === 'mechanicalAssessment' && currentSession) {
+    if (!mechanicalAssessmentLoaded) loadMechanicalAssessmentData(false);
+    loadMechanicalAssessmentImportHistory();
   }
 }
 
@@ -3679,6 +3735,130 @@ function truncateText(value, maxLength) {
 function csvEscape(value) {
   const text = value === null || value === undefined ? '' : String(value);
   return `"${text.replace(/"/g, '""')}"`;
+}
+
+
+function initializeMechanicalAssessmentImportControls() {
+  const fileInput = document.getElementById('mechanicalAssessmentImportFile');
+  const importedByInput = document.getElementById('mechanicalAssessmentImportedBy');
+  if (importedByInput && !importedByInput.value) importedByInput.value = currentProfile?.full_name || '';
+  if (fileInput && !fileInput.dataset.bound) {
+    fileInput.dataset.bound = 'true';
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files?.[0];
+      setText('mechanicalAssessmentImportFileNote', file ? `${file.name} (${file.size.toLocaleString()} bytes)` : 'No file selected.');
+      clearMechanicalAssessmentImport(false);
+    });
+  }
+}
+
+function normalizeCsvHeader(value) { return String(value || '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+
+function parseCsvText(csvText) {
+  const rows=[]; let row=[]; let field=''; let inQuotes=false;
+  for (let i=0;i<csvText.length;i+=1) {
+    const char=csvText[i], next=csvText[i+1];
+    if (char==='"') { if (inQuotes && next==='"') { field+='"'; i+=1; } else inQuotes=!inQuotes; continue; }
+    if (char===',' && !inQuotes) { row.push(field); field=''; continue; }
+    if ((char==='\n' || char==='\r') && !inQuotes) { if (char==='\r' && next==='\n') i+=1; row.push(field); if (row.some(v=>String(v).trim()!=='')) rows.push(row); row=[]; field=''; continue; }
+    field+=char;
+  }
+  row.push(field); if (row.some(v=>String(v).trim()!=='')) rows.push(row); return rows;
+}
+
+function findCsvColumn(headerMap, aliases) { for (const alias of aliases) { const n=normalizeCsvHeader(alias); if (headerMap.has(n)) return headerMap.get(n); } return -1; }
+
+function parseMechanicalAssessmentDate(value) {
+  const text=String(value || '').trim(); if (!text) return '';
+  let m=text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  m=text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/); if (m) { const y=m[3].length===2?`20${m[3]}`:m[3]; return `${y}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`; }
+  const d=new Date(text); return Number.isNaN(d.getTime()) ? '' : getLocalDateISO(d);
+}
+
+function buildMechanicalAssessmentImportRows(csvText) {
+  const parsed=parseCsvText(csvText); if (parsed.length<2) throw new Error('The CSV does not contain any data rows.');
+  const headers=parsed[0].map(normalizeCsvHeader), map=new Map(headers.map((h,i)=>[h,i]));
+  const idx={
+    serviceDate:findCsvColumn(map,['service date','date','completed date','completion date']),
+    serviceType:findCsvColumn(map,['service type','service','visit type']),
+    workOrderNumber:findCsvColumn(map,['work order number','work order #','work order','wo number','wo #']),
+    workOrderType:findCsvColumn(map,['work order type','type','work order category']),
+    customerName:findCsvColumn(map,['customer name','customer','client name','client']),
+    serviceLocation:findCsvColumn(map,['service location','location','service address','location address','address']),
+    techName:findCsvColumn(map,['tech name','technician','tech','route tech'])
+  };
+  const missing=[]; if(idx.customerName<0)missing.push('Customer Name'); if(idx.serviceLocation<0)missing.push('Service Location'); if(idx.workOrderType<0)missing.push('Work Order Type'); if(idx.serviceDate<0)missing.push('Service Date');
+  if (missing.length) throw new Error(`Required CSV column(s) not found: ${missing.join(', ')}.`);
+  return parsed.slice(1).map((v,i)=>({
+    source_row_number:String(i+2), service_date:parseMechanicalAssessmentDate(v[idx.serviceDate]),
+    service_type:idx.serviceType>=0?String(v[idx.serviceType]||'').trim():'', work_order_number:idx.workOrderNumber>=0?String(v[idx.workOrderNumber]||'').trim():'',
+    work_order_type:String(v[idx.workOrderType]||'').trim(), customer_name:String(v[idx.customerName]||'').trim(), service_location:String(v[idx.serviceLocation]||'').trim(),
+    tech_name:idx.techName>=0?String(v[idx.techName]||'').trim():''
+  })).filter(r=>Object.values(r).some(v=>String(v||'').trim()!==''));
+}
+
+async function previewMechanicalAssessmentImport() {
+  const file=document.getElementById('mechanicalAssessmentImportFile')?.files?.[0];
+  const importedBy=String(document.getElementById('mechanicalAssessmentImportedBy')?.value||'').trim();
+  if(!file){setMessage('mechanicalAssessmentImportMessage','error','Select a Tech Details CSV file first.');return;}
+  if(!importedBy){setMessage('mechanicalAssessmentImportMessage','error','Imported By is required.');return;}
+  const btn=document.getElementById('mechanicalAssessmentPreviewImportBtn'); if(btn){btn.disabled=true;btn.textContent='Preparing Preview...';}
+  try {
+    const rows=buildMechanicalAssessmentImportRows(await file.text()); if(!rows.length)throw new Error('No importable rows were found in the CSV.');
+    setMessage('mechanicalAssessmentImportMessage','info',`Loading ${rows.length.toLocaleString()} CSV row(s)...`);
+    const start=await client.rpc(MECHANICAL_ASSESSMENT_IMPORT_START_RPC,{p_source_file_name:file.name,p_imported_by:importedBy,p_source_row_count:rows.length,p_notes:'Uploaded from client-services.html'}); if(start.error)throw start.error;
+    currentMechanicalAssessmentImportBatchId=start.data; currentMechanicalAssessmentImportFileName=file.name;
+    const load=await client.rpc(MECHANICAL_ASSESSMENT_IMPORT_LOAD_RPC,{p_import_batch_id:start.data,p_rows:rows}); if(load.error)throw load.error;
+    const preview=await client.rpc(MECHANICAL_ASSESSMENT_IMPORT_PREVIEW_RPC,{p_import_batch_id:start.data}); if(preview.error)throw preview.error;
+    const summary=Array.isArray(preview.data)?(preview.data[0]||{}):(preview.data||{});
+    currentMechanicalAssessmentImportStatus=Number(summary.needs_review_rows||0)>0?'PREVIEW':'READY';
+    const details=await client.rpc(MECHANICAL_ASSESSMENT_IMPORT_DETAILS_RPC,{p_import_batch_id:start.data}); if(details.error)throw details.error;
+    currentMechanicalAssessmentImportDetails=Array.isArray(details.data)?details.data:[];
+    renderMechanicalAssessmentImportPreview(summary,currentMechanicalAssessmentImportDetails);
+    setMessage('mechanicalAssessmentImportMessage',currentMechanicalAssessmentImportStatus==='READY'?'success':'info',currentMechanicalAssessmentImportStatus==='READY'?'Preview is ready. Review the results, then confirm the import.':'Preview completed, but Needs Review rows must be resolved before confirmation.');
+    await loadMechanicalAssessmentImportHistory();
+  } catch(error) {
+    currentMechanicalAssessmentImportBatchId=null; currentMechanicalAssessmentImportStatus=''; currentMechanicalAssessmentImportDetails=[]; document.getElementById('mechanicalAssessmentImportResults')?.classList.add('hidden');
+    setMessage('mechanicalAssessmentImportMessage','error','Unable to preview import: '+(error?.message||error));
+  } finally { if(btn){btn.disabled=false;btn.textContent='Preview Import';} }
+}
+
+function renderMechanicalAssessmentImportPreview(summary,details) {
+  document.getElementById('mechanicalAssessmentImportResults')?.classList.remove('hidden');
+  setText('mechanicalAssessmentImportBatchStatus',`Status: ${currentMechanicalAssessmentImportStatus||'—'}`); setText('mechanicalAssessmentImportBatchFile',`File: ${currentMechanicalAssessmentImportFileName||'—'}`);
+  setText('mechanicalImportAssessmentRows',Number(summary.assessment_rows||0).toLocaleString()); setText('mechanicalImportMatchedRows',Number(summary.matched_rows||0).toLocaleString());
+  setText('mechanicalImportNewRows',Number(summary.newly_completed_rows||0).toLocaleString()); setText('mechanicalImportAlreadyRows',Number(summary.already_completed_rows||0).toLocaleString());
+  setText('mechanicalImportUnmatchedRows',Number(summary.unmatched_rows||0).toLocaleString()); setText('mechanicalImportReviewRows',Number(summary.needs_review_rows||0).toLocaleString());
+  const confirm=document.getElementById('mechanicalAssessmentConfirmImportBtn'); if(confirm)confirm.disabled=currentMechanicalAssessmentImportStatus!=='READY';
+  const tbody=document.getElementById('mechanicalAssessmentImportTbody'); if(!tbody)return; tbody.innerHTML='';
+  if(!details.length){tbody.innerHTML='<tr><td colspan="8">No import preview details were returned.</td></tr>';return;}
+  details.forEach(row=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${escapeHTML(row.source_row_number??'—')}</td><td>${escapeHTML(row.service_date?formatShortDate(String(row.service_date).slice(0,10)):'—')}</td><td class="wrap-cell"><strong>${escapeHTML(row.customer_name||'—')}</strong></td><td class="wrap-cell">${escapeHTML(row.service_location||'—')}</td><td>${escapeHTML(row.tech_name||'—')}</td><td class="wrap-cell">${escapeHTML(row.work_order_type||'—')}</td><td><span class="badge ${mechanicalAssessmentImportBadgeClass(row.comparison_status)}">${escapeHTML(formatMechanicalAssessmentImportStatus(row.comparison_status))}</span></td><td class="wrap-cell">${escapeHTML(row.review_reason||'—')}</td>`;tbody.appendChild(tr);});
+}
+function mechanicalAssessmentImportBadgeClass(status){const v=String(status||'').toUpperCase();if(v==='NEWLY_COMPLETED'||v==='COMPLETED'||v==='READY')return'green';if(v==='ALREADY_COMPLETED')return'blue';if(v==='NEEDS_REVIEW'||v==='PREVIEW')return'orange';if(v==='NO_TRACKING_MATCH'||v==='FAILED')return'red';return'gray';}
+function formatMechanicalAssessmentImportStatus(status){return String(status||'').toLowerCase().split('_').map(w=>w?w[0].toUpperCase()+w.slice(1):'').join(' ');}
+
+async function confirmMechanicalAssessmentImport(){
+  if(!currentMechanicalAssessmentImportBatchId||currentMechanicalAssessmentImportStatus!=='READY'){setMessage('mechanicalAssessmentImportMessage','error','This import is not ready to confirm.');return;}
+  const count=currentMechanicalAssessmentImportDetails.filter(r=>r.comparison_status==='NEWLY_COMPLETED').length;
+  if(!window.confirm(`Confirm this Mechanical Assessment import?\n\n${count} existing tracking record(s) will be marked completed.\nNo new tracking records will be inserted.`))return;
+  const btn=document.getElementById('mechanicalAssessmentConfirmImportBtn');if(btn){btn.disabled=true;btn.textContent='Confirming...';}
+  const response=await client.rpc(MECHANICAL_ASSESSMENT_IMPORT_CONFIRM_RPC,{p_import_batch_id:currentMechanicalAssessmentImportBatchId});
+  if(response.error){if(btn){btn.disabled=false;btn.textContent='Confirm Import';}setMessage('mechanicalAssessmentImportMessage','error','Unable to confirm import: '+response.error.message);return;}
+  const result=Array.isArray(response.data)?(response.data[0]||{}):(response.data||{}); currentMechanicalAssessmentImportStatus='COMPLETED'; setText('mechanicalAssessmentImportBatchStatus','Status: COMPLETED'); if(btn)btn.textContent='Import Completed';
+  setMessage('mechanicalAssessmentImportMessage','success',`${Number(result.applied_rows||0).toLocaleString()} Mechanical Assessment tracking record(s) were marked completed.`); await loadMechanicalAssessmentData(false); await loadMechanicalAssessmentImportHistory();
+}
+
+function clearMechanicalAssessmentImport(clearFile=true){
+  currentMechanicalAssessmentImportBatchId=null;currentMechanicalAssessmentImportStatus='';currentMechanicalAssessmentImportFileName='';currentMechanicalAssessmentImportDetails=[];document.getElementById('mechanicalAssessmentImportResults')?.classList.add('hidden');
+  const btn=document.getElementById('mechanicalAssessmentConfirmImportBtn');if(btn){btn.disabled=true;btn.textContent='Confirm Import';} const tbody=document.getElementById('mechanicalAssessmentImportTbody');if(tbody)tbody.innerHTML='<tr><td colspan="8">Import preview details will appear here.</td></tr>';
+  if(clearFile){const input=document.getElementById('mechanicalAssessmentImportFile');if(input)input.value='';setText('mechanicalAssessmentImportFileNote','No file selected.');const msg=document.getElementById('mechanicalAssessmentImportMessage');if(msg){msg.className='message';msg.textContent='';}}
+}
+
+async function loadMechanicalAssessmentImportHistory(){
+  const tbody=document.getElementById('mechanicalAssessmentImportHistoryTbody');if(tbody)tbody.innerHTML='<tr><td colspan="11">Loading import history...</td></tr>';
+  const response=await client.rpc(MECHANICAL_ASSESSMENT_IMPORT_HISTORY_RPC,{p_limit:25});if(response.error){if(tbody)tbody.innerHTML=`<tr><td colspan="11">${escapeHTML('Unable to load import history: '+response.error.message)}</td></tr>`;return;}
+  const rows=Array.isArray(response.data)?response.data:[];if(!tbody)return;tbody.innerHTML='';if(!rows.length){tbody.innerHTML='<tr><td colspan="11">No Mechanical Assessment imports have been recorded.</td></tr>';return;}
+  rows.forEach(row=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${escapeHTML(formatDateTime(row.created_at)||'—')}</td><td class="wrap-cell">${escapeHTML(row.source_file_name||'—')}</td><td>${escapeHTML(row.imported_by||'—')}</td><td><span class="badge ${mechanicalAssessmentImportBadgeClass(row.import_status)}">${escapeHTML(formatMechanicalAssessmentImportStatus(row.import_status))}</span></td><td>${Number(row.assessment_row_count||row.source_row_count||0).toLocaleString()}</td><td>${Number(row.matched_row_count||0).toLocaleString()}</td><td>${Number(row.newly_completed_count||0).toLocaleString()}</td><td>${Number(row.already_completed_count||0).toLocaleString()}</td><td>${Number(row.unmatched_count||0).toLocaleString()}</td><td>${Number(row.needs_review_count||0).toLocaleString()}</td><td>${escapeHTML(formatDateTime(row.completed_at)||'—')}</td>`;tbody.appendChild(tr);});
 }
 
 
