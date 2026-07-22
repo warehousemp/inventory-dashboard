@@ -4543,6 +4543,72 @@ async function saveQuarterlyCommission() {
   await loadPayrollExportRows();
 }
   
+
+function updateSafeguardCalculatedAmount() {
+  const routeTechId = getInputValue('safeguardRouteTechSelect');
+  const safeguardType = String(
+    getInputValue('safeguardTypeInput') || 'FAILED_QC_CHECK'
+  ).toUpperCase();
+
+  const amountInput = document.getElementById('safeguardPenaltyAmountInput');
+  const preview = document.getElementById('safeguardPreview');
+
+  if (!amountInput || !preview) {
+    return;
+  }
+
+  if (!routeTechId) {
+    amountInput.value = '';
+    preview.textContent =
+      'Select a route tech and safeguard type to preview the calculated penalty.';
+    return;
+  }
+
+  const selectedRouteTech = (currentRouteTechRows || []).find(row => {
+    const rowId = getRecordValue(row, ['id', 'route_tech_id']);
+    return String(rowId || '') === String(routeTechId);
+  });
+
+  const routeTechLabel = selectedRouteTech
+    ? formatRouteTechLabel(selectedRouteTech)
+    : 'Selected Route Tech';
+
+  let penaltyAmount = -62;
+  let penaltyExplanation =
+    'One weekly safeguard penalty for the selected pay period.';
+
+  if (safeguardType === 'LOST_CLIENT') {
+    penaltyAmount = -124;
+    penaltyExplanation =
+      'Two weekly safeguard penalties for the selected pay period. ' +
+      'Any required penalty in the following pay period must be entered separately.';
+  } else if (safeguardType === 'CAUSATION_CALLBACK') {
+    penaltyExplanation =
+      'One weekly safeguard penalty. Apply no more than once per pay period.';
+  } else if (safeguardType === 'FAILED_QC_CHECK') {
+    penaltyExplanation =
+      'One weekly safeguard penalty for the failed QC check.';
+  }
+
+  amountInput.value = penaltyAmount.toFixed(2);
+
+  preview.innerHTML = `
+    <div class="calc-line">
+      <span><strong>Route Tech</strong></span>
+      <span>${escapeHTML(routeTechLabel)}</span>
+    </div>
+    <div class="calc-line">
+      <span><strong>Safeguard Type</strong></span>
+      <span>${escapeHTML(formatSafeguardTypeLabel(safeguardType))}</span>
+    </div>
+    <div class="calc-line">
+      <span><strong>Calculated Penalty</strong></span>
+      <span>${formatCurrency(penaltyAmount)}</span>
+    </div>
+    <div class="metric-help">${escapeHTML(penaltyExplanation)}</div>
+  `;
+}
+
 async function saveTemporarySafeguard() {
   if (!validateManualEntryAccess()) {
     return;
