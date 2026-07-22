@@ -2166,7 +2166,7 @@
               <span class="payroll-step-toggle" id="payrollStep5Toggle">+</span>
             </button>
             <div class="payroll-step-body">
-              <div class="card manager-only">
+              <div class="card hr-entry-only">
                 <h2>HR Hours / PTO / Holiday Pay Review</h2>
                 <div class="warning-note">
                   Internal payroll review only. Regular/overtime hours are used for minimum-wage/effective-hourly review. PTO, holiday, and other time convert to visit-equivalent credits at 1.5 visits per hour. PTO/holiday credits pay at the final PPV rate. Other time credits pay at the pickup visit rate.
@@ -2497,6 +2497,13 @@ const PPV_ADMIN_ROLES = [
   'ADMIN'
 ];
 
+const PPV_HR_ENTRY_ROLES = [
+  'SYSTEM_ADMIN',
+  'ADMIN',
+  'SERVICE',
+  'ACCOUNTING'
+];
+
 let currentPPVProfile = null;
 let currentPPVSession = null;
 let currentPayPeriodId = null;
@@ -2773,6 +2780,12 @@ function applyRoleModeToPage() {
 
   document.querySelectorAll('.admin-only').forEach(element => {
     element.classList.toggle('hidden', !isAdminMode);
+  });
+
+  const canEnterHRHours = PPV_HR_ENTRY_ROLES.includes(currentPPVProfile?.role);
+
+  document.querySelectorAll('.hr-entry-only').forEach(element => {
+    element.classList.toggle('hidden', !canEnterHRHours);
   });
 
   const accountingNotice = document.getElementById('accountingModeNotice');
@@ -3928,6 +3941,22 @@ function validateManualEntryAccess() {
   return true;
 }
 
+function validateHRHoursEntryAccess() {
+  const canEnterHRHours = PPV_HR_ENTRY_ROLES.includes(currentPPVProfile?.role);
+
+  if (!canEnterHRHours) {
+    setPPVStatus('Your role cannot enter or update HR payroll hours.', 'error');
+    return false;
+  }
+
+  if (!currentPayPeriodId) {
+    setPPVStatus('Select a pay period first.', 'error');
+    return false;
+  }
+
+  return true;
+}
+
 async function saveExtraCompletedVisits() {
   if (!validateManualEntryAccess()) {
     return;
@@ -4372,7 +4401,7 @@ function updateHRHoursPreview() {
 }
 
 async function saveHRHoursReview() {
-  if (!validateManualEntryAccess()) {
+  if (!validateHRHoursEntryAccess()) {
     return;
   }
 
