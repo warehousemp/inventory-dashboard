@@ -1841,7 +1841,7 @@
         <div id="accountingModeNotice" class="warning-note hidden">
           ACCOUNTING VIEW / EXPORT MODE
 
-          Accounting users can view PPV records and export payroll reports, but import, submit, approve, reopen, and manual-edit controls are hidden or blocked.
+          Accounting users can view every PPV section and use payroll entry and processing controls. Final approval and other administrator-only actions remain restricted to ADMIN and SYSTEM_ADMIN.
         </div>
 
         <div id="payrollWorkflowStatus" class="status-message workflow-status-card">
@@ -2482,14 +2482,13 @@ const PAYROLL_WORKFLOW_STEP_COUNT = 8;
 const PPV_ALLOWED_ROLES = [
   'SYSTEM_ADMIN',
   'ADMIN',
-  'SERVICE',
   'ACCOUNTING'
 ];
 
 const PPV_MANAGER_ROLES = [
   'SYSTEM_ADMIN',
   'ADMIN',
-  'SERVICE'
+  'ACCOUNTING'
 ];
 
 const PPV_ADMIN_ROLES = [
@@ -2500,7 +2499,6 @@ const PPV_ADMIN_ROLES = [
 const PPV_HR_ENTRY_ROLES = [
   'SYSTEM_ADMIN',
   'ADMIN',
-  'SERVICE',
   'ACCOUNTING'
 ];
 
@@ -2757,7 +2755,7 @@ async function enforcePPVAccess() {
 
   if (!roleAllowed) {
     showPPVAccessGate(
-      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page allows SYSTEM_ADMIN, ADMIN, SERVICE, or ACCOUNTING PPV access.`,
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profileData.role}\n\nThis page allows SYSTEM_ADMIN, ADMIN, or ACCOUNTING PPV access.`,
       'danger'
     );
     return false;
@@ -2774,18 +2772,9 @@ async function enforcePPVAccess() {
 }
 
 function applyRoleModeToPage() {
-  document.querySelectorAll('.manager-only').forEach(element => {
-    element.classList.toggle('hidden', !isManagerMode);
-  });
-
-  document.querySelectorAll('.admin-only').forEach(element => {
-    element.classList.toggle('hidden', !isAdminMode);
-  });
-
-  const canEnterHRHours = PPV_HR_ENTRY_ROLES.includes(currentPPVProfile?.role);
-
-  document.querySelectorAll('.hr-entry-only').forEach(element => {
-    element.classList.toggle('hidden', !canEnterHRHours);
+  // Anyone who passes the PPV page access gate can see every workflow section.
+  document.querySelectorAll('.manager-only, .admin-only, .hr-entry-only').forEach(element => {
+    element.classList.remove('hidden');
   });
 
   const accountingNotice = document.getElementById('accountingModeNotice');
