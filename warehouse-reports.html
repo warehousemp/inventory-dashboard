@@ -1272,6 +1272,27 @@
     .filter-forecast-table { min-width: 1250px; }
     .filter-staging-table { min-width: 1050px; }
     .filter-checklist-table { min-width: 1450px; }
+    .filter-missing-tag-table { min-width: 1350px; table-layout: fixed; }
+
+    .filter-missing-tag-table th,
+    .filter-missing-tag-table td {
+      white-space: normal;
+      line-height: 1.35;
+      vertical-align: top;
+    }
+
+    .filter-missing-tag-table th:nth-child(1),
+    .filter-missing-tag-table td:nth-child(1) { width: 210px; }
+    .filter-missing-tag-table th:nth-child(2),
+    .filter-missing-tag-table td:nth-child(2) { width: 230px; }
+    .filter-missing-tag-table th:nth-child(3),
+    .filter-missing-tag-table td:nth-child(3) { width: 230px; }
+    .filter-missing-tag-table th:nth-child(4),
+    .filter-missing-tag-table td:nth-child(4) { width: 330px; word-break: break-word; }
+    .filter-missing-tag-table th:nth-child(5),
+    .filter-missing-tag-table td:nth-child(5) { width: 160px; }
+    .filter-missing-tag-table th:nth-child(6),
+    .filter-missing-tag-table td:nth-child(6) { width: 300px; word-break: break-word; }
 
     .filter-status-badge {
       display: inline-block;
@@ -2474,6 +2495,35 @@
         </table>
       </div>
 
+      <h3>Missing Filter Tags Work List</h3>
+      <div class="warning-note">
+        One row is shown for each current route-client location that does not have a usable Filter System tag in the selected import. EXCLUDED customer records are not shown.
+      </div>
+      <div class="button-row">
+        <button class="report-btn" onclick="loadMissingFilterTagWorklist()">LOAD MISSING FILTER TAGS</button>
+        <button class="export-btn" onclick="exportMissingFilterTagWorklistCSV()">EXPORT WORK LIST CSV</button>
+      </div>
+      <div id="missingFilterTagSummary" class="session-id-box">
+        Load an import preview or select an import from history to view the missing filter-tag work list.
+      </div>
+      <div class="count-table-wrapper">
+        <table class="filter-missing-tag-table">
+          <thead>
+            <tr>
+              <th>Route Tech</th>
+              <th>Client</th>
+              <th>Service Location</th>
+              <th>Current Tags</th>
+              <th>Status</th>
+              <th>Review Reason</th>
+            </tr>
+          </thead>
+          <tbody id="missingFilterTagBody">
+            <tr><td colspan="6">No missing filter-tag work list loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
       <h3>October Purchasing Forecast</h3>
       <div id="filterForecastSummaryCards" class="filter-summary-grid">
         <div class="filter-summary-card"><div class="summary-label">Replacement Types</div><div class="summary-value">0</div></div>
@@ -2546,6 +2596,7 @@ let currentFilterImportPreview = null;
 let filterPurchaseForecastData = [];
 let filterStagingData = [];
 let filterChecklistData = [];
+let missingFilterTagWorklistData = [];
 let annualFilterPlanningLoaded = false;
 
 const TRANSACTION_REVERSAL_TYPES = [
@@ -4100,7 +4151,8 @@ async function loadAnnualFilterPlanning(forceReload = false) {
   await Promise.all([
     loadClientFilterImportHistory(),
     loadFilterPurchaseForecast(),
-    loadFilterRouteTechOptions()
+    loadFilterRouteTechOptions(),
+    loadMissingFilterTagWorklist()
   ]);
 }
 
@@ -4189,6 +4241,7 @@ async function previewClientFilterImport() {
     currentFilterImportPreview = Array.isArray(previewRows) ? previewRows[0] : previewRows;
     renderFilterImportSummary(currentFilterImportPreview);
     await loadClientFilterImportDetails(batchId);
+    await loadMissingFilterTagWorklist(batchId);
     await loadClientFilterImportHistory();
 
     confirmButton.disabled = String(currentFilterImportPreview?.import_status || '').toUpperCase() !== 'READY';
@@ -4316,7 +4369,8 @@ async function confirmClientFilterImport() {
   await Promise.all([
     loadClientFilterImportHistory(),
     loadFilterPurchaseForecast(),
-    loadFilterRouteTechOptions()
+    loadFilterRouteTechOptions(),
+    loadMissingFilterTagWorklist(currentFilterImportBatchId)
   ]);
 }
 
@@ -4361,7 +4415,112 @@ async function openFilterImportHistory(batchId) {
   currentFilterImportPreview = null;
   document.getElementById('confirmFilterImportButton').disabled = true;
   document.getElementById('filterImportSummary').textContent = `Viewing import batch ${batchId}`;
-  await loadClientFilterImportDetails(batchId);
+  await Promise.all([
+    loadClientFilterImportDetails(batchId),
+    loadMissingFilterTagWorklist(batchId)
+  ]);
+}
+
+async function loadMissingFilterTagWorklist(batchId = null) {
+  const body = document.getElementById('missingFilterTagBody');
+  const summary = document.getElementById('missingFilterTagSummary');
+
+  if (!body || !summary) {
+    return;
+  }
+
+  body.innerHTML = '<tr><td colspan="6">Loading missing filter tags...</td></tr>';
+  summary.textContent = 'Loading missing filter-tag work list...';
+
+  const rpcArgs = {};
+  const selectedBatchId = batchId || currentFilterImportBatchId;
+
+  if (selectedBatchId) {
+    rpcArgs.p_import_batch_id = selectedBatchId;
+  }
+
+  const { data, error } = await client.rpc('get_missing_filter_tag_worklist', rpcArgs);
+
+  if (error) {
+    missingFilterTagWorklistData = [];
+    body.innerHTML = `<tr><td colspan="6">${escapeHTML(error.message)}</td></tr>`;
+    summary.textContent = error.message;
+    return;
+  }
+
+  missingFilterTagWorklistData = data || [];
+  renderMissingFilterTagWorklist();
+
+  const routeTechCount = new Set(
+    missingFilterTagWorklistData
+      .map(row => row.route_tech)
+      .filter(Boolean)
+  ).size;
+
+  const noRouteTechCount = missingFilterTagWorklistData.filter(
+    row => !row.route_tech
+  ).length;
+
+  summary.textContent =
+    `Distinct Client Locations Missing Filter Tags: ${formatNumber(missingFilterTagWorklistData.length)}\n` +
+    `Route Technicians Represented: ${formatNumber(routeTechCount)}\n` +
+    `Rows Missing Route Tech: ${formatNumber(noRouteTechCount)}`;
+}
+
+function renderMissingFilterTagWorklist() {
+  const body = document.getElementById('missingFilterTagBody');
+
+  if (!body) {
+    return;
+  }
+
+  body.innerHTML = '';
+
+  if (!missingFilterTagWorklistData.length) {
+    body.innerHTML = '<tr><td colspan="6">No current route-client locations are missing filter tags.</td></tr>';
+    return;
+  }
+
+  missingFilterTagWorklistData.forEach(row => {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${escapeHTML(row.route_tech || '')}</td>
+      <td>${escapeHTML(row.client_name || '')}</td>
+      <td>${escapeHTML(row.service_location || '')}</td>
+      <td>${escapeHTML(row.raw_tag_list || '')}</td>
+      <td>${getFilterStatusBadge(row.comparison_status)}</td>
+      <td>${escapeHTML(row.review_reason || '')}</td>
+    `;
+
+    body.appendChild(tr);
+  });
+}
+
+function exportMissingFilterTagWorklistCSV() {
+  if (!missingFilterTagWorklistData.length) {
+    const summary = document.getElementById('missingFilterTagSummary');
+
+    if (summary) {
+      summary.textContent = 'Load the missing filter-tag work list before exporting.';
+    }
+
+    return;
+  }
+
+  let csv = 'Route Tech,Client,Service Location,Current Tags,Status,Review Reason\n';
+
+  missingFilterTagWorklistData.forEach(row => {
+    csv +=
+      `"${cleanCSV(row.route_tech)}",` +
+      `"${cleanCSV(row.client_name)}",` +
+      `"${cleanCSV(row.service_location)}",` +
+      `"${cleanCSV(row.raw_tag_list)}",` +
+      `"${cleanCSV(row.comparison_status)}",` +
+      `"${cleanCSV(row.review_reason)}"\n`;
+  });
+
+  downloadCSV(csv, 'missing_filter_tag_worklist.csv');
 }
 
 async function loadFilterPurchaseForecast() {
