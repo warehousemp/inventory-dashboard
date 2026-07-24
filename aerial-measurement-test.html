@@ -1,1 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NAIP Aerial Measurement Test</title>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.33/esri/themes/light/main.css">
+  <script src="https://js.arcgis.com/4.33/"></script>
+  <style>
+    *{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;background:#f4f8fb;color:#1f2933}
+    header{background:#0b3c5d;color:#fff;padding:16px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+    header h1{font-size:20px;margin:0} header small{opacity:.8}
+    main{display:grid;grid-template-columns:340px 1fr;gap:14px;padding:14px;max-width:1700px;margin:auto}
+    .panel,.map-card,.metric{background:#fff;border:1px solid #d9e2ec;border-radius:12px;box-shadow:0 4px 14px rgba(15,23,42,.07)}
+    .panel{padding:15px}.panel h2{font-size:16px;color:#0b3c5d;margin:0 0 12px}
+    label{display:block;font-weight:700;font-size:12px;margin:9px 0 5px}
+    input,textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px}
+    button{border:0;border-radius:8px;padding:10px 11px;font-weight:700;cursor:pointer}
+    .primary{background:#0b3c5d;color:#fff}.teal{background:#1aa3b0;color:#fff}.gray{background:#64748b;color:#fff}.danger{background:#b91c1c;color:#fff}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tool{background:#edf2f7;text-align:left;border:1px solid #d3dde7}
+    .status{margin-top:10px;padding:10px;border-radius:8px;background:#eff6ff;border:1px solid #bfdbfe;font-size:12px;white-space:pre-line}
+    #viewDiv{height:690px;width:100%}.map-card{overflow:hidden}
+    .map-head{padding:11px 14px;border-bottom:1px solid #d9e2ec;color:#0b3c5d;font-weight:700}
+    .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:12px}.metric{padding:13px}
+    .metric label{margin:0;color:#667085;text-transform:uppercase}.metric strong{font-size:22px;color:#0b3c5d}
+    table{width:100%;border-collapse:collapse;margin-top:12px;background:#fff}th,td{padding:9px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:left}
+    .warn{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;padding:10px;border-radius:8px;font-size:12px;margin-bottom:12px}
+    @media(max-width:900px){main{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}#viewDiv{height:540px}}
+  </style>
+</head>
+<body>
+<header>
+  <div><h1>NAIP Aerial Measurement Test</h1><small>Pool, deck, exclusions, and distance proof of concept</small></div>
+</header>
+<main>
+  <aside>
+    <div class="warn"><b>Testing only.</b> NAIP may be too coarse or outdated for final estimates. Field verification is required.</div>
+    <section class="panel">
+      <h2>1. Locate Property</h2>
+      <label>U.S. Address</label>
+      <textarea id="address" rows="2" placeholder="123 Main St, Orlando, FL 32801"></textarea>
+      <button class="primary" id="locate" style="width:100%;margin-top:8px">LOCATE ADDRESS</button>
+      <label>Manual Latitude / Longitude</label>
+      <div class="grid2">
+        <input id="lat" type="number" step=".000001" placeholder="28.538336">
+        <input id="lon" type="number" step=".000001" placeholder="-81.379234">
+      </div>
+      <button class="gray" id="goto" style="width:100%;margin-top:8px">GO TO COORDINATES</button>
+    </section>
+    <section class="panel" style="margin-top:12px">
+      <h2>2. Draw Measurements</h2>
+      <div class="grid2">
+        <button class="tool" data-type="pool">DRAW POOL</button>
+        <button class="tool" data-type="deck">DRAW DECK</button>
+        <button class="tool" data-type="exclusion">DRAW EXCLUSION</button>
+        <button class="tool" data-type="distance">DISTANCE</button>
+      </div>
+      <div class="grid2" style="margin-top:8px">
+        <button class="gray" id="edit">EDIT SELECTED</button>
+        <button class="danger" id="delete">DELETE SELECTED</button>
+      </div>
+      <button class="gray" id="cancel" style="width:100%;margin-top:8px">CANCEL DRAW / EDIT</button>
+    </section>
+    <section class="panel" style="margin-top:12px">
+      <h2>3. Save Test</h2>
+      <label>Notes</label>
+      <textarea id="notes" rows="3"></textarea>
+      <div class="grid2">
+        <button class="teal" id="save">SAVE BROWSER</button>
+        <button class="gray" id="load">LOAD SAVED</button>
+        <button class="primary" id="export">EXPORT JSON</button>
+        <button class="danger" id="clear">CLEAR ALL</button>
+      </div>
+      <div class="status" id="status">Loading map...</div>
+    </section>
+  </aside>
+  <section>
+    <div class="map-card">
+      <div class="map-head">USDA NAIP — Latest Available Mosaic</div>
+      <div id="viewDiv"></div>
+    </div>
+    <div class="metrics">
+      <div class="metric"><label>Pool Area</label><strong id="poolArea">0</strong> sq ft</div>
+      <div class="metric"><label>Pool Perimeter</label><strong id="poolPerim">0</strong> ft</div>
+      <div class="metric"><label>Gross Deck</label><strong id="deckArea">0</strong> sq ft</div>
+      <div class="metric"><label>Deductions</label><strong id="deduct">0</strong> sq ft</div>
+      <div class="metric"><label>Net Deck</label><strong id="netDeck">0</strong> sq ft</div>
+    </div>
+    <table>
+      <thead><tr><th>Feature</th><th>Type</th><th>Area</th><th>Perimeter / Length</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="4">No measurements drawn.</td></tr></tbody>
+    </table>
+  </section>
+</main>
 
+<script>
+require([
+  "esri/Map","esri/views/MapView","esri/layers/ImageryLayer","esri/layers/GraphicsLayer",
+  "esri/Graphic","esri/geometry/Point","esri/widgets/Sketch/SketchViewModel","esri/geometry/geometryEngine"
+], function(Map, MapView, ImageryLayer, GraphicsLayer, Graphic, Point, SketchViewModel, geometryEngine){
+  const service="https://apps.geo.fpac.usda.gov/geo-imagery/rest/services/naip/conus_naip/ImageServer";
+  const storageKey="molinari-naip-test-v1";
+  const layer=new ImageryLayer({url:service,title:"USDA NAIP"});
+  const graphics=new GraphicsLayer();
+  const markerLayer=new GraphicsLayer();
+  const map=new Map({basemap:null,layers:[layer,markerLayer,graphics]});
+  const view=new MapView({container:"viewDiv",map,center:[-81.379234,28.538336],zoom:17});
+  const sketch=new SketchViewModel({view,layer:graphics});
+  let drawType=null, selected=null;
+
+  const symbols={
+    pool:{type:"simple-fill",color:[0,119,204,.25],outline:{color:"#005799",width:2}},
+    deck:{type:"simple-fill",color:[245,158,11,.22],outline:{color:"#b46c00",width:2}},
+    exclusion:{type:"simple-fill",color:[220,38,38,.22],outline:{color:"#991b1b",width:2}},
+    distance:{type:"simple-line",color:"#0f766e",width:3}
+  };
+
+  function status(msg){document.getElementById("status").textContent=msg}
+  function fmt(v){return (Number.isFinite(v)?v:0).toLocaleString(undefined,{maximumFractionDigits:1})}
+  function measure(g){
+    if(!g.geometry)return {area:0,length:0};
+    if(g.geometry.type==="polygon") return {
+      area:Math.abs(geometryEngine.geodesicArea(g.geometry,"square-feet")||0),
+      length:Math.abs(geometryEngine.geodesicLength(g.geometry,"feet")||0)
+    };
+    return {area:0,length:Math.abs(geometryEngine.geodesicLength(g.geometry,"feet")||0)};
+  }
+  function recalc(){
+    let pa=0,pp=0,da=0,ex=0;
+    const all=graphics.graphics.toArray();
+    const rows=all.map((g,i)=>{
+      const m=measure(g),t=g.attributes?.type||"unknown";
+      if(t==="pool"){pa+=m.area;pp+=m.length}
+      if(t==="deck")da+=m.area;
+      if(t==="exclusion")ex+=m.area;
+      return `<tr data-i="${i}"><td>${g.attributes?.label||t}</td><td>${t}</td><td>${g.geometry.type==="polygon"?fmt(m.area)+" sq ft":"—"}</td><td>${fmt(m.length)} ft</td></tr>`;
+    });
+    document.getElementById("poolArea").textContent=fmt(pa);
+    document.getElementById("poolPerim").textContent=fmt(pp);
+    document.getElementById("deckArea").textContent=fmt(da);
+    document.getElementById("deduct").textContent=fmt(pa+ex);
+    document.getElementById("netDeck").textContent=fmt(Math.max(0,da-pa-ex));
+    document.getElementById("rows").innerHTML=rows.length?rows.join(""):'<tr><td colspan="4">No measurements drawn.</td></tr>';
+    document.querySelectorAll("#rows tr[data-i]").forEach(r=>r.onclick=()=>selected=all[Number(r.dataset.i)]);
+  }
+  async function goto(lat,lon,label){
+    const p=new Point({latitude:lat,longitude:lon});
+    markerLayer.removeAll();
+    markerLayer.add(new Graphic({geometry:p,symbol:{type:"simple-marker",style:"cross",size:16,color:"white",outline:{color:"#0b3c5d",width:3}}}));
+    await view.goTo({target:p,zoom:19});
+    status(label||`${lat}, ${lon}`);
+  }
+
+  document.querySelectorAll("[data-type]").forEach(b=>b.onclick=()=>{
+    drawType=b.dataset.type;
+    sketch.cancel();
+    sketch.create(drawType==="distance"?"polyline":"polygon",{mode:"click"});
+    status(`Drawing ${drawType}. Double-click the final point.`);
+  });
+
+  sketch.on("create",e=>{
+    if(e.state==="complete"){
+      const count=graphics.graphics.filter(g=>g.attributes?.type===drawType).length+1;
+      e.graphic.symbol=symbols[drawType];
+      e.graphic.attributes={type:drawType,label:`${drawType} ${count}`};
+      selected=e.graphic; drawType=null; recalc(); status("Measurement completed.");
+    }
+  });
+  sketch.on("update",recalc);
+
+  document.getElementById("edit").onclick=()=>selected&&sketch.update(selected,{tool:"reshape"});
+  document.getElementById("delete").onclick=()=>{if(selected){graphics.remove(selected);selected=null;recalc()}};
+  document.getElementById("cancel").onclick=()=>sketch.cancel();
+  document.getElementById("goto").onclick=()=>goto(Number(lat.value),Number(lon.value));
+  document.getElementById("locate").onclick=async()=>{
+    const a=document.getElementById("address").value.trim();
+    if(!a)return status("Enter an address.");
+    try{
+      status("Locating address...");
+      const u=`https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(a)}&benchmark=Public_AR_Current&format=json`;
+      const j=await (await fetch(u)).json();
+      const m=j?.result?.addressMatches?.[0];
+      if(!m)throw new Error("No match found");
+      lat.value=m.coordinates.y;lon.value=m.coordinates.x;
+      await goto(m.coordinates.y,m.coordinates.x,m.matchedAddress);
+    }catch(err){status("Address lookup failed. Use manual coordinates.")}
+  };
+  document.getElementById("save").onclick=()=>{
+    const data={address:address.value,lat:lat.value,lon:lon.value,notes:notes.value,features:graphics.graphics.toArray().map(g=>({type:g.attributes.type,label:g.attributes.label,geometry:g.geometry.toJSON()}))};
+    localStorage.setItem(storageKey,JSON.stringify(data));status("Saved in this browser.");
+  };
+  document.getElementById("load").onclick=()=>{
+    const d=JSON.parse(localStorage.getItem(storageKey)||"null"); if(!d)return status("No saved test found.");
+    graphics.removeAll(); address.value=d.address||"";lat.value=d.lat||"";lon.value=d.lon||"";notes.value=d.notes||"";
+    d.features.forEach(f=>graphics.add(new Graphic({geometry:f.geometry,symbol:symbols[f.type],attributes:{type:f.type,label:f.label}})));
+    recalc(); if(d.lat&&d.lon)goto(Number(d.lat),Number(d.lon),d.address); status("Saved test loaded.");
+  };
+  document.getElementById("export").onclick=()=>{
+    const data=localStorage.getItem(storageKey)||JSON.stringify({features:graphics.graphics.toArray().map(g=>({type:g.attributes.type,label:g.attributes.label,geometry:g.geometry.toJSON()}))},null,2);
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));a.download="naip-aerial-measurement-test.json";a.click();URL.revokeObjectURL(a.href);
+  };
+  document.getElementById("clear").onclick=()=>{graphics.removeAll();markerLayer.removeAll();selected=null;recalc();status("Cleared.")};
+  view.when(()=>{recalc();status("NAIP imagery loaded. Locate a property and begin drawing.");});
+});
+</script>
+</body>
+</html>
