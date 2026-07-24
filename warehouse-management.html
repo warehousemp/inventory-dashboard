@@ -9018,14 +9018,71 @@ function getShelfSortOrderForCountSheet(row) {
     row?.shelf_location_sort_order ??
     null;
 
+  if (rawSortOrder === null || rawSortOrder === undefined || rawSortOrder === '') {
+    return 999999;
+  }
+
   const sortOrder = Number(rawSortOrder);
 
   return Number.isFinite(sortOrder) ? sortOrder : 999999;
 }
 
+function getCountSheetLineTypeSortOrder(row) {
+  const lineType = String(row?.line_type || '').trim().toUpperCase();
+
+  if (lineType === 'QUANTITY') {
+    return 0;
+  }
+
+  if (lineType === 'SERIALIZED') {
+    return 1;
+  }
+
+  return 2;
+}
+
+function getShelfCodeSortOrderForCountSheet(shelfCode) {
+  const normalizedShelfCode = String(shelfCode || '').trim().toUpperCase();
+
+  if (
+    !normalizedShelfCode
+    || normalizedShelfCode === 'UNASSIGNED'
+    || normalizedShelfCode === 'N/A'
+    || !/^[A-Z]{1,2}$/.test(normalizedShelfCode)
+  ) {
+    return 999999;
+  }
+
+  let sortOrder = 0;
+
+  for (const character of normalizedShelfCode) {
+    sortOrder = (sortOrder * 26) + (character.charCodeAt(0) - 64);
+  }
+
+  return sortOrder;
+}
+
+function getEffectiveShelfSortOrderForCountSheet(row) {
+  const databaseSortOrder = getShelfSortOrderForCountSheet(row);
+
+  if (databaseSortOrder !== 999999) {
+    return databaseSortOrder;
+  }
+
+  return getShelfCodeSortOrderForCountSheet(getShelfLocationForCountSheet(row));
+}
+
 function sortCountSheetRows(rows) {
   return [...(rows || [])].sort((a, b) => {
-    const shelfCompare = getShelfSortOrderForCountSheet(a) - getShelfSortOrderForCountSheet(b);
+    // Primary grouping: all quantity-count lines first, then serialized verification lines.
+    const lineTypeCompare = getCountSheetLineTypeSortOrder(a) - getCountSheetLineTypeSortOrder(b);
+
+    if (lineTypeCompare !== 0) {
+      return lineTypeCompare;
+    }
+
+    // Secondary grouping: Shelf Location A-Z, then AA-LL, with N/A / UNASSIGNED last.
+    const shelfCompare = getEffectiveShelfSortOrderForCountSheet(a) - getEffectiveShelfSortOrderForCountSheet(b);
 
     if (shelfCompare !== 0) {
       return shelfCompare;
@@ -9033,27 +9090,36 @@ function sortCountSheetRows(rows) {
 
     const shelfA = getShelfLocationForCountSheet(a);
     const shelfB = getShelfLocationForCountSheet(b);
+    const shelfLabelCompare = shelfA.localeCompare(shelfB, undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    });
 
-    if (shelfA !== shelfB) {
-      if (shelfA === 'UNASSIGNED') {
-        return 1;
-      }
-
-      if (shelfB === 'UNASSIGNED') {
-        return -1;
-      }
-
-      return shelfA.localeCompare(shelfB);
+    if (shelfLabelCompare !== 0) {
+      return shelfLabelCompare;
     }
 
-    const partCompare = String(a?.part_number || '').localeCompare(String(b?.part_number || ''));
+    // Within each shelf, sort by part number and then serial number.
+    const partCompare = String(a?.part_number || '').localeCompare(
+      String(b?.part_number || ''),
+      undefined,
+      {
+        numeric: true,
+        sensitivity: 'base'
+      }
+    );
 
     if (partCompare !== 0) {
       return partCompare;
     }
 
     return String(a?.expected_serial_number || a?.serial_number_raw || '').localeCompare(
-      String(b?.expected_serial_number || b?.serial_number_raw || '')
+      String(b?.expected_serial_number || b?.serial_number_raw || ''),
+      undefined,
+      {
+        numeric: true,
+        sensitivity: 'base'
+      }
     );
   });
 }
