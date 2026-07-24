@@ -42,8 +42,8 @@
       <button class="primary" id="locate" style="width:100%;margin-top:8px">LOCATE ADDRESS</button>
       <label>Manual Latitude / Longitude</label>
       <div class="grid2">
-        <input id="lat" type="number" step=".000001" placeholder="28.538336">
-        <input id="lon" type="number" step=".000001" placeholder="-81.379234">
+        <input id="lat" type="number" step=".000001" value="28.538336">
+        <input id="lon" type="number" step=".000001" value="-81.379234">
       </div>
       <button class="gray" id="goto" style="width:100%;margin-top:8px">GO TO COORDINATES</button>
     </section>
@@ -174,16 +174,36 @@ require([
   document.getElementById("goto").onclick=()=>goto(Number(lat.value),Number(lon.value));
   document.getElementById("locate").onclick=async()=>{
     const a=document.getElementById("address").value.trim();
-    if(!a)return status("Enter an address.");
+    if(!a)return status("Enter a complete property address.");
+    const locateButton=document.getElementById("locate");
+    locateButton.disabled=true;
     try{
       status("Locating address...");
-      const u=`https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(a)}&benchmark=Public_AR_Current&format=json`;
-      const j=await (await fetch(u)).json();
-      const m=j?.result?.addressMatches?.[0];
-      if(!m)throw new Error("No match found");
-      lat.value=m.coordinates.y;lon.value=m.coordinates.x;
-      await goto(m.coordinates.y,m.coordinates.x,m.matchedAddress);
-    }catch(err){status("Address lookup failed. Use manual coordinates.")}
+      const params=new URLSearchParams({
+        SingleLine:a,
+        f:"json",
+        outFields:"Match_addr,Addr_type",
+        maxLocations:"5",
+        outSR:"4326",
+        forStorage:"false"
+      });
+      const u=`https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?${params.toString()}`;
+      const response=await fetch(u,{mode:"cors"});
+      if(!response.ok)throw new Error(`Geocoder returned HTTP ${response.status}`);
+      const j=await response.json();
+      const m=j?.candidates?.[0];
+      const y=Number(m?.location?.y);
+      const x=Number(m?.location?.x);
+      if(!m||!Number.isFinite(y)||!Number.isFinite(x))throw new Error("No matching address found");
+      lat.value=y.toFixed(6);
+      lon.value=x.toFixed(6);
+      await goto(y,x,`${m.address||a}${Number.isFinite(m.score)?` — match score ${Math.round(m.score)}`:""}`);
+    }catch(err){
+      console.error("Address lookup failed:",err);
+      status(`Address lookup failed: ${err.message}. Use manual coordinates if needed.`);
+    }finally{
+      locateButton.disabled=false;
+    }
   };
   document.getElementById("save").onclick=()=>{
     const data={address:address.value,lat:lat.value,lon:lon.value,notes:notes.value,features:graphics.graphics.toArray().map(g=>({type:g.attributes.type,label:g.attributes.label,geometry:g.geometry.toJSON()}))};
@@ -200,7 +220,17 @@ require([
     const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));a.download="naip-aerial-measurement-test.json";a.click();URL.revokeObjectURL(a.href);
   };
   document.getElementById("clear").onclick=()=>{graphics.removeAll();markerLayer.removeAll();selected=null;recalc();status("Cleared.")};
-  view.when(()=>{recalc();status("NAIP imagery loaded. Locate a property and begin drawing.");});
+  view.when(async()=>{
+    recalc();
+    try{
+      await layer.when();
+      await goto(28.538336,-81.379234,"Default test location: Orlando, Florida");
+      status("NAIP imagery loaded. Locate a property and begin drawing.");
+    }catch(err){
+      console.error("Initial NAIP navigation failed:",err);
+      status(`NAIP loaded, but the initial property zoom failed: ${err.message}`);
+    }
+  });
 });
 </script>
 </body>
