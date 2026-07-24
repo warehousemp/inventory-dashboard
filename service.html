@@ -991,7 +991,7 @@
           <datalist id="partsList"></datalist>
 
           <div class="help-text">
-            Search by exact part number to view current stock by location.
+            Search by exact part number to view current stock by location and the expected Main Warehouse shelf.
           </div>
 
           <button class="lookup-btn" onclick="lookupInventoryPart()">LOOKUP PART STOCK</button>
@@ -1362,6 +1362,33 @@ async function loadParts() {
   console.log('Parts loaded into service dropdown:', partsData.length);
 }
 
+async function fetchMainWarehouseExpectedShelf(partNumber) {
+  const { data, error } = await client
+    .from('main_warehouse_part_shelf_status_view')
+    .select('part_number, shelf_location, shelf_assignment_status')
+    .ilike('part_number', partNumber)
+    .limit(10);
+
+  if (error) {
+    console.error('Main Warehouse shelf lookup error:', error);
+
+    return {
+      shelf: 'LOOKUP ERROR',
+      errorMessage: error.message
+    };
+  }
+
+  const normalizedPartNumber = String(partNumber || '').trim().toUpperCase();
+  const row = (data || []).find(item =>
+    String(item.part_number || '').trim().toUpperCase() === normalizedPartNumber
+  );
+
+  return {
+    shelf: String(row?.shelf_location || '').trim().toUpperCase() || 'UNASSIGNED',
+    errorMessage: ''
+  };
+}
+
 async function lookupInventoryPart() {
   const partNumber = document.getElementById('lookupPart').value.trim();
 
@@ -1372,7 +1399,7 @@ async function lookupInventoryPart() {
   }
 
   document.getElementById('lookupResult').textContent =
-    'Looking up part stock...';
+    'Looking up part stock and expected shelf...';
 
   const { data, error } = await client
     .from('inventory_part_lookup_view')
@@ -1391,6 +1418,10 @@ async function lookupInventoryPart() {
     return;
   }
 
+  const exactPartNumber = data[0].part_number || partNumber;
+  const shelfLookup = await fetchMainWarehouseExpectedShelf(exactPartNumber);
+  const expectedShelf = shelfLookup.shelf;
+
   let totalQty = 0;
   let totalValue = 0;
 
@@ -1402,20 +1433,31 @@ async function lookupInventoryPart() {
   const categoryDisplay = getPartCategoryDisplay(data[0]);
 
   let output =
-    `PART NUMBER: ${data[0].part_number}\n` +
+    `PART NUMBER: ${exactPartNumber}\n` +
     `DESCRIPTION: ${data[0].description || ''}\n` +
     `CATEGORY: ${categoryDisplay}\n` +
     `SERIALIZED: ${data[0].is_serialized ? 'YES' : 'NO'}\n` +
+    `EXPECTED MAIN WAREHOUSE SHELF: ${expectedShelf}\n` +
     `TOTAL QTY ON HAND: ${totalQty}\n` +
     `UNIT COST: ${formatCurrency(data[0].unit_cost)}\n` +
-    `TOTAL INVENTORY VALUE: ${formatCurrency(totalValue)}\n\n`;
+    `TOTAL INVENTORY VALUE: ${formatCurrency(totalValue)}\n`;
 
-  output += 'LOCATION | QTY ON HAND | VALUE\n';
-  output += '------------------------------------------\n';
+  if (shelfLookup.errorMessage) {
+    output += `SHELF LOOKUP MESSAGE: ${shelfLookup.errorMessage}\n`;
+  }
+
+  output += '\nLOCATION | EXPECTED SHELF | QTY ON HAND | VALUE\n';
+  output += '----------------------------------------------------------------\n';
 
   data.forEach(row => {
+    const locationName = String(row.location_name || '');
+    const locationShelf = locationName.trim().toUpperCase() === 'MAIN WAREHOUSE'
+      ? expectedShelf
+      : '—';
+
     output +=
-      `${row.location_name} | ` +
+      `${locationName} | ` +
+      `${locationShelf} | ` +
       `${row.quantity_on_hand} | ` +
       `${formatCurrency(row.inventory_value)}\n`;
   });
