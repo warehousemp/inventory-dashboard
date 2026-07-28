@@ -2445,7 +2445,7 @@
             </div>
 
             <div class="transaction-field">
-              <label for="transactionUagLotNumber">UAG Lot #:</label>
+              <label for="transactionUagLotNumber">UAG Batch #:</label>
               <input id="transactionUagLotNumber" type="text" placeholder="Example: UAG-UAG991524 or 991524" autocomplete="off">
             </div>
 
@@ -2506,7 +2506,7 @@
               <th>Vendor</th>
               <th>PO #</th>
               <th>Inventory Source</th>
-              <th>UAG Lot #</th>
+              <th>UAG Batch #</th>
               <th>Issued To</th>
               <th>Work Order</th>
               <th>Client</th>
@@ -3370,6 +3370,19 @@ function getTransactionStatusBadge(row) {
   return `<span class="transaction-status-badge ${cssClass}">${escapeHTML(statusLabel)}</span>`;
 }
 
+function getUagBatchNumber(row) {
+  const batchCode = String(row?.batch_code || '').trim();
+
+  if (batchCode) {
+    return batchCode;
+  }
+
+  const notes = String(row?.notes || '');
+  const match = notes.match(/(?:^|\|)\s*Batch:\s*([^|]+)/i);
+
+  return match?.[1]?.trim() || '';
+}
+
 function getInventorySourceLabel(row) {
   const suppliedSource = String(row?.inventory_source || '').trim();
 
@@ -3379,7 +3392,7 @@ function getInventorySourceLabel(row) {
 
   const isUagBulkLot =
     row?.is_batch_tracked === true ||
-    Boolean(row?.batch_code) ||
+    Boolean(getUagBatchNumber(row)) ||
     Boolean(row?.inventory_lot_id) ||
     Boolean(row?.purchase_batch_id);
 
@@ -3562,7 +3575,7 @@ function renderTransactionLogTable() {
       <td>${escapeHTML(row.vendor_name || '')}</td>
       <td>${escapeHTML(row.po_number || '')}</td>
       <td>${getInventorySourceBadge(row)}</td>
-      <td>${escapeHTML(row.batch_code || '')}</td>
+      <td>${escapeHTML(getUagBatchNumber(row))}</td>
       <td>${escapeHTML(row.issued_to || '')}</td>
       <td>${escapeHTML(row.work_order || row.job_name || '')}</td>
       <td>${escapeHTML(row.client_name || '')}</td>
@@ -3587,7 +3600,7 @@ function updateTransactionLogSummary() {
     `Vendor: ${filters.vendorName || 'All Vendors'}\n` +
     `Serial Number: ${filters.serialNumber || 'All Serial Numbers'}\n` +
     `PO #: ${filters.poNumber || 'All PO Numbers'}\n` +
-    `UAG Lot #: ${filters.uagLotNumber || 'All UAG Lots'}\n`;
+    `UAG Batch #: ${filters.uagLotNumber || 'All UAG Batches'}\n`;
 
   if (!transactionLogData || transactionLogData.length === 0) {
     summary.textContent =
@@ -3677,7 +3690,7 @@ async function exportTransactionLogCSV() {
   const startDate = filters.startDate || 'all_dates';
   const endDate = filters.endDate || 'all_dates';
 
-  let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,STATUS,CLASS CODE,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PO NUMBER,INVENTORY SOURCE,UAG LOT NUMBER,CLIENT NAME,WORK ORDER,ISSUED TO,NOTES,ID\n';
+  let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,STATUS,CLASS CODE,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PO NUMBER,INVENTORY SOURCE,UAG BATCH NUMBER,CLIENT NAME,WORK ORDER,ISSUED TO,NOTES,ID\n';
 
   transactionLogData.forEach(row => {
     const transactionDate = getFirstValue(row, ['created_at', 'transaction_date', 'transaction_at']);
@@ -3701,7 +3714,7 @@ async function exportTransactionLogCSV() {
       `"${cleanCSV(row.vendor_name)}",` +
       `"${cleanCSV(row.po_number)}",` +
       `"${cleanCSV(getInventorySourceLabel(row))}",` +
-      `"${cleanCSV(row.batch_code)}",` +
+      `"${cleanCSV(getUagBatchNumber(row))}",` +
       `"${cleanCSV(row.client_name)}",` +
       `"${cleanCSV(row.work_order || row.job_name)}",` +
       `"${cleanCSV(row.issued_to)}",` +
@@ -3716,7 +3729,7 @@ async function exportTransactionLogCSV() {
     filters.vendorName ? `vendor_${cleanFilename(filters.vendorName)}` : '',
     filters.serialNumber ? `serial_${cleanFilename(filters.serialNumber)}` : '',
     filters.poNumber ? `po_${cleanFilename(filters.poNumber)}` : '',
-    filters.uagLotNumber ? `uag_lot_${cleanFilename(filters.uagLotNumber)}` : '',
+    filters.uagLotNumber ? `uag_batch_${cleanFilename(filters.uagLotNumber)}` : '',
     cleanFilename(startDate),
     'to',
     cleanFilename(endDate)
