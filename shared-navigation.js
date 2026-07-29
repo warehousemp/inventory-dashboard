@@ -23,6 +23,8 @@
         { label: 'Accounting Warehouse', href: 'accounting.html', roles: ['ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN'] },
         { label: 'Client Changes', href: 'client-changes.html', roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
         { label: 'PPV Tracker', href: 'ppv-tracker.html', roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
+        { label: 'PPV Admin', href: 'ppv-admin.html', roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
+        { label: 'PPV Payroll Review', href: 'ppv-payroll-review.html', roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
         { label: 'Company Calendar', href: 'company-calendar.html', roles: ALL_ACTIVE_ROLES }
       ]
     },
@@ -39,9 +41,10 @@
       links: [
         { label: 'Service Parts Lookup', href: 'service.html' },
         { label: 'Client Services Dashboard', href: 'client-services.html' },
+        { label: 'Service Manager Dashboard', href: 'service-manager-dashboard.html', roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
         { label: 'Inspection Requests', href: 'inspection-requests-office.html', roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
         { label: 'Client Marketing Sync', href: 'client-marketing-sync.html', roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
-        { label: 'Service Admin', href: 'service-department-admin.html', roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] }
+        { label: 'Service Department Admin', href: 'service-department-admin.html', roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] }
       ]
     },
     {
