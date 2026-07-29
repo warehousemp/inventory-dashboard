@@ -271,6 +271,8 @@
     .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: #475467; }
     .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
     .legend-holiday { background: #344054; }
+    .legend-birthday { background: #fce7f3; border: 1px solid #ec4899; }
+    .legend-anniversary { background: #cffafe; border: 1px solid #06b6d4; }
     .legend-paid { background: #d1fadf; border: 1px solid #12b76a; }
     .legend-unpaid { background: #ffead5; border: 1px solid #f79009; }
     .legend-lead { background: #e9d7fe; border: 1px solid #9e77ed; }
@@ -312,6 +314,8 @@
     .calendar-event strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .calendar-event span { display: block; margin-top: 2px; font-size: 9px; opacity: .82; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .event-holiday { background: #344054; color: white; border-color: #1d2939; }
+    .event-birthday { background: #fce7f3; color: #9d174d; border-color: #f9a8d4; }
+    .event-anniversary { background: #cffafe; color: #155e75; border-color: #67e8f9; }
     .event-paid { background: #d1fadf; color: #05603a; border-color: #6ce9a6; }
     .event-unpaid { background: #ffead5; color: #93370d; border-color: #fec84b; }
     .event-lead { background: #e9d7fe; color: #53389e; border-color: #d6bbfb; }
@@ -453,7 +457,7 @@
             <input id="employeeSearch" type="search" placeholder="Type an employee name">
           </div>
           <div>
-            <label for="eventTypeFilter">Time-Off Type</label>
+            <label for="eventTypeFilter">Calendar Event Type</label>
             <select id="eventTypeFilter">
               <option value="ALL">All Calendar Events</option>
             </select>
@@ -463,6 +467,8 @@
 
         <div class="legend" aria-label="Calendar legend">
           <span class="legend-item"><span class="legend-dot legend-holiday"></span>Company Holiday</span>
+          <span class="legend-item"><span class="legend-dot legend-birthday"></span>Employee Birthday</span>
+          <span class="legend-item"><span class="legend-dot legend-anniversary"></span>Work Anniversary</span>
           <span class="legend-item"><span class="legend-dot legend-paid"></span>Paid Time Off</span>
           <span class="legend-item"><span class="legend-dot legend-unpaid"></span>Unpaid Time Off</span>
           <span class="legend-item"><span class="legend-dot legend-lead"></span>PTO Lead</span>
@@ -804,6 +810,8 @@
   function getEventClass(event) {
     if (event.is_company_holiday) return 'event-holiday';
     const type = String(event.event_type || '').toUpperCase();
+    if (type === 'BIRTHDAY') return 'event-birthday';
+    if (type === 'WORK_ANNIVERSARY') return 'event-anniversary';
     if (type.includes('UNPAID')) return 'event-unpaid';
     if (type.includes('PTO LEAD')) return 'event-lead';
     if (type.includes('PAID') || type === 'PTO') return 'event-paid';
@@ -811,7 +819,10 @@
   }
 
   function displayEventType(value) {
-    if (value === 'COMPANY_HOLIDAY' || value === 'HOLIDAY') return 'Company Holiday';
+    const normalized = String(value || '').toUpperCase();
+    if (normalized === 'COMPANY_HOLIDAY' || normalized === 'HOLIDAY') return 'Company Holiday';
+    if (normalized === 'BIRTHDAY') return 'Employee Birthday';
+    if (normalized === 'WORK_ANNIVERSARY') return 'Work Anniversary';
     return value || 'Time Off';
   }
 
