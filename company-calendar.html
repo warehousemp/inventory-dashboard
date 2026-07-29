@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Company Calendar - Molinari Pools</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="google" content="notranslate">
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --danger: #b42318;
+      --warning: #9a3412;
+      --success: #027a48;
+      --sidebar-width: 300px;
+      --sidebar-collapsed-width: 66px;
+    }
+
+    html, body { max-width: 100%; overflow-x: hidden; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button, input, select { font-family: Arial, sans-serif; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    .hidden { display: none !important; }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      min-height: 100vh;
+      transition: grid-template-columns .2s ease;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 70px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    .brand-text { line-height: 1.1; white-space: nowrap; }
+    .brand-text strong { display: block; font-size: 15px; letter-spacing: 1px; }
+    .brand-text span { font-size: 11px; opacity: .82; letter-spacing: 2px; }
+
+    .sidebar-toggle-wrap { padding: 12px 12px 4px; display: flex; justify-content: flex-end; }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.24);
+      background: rgba(255,255,255,.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 0;
+    }
+
+    .sidebar-toggle:hover { background: rgba(26,163,176,.34); }
+    .sidebar-toggle span { display: block; width: 17px; height: 2px; border-radius: 999px; background: white; }
+
+    .side-nav { padding: 8px 10px 14px; }
+
+    .side-nav a,
+    .side-nav button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,.86);
+      text-decoration: none;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 4px;
+      white-space: nowrap;
+      min-height: 44px;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      text-align: left;
+    }
+
+    .side-nav a:hover,
+    .side-nav button:hover,
+    .side-nav a.active { background: rgba(26,163,176,.30); color: white; }
+
+    .nav-icon { width: 20px; min-width: 20px; text-align: center; }
+    .nav-group { margin-bottom: 4px; }
+    .main-menu-nav { padding-top: 10px; padding-bottom: 4px; }
+    .grouped-side-nav { padding-top: 4px; }
+    .utility-side-nav { padding-top: 4px; padding-bottom: 4px; }
+    .nav-group-toggle .nav-group-symbol { margin-left: auto; font-size: 18px; }
+    .nav-submenu { display: none; padding-bottom: 4px; }
+    .nav-group.open .nav-submenu { display: block; }
+    .nav-submenu a { padding-left: 34px; min-height: 38px; font-size: 13px; }
+    .sidebar-footer { border-top: 1px solid rgba(255,255,255,.12); padding: 10px; margin-top: auto; }
+
+    .app-shell.sidebar-collapsed .brand { justify-content: center; padding-left: 10px; padding-right: 10px; }
+    .app-shell.sidebar-collapsed .brand-text,
+    .app-shell.sidebar-collapsed .nav-label,
+    .app-shell.sidebar-collapsed .nav-group-symbol {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap { justify-content: center; }
+    .app-shell.sidebar-collapsed .side-nav a,
+    .app-shell.sidebar-collapsed .side-nav button { justify-content: center; gap: 0; padding-left: 10px; padding-right: 10px; }
+    .app-shell.sidebar-collapsed .nav-submenu { display: none !important; }
+
+    .main { min-width: 0; max-width: 100%; overflow-x: hidden; }
+
+    .header-bar {
+      background: var(--header);
+      color: white;
+      padding: 18px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title { font-size: 20px; font-weight: 800; }
+    .header-subtitle { font-size: 13px; opacity: .9; font-weight: 600; margin-top: 4px; }
+    .user-chip { padding: 7px 10px; border: 1px solid rgba(255,255,255,.28); border-radius: 999px; font-size: 12px; font-weight: 700; }
+
+    .access-status { max-width: 1540px; margin: 18px auto 0; padding: 0 20px; }
+    .access-message { padding: 12px 14px; border-radius: 10px; font-size: 13px; line-height: 1.45; }
+    .access-message.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+    .access-message.success { background: #ecfdf3; border: 1px solid #bbf7d0; color: var(--success); }
+    .access-message.error { background: #fef3f2; border: 1px solid #fecdca; color: var(--danger); }
+
+    .access-gate {
+      max-width: 680px;
+      margin: 34px auto;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 26px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.08);
+    }
+
+    .main-layout { max-width: 1540px; margin: 22px auto 40px; padding: 0 20px; }
+
+    .card {
+      background: white;
+      border: 1px solid #e6edf3;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.07);
+      min-width: 0;
+    }
+
+    h2 { margin: 0; color: var(--header); font-size: 21px; }
+    h3 { margin: 0 0 10px; color: var(--header); font-size: 17px; }
+    .section-description { margin: 7px 0 16px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+    .calendar-toolbar {
+      display: grid;
+      grid-template-columns: auto minmax(220px, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .calendar-nav { display: flex; gap: 8px; align-items: center; }
+    .calendar-title { text-align: center; color: var(--header); font-size: 24px; font-weight: 800; }
+    .toolbar-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    .btn {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 13px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .btn-primary { background: var(--header); color: white; }
+    .btn-accent { background: var(--accent); color: white; }
+    .btn-secondary { background: #eef4f7; color: var(--header); border: 1px solid var(--border); }
+    .btn-danger { background: #fef3f2; color: var(--danger); border: 1px solid #fecdca; }
+
+    .filter-row {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(210px, 280px) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 15px;
+    }
+
+    label { display: block; margin-bottom: 5px; color: #344054; font-size: 12px; font-weight: 800; }
+
+    input, select {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 11px;
+      font-size: 14px;
+      background: white;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(26,163,176,.15);
+    }
+
+    .legend { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 0 14px; }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: #475467; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+    .legend-holiday { background: #344054; }
+    .legend-paid { background: #d1fadf; border: 1px solid #12b76a; }
+    .legend-unpaid { background: #ffead5; border: 1px solid #f79009; }
+    .legend-lead { background: #e9d7fe; border: 1px solid #9e77ed; }
+    .legend-other { background: #dbeafe; border: 1px solid #3b82f6; }
+
+    .calendar-wrap { overflow-x: auto; border: 1px solid #d0d5dd; border-radius: 10px; }
+    .calendar-weekdays, .calendar-grid { min-width: 980px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .weekday { background: #f2f4f7; color: #344054; font-size: 12px; font-weight: 800; text-align: center; padding: 10px 6px; border-right: 1px solid #d0d5dd; }
+    .weekday:last-child { border-right: 0; }
+
+    .calendar-day {
+      min-height: 132px;
+      padding: 7px;
+      background: white;
+      border-top: 1px solid #d0d5dd;
+      border-right: 1px solid #d0d5dd;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .calendar-day:nth-child(7n) { border-right: 0; }
+    .calendar-day.other-month { background: #f8fafc; }
+    .calendar-day.today { box-shadow: inset 0 0 0 2px var(--accent); }
+    .day-number { font-size: 12px; font-weight: 800; color: #344054; margin-bottom: 5px; }
+    .other-month .day-number { color: #98a2b3; }
+    .day-events { display: flex; flex-direction: column; gap: 4px; max-height: 101px; overflow-y: auto; padding-right: 2px; }
+
+    .calendar-event {
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 5px 6px;
+      text-align: left;
+      line-height: 1.15;
+      font-size: 11px;
+      overflow: hidden;
+    }
+
+    .calendar-event strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .calendar-event span { display: block; margin-top: 2px; font-size: 9px; opacity: .82; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .event-holiday { background: #344054; color: white; border-color: #1d2939; }
+    .event-paid { background: #d1fadf; color: #05603a; border-color: #6ce9a6; }
+    .event-unpaid { background: #ffead5; color: #93370d; border-color: #fec84b; }
+    .event-lead { background: #e9d7fe; color: #53389e; border-color: #d6bbfb; }
+    .event-other { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+
+    .calendar-empty { padding: 28px; text-align: center; color: var(--muted); }
+
+    .import-grid {
+      display: grid;
+      grid-template-columns: minmax(180px, 240px) minmax(180px, 240px) minmax(280px, 1fr);
+      gap: 12px;
+      align-items: end;
+    }
+
+    .drop-zone {
+      grid-column: 1 / -1;
+      border: 2px dashed #98a2b3;
+      border-radius: 12px;
+      padding: 26px 18px;
+      text-align: center;
+      background: #f8fafc;
+      transition: border-color .15s ease, background .15s ease;
+    }
+
+    .drop-zone.dragover { border-color: var(--accent); background: #ecfdff; }
+    .drop-zone strong { color: var(--header); }
+    .drop-zone p { color: var(--muted); font-size: 12px; margin: 7px 0 0; }
+    .file-name { margin-top: 10px; font-size: 13px; font-weight: 800; color: var(--header); word-break: break-word; }
+
+    .import-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+    .import-warning { color: var(--warning); font-size: 12px; font-weight: 700; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; margin-top: 15px; }
+    .stat-card { border: 1px solid var(--border); border-radius: 10px; padding: 11px; background: #f8fafc; }
+    .stat-label { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+    .stat-value { color: var(--header); font-size: 20px; font-weight: 800; margin-top: 4px; }
+
+    .message { display: none; margin-top: 12px; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
+    .message.show { display: block; }
+    .message.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+    .message.success { background: #ecfdf3; border: 1px solid #bbf7d0; color: var(--success); }
+    .message.error { background: #fef3f2; border: 1px solid #fecdca; color: var(--danger); }
+    .message.warning { background: #fff7ed; border: 1px solid #fed7aa; color: var(--warning); }
+
+    .table-wrap { width: 100%; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+    table { width: 100%; min-width: 920px; border-collapse: collapse; background: white; }
+    th { background: #f8fafc; color: var(--header); font-size: 11px; text-align: left; padding: 9px; white-space: nowrap; border-bottom: 1px solid var(--border); }
+    td { font-size: 11px; padding: 9px; border-bottom: 1px solid #eaecf0; vertical-align: top; }
+    .status-badge { display: inline-flex; border-radius: 999px; padding: 4px 8px; font-size: 10px; font-weight: 800; }
+    .status-completed { background: #dcfae6; color: #05603a; }
+    .status-warning { background: #ffead5; color: #93370d; }
+    .status-failed { background: #fee4e2; color: #912018; }
+    .status-processing { background: #dbeafe; color: #1e40af; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 2000;
+    }
+
+    .modal-backdrop.show { display: flex; }
+    .modal-card { width: min(520px, 100%); background: white; border-radius: 14px; box-shadow: 0 18px 45px rgba(0,0,0,.28); padding: 22px; }
+    .modal-head { display: flex; justify-content: space-between; gap: 15px; align-items: flex-start; }
+    .modal-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: #f2f4f7; color: #344054; font-size: 18px; }
+    .detail-grid { display: grid; grid-template-columns: 145px 1fr; gap: 10px; margin-top: 18px; font-size: 13px; }
+    .detail-label { color: var(--muted); font-weight: 800; }
+    .detail-value { color: var(--text); word-break: break-word; }
+
+    @media (max-width: 1000px) {
+      .filter-row, .import-grid { grid-template-columns: 1fr 1fr; }
+      .drop-zone { grid-column: 1 / -1; }
+      .stat-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell, .app-shell.sidebar-collapsed { grid-template-columns: 1fr; }
+      .sidebar { position: relative; height: auto; }
+      .sidebar-toggle-wrap { display: none; }
+      .side-nav, .app-shell.sidebar-collapsed .side-nav { display: block; padding: 10px; }
+      .app-shell.sidebar-collapsed .brand { justify-content: flex-start; padding: 18px; }
+      .app-shell.sidebar-collapsed .brand-text, .app-shell.sidebar-collapsed .nav-label, .app-shell.sidebar-collapsed .nav-group-symbol { opacity: 1; width: auto; }
+      .app-shell.sidebar-collapsed .side-nav a, .app-shell.sidebar-collapsed .side-nav button { justify-content: flex-start; gap: 10px; }
+      .app-shell.sidebar-collapsed .nav-group.open .nav-submenu { display: block !important; }
+      .header-bar { padding: 16px 18px; }
+      .main-layout, .access-status { padding-left: 12px; padding-right: 12px; }
+      .calendar-toolbar { grid-template-columns: 1fr; }
+      .calendar-title { order: -1; }
+      .calendar-nav, .toolbar-actions { justify-content: center; }
+    }
+
+    @media (max-width: 600px) {
+      .filter-row, .import-grid, .stat-grid { grid-template-columns: 1fr; }
+      .calendar-nav, .toolbar-actions, .import-actions { flex-direction: column; align-items: stretch; }
+      .calendar-nav .btn, .toolbar-actions .btn, .import-actions .btn { width: 100%; }
+      .detail-grid { grid-template-columns: 1fr; gap: 4px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell" id="appShell">
+  <aside class="sidebar" aria-label="Inventory navigation">
+    <div class="brand">
+      <div class="brand-mark">MP</div>
+      <div class="brand-text">
+        <strong>MOLINARI</strong>
+        <span>INVENTORY</span>
+      </div>
+    </div>
+
+    <div class="sidebar-toggle-wrap">
+      <button class="sidebar-toggle" id="inventorySidebarToggle" type="button" title="Collapse" aria-label="Collapse sidebar" aria-expanded="true">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+
+    <nav class="side-nav main-menu-nav" aria-label="Main navigation">
+      <a href="index.html" title="Main Menu" data-page="index.html">
+        <span class="nav-icon">↩</span><span class="nav-label">Main Menu</span>
+      </a>
+    </nav>
+
+    <nav class="side-nav grouped-side-nav" aria-label="System navigation">
+      <div class="nav-group">
+        <button class="nav-group-toggle" type="button" aria-expanded="false">
+          <span class="nav-icon">⚙</span><span class="nav-label">Admin</span><span class="nav-group-symbol">+</span>
+        </button>
+        <div class="nav-submenu">
+          <a href="users.html" title="System/Admin Tools" data-page="users.html">
+            <span class="nav-icon">⚙</span><span class="nav-label">System/Admin Tools</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group open">
+        <button class="nav-group-toggle" type="button" aria-expanded="true">
+          <span class="nav-icon">$</span><span class="nav-label">Accounting</span><span class="nav-group-symbol">−</span>
+        </button>
+        <div class="nav-submenu">
+          <a href="accounting.html" title="Accounting Warehouse" data-page="accounting.html">
+            <span class="nav-icon">$</span><span class="nav-label">Accounting Warehouse</span>
+          </a>
+          <a href="client-changes.html" title="Client Changes" data-page="client-changes.html">
+            <span class="nav-icon">⇄</span><span class="nav-label">Client Changes</span>
+          </a>
+          <a href="ppv-tracker.html" title="PPV Tracker" data-page="ppv-tracker.html">
+            <span class="nav-icon">$</span><span class="nav-label">PPV Tracker</span>
+          </a>
+          <a class="active" href="company-calendar.html" title="Company Calendar" data-page="company-calendar.html">
+            <span class="nav-icon">▣</span><span class="nav-label">Company Calendar</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-group-toggle" type="button" aria-expanded="false">
+          <span class="nav-icon">◆</span><span class="nav-label">Projects</span><span class="nav-group-symbol">+</span>
+        </button>
+        <div class="nav-submenu">
+          <a href="projects-command.html" title="Projects Command Center" data-page="projects-command.html">
+            <span class="nav-icon">◆</span><span class="nav-label">Projects Command Center</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-group-toggle" type="button" aria-expanded="false">
+          <span class="nav-icon">✓</span><span class="nav-label">Service</span><span class="nav-group-symbol">+</span>
+        </button>
+        <div class="nav-submenu">
+          <a href="service.html" title="Service Parts Lookup" data-page="service.html">
+            <span class="nav-icon">⌕</span><span class="nav-label">Service Parts Lookup</span>
+          </a>
+          <a href="client-services.html" title="Client Services Dashboard" data-page="client-services.html">
+            <span class="nav-icon">✓</span><span class="nav-label">Client Services Dashboard</span>
+          </a>
+          <a href="inspection-requests-office.html" title="Inspection Requests" data-page="inspection-requests-office.html">
+            <span class="nav-icon">▣</span><span class="nav-label">Inspection Requests</span>
+          </a>
+          <a href="client-marketing-sync.html" title="Client Marketing Sync" data-page="client-marketing-sync.html">
+            <span class="nav-icon">⇄</span><span class="nav-label">Client Marketing Sync</span>
+          </a>
+          <a href="service-department-admin.html" title="Service Admin" data-page="service-department-admin.html">
+            <span class="nav-icon">⚙</span><span class="nav-label">Service Admin</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button class="nav-group-toggle" type="button" aria-expanded="false">
+          <span class="nav-icon">▣</span><span class="nav-label">Warehouse</span><span class="nav-group-symbol">+</span>
+        </button>
+        <div class="nav-submenu">
+          <a href="warehouse.html" title="Warehouse Operations" data-page="warehouse.html">
+            <span class="nav-icon">▣</span><span class="nav-label">Warehouse Operations</span>
+          </a>
+          <a href="warehouse-management.html" title="Warehouse Management" data-page="warehouse-management.html">
+            <span class="nav-icon">⚙</span><span class="nav-label">Warehouse Management</span>
+          </a>
+          <a href="warehouse-reports.html" title="Warehouse Reports" data-page="warehouse-reports.html">
+            <span class="nav-icon">▤</span><span class="nav-label">Warehouse Reports</span>
+          </a>
+          <a href="admin.html" title="Warehouse Admin" data-page="admin.html">
+            <span class="nav-icon">⚙</span><span class="nav-label">Warehouse Admin</span>
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <nav class="side-nav utility-side-nav" aria-label="Utility navigation">
+        <button type="button" onclick="appLogout()" title="Logout">
+          <span class="nav-icon">⇥</span><span class="nav-label">Logout</span>
+        </button>
+      </nav>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="header-bar">
+      <div>
+        <div class="header-title">Molinari Pools – Company Calendar</div>
+        <div class="header-subtitle">Company holidays and approved employee time off</div>
+      </div>
+      <div id="userChip" class="user-chip">Checking access...</div>
+    </div>
+
+    <div class="access-status">
+      <div id="accessMessage" class="access-message info">Checking Company Calendar access...</div>
+    </div>
+
+    <div id="accessGate" class="access-gate hidden"></div>
+
+    <div id="calendarMain" class="main-layout hidden">
+      <section class="card">
+        <div class="calendar-toolbar">
+          <div class="calendar-nav">
+            <button class="btn btn-secondary" type="button" id="previousMonthButton" aria-label="Previous month">‹</button>
+            <button class="btn btn-secondary" type="button" id="todayButton">TODAY</button>
+            <button class="btn btn-secondary" type="button" id="nextMonthButton" aria-label="Next month">›</button>
+          </div>
+          <div id="calendarTitle" class="calendar-title">Company Calendar</div>
+          <div class="toolbar-actions">
+            <button class="btn btn-primary" type="button" id="refreshCalendarButton">REFRESH</button>
+          </div>
+        </div>
+
+        <div class="filter-row">
+          <div>
+            <label for="employeeSearch">Search Employee</label>
+            <input id="employeeSearch" type="search" placeholder="Type an employee name">
+          </div>
+          <div>
+            <label for="eventTypeFilter">Time-Off Type</label>
+            <select id="eventTypeFilter">
+              <option value="ALL">All Calendar Events</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" type="button" id="clearFiltersButton">CLEAR FILTERS</button>
+        </div>
+
+        <div class="legend" aria-label="Calendar legend">
+          <span class="legend-item"><span class="legend-dot legend-holiday"></span>Company Holiday</span>
+          <span class="legend-item"><span class="legend-dot legend-paid"></span>Paid Time Off</span>
+          <span class="legend-item"><span class="legend-dot legend-unpaid"></span>Unpaid Time Off</span>
+          <span class="legend-item"><span class="legend-dot legend-lead"></span>PTO Lead</span>
+          <span class="legend-item"><span class="legend-dot legend-other"></span>Other</span>
+        </div>
+
+        <div class="calendar-wrap">
+          <div class="calendar-weekdays" aria-hidden="true">
+            <div class="weekday">Sunday</div><div class="weekday">Monday</div><div class="weekday">Tuesday</div>
+            <div class="weekday">Wednesday</div><div class="weekday">Thursday</div><div class="weekday">Friday</div><div class="weekday">Saturday</div>
+          </div>
+          <div id="calendarGrid" class="calendar-grid" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section id="importSection" class="card hidden">
+        <h2>Import Paylocity Time-Off File</h2>
+        <p class="section-description">
+          Download the selected date range from Paylocity and drop the <strong>.ics</strong> file below. The same month can be imported repeatedly as approvals change. Existing requests are matched and will not be duplicated.
+        </p>
+
+        <div class="import-grid">
+          <div>
+            <label for="exportRangeStart">Paylocity Export From</label>
+            <input id="exportRangeStart" type="date">
+          </div>
+          <div>
+            <label for="exportRangeEnd">Paylocity Export To</label>
+            <input id="exportRangeEnd" type="date">
+          </div>
+          <div class="import-warning">Enter the exact date range selected when the file was downloaded from Paylocity.</div>
+
+          <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Choose or drop Paylocity ICS file">
+            <strong>Drop Paylocity .ics file here</strong>
+            <p>or click this area to browse</p>
+            <div id="selectedFileName" class="file-name">No file selected</div>
+            <input id="icsFileInput" type="file" accept=".ics,text/calendar" class="hidden">
+          </div>
+        </div>
+
+        <div id="previewStats" class="stat-grid hidden">
+          <div class="stat-card"><div class="stat-label">Events in File</div><div class="stat-value" id="previewEventCount">0</div></div>
+          <div class="stat-card"><div class="stat-label">Employees</div><div class="stat-value" id="previewEmployeeCount">0</div></div>
+          <div class="stat-card"><div class="stat-label">Employee-Days</div><div class="stat-value" id="previewDayCount">0</div></div>
+        </div>
+
+        <div class="import-actions">
+          <button id="importButton" class="btn btn-accent" type="button" disabled>IMPORT TO CALENDAR</button>
+          <button id="clearFileButton" class="btn btn-secondary" type="button" disabled>CLEAR FILE</button>
+        </div>
+
+        <div id="importMessage" class="message"></div>
+
+        <div id="resultStats" class="stat-grid hidden">
+          <div class="stat-card"><div class="stat-label">Found</div><div class="stat-value" id="resultFound">0</div></div>
+          <div class="stat-card"><div class="stat-label">Added</div><div class="stat-value" id="resultAdded">0</div></div>
+          <div class="stat-card"><div class="stat-label">Updated</div><div class="stat-value" id="resultUpdated">0</div></div>
+          <div class="stat-card"><div class="stat-label">Unchanged</div><div class="stat-value" id="resultUnchanged">0</div></div>
+          <div class="stat-card"><div class="stat-label">Missing / Review</div><div class="stat-value" id="resultMissing">0</div></div>
+          <div class="stat-card"><div class="stat-label">Failed</div><div class="stat-value" id="resultFailed">0</div></div>
+        </div>
+      </section>
+
+      <section id="importHistorySection" class="card hidden">
+        <h2>Paylocity Import History</h2>
+        <p class="section-description">Most recent imports completed through the Company Calendar page.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Imported</th><th>File</th><th>Selected Range</th><th>Status</th><th>Found</th><th>Added</th><th>Updated</th><th>Unchanged</th><th>Missing</th><th>Failed</th>
+              </tr>
+            </thead>
+            <tbody id="importHistoryBody"><tr><td colspan="10">No import history loaded.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="eventModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <h2 id="eventModalTitle">Calendar Event</h2>
+        <div id="eventModalSubtitle" class="section-description"></div>
+      </div>
+      <button id="eventModalClose" class="modal-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div id="eventDetailGrid" class="detail-grid"></div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const SIDEBAR_STORAGE_KEY = 'inventorySidebarCollapsed';
+  const MONTH_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
+  const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const DATETIME_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+  let currentMonth = startOfMonth(new Date());
+  let calendarEvents = [];
+  let currentProfile = null;
+  let canImport = false;
+  let selectedImport = null;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initializeSidebar();
+    bindPageEvents();
+    initializeCompanyCalendar();
+  });
+
+  function initializeSidebar() {
+    const appShell = document.getElementById('appShell');
+    const toggleButton = document.getElementById('inventorySidebarToggle');
+    const groupButtons = document.querySelectorAll('.nav-group-toggle');
+    const navLinks = document.querySelectorAll('.side-nav a[data-page]');
+
+    const setGroupOpen = (group, open) => {
+      const button = group.querySelector('.nav-group-toggle');
+      const symbol = group.querySelector('.nav-group-symbol');
+      group.classList.toggle('open', open);
+      if (button) button.setAttribute('aria-expanded', String(open));
+      if (symbol) symbol.textContent = open ? '−' : '+';
+    };
+
+    document.querySelectorAll('.nav-group').forEach(group => setGroupOpen(group, false));
+
+    const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+    navLinks.forEach(link => {
+      const active = link.dataset.page === currentPage;
+      link.classList.toggle('active', active);
+      if (active) {
+        const group = link.closest('.nav-group');
+        if (group) setGroupOpen(group, true);
+      }
+    });
+
+    groupButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const group = button.closest('.nav-group');
+        if (group) setGroupOpen(group, !group.classList.contains('open'));
+      });
+    });
+
+    let collapsed = false;
+    try { collapsed = localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'; } catch (error) { collapsed = false; }
+
+    const applySidebarState = value => {
+      appShell.classList.toggle('sidebar-collapsed', value);
+      toggleButton.title = value ? 'Expand' : 'Collapse';
+      toggleButton.setAttribute('aria-label', value ? 'Expand sidebar' : 'Collapse sidebar');
+      toggleButton.setAttribute('aria-expanded', String(!value));
+    };
+
+    applySidebarState(collapsed);
+    toggleButton.addEventListener('click', () => {
+      collapsed = !appShell.classList.contains('sidebar-collapsed');
+      applySidebarState(collapsed);
+      try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(collapsed)); } catch (error) { /* keep sidebar usable */ }
+    });
+  }
+
+  function bindPageEvents() {
+    document.getElementById('previousMonthButton').addEventListener('click', () => changeMonth(-1));
+    document.getElementById('nextMonthButton').addEventListener('click', () => changeMonth(1));
+    document.getElementById('todayButton').addEventListener('click', () => {
+      currentMonth = startOfMonth(new Date());
+      setExportRangeToCurrentMonth();
+      loadCalendar();
+    });
+    document.getElementById('refreshCalendarButton').addEventListener('click', loadCalendar);
+    document.getElementById('employeeSearch').addEventListener('input', renderCalendar);
+    document.getElementById('eventTypeFilter').addEventListener('change', renderCalendar);
+    document.getElementById('clearFiltersButton').addEventListener('click', () => {
+      document.getElementById('employeeSearch').value = '';
+      document.getElementById('eventTypeFilter').value = 'ALL';
+      renderCalendar();
+    });
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('icsFileInput');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        fileInput.click();
+      }
+    });
+    dropZone.addEventListener('dragover', event => {
+      event.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', event => {
+      event.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file) processIcsFile(file);
+    });
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (file) processIcsFile(file);
+    });
+
+    document.getElementById('importButton').addEventListener('click', importSelectedFile);
+    document.getElementById('clearFileButton').addEventListener('click', clearSelectedFile);
+    document.getElementById('eventModalClose').addEventListener('click', closeEventModal);
+    document.getElementById('eventModal').addEventListener('click', event => {
+      if (event.target.id === 'eventModal') closeEventModal();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeEventModal();
+    });
+  }
+
+  async function initializeCompanyCalendar() {
+    showAccessMessage('Checking Company Calendar access...', 'info');
+
+    const { data: sessionData, error: sessionError } = await client.auth.getSession();
+    if (sessionError || !sessionData.session || !sessionData.session.user) {
+      showAccessGate('You must be logged in to access the Company Calendar.', true);
+      return;
+    }
+
+    const session = sessionData.session;
+
+    const { data: pageAccess, error: pageAccessError } = await client.rpc('current_user_can_access_page', {
+      p_page: 'company-calendar.html'
+    });
+
+    if (pageAccessError || pageAccess !== true) {
+      showAccessGate(pageAccessError ? `Access check failed: ${pageAccessError.message}` : 'You do not have access to the Company Calendar.');
+      return;
+    }
+
+    const { data: profile, error: profileError } = await client
+      .from('user_profiles')
+      .select('id, full_name, role, active')
+      .eq('id', session.user.id)
+      .single();
+
+    if (profileError || !profile || profile.active !== true) {
+      showAccessGate('No active user profile was found for this login.');
+      return;
+    }
+
+    currentProfile = profile;
+
+    const { data: importAccess, error: importAccessError } = await client.rpc('current_user_has_company_calendar_import_access');
+    canImport = !importAccessError && importAccess === true;
+
+    document.getElementById('userChip').textContent = `${profile.full_name || session.user.email} · ${profile.role}`;
+    showAccessMessage(
+      canImport
+        ? 'Company Calendar access granted. Paylocity importing is enabled for this login.'
+        : 'Company Calendar access granted. Calendar is read-only for this login.',
+      'success'
+    );
+
+    document.getElementById('calendarMain').classList.remove('hidden');
+    document.getElementById('accessGate').classList.add('hidden');
+
+    if (canImport) {
+      document.getElementById('importSection').classList.remove('hidden');
+      document.getElementById('importHistorySection').classList.remove('hidden');
+      setExportRangeToCurrentMonth();
+      loadImportHistory();
+    }
+
+    await loadCalendar();
+  }
+
+  function showAccessMessage(message, type) {
+    const element = document.getElementById('accessMessage');
+    element.className = `access-message ${type || 'info'}`;
+    element.textContent = message;
+  }
+
+  function showAccessGate(message, showLoginLink = false) {
+    document.getElementById('calendarMain').classList.add('hidden');
+    document.getElementById('accessMessage').classList.add('hidden');
+    const gate = document.getElementById('accessGate');
+    gate.classList.remove('hidden');
+    gate.innerHTML = `
+      <h2>Company Calendar Access Required</h2>
+      <p class="section-description">${escapeHtml(message)}</p>
+      ${showLoginLink ? '<a class="btn btn-primary" href="index.html" style="display:inline-block;text-decoration:none;">RETURN TO LOGIN</a>' : ''}
+    `;
+  }
+
+  function changeMonth(offset) {
+    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1);
+    setExportRangeToCurrentMonth();
+    loadCalendar();
+  }
+
+  async function loadCalendar() {
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '<div class="calendar-empty" style="grid-column:1/-1;">Loading calendar...</div>';
+    document.getElementById('calendarTitle').textContent = MONTH_FORMATTER.format(currentMonth);
+
+    const firstDay = startOfMonth(currentMonth);
+    const lastDay = endOfMonth(currentMonth);
+    const gridStart = addDays(firstDay, -firstDay.getDay());
+    const gridEnd = addDays(lastDay, 6 - lastDay.getDay());
+
+    const { data, error } = await client.rpc('get_company_calendar_events', {
+      p_start_date: toDateString(gridStart),
+      p_end_date: toDateString(gridEnd)
+    });
+
+    if (error) {
+      grid.innerHTML = `<div class="calendar-empty" style="grid-column:1/-1;color:var(--danger);">Unable to load calendar: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+
+    calendarEvents = Array.isArray(data) ? data : [];
+    populateEventTypeFilter();
+    renderCalendar();
+  }
+
+  function populateEventTypeFilter() {
+    const select = document.getElementById('eventTypeFilter');
+    const currentValue = select.value || 'ALL';
+    const values = new Set();
+
+    calendarEvents.forEach(event => {
+      if (event.is_company_holiday) values.add('COMPANY_HOLIDAY');
+      else if (event.event_type) values.add(event.event_type);
+    });
+
+    const options = ['<option value="ALL">All Calendar Events</option>'];
+    [...values].sort((a, b) => displayEventType(a).localeCompare(displayEventType(b))).forEach(value => {
+      options.push(`<option value="${escapeHtml(value)}">${escapeHtml(displayEventType(value))}</option>`);
+    });
+
+    select.innerHTML = options.join('');
+    select.value = [...values, 'ALL'].includes(currentValue) ? currentValue : 'ALL';
+  }
+
+  function renderCalendar() {
+    const grid = document.getElementById('calendarGrid');
+    const firstDay = startOfMonth(currentMonth);
+    const lastDay = endOfMonth(currentMonth);
+    const gridStart = addDays(firstDay, -firstDay.getDay());
+    const gridEnd = addDays(lastDay, 6 - lastDay.getDay());
+    const search = document.getElementById('employeeSearch').value.trim().toLowerCase();
+    const typeFilter = document.getElementById('eventTypeFilter').value;
+    const today = toDateString(new Date());
+
+    const filteredEvents = calendarEvents.filter(event => {
+      const searchable = `${event.employee_name || ''} ${event.event_title || ''} ${event.event_type || ''}`.toLowerCase();
+      const eventTypeValue = event.is_company_holiday ? 'COMPANY_HOLIDAY' : event.event_type;
+      return (!search || searchable.includes(search)) && (typeFilter === 'ALL' || eventTypeValue === typeFilter);
+    });
+
+    const cells = [];
+    for (let date = new Date(gridStart); date <= gridEnd; date = addDays(date, 1)) {
+      const dateString = toDateString(date);
+      const dayEvents = filteredEvents
+        .filter(event => event.start_date <= dateString && event.end_date_exclusive > dateString)
+        .sort((a, b) => {
+          if (a.is_company_holiday !== b.is_company_holiday) return a.is_company_holiday ? -1 : 1;
+          return String(a.event_title || '').localeCompare(String(b.event_title || ''));
+        });
+
+      const eventHtml = dayEvents.map(event => {
+        const eventClass = getEventClass(event);
+        const title = event.event_title || event.employee_name || 'Calendar Event';
+        const subtitle = event.is_company_holiday ? 'Company Closed' : displayEventType(event.event_type);
+        return `
+          <button class="calendar-event ${eventClass}" type="button" data-event-id="${escapeHtml(event.event_id)}" title="${escapeHtml(`${title} — ${subtitle}`)}">
+            <strong>${escapeHtml(title)}</strong><span>${escapeHtml(subtitle)}</span>
+          </button>`;
+      }).join('');
+
+      const classes = [
+        'calendar-day',
+        date.getMonth() !== currentMonth.getMonth() ? 'other-month' : '',
+        dateString === today ? 'today' : ''
+      ].filter(Boolean).join(' ');
+
+      cells.push(`
+        <div class="${classes}" data-date="${dateString}">
+          <div class="day-number">${date.getDate()}</div>
+          <div class="day-events">${eventHtml}</div>
+        </div>`);
+    }
+
+    grid.innerHTML = cells.join('');
+    grid.querySelectorAll('.calendar-event').forEach(button => {
+      button.addEventListener('click', () => {
+        const event = calendarEvents.find(item => String(item.event_id) === button.dataset.eventId);
+        if (event) openEventModal(event);
+      });
+    });
+  }
+
+  function getEventClass(event) {
+    if (event.is_company_holiday) return 'event-holiday';
+    const type = String(event.event_type || '').toUpperCase();
+    if (type.includes('UNPAID')) return 'event-unpaid';
+    if (type.includes('PTO LEAD')) return 'event-lead';
+    if (type.includes('PAID') || type === 'PTO') return 'event-paid';
+    return 'event-other';
+  }
+
+  function displayEventType(value) {
+    if (value === 'COMPANY_HOLIDAY' || value === 'HOLIDAY') return 'Company Holiday';
+    return value || 'Time Off';
+  }
+
+  function openEventModal(event) {
+    const endInclusive = addDays(parseDateString(event.end_date_exclusive), -1);
+    const startDate = parseDateString(event.start_date);
+    const dateText = event.start_date === toDateString(endInclusive)
+      ? DATE_FORMATTER.format(startDate)
+      : `${DATE_FORMATTER.format(startDate)} – ${DATE_FORMATTER.format(endInclusive)}`;
+
+    document.getElementById('eventModalTitle').textContent = event.event_title || 'Calendar Event';
+    document.getElementById('eventModalSubtitle').textContent = event.is_company_holiday ? 'Company Holiday' : displayEventType(event.event_type);
+
+    const details = [
+      ['Date', dateText],
+      ['Event Type', event.is_company_holiday ? 'Company Holiday' : displayEventType(event.event_type)],
+      ['Employee', event.employee_name || '—'],
+      ['Description', event.description || '—'],
+      ['Source', event.event_source || '—'],
+      ['Paylocity Request ID', event.external_uid || '—']
+    ];
+
+    document.getElementById('eventDetailGrid').innerHTML = details.map(([label, value]) => `
+      <div class="detail-label">${escapeHtml(label)}</div><div class="detail-value">${escapeHtml(value)}</div>
+    `).join('');
+    document.getElementById('eventModal').classList.add('show');
+  }
+
+  function closeEventModal() {
+    document.getElementById('eventModal').classList.remove('show');
+  }
+
+  async function processIcsFile(file) {
+    clearImportMessage();
+    document.getElementById('resultStats').classList.add('hidden');
+
+    if (!file.name.toLowerCase().endsWith('.ics')) {
+      showImportMessage('Please select a Paylocity .ics calendar file.', 'error');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const events = parseIcsEvents(text);
+      const hash = await sha256(text);
+
+      selectedImport = { file, events, hash };
+      document.getElementById('selectedFileName').textContent = file.name;
+      document.getElementById('icsFileInput').value = '';
+      document.getElementById('importButton').disabled = false;
+      document.getElementById('clearFileButton').disabled = false;
+      document.getElementById('previewStats').classList.remove('hidden');
+      document.getElementById('previewEventCount').textContent = events.length;
+      document.getElementById('previewEmployeeCount').textContent = new Set(events.map(event => event.employee_name.toLowerCase())).size;
+      document.getElementById('previewDayCount').textContent = events.reduce((sum, event) => sum + daysBetween(event.start_date, event.end_date_exclusive), 0);
+
+      if (events.length > 0) {
+        const earliest = events.map(event => event.start_date).sort()[0];
+        const latestExclusive = events.map(event => event.end_date_exclusive).sort().slice(-1)[0];
+        const rangeStartInput = document.getElementById('exportRangeStart');
+        const rangeEndInput = document.getElementById('exportRangeEnd');
+        if (!rangeStartInput.value) rangeStartInput.value = earliest;
+        if (!rangeEndInput.value) rangeEndInput.value = toDateString(addDays(parseDateString(latestExclusive), -1));
+      }
+
+      showImportMessage(
+        events.length
+          ? `File ready. ${events.length} time-off event${events.length === 1 ? '' : 's'} found. Confirm the Paylocity export date range before importing.`
+          : 'No VEVENT time-off entries were found. Importing an empty range can mark existing requests as missing and will require confirmation.',
+        events.length ? 'info' : 'warning'
+      );
+    } catch (error) {
+      selectedImport = null;
+      document.getElementById('importButton').disabled = true;
+      document.getElementById('clearFileButton').disabled = true;
+      document.getElementById('previewStats').classList.add('hidden');
+      showImportMessage(`Unable to read the ICS file: ${error.message}`, 'error');
+    }
+  }
+
+  function parseIcsEvents(text) {
+    if (!text.includes('BEGIN:VCALENDAR')) throw new Error('This does not appear to be an iCalendar file.');
+
+    const rawLines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    const lines = [];
+    rawLines.forEach(line => {
+      if (/^[ \t]/.test(line) && lines.length) lines[lines.length - 1] += line.slice(1);
+      else lines.push(line);
+    });
+
+    const events = [];
+    let current = null;
+
+    lines.forEach(line => {
+      if (line === 'BEGIN:VEVENT') {
+        current = {};
+        return;
+      }
+      if (line === 'END:VEVENT') {
+        if (current) {
+          const employeeName = decodeIcsText(current.SUMMARY || '').trim();
+          const startDate = parseIcsDate(current.DTSTART);
+          const endDateExclusive = parseIcsDate(current.DTEND) || (startDate ? toDateString(addDays(parseDateString(startDate), 1)) : null);
+          const timeOffType = decodeIcsText(current.LOCATION || 'Time Off').trim() || 'Time Off';
+          const description = decodeIcsText(current.DESCRIPTION || '').trim() || null;
+          const suppliedUid = decodeIcsText(current.UID || '').trim();
+          const externalUid = suppliedUid || `PAYLOCITY-${employeeName}-${startDate}-${endDateExclusive}-${timeOffType}`;
+
+          if (employeeName && startDate && endDateExclusive && endDateExclusive > startDate) {
+            events.push({
+              external_uid: externalUid,
+              employee_name: employeeName,
+              time_off_type: timeOffType,
+              start_date: startDate,
+              end_date_exclusive: endDateExclusive,
+              description
+            });
+          }
+        }
+        current = null;
+        return;
+      }
+      if (!current) return;
+
+      const colonIndex = line.indexOf(':');
+      if (colonIndex < 0) return;
+      const propertyName = line.slice(0, colonIndex).split(';')[0].toUpperCase();
+      const value = line.slice(colonIndex + 1);
+      if (['DTSTART', 'DTEND', 'LOCATION', 'UID', 'SUMMARY', 'DESCRIPTION'].includes(propertyName)) current[propertyName] = value;
+    });
+
+    const seen = new Set();
+    return events.filter(event => {
+      const key = [event.external_uid, event.employee_name, event.start_date, event.end_date_exclusive].map(value => String(value).trim().toLowerCase()).join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function parseIcsDate(value) {
+    if (!value) return null;
+    const match = String(value).match(/^(\d{4})(\d{2})(\d{2})/);
+    return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+  }
+
+  function decodeIcsText(value) {
+    return String(value || '')
+      .replace(/\\n/gi, '\n')
+      .replace(/\\,/g, ',')
+      .replace(/\\;/g, ';')
+      .replace(/\\\\/g, '\\');
+  }
+
+  async function sha256(text) {
+    const bytes = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function importSelectedFile() {
+    if (!selectedImport || !canImport) return;
+
+    const rangeStart = document.getElementById('exportRangeStart').value;
+    const rangeEnd = document.getElementById('exportRangeEnd').value;
+
+    if (!rangeStart || !rangeEnd) {
+      showImportMessage('Enter the exact From and To dates selected in Paylocity.', 'error');
+      return;
+    }
+    if (rangeEnd < rangeStart) {
+      showImportMessage('The export To date cannot be before the From date.', 'error');
+      return;
+    }
+
+    const outsideRange = selectedImport.events.filter(event => event.start_date > rangeEnd || event.end_date_exclusive <= rangeStart);
+    if (outsideRange.length) {
+      showImportMessage(`${outsideRange.length} event(s) fall completely outside the selected export range. Correct the From/To dates before importing.`, 'error');
+      return;
+    }
+
+    if (selectedImport.events.length === 0) {
+      const confirmed = window.confirm('No events were found in this file. Continuing may mark all current Paylocity requests in the selected range as missing. Continue?');
+      if (!confirmed) return;
+    }
+
+    const importButton = document.getElementById('importButton');
+    importButton.disabled = true;
+    showImportMessage('Importing and reconciling Paylocity requests...', 'info');
+
+    const { data, error } = await client.rpc('import_paylocity_calendar_events_authorized', {
+      p_original_file_name: selectedImport.file.name,
+      p_file_sha256: selectedImport.hash,
+      p_range_start: rangeStart,
+      p_range_end: rangeEnd,
+      p_events: selectedImport.events
+    });
+
+    importButton.disabled = false;
+
+    if (error) {
+      showImportMessage(`Import failed: ${error.message}`, 'error');
+      return;
+    }
+
+    const result = data || {};
+    if (result.success !== true) {
+      showImportMessage(`Import failed: ${result.error || 'Unknown import error.'}`, 'error');
+      return;
+    }
+
+    document.getElementById('resultStats').classList.remove('hidden');
+    document.getElementById('resultFound').textContent = result.events_found || 0;
+    document.getElementById('resultAdded').textContent = result.events_added || 0;
+    document.getElementById('resultUpdated').textContent = result.events_updated || 0;
+    document.getElementById('resultUnchanged').textContent = result.events_unchanged || 0;
+    document.getElementById('resultMissing').textContent = result.events_missing || 0;
+    document.getElementById('resultFailed').textContent = result.events_failed || 0;
+
+    const hasWarnings = result.status === 'COMPLETED_WITH_WARNINGS' || Number(result.events_missing || 0) > 0;
+    showImportMessage(
+      hasWarnings
+        ? `Import completed with review items. ${result.events_missing || 0} previously imported request(s) were not found in this export and were hidden from the current calendar pending review.`
+        : 'Import completed successfully. The Company Calendar has been refreshed.',
+      hasWarnings ? 'warning' : 'success'
+    );
+
+    await Promise.all([loadCalendar(), loadImportHistory()]);
+  }
+
+  function clearSelectedFile() {
+    selectedImport = null;
+    document.getElementById('icsFileInput').value = '';
+    document.getElementById('selectedFileName').textContent = 'No file selected';
+    document.getElementById('previewStats').classList.add('hidden');
+    document.getElementById('resultStats').classList.add('hidden');
+    document.getElementById('importButton').disabled = true;
+    document.getElementById('clearFileButton').disabled = true;
+    clearImportMessage();
+  }
+
+  async function loadImportHistory() {
+    if (!canImport) return;
+    const tbody = document.getElementById('importHistoryBody');
+    tbody.innerHTML = '<tr><td colspan="10">Loading import history...</td></tr>';
+
+    const { data, error } = await client
+      .from('company_calendar_import_batches')
+      .select('id, original_file_name, range_start, range_end, import_status, events_found, events_added, events_updated, events_unchanged, events_missing, events_failed, imported_at, error_message')
+      .order('imported_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      tbody.innerHTML = `<tr><td colspan="10" style="color:var(--danger);">Unable to load import history: ${escapeHtml(error.message)}</td></tr>`;
+      return;
+    }
+
+    if (!data || !data.length) {
+      tbody.innerHTML = '<tr><td colspan="10">No Paylocity files have been imported yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(row => `
+      <tr title="${escapeHtml(row.error_message || '')}">
+        <td>${escapeHtml(formatDateTime(row.imported_at))}</td>
+        <td>${escapeHtml(row.original_file_name)}</td>
+        <td>${escapeHtml(formatDateRange(row.range_start, row.range_end))}</td>
+        <td><span class="status-badge ${getImportStatusClass(row.import_status)}">${escapeHtml(row.import_status)}</span></td>
+        <td>${Number(row.events_found || 0)}</td>
+        <td>${Number(row.events_added || 0)}</td>
+        <td>${Number(row.events_updated || 0)}</td>
+        <td>${Number(row.events_unchanged || 0)}</td>
+        <td>${Number(row.events_missing || 0)}</td>
+        <td>${Number(row.events_failed || 0)}</td>
+      </tr>`).join('');
+  }
+
+  function getImportStatusClass(status) {
+    if (status === 'COMPLETED') return 'status-completed';
+    if (status === 'COMPLETED_WITH_WARNINGS') return 'status-warning';
+    if (status === 'FAILED') return 'status-failed';
+    return 'status-processing';
+  }
+
+  function showImportMessage(message, type) {
+    const element = document.getElementById('importMessage');
+    element.className = `message show ${type || 'info'}`;
+    element.textContent = message;
+  }
+
+  function clearImportMessage() {
+    const element = document.getElementById('importMessage');
+    element.className = 'message';
+    element.textContent = '';
+  }
+
+  function setExportRangeToCurrentMonth() {
+    if (!canImport || selectedImport) return;
+    document.getElementById('exportRangeStart').value = toDateString(startOfMonth(currentMonth));
+    document.getElementById('exportRangeEnd').value = toDateString(endOfMonth(currentMonth));
+  }
+
+  function startOfMonth(date) { return new Date(date.getFullYear(), date.getMonth(), 1); }
+  function endOfMonth(date) { return new Date(date.getFullYear(), date.getMonth() + 1, 0); }
+  function addDays(date, days) { const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate()); copy.setDate(copy.getDate() + days); return copy; }
+  function toDateString(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  function parseDateString(value) {
+    const [year, month, day] = String(value).split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  function daysBetween(startDate, endDateExclusive) {
+    return Math.max(0, Math.round((parseDateString(endDateExclusive) - parseDateString(startDate)) / 86400000));
+  }
+  function formatDateRange(start, end) {
+    if (!start || !end) return '—';
+    return start === end ? DATE_FORMATTER.format(parseDateString(start)) : `${DATE_FORMATTER.format(parseDateString(start))} – ${DATE_FORMATTER.format(parseDateString(end))}`;
+  }
+  function formatDateTime(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : DATETIME_FORMATTER.format(date);
+  }
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  async function appLogout() {
+    await client.auth.signOut();
+    window.location.href = 'index.html';
+  }
+</script>
+</body>
+</html>
