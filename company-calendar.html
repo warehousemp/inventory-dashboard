@@ -481,20 +481,10 @@
       <section id="importSection" class="card hidden">
         <h2>Import Paylocity Time-Off File</h2>
         <p class="section-description">
-          Download the selected date range from Paylocity and drop the <strong>.ics</strong> file below. The same month can be imported repeatedly as approvals change. Existing requests are matched and will not be duplicated.
+          Drop a Paylocity <strong>.ics</strong> file below whenever approved time-off requests need to be added or refreshed. The page reads the event dates automatically, matches existing requests, and prevents duplicates.
         </p>
 
         <div class="import-grid">
-          <div>
-            <label for="exportRangeStart">Paylocity Export From</label>
-            <input id="exportRangeStart" type="date">
-          </div>
-          <div>
-            <label for="exportRangeEnd">Paylocity Export To</label>
-            <input id="exportRangeEnd" type="date">
-          </div>
-          <div class="import-warning">Enter the exact date range selected when the file was downloaded from Paylocity.</div>
-
           <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Choose or drop Paylocity ICS file">
             <strong>Drop Paylocity .ics file here</strong>
             <p>or click this area to browse</p>
@@ -533,7 +523,7 @@
           <table>
             <thead>
               <tr>
-                <th>Imported</th><th>File</th><th>Selected Range</th><th>Status</th><th>Found</th><th>Added</th><th>Updated</th><th>Unchanged</th><th>Missing</th><th>Failed</th>
+                <th>Imported</th><th>File</th><th>File Date Span</th><th>Status</th><th>Found</th><th>Added</th><th>Updated</th><th>Unchanged</th><th>Missing</th><th>Failed</th>
               </tr>
             </thead>
             <tbody id="importHistoryBody"><tr><td colspan="10">No import history loaded.</td></tr></tbody>
@@ -582,7 +572,6 @@
     document.getElementById('nextMonthButton').addEventListener('click', () => changeMonth(1));
     document.getElementById('todayButton').addEventListener('click', () => {
       currentMonth = startOfMonth(new Date());
-      setExportRangeToCurrentMonth();
       loadCalendar();
     });
     document.getElementById('refreshCalendarButton').addEventListener('click', loadCalendar);
@@ -681,7 +670,6 @@
     if (canImport) {
       document.getElementById('importSection').classList.remove('hidden');
       document.getElementById('importHistorySection').classList.remove('hidden');
-      setExportRangeToCurrentMonth();
       loadImportHistory();
     }
 
@@ -708,7 +696,6 @@
 
   function changeMonth(offset) {
     currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1);
-    setExportRangeToCurrentMonth();
     loadCalendar();
   }
 
@@ -871,29 +858,30 @@
       const events = parseIcsEvents(text);
       const hash = await sha256(text);
 
-      selectedImport = { file, events, hash };
+      const rangeStart = events.length
+        ? events.map(event => event.start_date).sort()[0]
+        : null;
+      const latestExclusive = events.length
+        ? events.map(event => event.end_date_exclusive).sort().slice(-1)[0]
+        : null;
+      const rangeEnd = latestExclusive
+        ? toDateString(addDays(parseDateString(latestExclusive), -1))
+        : null;
+
+      selectedImport = { file, events, hash, rangeStart, rangeEnd };
       document.getElementById('selectedFileName').textContent = file.name;
       document.getElementById('icsFileInput').value = '';
-      document.getElementById('importButton').disabled = false;
+      document.getElementById('importButton').disabled = events.length === 0;
       document.getElementById('clearFileButton').disabled = false;
       document.getElementById('previewStats').classList.remove('hidden');
       document.getElementById('previewEventCount').textContent = events.length;
       document.getElementById('previewEmployeeCount').textContent = new Set(events.map(event => event.employee_name.toLowerCase())).size;
       document.getElementById('previewDayCount').textContent = events.reduce((sum, event) => sum + daysBetween(event.start_date, event.end_date_exclusive), 0);
 
-      if (events.length > 0) {
-        const earliest = events.map(event => event.start_date).sort()[0];
-        const latestExclusive = events.map(event => event.end_date_exclusive).sort().slice(-1)[0];
-        const rangeStartInput = document.getElementById('exportRangeStart');
-        const rangeEndInput = document.getElementById('exportRangeEnd');
-        if (!rangeStartInput.value) rangeStartInput.value = earliest;
-        if (!rangeEndInput.value) rangeEndInput.value = toDateString(addDays(parseDateString(latestExclusive), -1));
-      }
-
       showImportMessage(
         events.length
-          ? `File ready. ${events.length} time-off event${events.length === 1 ? '' : 's'} found. Confirm the Paylocity export date range before importing.`
-          : 'No VEVENT time-off entries were found. Importing an empty range can mark existing requests as missing and will require confirmation.',
+          ? `File ready. ${events.length} time-off event${events.length === 1 ? '' : 's'} found for ${formatDateRange(rangeStart, rangeEnd)}. Click IMPORT TO CALENDAR.`
+          : 'No VEVENT time-off entries were found in this file. Nothing was imported.',
         events.length ? 'info' : 'warning'
       );
     } catch (error) {
@@ -986,34 +974,19 @@
   }
 
   async function importSelectedFile() {
-    if (!selectedImport || !canImport) return;
+    if (!selectedImport || !canImport || selectedImport.events.length === 0) return;
 
-    const rangeStart = document.getElementById('exportRangeStart').value;
-    const rangeEnd = document.getElementById('exportRangeEnd').value;
+    const rangeStart = selectedImport.rangeStart;
+    const rangeEnd = selectedImport.rangeEnd;
 
     if (!rangeStart || !rangeEnd) {
-      showImportMessage('Enter the exact From and To dates selected in Paylocity.', 'error');
+      showImportMessage('The event date span could not be read from this file.', 'error');
       return;
-    }
-    if (rangeEnd < rangeStart) {
-      showImportMessage('The export To date cannot be before the From date.', 'error');
-      return;
-    }
-
-    const outsideRange = selectedImport.events.filter(event => event.start_date > rangeEnd || event.end_date_exclusive <= rangeStart);
-    if (outsideRange.length) {
-      showImportMessage(`${outsideRange.length} event(s) fall completely outside the selected export range. Correct the From/To dates before importing.`, 'error');
-      return;
-    }
-
-    if (selectedImport.events.length === 0) {
-      const confirmed = window.confirm('No events were found in this file. Continuing may mark all current Paylocity requests in the selected range as missing. Continue?');
-      if (!confirmed) return;
     }
 
     const importButton = document.getElementById('importButton');
     importButton.disabled = true;
-    showImportMessage('Importing and reconciling Paylocity requests...', 'info');
+    showImportMessage('Importing Paylocity requests...', 'info');
 
     const { data, error } = await client.rpc('import_paylocity_calendar_events_authorized', {
       p_original_file_name: selectedImport.file.name,
@@ -1121,11 +1094,6 @@
     element.textContent = '';
   }
 
-  function setExportRangeToCurrentMonth() {
-    if (!canImport || selectedImport) return;
-    document.getElementById('exportRangeStart').value = toDateString(startOfMonth(currentMonth));
-    document.getElementById('exportRangeEnd').value = toDateString(endOfMonth(currentMonth));
-  }
 
   function startOfMonth(date) { return new Date(date.getFullYear(), date.getMonth(), 1); }
   function endOfMonth(date) { return new Date(date.getFullYear(), date.getMonth() + 1, 0); }
