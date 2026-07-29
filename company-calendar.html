@@ -203,6 +203,45 @@
 
     .main-layout { max-width: 1540px; margin: 22px auto 40px; padding: 0 20px; }
 
+    .calendar-page-tabs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 18px;
+      padding: 6px;
+      background: #e8f0f6;
+      border: 1px solid #d4e0e9;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+
+    .calendar-page-tab {
+      border: 0;
+      border-radius: 8px;
+      padding: 11px 18px;
+      background: transparent;
+      color: #475467;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+      transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+    }
+
+    .calendar-page-tab:hover {
+      background: rgba(255,255,255,.72);
+      color: var(--header);
+    }
+
+    .calendar-page-tab.active {
+      background: white;
+      color: var(--header);
+      box-shadow: 0 2px 8px rgba(11,60,93,.14);
+    }
+
+    .calendar-tab-panel {
+      min-width: 0;
+    }
+
     .card {
       background: white;
       border: 1px solid #e6edf3;
@@ -527,6 +566,17 @@
     }
 
     @media (max-width: 600px) {
+      .calendar-page-tabs {
+        align-items: stretch;
+        gap: 6px;
+      }
+
+      .calendar-page-tab {
+        flex: 1 0 auto;
+        padding-left: 13px;
+        padding-right: 13px;
+      }
+
       .filter-row, .import-grid, .stat-grid,
       .milestone-form-grid, .management-toolbar { grid-template-columns: 1fr; }
       .milestone-form-grid .full-width { grid-column: auto; }
@@ -555,6 +605,39 @@
     <div id="accessGate" class="access-gate hidden"></div>
 
     <div id="calendarMain" class="main-layout hidden">
+      <div class="calendar-page-tabs" role="tablist" aria-label="Company Calendar sections">
+        <button
+          id="calendarTabButton"
+          class="calendar-page-tab active"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          aria-controls="calendarTabPanel"
+          data-calendar-tab="calendar"
+        >Calendar</button>
+
+        <button
+          id="paylocityTabButton"
+          class="calendar-page-tab hidden"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="paylocityTabPanel"
+          data-calendar-tab="paylocity"
+        >Paylocity Import</button>
+
+        <button
+          id="calendarAdminTabButton"
+          class="calendar-page-tab hidden"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="calendarAdminTabPanel"
+          data-calendar-tab="admin"
+        >Calendar Admin</button>
+      </div>
+
+      <div id="calendarTabPanel" class="calendar-tab-panel" role="tabpanel" aria-labelledby="calendarTabButton">
       <section class="card">
         <div class="calendar-toolbar">
           <div class="calendar-nav">
@@ -602,8 +685,64 @@
           <div id="calendarGrid" class="calendar-grid" aria-live="polite"></div>
         </div>
       </section>
+      </div>
 
+      <div id="paylocityTabPanel" class="calendar-tab-panel hidden" role="tabpanel" aria-labelledby="paylocityTabButton">
+      <section id="importSection" class="card hidden">
+        <h2>Import Paylocity Time-Off File</h2>
+        <p class="section-description">
+          Drop a Paylocity <strong>.ics</strong> file below whenever approved time-off requests need to be added or refreshed. The page reads the event dates automatically, matches existing requests, and prevents duplicates.
+        </p>
 
+        <div class="import-grid">
+          <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Choose or drop Paylocity ICS file">
+            <strong>Drop Paylocity .ics file here</strong>
+            <p>or click this area to browse</p>
+            <div id="selectedFileName" class="file-name">No file selected</div>
+            <input id="icsFileInput" type="file" accept=".ics,text/calendar" class="hidden">
+          </div>
+        </div>
+
+        <div id="previewStats" class="stat-grid hidden">
+          <div class="stat-card"><div class="stat-label">Events in File</div><div class="stat-value" id="previewEventCount">0</div></div>
+          <div class="stat-card"><div class="stat-label">Employees</div><div class="stat-value" id="previewEmployeeCount">0</div></div>
+          <div class="stat-card"><div class="stat-label">Employee-Days</div><div class="stat-value" id="previewDayCount">0</div></div>
+        </div>
+
+        <div class="import-actions">
+          <button id="importButton" class="btn btn-accent" type="button" disabled>IMPORT TO CALENDAR</button>
+          <button id="clearFileButton" class="btn btn-secondary" type="button" disabled>CLEAR FILE</button>
+        </div>
+
+        <div id="importMessage" class="message"></div>
+
+        <div id="resultStats" class="stat-grid hidden">
+          <div class="stat-card"><div class="stat-label">Found</div><div class="stat-value" id="resultFound">0</div></div>
+          <div class="stat-card"><div class="stat-label">Added</div><div class="stat-value" id="resultAdded">0</div></div>
+          <div class="stat-card"><div class="stat-label">Updated</div><div class="stat-value" id="resultUpdated">0</div></div>
+          <div class="stat-card"><div class="stat-label">Unchanged</div><div class="stat-value" id="resultUnchanged">0</div></div>
+          <div class="stat-card"><div class="stat-label">Missing / Review</div><div class="stat-value" id="resultMissing">0</div></div>
+          <div class="stat-card"><div class="stat-label">Failed</div><div class="stat-value" id="resultFailed">0</div></div>
+        </div>
+      </section>
+
+      <section id="importHistorySection" class="card hidden">
+        <h2>Paylocity Import History</h2>
+        <p class="section-description">The four most recent imports completed through the Company Calendar page.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Imported</th><th>File</th><th>File Date Span</th><th>Status</th><th>Found</th><th>Added</th><th>Updated</th><th>Unchanged</th><th>Missing</th><th>Failed</th>
+              </tr>
+            </thead>
+            <tbody id="importHistoryBody"><tr><td colspan="10">No import history loaded.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      </div>
+
+      <div id="calendarAdminTabPanel" class="calendar-tab-panel hidden" role="tabpanel" aria-labelledby="calendarAdminTabButton">
       <section id="milestoneAdminSection" class="card hidden">
         <h2>Employee Milestones Administration</h2>
         <p class="section-description">
@@ -741,7 +880,6 @@
         </div>
       </section>
 
-
       <section id="customEventAdminSection" class="card hidden">
         <h2>Calendar Events Administration</h2>
         <p class="section-description">
@@ -828,59 +966,7 @@
           </div>
         </div>
       </section>
-
-      <section id="importSection" class="card hidden">
-        <h2>Import Paylocity Time-Off File</h2>
-        <p class="section-description">
-          Drop a Paylocity <strong>.ics</strong> file below whenever approved time-off requests need to be added or refreshed. The page reads the event dates automatically, matches existing requests, and prevents duplicates.
-        </p>
-
-        <div class="import-grid">
-          <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Choose or drop Paylocity ICS file">
-            <strong>Drop Paylocity .ics file here</strong>
-            <p>or click this area to browse</p>
-            <div id="selectedFileName" class="file-name">No file selected</div>
-            <input id="icsFileInput" type="file" accept=".ics,text/calendar" class="hidden">
-          </div>
-        </div>
-
-        <div id="previewStats" class="stat-grid hidden">
-          <div class="stat-card"><div class="stat-label">Events in File</div><div class="stat-value" id="previewEventCount">0</div></div>
-          <div class="stat-card"><div class="stat-label">Employees</div><div class="stat-value" id="previewEmployeeCount">0</div></div>
-          <div class="stat-card"><div class="stat-label">Employee-Days</div><div class="stat-value" id="previewDayCount">0</div></div>
-        </div>
-
-        <div class="import-actions">
-          <button id="importButton" class="btn btn-accent" type="button" disabled>IMPORT TO CALENDAR</button>
-          <button id="clearFileButton" class="btn btn-secondary" type="button" disabled>CLEAR FILE</button>
-        </div>
-
-        <div id="importMessage" class="message"></div>
-
-        <div id="resultStats" class="stat-grid hidden">
-          <div class="stat-card"><div class="stat-label">Found</div><div class="stat-value" id="resultFound">0</div></div>
-          <div class="stat-card"><div class="stat-label">Added</div><div class="stat-value" id="resultAdded">0</div></div>
-          <div class="stat-card"><div class="stat-label">Updated</div><div class="stat-value" id="resultUpdated">0</div></div>
-          <div class="stat-card"><div class="stat-label">Unchanged</div><div class="stat-value" id="resultUnchanged">0</div></div>
-          <div class="stat-card"><div class="stat-label">Missing / Review</div><div class="stat-value" id="resultMissing">0</div></div>
-          <div class="stat-card"><div class="stat-label">Failed</div><div class="stat-value" id="resultFailed">0</div></div>
-        </div>
-      </section>
-
-      <section id="importHistorySection" class="card hidden">
-        <h2>Paylocity Import History</h2>
-        <p class="section-description">Most recent imports completed through the Company Calendar page.</p>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Imported</th><th>File</th><th>File Date Span</th><th>Status</th><th>Found</th><th>Added</th><th>Updated</th><th>Unchanged</th><th>Missing</th><th>Failed</th>
-              </tr>
-            </thead>
-            <tbody id="importHistoryBody"><tr><td colspan="10">No import history loaded.</td></tr></tbody>
-          </table>
-        </div>
-      </section>
+      </div>
     </div>
 </main>
 
@@ -922,6 +1008,10 @@
   });
 
   function bindPageEvents() {
+    document.getElementById('calendarTabButton').addEventListener('click', () => activateCompanyCalendarTab('calendar'));
+    document.getElementById('paylocityTabButton').addEventListener('click', () => activateCompanyCalendarTab('paylocity'));
+    document.getElementById('calendarAdminTabButton').addEventListener('click', () => activateCompanyCalendarTab('admin'));
+
     document.getElementById('previousMonthButton').addEventListener('click', () => changeMonth(-1));
     document.getElementById('nextMonthButton').addEventListener('click', () => changeMonth(1));
     document.getElementById('todayButton').addEventListener('click', () => {
@@ -1037,7 +1127,11 @@
     document.getElementById('calendarMain').classList.remove('hidden');
     document.getElementById('accessGate').classList.add('hidden');
 
+    activateCompanyCalendarTab('calendar');
+
     if (canImport) {
+      document.getElementById('paylocityTabButton').classList.remove('hidden');
+      document.getElementById('calendarAdminTabButton').classList.remove('hidden');
       document.getElementById('milestoneAdminSection').classList.remove('hidden');
       document.getElementById('customEventAdminSection').classList.remove('hidden');
       document.getElementById('importSection').classList.remove('hidden');
@@ -1050,6 +1144,44 @@
     }
 
     await loadCalendar();
+  }
+
+  function activateCompanyCalendarTab(tabName) {
+    const requestedTab = tabName === 'paylocity' || tabName === 'admin'
+      ? tabName
+      : 'calendar';
+
+    const allowedTab = canImport || requestedTab === 'calendar'
+      ? requestedTab
+      : 'calendar';
+
+    const configuration = {
+      calendar: {
+        button: document.getElementById('calendarTabButton'),
+        panel: document.getElementById('calendarTabPanel')
+      },
+      paylocity: {
+        button: document.getElementById('paylocityTabButton'),
+        panel: document.getElementById('paylocityTabPanel')
+      },
+      admin: {
+        button: document.getElementById('calendarAdminTabButton'),
+        panel: document.getElementById('calendarAdminTabPanel')
+      }
+    };
+
+    Object.entries(configuration).forEach(([name, elements]) => {
+      const isActive = name === allowedTab;
+      elements.button.classList.toggle('active', isActive);
+      elements.button.setAttribute('aria-selected', String(isActive));
+      elements.panel.classList.toggle('hidden', !isActive);
+    });
+
+    if (allowedTab === 'paylocity' && canImport) {
+      loadImportHistory();
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function showAccessMessage(message, type) {
@@ -2157,7 +2289,7 @@
       .from('company_calendar_import_batches')
       .select('id, original_file_name, range_start, range_end, import_status, events_found, events_added, events_updated, events_unchanged, events_missing, events_failed, imported_at, error_message')
       .order('imported_at', { ascending: false })
-      .limit(20);
+      .limit(4);
 
     if (error) {
       tbody.innerHTML = `<tr><td colspan="10" style="color:var(--danger);">Unable to load import history: ${escapeHtml(error.message)}</td></tr>`;
