@@ -23,7 +23,7 @@
         { label: 'Accounting Warehouse', href: 'accounting.html', roles: ['ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN'] },
         { label: 'Client Changes', href: 'client-changes.html', roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
         { label: 'PPV Tracker', href: 'ppv-tracker.html', roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
-        { label: 'PPV Admin', href: 'ppv-admin.html', roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
+        { label: 'PPV Admin', href: 'ppv-admin.html', roles: ['ADMIN', 'SYSTEM_ADMIN'] },
         { label: 'PPV Payroll Review', href: 'ppv-payroll-review.html', roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
         { label: 'Company Calendar', href: 'company-calendar.html', roles: ALL_ACTIVE_ROLES }
       ]
