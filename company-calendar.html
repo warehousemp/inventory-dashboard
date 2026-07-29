@@ -370,6 +370,111 @@
     .status-failed { background: #fee4e2; color: #912018; }
     .status-processing { background: #dbeafe; color: #1e40af; }
 
+    .milestone-admin-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .milestone-form-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .milestone-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .milestone-form-grid .full-width { grid-column: 1 / -1; }
+
+    .checkbox-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      padding-top: 20px;
+    }
+
+    .checkbox-field input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+    }
+
+    .checkbox-field label {
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .milestone-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .management-toolbar {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin: 22px 0 14px;
+    }
+
+    .milestone-table-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .milestone-table-panel {
+      min-width: 0;
+    }
+
+    .milestone-table-panel .table-wrap {
+      max-height: 430px;
+    }
+
+    .milestone-table-panel table {
+      min-width: 650px;
+    }
+
+    .record-status {
+      display: inline-flex;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .record-active { background: #dcfae6; color: #05603a; }
+    .record-inactive { background: #f2f4f7; color: #475467; }
+
+    .table-action-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .btn-small {
+      padding: 6px 8px;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .btn-success {
+      background: #ecfdf3;
+      color: var(--success);
+      border: 1px solid #bbf7d0;
+    }
+
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -391,6 +496,7 @@
 
     @media (max-width: 1000px) {
       .filter-row, .import-grid { grid-template-columns: 1fr 1fr; }
+      .milestone-admin-grid, .milestone-table-grid { grid-template-columns: 1fr; }
       .drop-zone { grid-column: 1 / -1; }
       .stat-grid { grid-template-columns: repeat(3, 1fr); }
     }
@@ -412,7 +518,9 @@
     }
 
     @media (max-width: 600px) {
-      .filter-row, .import-grid, .stat-grid { grid-template-columns: 1fr; }
+      .filter-row, .import-grid, .stat-grid,
+      .milestone-form-grid, .management-toolbar { grid-template-columns: 1fr; }
+      .milestone-form-grid .full-width { grid-column: auto; }
       .calendar-nav, .toolbar-actions, .import-actions { flex-direction: column; align-items: stretch; }
       .calendar-nav .btn, .toolbar-actions .btn, .import-actions .btn { width: 100%; }
       .detail-grid { grid-template-columns: 1fr; gap: 4px; }
@@ -426,7 +534,7 @@
     <div class="header-bar">
       <div>
         <div class="header-title">Molinari Pools – Company Calendar</div>
-        <div class="header-subtitle">Company holidays and approved employee time off</div>
+        <div class="header-subtitle">Company holidays, approved time off, birthdays, and work anniversaries</div>
       </div>
       <div id="userChip" class="user-chip">Checking access...</div>
     </div>
@@ -481,6 +589,144 @@
             <div class="weekday">Wednesday</div><div class="weekday">Thursday</div><div class="weekday">Friday</div><div class="weekday">Saturday</div>
           </div>
           <div id="calendarGrid" class="calendar-grid" aria-live="polite"></div>
+        </div>
+      </section>
+
+
+      <section id="milestoneAdminSection" class="card hidden">
+        <h2>Employee Milestones Administration</h2>
+        <p class="section-description">
+          Add and maintain employee birthdays and original hire dates. Birthdays store only the month and day—no birth year is requested or saved. Deactivate records for former employees instead of deleting their history.
+        </p>
+
+        <div class="milestone-admin-grid">
+          <div class="milestone-form-card">
+            <h3 id="birthdayFormTitle">Add Employee Birthday</h3>
+            <input id="birthdayRecordId" type="hidden">
+
+            <div class="milestone-form-grid">
+              <div class="full-width">
+                <label for="birthdayEmployeeName">Employee Name</label>
+                <input id="birthdayEmployeeName" type="text" maxlength="120" autocomplete="off" placeholder="Employee full name">
+              </div>
+
+              <div>
+                <label for="birthdayMonth">Birth Month</label>
+                <select id="birthdayMonth">
+                  <option value="">Select month</option>
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="birthdayDay">Birth Day</label>
+                <input id="birthdayDay" type="number" min="1" max="31" step="1" placeholder="Day">
+              </div>
+
+              <div class="checkbox-field full-width">
+                <input id="birthdayActive" type="checkbox" checked>
+                <label for="birthdayActive">Active and visible on the calendar</label>
+              </div>
+            </div>
+
+            <div class="milestone-actions">
+              <button id="saveBirthdayButton" class="btn btn-accent" type="button">SAVE BIRTHDAY</button>
+              <button id="cancelBirthdayEditButton" class="btn btn-secondary hidden" type="button">CANCEL EDIT</button>
+            </div>
+
+            <div id="birthdayMessage" class="message"></div>
+          </div>
+
+          <div class="milestone-form-card">
+            <h3 id="anniversaryFormTitle">Add Work Anniversary</h3>
+            <input id="anniversaryRecordId" type="hidden">
+
+            <div class="milestone-form-grid">
+              <div class="full-width">
+                <label for="anniversaryEmployeeName">Employee Name</label>
+                <input id="anniversaryEmployeeName" type="text" maxlength="120" autocomplete="off" placeholder="Employee full name">
+              </div>
+
+              <div class="full-width">
+                <label for="anniversaryHireDate">Original Hire Date</label>
+                <input id="anniversaryHireDate" type="date">
+              </div>
+
+              <div class="checkbox-field full-width">
+                <input id="anniversaryActive" type="checkbox" checked>
+                <label for="anniversaryActive">Active and visible on the calendar</label>
+              </div>
+            </div>
+
+            <div class="milestone-actions">
+              <button id="saveAnniversaryButton" class="btn btn-accent" type="button">SAVE WORK ANNIVERSARY</button>
+              <button id="cancelAnniversaryEditButton" class="btn btn-secondary hidden" type="button">CANCEL EDIT</button>
+            </div>
+
+            <div id="anniversaryMessage" class="message"></div>
+          </div>
+        </div>
+
+        <div class="management-toolbar">
+          <div>
+            <label for="milestoneManagementSearch">Search Milestone Records</label>
+            <input id="milestoneManagementSearch" type="search" placeholder="Search employee name">
+          </div>
+          <button id="refreshMilestonesButton" class="btn btn-primary" type="button">REFRESH RECORDS</button>
+        </div>
+
+        <div id="milestoneManagementMessage" class="message"></div>
+
+        <div class="milestone-table-grid">
+          <div class="milestone-table-panel">
+            <h3>Birthdays</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Birthday</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="birthdayManagementBody">
+                  <tr><td colspan="4">No birthday records loaded.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="milestone-table-panel">
+            <h3>Work Anniversaries</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Original Hire Date</th>
+                    <th>Next Anniversary</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="anniversaryManagementBody">
+                  <tr><td colspan="5">No work-anniversary records loaded.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -567,6 +813,8 @@
   let currentProfile = null;
   let canImport = false;
   let selectedImport = null;
+  let birthdayRecords = [];
+  let anniversaryRecords = [];
 
   document.addEventListener('DOMContentLoaded', () => {
     bindPageEvents();
@@ -617,6 +865,15 @@
 
     document.getElementById('importButton').addEventListener('click', importSelectedFile);
     document.getElementById('clearFileButton').addEventListener('click', clearSelectedFile);
+
+    document.getElementById('saveBirthdayButton').addEventListener('click', saveBirthdayRecord);
+    document.getElementById('cancelBirthdayEditButton').addEventListener('click', resetBirthdayForm);
+    document.getElementById('saveAnniversaryButton').addEventListener('click', saveAnniversaryRecord);
+    document.getElementById('cancelAnniversaryEditButton').addEventListener('click', resetAnniversaryForm);
+    document.getElementById('refreshMilestonesButton').addEventListener('click', loadMilestoneRecords);
+    document.getElementById('milestoneManagementSearch').addEventListener('input', renderMilestoneManagementTables);
+    document.getElementById('birthdayManagementBody').addEventListener('click', handleBirthdayTableAction);
+    document.getElementById('anniversaryManagementBody').addEventListener('click', handleAnniversaryTableAction);
     document.getElementById('eventModalClose').addEventListener('click', closeEventModal);
     document.getElementById('eventModal').addEventListener('click', event => {
       if (event.target.id === 'eventModal') closeEventModal();
@@ -665,7 +922,7 @@
     document.getElementById('userChip').textContent = `${profile.full_name || session.user.email} · ${profile.role}`;
     showAccessMessage(
       canImport
-        ? 'Company Calendar access granted. Paylocity importing is enabled for this login.'
+        ? 'Company Calendar access granted. Paylocity importing and employee milestone administration are enabled for this login.'
         : 'Company Calendar access granted. Calendar is read-only for this login.',
       'success'
     );
@@ -674,9 +931,10 @@
     document.getElementById('accessGate').classList.add('hidden');
 
     if (canImport) {
+      document.getElementById('milestoneAdminSection').classList.remove('hidden');
       document.getElementById('importSection').classList.remove('hidden');
       document.getElementById('importHistorySection').classList.remove('hidden');
-      loadImportHistory();
+      await Promise.all([loadMilestoneRecords(), loadImportHistory()]);
     }
 
     await loadCalendar();
@@ -853,6 +1111,481 @@
 
   function closeEventModal() {
     document.getElementById('eventModal').classList.remove('show');
+  }
+
+
+  async function loadMilestoneRecords() {
+    if (!canImport) return;
+
+    showMilestoneManagementMessage('Loading employee milestone records...', 'info');
+
+    const [birthdayResult, anniversaryResult] = await Promise.all([
+      client
+        .from('company_calendar_birthdays')
+        .select('id, employee_name, birth_month, birth_day, active, source_system, updated_at')
+        .order('birth_month', { ascending: true })
+        .order('birth_day', { ascending: true })
+        .order('employee_name', { ascending: true }),
+      client
+        .from('company_calendar_work_anniversaries')
+        .select('id, employee_name, hire_date, active, source_system, updated_at')
+        .order('hire_date', { ascending: true })
+        .order('employee_name', { ascending: true })
+    ]);
+
+    if (birthdayResult.error || anniversaryResult.error) {
+      const messages = [
+        birthdayResult.error && `Birthdays: ${birthdayResult.error.message}`,
+        anniversaryResult.error && `Work anniversaries: ${anniversaryResult.error.message}`
+      ].filter(Boolean);
+
+      birthdayRecords = [];
+      anniversaryRecords = [];
+      renderMilestoneManagementTables();
+      showMilestoneManagementMessage(
+        `Unable to load milestone records. ${messages.join(' ')}`,
+        'error'
+      );
+      return;
+    }
+
+    birthdayRecords = Array.isArray(birthdayResult.data)
+      ? birthdayResult.data
+      : [];
+
+    anniversaryRecords = Array.isArray(anniversaryResult.data)
+      ? anniversaryResult.data
+      : [];
+
+    renderMilestoneManagementTables();
+    showMilestoneManagementMessage(
+      `${birthdayRecords.length} birthday record${birthdayRecords.length === 1 ? '' : 's'} and ${anniversaryRecords.length} work-anniversary record${anniversaryRecords.length === 1 ? '' : 's'} loaded.`,
+      'success'
+    );
+  }
+
+  function renderMilestoneManagementTables() {
+    const search = document
+      .getElementById('milestoneManagementSearch')
+      .value
+      .trim()
+      .toLowerCase();
+
+    const filteredBirthdays = birthdayRecords.filter(record =>
+      !search || String(record.employee_name || '').toLowerCase().includes(search)
+    );
+
+    const filteredAnniversaries = anniversaryRecords.filter(record =>
+      !search || String(record.employee_name || '').toLowerCase().includes(search)
+    );
+
+    const birthdayBody = document.getElementById('birthdayManagementBody');
+    const anniversaryBody = document.getElementById('anniversaryManagementBody');
+
+    birthdayBody.innerHTML = filteredBirthdays.length
+      ? filteredBirthdays.map(record => `
+          <tr>
+            <td>${escapeHtml(record.employee_name)}</td>
+            <td>${escapeHtml(formatMonthDay(record.birth_month, record.birth_day))}</td>
+            <td>${renderRecordStatus(record.active)}</td>
+            <td>
+              <div class="table-action-row">
+                <button class="btn btn-secondary btn-small" type="button" data-action="edit" data-id="${escapeHtml(record.id)}">EDIT</button>
+                <button class="btn ${record.active ? 'btn-danger' : 'btn-success'} btn-small" type="button" data-action="toggle" data-id="${escapeHtml(record.id)}">
+                  ${record.active ? 'DEACTIVATE' : 'REACTIVATE'}
+                </button>
+              </div>
+            </td>
+          </tr>`)
+        .join('')
+      : '<tr><td colspan="4">No birthday records match the current search.</td></tr>';
+
+    anniversaryBody.innerHTML = filteredAnniversaries.length
+      ? filteredAnniversaries.map(record => `
+          <tr>
+            <td>${escapeHtml(record.employee_name)}</td>
+            <td>${escapeHtml(formatDateOnly(record.hire_date))}</td>
+            <td>${escapeHtml(getNextAnniversaryDisplay(record.hire_date))}</td>
+            <td>${renderRecordStatus(record.active)}</td>
+            <td>
+              <div class="table-action-row">
+                <button class="btn btn-secondary btn-small" type="button" data-action="edit" data-id="${escapeHtml(record.id)}">EDIT</button>
+                <button class="btn ${record.active ? 'btn-danger' : 'btn-success'} btn-small" type="button" data-action="toggle" data-id="${escapeHtml(record.id)}">
+                  ${record.active ? 'DEACTIVATE' : 'REACTIVATE'}
+                </button>
+              </div>
+            </td>
+          </tr>`)
+        .join('')
+      : '<tr><td colspan="5">No work-anniversary records match the current search.</td></tr>';
+  }
+
+  function renderRecordStatus(active) {
+    return active
+      ? '<span class="record-status record-active">ACTIVE</span>'
+      : '<span class="record-status record-inactive">INACTIVE</span>';
+  }
+
+  function handleBirthdayTableAction(event) {
+    const button = event.target.closest('button[data-action][data-id]');
+    if (!button) return;
+
+    const record = birthdayRecords.find(item =>
+      String(item.id) === String(button.dataset.id)
+    );
+
+    if (!record) return;
+
+    if (button.dataset.action === 'edit') {
+      editBirthdayRecord(record);
+      return;
+    }
+
+    if (button.dataset.action === 'toggle') {
+      toggleBirthdayRecord(record);
+    }
+  }
+
+  function handleAnniversaryTableAction(event) {
+    const button = event.target.closest('button[data-action][data-id]');
+    if (!button) return;
+
+    const record = anniversaryRecords.find(item =>
+      String(item.id) === String(button.dataset.id)
+    );
+
+    if (!record) return;
+
+    if (button.dataset.action === 'edit') {
+      editAnniversaryRecord(record);
+      return;
+    }
+
+    if (button.dataset.action === 'toggle') {
+      toggleAnniversaryRecord(record);
+    }
+  }
+
+  function editBirthdayRecord(record) {
+    document.getElementById('birthdayRecordId').value = record.id;
+    document.getElementById('birthdayEmployeeName').value = record.employee_name || '';
+    document.getElementById('birthdayMonth').value = String(record.birth_month || '');
+    document.getElementById('birthdayDay').value = String(record.birth_day || '');
+    document.getElementById('birthdayActive').checked = record.active === true;
+    document.getElementById('birthdayFormTitle').textContent = 'Edit Employee Birthday';
+    document.getElementById('saveBirthdayButton').textContent = 'SAVE CHANGES';
+    document.getElementById('cancelBirthdayEditButton').classList.remove('hidden');
+    clearFormMessage('birthdayMessage');
+    document.getElementById('birthdayEmployeeName').focus();
+  }
+
+  function editAnniversaryRecord(record) {
+    document.getElementById('anniversaryRecordId').value = record.id;
+    document.getElementById('anniversaryEmployeeName').value = record.employee_name || '';
+    document.getElementById('anniversaryHireDate').value = record.hire_date || '';
+    document.getElementById('anniversaryActive').checked = record.active === true;
+    document.getElementById('anniversaryFormTitle').textContent = 'Edit Work Anniversary';
+    document.getElementById('saveAnniversaryButton').textContent = 'SAVE CHANGES';
+    document.getElementById('cancelAnniversaryEditButton').classList.remove('hidden');
+    clearFormMessage('anniversaryMessage');
+    document.getElementById('anniversaryEmployeeName').focus();
+  }
+
+  function resetBirthdayForm() {
+    document.getElementById('birthdayRecordId').value = '';
+    document.getElementById('birthdayEmployeeName').value = '';
+    document.getElementById('birthdayMonth').value = '';
+    document.getElementById('birthdayDay').value = '';
+    document.getElementById('birthdayActive').checked = true;
+    document.getElementById('birthdayFormTitle').textContent = 'Add Employee Birthday';
+    document.getElementById('saveBirthdayButton').textContent = 'SAVE BIRTHDAY';
+    document.getElementById('cancelBirthdayEditButton').classList.add('hidden');
+    clearFormMessage('birthdayMessage');
+  }
+
+  function resetAnniversaryForm() {
+    document.getElementById('anniversaryRecordId').value = '';
+    document.getElementById('anniversaryEmployeeName').value = '';
+    document.getElementById('anniversaryHireDate').value = '';
+    document.getElementById('anniversaryActive').checked = true;
+    document.getElementById('anniversaryFormTitle').textContent = 'Add Work Anniversary';
+    document.getElementById('saveAnniversaryButton').textContent = 'SAVE WORK ANNIVERSARY';
+    document.getElementById('cancelAnniversaryEditButton').classList.add('hidden');
+    clearFormMessage('anniversaryMessage');
+  }
+
+  async function saveBirthdayRecord() {
+    if (!canImport) return;
+
+    const id = document.getElementById('birthdayRecordId').value || null;
+    const employeeName = document.getElementById('birthdayEmployeeName').value.trim();
+    const month = Number(document.getElementById('birthdayMonth').value);
+    const day = Number(document.getElementById('birthdayDay').value);
+    const active = document.getElementById('birthdayActive').checked;
+
+    if (!employeeName) {
+      showFormMessage('birthdayMessage', 'Employee name is required.', 'error');
+      return;
+    }
+
+    if (!isValidMonthDay(month, day)) {
+      showFormMessage(
+        'birthdayMessage',
+        'Select a valid birthday month and day.',
+        'error'
+      );
+      return;
+    }
+
+    const button = document.getElementById('saveBirthdayButton');
+    button.disabled = true;
+    showFormMessage(
+      'birthdayMessage',
+      id ? 'Saving birthday changes...' : 'Adding birthday...',
+      'info'
+    );
+
+    const { error } = await client.rpc(
+      'save_company_calendar_birthday_authorized',
+      {
+        p_id: id,
+        p_employee_name: employeeName,
+        p_birth_month: month,
+        p_birth_day: day,
+        p_active: active
+      }
+    );
+
+    button.disabled = false;
+
+    if (error) {
+      showFormMessage(
+        'birthdayMessage',
+        `Birthday save failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    resetBirthdayForm();
+    showFormMessage(
+      'birthdayMessage',
+      id ? 'Birthday updated successfully.' : 'Birthday added successfully.',
+      'success'
+    );
+
+    await Promise.all([loadMilestoneRecords(), loadCalendar()]);
+  }
+
+  async function saveAnniversaryRecord() {
+    if (!canImport) return;
+
+    const id = document.getElementById('anniversaryRecordId').value || null;
+    const employeeName = document.getElementById('anniversaryEmployeeName').value.trim();
+    const hireDate = document.getElementById('anniversaryHireDate').value;
+    const active = document.getElementById('anniversaryActive').checked;
+
+    if (!employeeName) {
+      showFormMessage(
+        'anniversaryMessage',
+        'Employee name is required.',
+        'error'
+      );
+      return;
+    }
+
+    if (!hireDate) {
+      showFormMessage(
+        'anniversaryMessage',
+        'Original hire date is required.',
+        'error'
+      );
+      return;
+    }
+
+    if (hireDate > toDateString(new Date())) {
+      showFormMessage(
+        'anniversaryMessage',
+        'Original hire date cannot be in the future.',
+        'error'
+      );
+      return;
+    }
+
+    const button = document.getElementById('saveAnniversaryButton');
+    button.disabled = true;
+    showFormMessage(
+      'anniversaryMessage',
+      id ? 'Saving work-anniversary changes...' : 'Adding work anniversary...',
+      'info'
+    );
+
+    const { error } = await client.rpc(
+      'save_company_calendar_work_anniversary_authorized',
+      {
+        p_id: id,
+        p_employee_name: employeeName,
+        p_hire_date: hireDate,
+        p_active: active
+      }
+    );
+
+    button.disabled = false;
+
+    if (error) {
+      showFormMessage(
+        'anniversaryMessage',
+        `Work-anniversary save failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    resetAnniversaryForm();
+    showFormMessage(
+      'anniversaryMessage',
+      id
+        ? 'Work anniversary updated successfully.'
+        : 'Work anniversary added successfully.',
+      'success'
+    );
+
+    await Promise.all([loadMilestoneRecords(), loadCalendar()]);
+  }
+
+  async function toggleBirthdayRecord(record) {
+    const action = record.active ? 'deactivate' : 'reactivate';
+    const confirmed = window.confirm(
+      `${action === 'deactivate' ? 'Deactivate' : 'Reactivate'} the birthday record for ${record.employee_name}?`
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await client.rpc(
+      'save_company_calendar_birthday_authorized',
+      {
+        p_id: record.id,
+        p_employee_name: record.employee_name,
+        p_birth_month: Number(record.birth_month),
+        p_birth_day: Number(record.birth_day),
+        p_active: !record.active
+      }
+    );
+
+    if (error) {
+      showMilestoneManagementMessage(
+        `Birthday ${action} failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    await Promise.all([loadMilestoneRecords(), loadCalendar()]);
+  }
+
+  async function toggleAnniversaryRecord(record) {
+    const action = record.active ? 'deactivate' : 'reactivate';
+    const confirmed = window.confirm(
+      `${action === 'deactivate' ? 'Deactivate' : 'Reactivate'} the work-anniversary record for ${record.employee_name}?`
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await client.rpc(
+      'save_company_calendar_work_anniversary_authorized',
+      {
+        p_id: record.id,
+        p_employee_name: record.employee_name,
+        p_hire_date: record.hire_date,
+        p_active: !record.active
+      }
+    );
+
+    if (error) {
+      showMilestoneManagementMessage(
+        `Work-anniversary ${action} failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    await Promise.all([loadMilestoneRecords(), loadCalendar()]);
+  }
+
+  function isValidMonthDay(month, day) {
+    if (!Number.isInteger(month) || !Number.isInteger(day)) return false;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+
+    const testDate = new Date(2000, month - 1, day);
+    return testDate.getFullYear() === 2000 &&
+      testDate.getMonth() === month - 1 &&
+      testDate.getDate() === day;
+  }
+
+  function formatMonthDay(month, day) {
+    if (!isValidMonthDay(Number(month), Number(day))) return '—';
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      day: 'numeric'
+    }).format(new Date(2000, Number(month) - 1, Number(day)));
+  }
+
+  function formatDateOnly(value) {
+    if (!value) return '—';
+    const date = parseDateString(value);
+    return Number.isNaN(date.getTime()) ? value : DATE_FORMATTER.format(date);
+  }
+
+  function getNextAnniversaryDisplay(hireDateValue) {
+    if (!hireDateValue) return '—';
+
+    const hireDate = parseDateString(hireDateValue);
+    const today = new Date();
+    const todayDate = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+
+    let nextDate = new Date(
+      todayDate.getFullYear(),
+      hireDate.getMonth(),
+      hireDate.getDate()
+    );
+
+    if (nextDate < todayDate) {
+      nextDate = new Date(
+        todayDate.getFullYear() + 1,
+        hireDate.getMonth(),
+        hireDate.getDate()
+      );
+    }
+
+    const years = nextDate.getFullYear() - hireDate.getFullYear();
+
+    if (years < 1) {
+      return `${DATE_FORMATTER.format(nextDate)} · First anniversary pending`;
+    }
+
+    return `${DATE_FORMATTER.format(nextDate)} · ${years}-Year`;
+  }
+
+  function showFormMessage(elementId, message, type) {
+    const element = document.getElementById(elementId);
+    element.className = `message show ${type || 'info'}`;
+    element.textContent = message;
+  }
+
+  function clearFormMessage(elementId) {
+    const element = document.getElementById(elementId);
+    element.className = 'message';
+    element.textContent = '';
+  }
+
+  function showMilestoneManagementMessage(message, type) {
+    const element = document.getElementById('milestoneManagementMessage');
+    element.className = `message show ${type || 'info'}`;
+    element.textContent = message;
   }
 
   async function processIcsFile(file) {
