@@ -252,7 +252,7 @@
 
     label { display: block; margin-bottom: 5px; color: #344054; font-size: 12px; font-weight: 800; }
 
-    input, select {
+    input, select, textarea {
       width: 100%;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
@@ -261,7 +261,12 @@
       background: white;
     }
 
-    input:focus, select:focus {
+    textarea {
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus, textarea:focus {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(26,163,176,.15);
@@ -271,6 +276,8 @@
     .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: #475467; }
     .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
     .legend-holiday { background: #344054; }
+    .legend-national { background: #fef3c7; border: 1px solid #f59e0b; }
+    .legend-calendar-event { background: #e0e7ff; border: 1px solid #6366f1; }
     .legend-birthday { background: #fce7f3; border: 1px solid #ec4899; }
     .legend-anniversary { background: #cffafe; border: 1px solid #06b6d4; }
     .legend-paid { background: #d1fadf; border: 1px solid #12b76a; }
@@ -314,6 +321,8 @@
     .calendar-event strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .calendar-event span { display: block; margin-top: 2px; font-size: 9px; opacity: .82; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .event-holiday { background: #344054; color: white; border-color: #1d2939; }
+    .event-national { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    .event-calendar { background: #e0e7ff; color: #3730a3; border-color: #a5b4fc; }
     .event-birthday { background: #fce7f3; color: #9d174d; border-color: #f9a8d4; }
     .event-anniversary { background: #cffafe; color: #155e75; border-color: #67e8f9; }
     .event-paid { background: #d1fadf; color: #05603a; border-color: #6ce9a6; }
@@ -534,7 +543,7 @@
     <div class="header-bar">
       <div>
         <div class="header-title">Molinari Pools – Company Calendar</div>
-        <div class="header-subtitle">Company holidays, approved time off, birthdays, and work anniversaries</div>
+        <div class="header-subtitle">Company holidays, U.S. federal holidays, approved time off, birthdays, work anniversaries, and HR calendar events</div>
       </div>
       <div id="userChip" class="user-chip">Checking access...</div>
     </div>
@@ -574,7 +583,9 @@
         </div>
 
         <div class="legend" aria-label="Calendar legend">
-          <span class="legend-item"><span class="legend-dot legend-holiday"></span>Company Holiday</span>
+          <span class="legend-item"><span class="legend-dot legend-holiday"></span>Company Holiday / Closed</span>
+          <span class="legend-item"><span class="legend-dot legend-national"></span>U.S. Federal Holiday</span>
+          <span class="legend-item"><span class="legend-dot legend-calendar-event"></span>HR Calendar Event</span>
           <span class="legend-item"><span class="legend-dot legend-birthday"></span>Employee Birthday</span>
           <span class="legend-item"><span class="legend-dot legend-anniversary"></span>Work Anniversary</span>
           <span class="legend-item"><span class="legend-dot legend-paid"></span>Paid Time Off</span>
@@ -730,6 +741,94 @@
         </div>
       </section>
 
+
+      <section id="customEventAdminSection" class="card hidden">
+        <h2>Calendar Events Administration</h2>
+        <p class="section-description">
+          Create company-wide calendar notices and events that are separate from holidays, birthdays, work anniversaries, and Paylocity time off. Events may cover one day or a date range.
+        </p>
+
+        <div class="milestone-admin-grid">
+          <div class="milestone-form-card">
+            <h3 id="customEventFormTitle">Add Calendar Event</h3>
+            <input id="customEventRecordId" type="hidden">
+
+            <div class="milestone-form-grid">
+              <div class="full-width">
+                <label for="customEventTitle">Event Title</label>
+                <input id="customEventTitle" type="text" maxlength="160" autocomplete="off" placeholder="Example: Annual Company Meeting">
+              </div>
+
+              <div>
+                <label for="customEventStartDate">Start Date</label>
+                <input id="customEventStartDate" type="date">
+              </div>
+
+              <div>
+                <label for="customEventEndDate">End Date</label>
+                <input id="customEventEndDate" type="date">
+              </div>
+
+              <div class="full-width">
+                <label for="customEventDescription">Description</label>
+                <textarea id="customEventDescription" rows="4" maxlength="1000" placeholder="Optional event details"></textarea>
+              </div>
+
+              <div class="checkbox-field full-width">
+                <input id="customEventActive" type="checkbox" checked>
+                <label for="customEventActive">Active and visible on the calendar</label>
+              </div>
+            </div>
+
+            <div class="milestone-actions">
+              <button id="saveCustomEventButton" class="btn btn-accent" type="button">SAVE CALENDAR EVENT</button>
+              <button id="cancelCustomEventEditButton" class="btn btn-secondary hidden" type="button">CANCEL EDIT</button>
+            </div>
+
+            <div id="customEventMessage" class="message"></div>
+          </div>
+
+          <div class="milestone-form-card">
+            <h3>Calendar Event Guidance</h3>
+            <p class="section-description">
+              Use this section for company meetings, training days, celebrations, deadlines, office notices, or other company-wide items.
+            </p>
+            <p class="section-description">
+              Federal holidays are maintained through SQL and should not be recreated here. Company closure dates should continue to use the existing Company Holiday process.
+            </p>
+          </div>
+        </div>
+
+        <div class="management-toolbar">
+          <div>
+            <label for="customEventManagementSearch">Search Calendar Events</label>
+            <input id="customEventManagementSearch" type="search" placeholder="Search title or description">
+          </div>
+          <button id="refreshCustomEventsButton" class="btn btn-primary" type="button">REFRESH EVENTS</button>
+        </div>
+
+        <div id="customEventManagementMessage" class="message"></div>
+
+        <div class="milestone-table-panel">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Date Range</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="customEventManagementBody">
+                <tr><td colspan="5">No HR calendar events loaded.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <section id="importSection" class="card hidden">
         <h2>Import Paylocity Time-Off File</h2>
         <p class="section-description">
@@ -815,6 +914,7 @@
   let selectedImport = null;
   let birthdayRecords = [];
   let anniversaryRecords = [];
+  let customEventRecords = [];
 
   document.addEventListener('DOMContentLoaded', () => {
     bindPageEvents();
@@ -874,6 +974,13 @@
     document.getElementById('milestoneManagementSearch').addEventListener('input', renderMilestoneManagementTables);
     document.getElementById('birthdayManagementBody').addEventListener('click', handleBirthdayTableAction);
     document.getElementById('anniversaryManagementBody').addEventListener('click', handleAnniversaryTableAction);
+
+    document.getElementById('saveCustomEventButton').addEventListener('click', saveCustomEventRecord);
+    document.getElementById('cancelCustomEventEditButton').addEventListener('click', resetCustomEventForm);
+    document.getElementById('refreshCustomEventsButton').addEventListener('click', loadCustomEventRecords);
+    document.getElementById('customEventManagementSearch').addEventListener('input', renderCustomEventManagementTable);
+    document.getElementById('customEventManagementBody').addEventListener('click', handleCustomEventTableAction);
+
     document.getElementById('eventModalClose').addEventListener('click', closeEventModal);
     document.getElementById('eventModal').addEventListener('click', event => {
       if (event.target.id === 'eventModal') closeEventModal();
@@ -922,7 +1029,7 @@
     document.getElementById('userChip').textContent = `${profile.full_name || session.user.email} · ${profile.role}`;
     showAccessMessage(
       canImport
-        ? 'Company Calendar access granted. Paylocity importing and employee milestone administration are enabled for this login.'
+        ? 'Company Calendar access granted. Paylocity importing, employee milestone administration, and calendar-event administration are enabled for this login.'
         : 'Company Calendar access granted. Calendar is read-only for this login.',
       'success'
     );
@@ -932,9 +1039,14 @@
 
     if (canImport) {
       document.getElementById('milestoneAdminSection').classList.remove('hidden');
+      document.getElementById('customEventAdminSection').classList.remove('hidden');
       document.getElementById('importSection').classList.remove('hidden');
       document.getElementById('importHistorySection').classList.remove('hidden');
-      await Promise.all([loadMilestoneRecords(), loadImportHistory()]);
+      await Promise.all([
+        loadMilestoneRecords(),
+        loadCustomEventRecords(),
+        loadImportHistory()
+      ]);
     }
 
     await loadCalendar();
@@ -1029,7 +1141,17 @@
       const dayEvents = filteredEvents
         .filter(event => event.start_date <= dateString && event.end_date_exclusive > dateString)
         .sort((a, b) => {
-          if (a.is_company_holiday !== b.is_company_holiday) return a.is_company_holiday ? -1 : 1;
+          const rank = event => {
+            if (event.is_company_holiday) return 1;
+            const type = String(event.event_type || '').toUpperCase();
+            if (type === 'NATIONAL_HOLIDAY') return 2;
+            if (type === 'CALENDAR_EVENT') return 3;
+            if (type === 'BIRTHDAY') return 4;
+            if (type === 'WORK_ANNIVERSARY') return 5;
+            return 6;
+          };
+          const rankDifference = rank(a) - rank(b);
+          if (rankDifference !== 0) return rankDifference;
           return String(a.event_title || '').localeCompare(String(b.event_title || ''));
         });
 
@@ -1068,6 +1190,8 @@
   function getEventClass(event) {
     if (event.is_company_holiday) return 'event-holiday';
     const type = String(event.event_type || '').toUpperCase();
+    if (type === 'NATIONAL_HOLIDAY') return 'event-national';
+    if (type === 'CALENDAR_EVENT') return 'event-calendar';
     if (type === 'BIRTHDAY') return 'event-birthday';
     if (type === 'WORK_ANNIVERSARY') return 'event-anniversary';
     if (type.includes('UNPAID')) return 'event-unpaid';
@@ -1079,6 +1203,8 @@
   function displayEventType(value) {
     const normalized = String(value || '').toUpperCase();
     if (normalized === 'COMPANY_HOLIDAY' || normalized === 'HOLIDAY') return 'Company Holiday';
+    if (normalized === 'NATIONAL_HOLIDAY') return 'U.S. Federal Holiday';
+    if (normalized === 'CALENDAR_EVENT') return 'HR Calendar Event';
     if (normalized === 'BIRTHDAY') return 'Employee Birthday';
     if (normalized === 'WORK_ANNIVERSARY') return 'Work Anniversary';
     return value || 'Time Off';
@@ -1584,6 +1710,245 @@
 
   function showMilestoneManagementMessage(message, type) {
     const element = document.getElementById('milestoneManagementMessage');
+    element.className = `message show ${type || 'info'}`;
+    element.textContent = message;
+  }
+
+
+  async function loadCustomEventRecords() {
+    if (!canImport) return;
+
+    showCustomEventManagementMessage('Loading HR calendar events...', 'info');
+
+    const { data, error } = await client
+      .from('company_calendar_custom_events')
+      .select('id, event_title, start_date, end_date_exclusive, description, active, updated_at')
+      .order('start_date', { ascending: true })
+      .order('event_title', { ascending: true });
+
+    if (error) {
+      customEventRecords = [];
+      renderCustomEventManagementTable();
+      showCustomEventManagementMessage(
+        `Unable to load HR calendar events: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    customEventRecords = Array.isArray(data) ? data : [];
+    renderCustomEventManagementTable();
+    showCustomEventManagementMessage(
+      `${customEventRecords.length} HR calendar event${customEventRecords.length === 1 ? '' : 's'} loaded.`,
+      'success'
+    );
+  }
+
+  function renderCustomEventManagementTable() {
+    const search = document
+      .getElementById('customEventManagementSearch')
+      .value
+      .trim()
+      .toLowerCase();
+
+    const filtered = customEventRecords.filter(record => {
+      const searchable = `${record.event_title || ''} ${record.description || ''}`.toLowerCase();
+      return !search || searchable.includes(search);
+    });
+
+    const body = document.getElementById('customEventManagementBody');
+
+    body.innerHTML = filtered.length
+      ? filtered.map(record => `
+          <tr>
+            <td>${escapeHtml(record.event_title)}</td>
+            <td>${escapeHtml(formatStoredDateRange(record.start_date, record.end_date_exclusive))}</td>
+            <td>${escapeHtml(record.description || '—')}</td>
+            <td>${renderRecordStatus(record.active)}</td>
+            <td>
+              <div class="table-action-row">
+                <button class="btn btn-secondary btn-small" type="button" data-action="edit" data-id="${escapeHtml(record.id)}">EDIT</button>
+                <button class="btn ${record.active ? 'btn-danger' : 'btn-success'} btn-small" type="button" data-action="toggle" data-id="${escapeHtml(record.id)}">
+                  ${record.active ? 'DEACTIVATE' : 'REACTIVATE'}
+                </button>
+              </div>
+            </td>
+          </tr>`)
+        .join('')
+      : '<tr><td colspan="5">No HR calendar events match the current search.</td></tr>';
+  }
+
+  function handleCustomEventTableAction(event) {
+    const button = event.target.closest('button[data-action][data-id]');
+    if (!button) return;
+
+    const record = customEventRecords.find(item =>
+      String(item.id) === String(button.dataset.id)
+    );
+
+    if (!record) return;
+
+    if (button.dataset.action === 'edit') {
+      editCustomEventRecord(record);
+      return;
+    }
+
+    if (button.dataset.action === 'toggle') {
+      toggleCustomEventRecord(record);
+    }
+  }
+
+  function editCustomEventRecord(record) {
+    document.getElementById('customEventRecordId').value = record.id;
+    document.getElementById('customEventTitle').value = record.event_title || '';
+    document.getElementById('customEventStartDate').value = record.start_date || '';
+    document.getElementById('customEventEndDate').value = record.end_date_exclusive
+      ? toDateString(addDays(parseDateString(record.end_date_exclusive), -1))
+      : '';
+    document.getElementById('customEventDescription').value = record.description || '';
+    document.getElementById('customEventActive').checked = record.active === true;
+    document.getElementById('customEventFormTitle').textContent = 'Edit Calendar Event';
+    document.getElementById('saveCustomEventButton').textContent = 'SAVE CHANGES';
+    document.getElementById('cancelCustomEventEditButton').classList.remove('hidden');
+    clearFormMessage('customEventMessage');
+    document.getElementById('customEventTitle').focus();
+  }
+
+  function resetCustomEventForm() {
+    document.getElementById('customEventRecordId').value = '';
+    document.getElementById('customEventTitle').value = '';
+    document.getElementById('customEventStartDate').value = '';
+    document.getElementById('customEventEndDate').value = '';
+    document.getElementById('customEventDescription').value = '';
+    document.getElementById('customEventActive').checked = true;
+    document.getElementById('customEventFormTitle').textContent = 'Add Calendar Event';
+    document.getElementById('saveCustomEventButton').textContent = 'SAVE CALENDAR EVENT';
+    document.getElementById('cancelCustomEventEditButton').classList.add('hidden');
+    clearFormMessage('customEventMessage');
+  }
+
+  async function saveCustomEventRecord() {
+    if (!canImport) return;
+
+    const id = document.getElementById('customEventRecordId').value || null;
+    const title = document.getElementById('customEventTitle').value.trim();
+    const startDate = document.getElementById('customEventStartDate').value;
+    const endDate = document.getElementById('customEventEndDate').value || startDate;
+    const description = document.getElementById('customEventDescription').value.trim();
+    const active = document.getElementById('customEventActive').checked;
+
+    if (!title) {
+      showFormMessage('customEventMessage', 'Event title is required.', 'error');
+      return;
+    }
+
+    if (!startDate) {
+      showFormMessage('customEventMessage', 'Start date is required.', 'error');
+      return;
+    }
+
+    if (endDate < startDate) {
+      showFormMessage(
+        'customEventMessage',
+        'End date cannot be before the start date.',
+        'error'
+      );
+      return;
+    }
+
+    const button = document.getElementById('saveCustomEventButton');
+    button.disabled = true;
+    showFormMessage(
+      'customEventMessage',
+      id ? 'Saving calendar-event changes...' : 'Adding calendar event...',
+      'info'
+    );
+
+    const { error } = await client.rpc(
+      'save_company_calendar_custom_event_authorized',
+      {
+        p_id: id,
+        p_event_title: title,
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_description: description || null,
+        p_active: active
+      }
+    );
+
+    button.disabled = false;
+
+    if (error) {
+      showFormMessage(
+        'customEventMessage',
+        `Calendar-event save failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    resetCustomEventForm();
+    showFormMessage(
+      'customEventMessage',
+      id
+        ? 'Calendar event updated successfully.'
+        : 'Calendar event added successfully.',
+      'success'
+    );
+
+    await Promise.all([loadCustomEventRecords(), loadCalendar()]);
+  }
+
+  async function toggleCustomEventRecord(record) {
+    const action = record.active ? 'deactivate' : 'reactivate';
+    const confirmed = window.confirm(
+      `${action === 'deactivate' ? 'Deactivate' : 'Reactivate'} the calendar event "${record.event_title}"?`
+    );
+
+    if (!confirmed) return;
+
+    const endDate = record.end_date_exclusive
+      ? toDateString(addDays(parseDateString(record.end_date_exclusive), -1))
+      : record.start_date;
+
+    const { error } = await client.rpc(
+      'save_company_calendar_custom_event_authorized',
+      {
+        p_id: record.id,
+        p_event_title: record.event_title,
+        p_start_date: record.start_date,
+        p_end_date: endDate,
+        p_description: record.description || null,
+        p_active: !record.active
+      }
+    );
+
+    if (error) {
+      showCustomEventManagementMessage(
+        `Calendar-event ${action} failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    await Promise.all([loadCustomEventRecords(), loadCalendar()]);
+  }
+
+  function formatStoredDateRange(startDateValue, endDateExclusiveValue) {
+    if (!startDateValue) return '—';
+
+    const startDate = parseDateString(startDateValue);
+    const endDate = endDateExclusiveValue
+      ? addDays(parseDateString(endDateExclusiveValue), -1)
+      : startDate;
+
+    return toDateString(startDate) === toDateString(endDate)
+      ? DATE_FORMATTER.format(startDate)
+      : `${DATE_FORMATTER.format(startDate)} – ${DATE_FORMATTER.format(endDate)}`;
+  }
+
+  function showCustomEventManagementMessage(message, type) {
+    const element = document.getElementById('customEventManagementMessage');
     element.className = `message show ${type || 'info'}`;
     element.textContent = message;
   }
