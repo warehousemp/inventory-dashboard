@@ -868,9 +868,9 @@
           </div>
 
           <div class="metric-card">
-            <div class="metric-label">Average Effective Hourly</div>
+            <div class="metric-label">Average OT-Adjusted Effective Hourly</div>
             <div id="metricAverageEffectiveHourly" class="metric-value">$0.00</div>
-            <div class="metric-help">Weighted by rows with paid hours</div>
+            <div class="metric-help">Final gross divided by paid hours, with overtime weighted at 1.5×</div>
           </div>
         </div>
 
@@ -1683,12 +1683,20 @@ function renderReviewMetrics() {
     totals.finalGross += numberFromRecord(row, ['final_gross_before_taxes_deductions']);
     totals.grossPPV += numberFromRecord(row, ['pre_safeguard_pay', 'base_ppv_pay', 'gross_ppv_pay']);
 
-    const totalPaidHours = Number(row.total_paid_hours || 0);
+    const overtimeWeightedHours =
+        Number(row.regular_hours || 0)
+      + Number(row.pto_hours || 0)
+      + Number(row.holiday_hours || 0)
+      + Number(row.meeting_hours || 0)
+      + Number(row.maintenance_hours || 0)
+      + Number(row.other_paid_hours || 0)
+      + (Number(row.overtime_hours || 0) * 1.5);
+
     const finalGross = Number(row.final_gross_before_taxes_deductions || 0);
 
-    if (totalPaidHours > 0 && finalGross > 0) {
+    if (overtimeWeightedHours > 0 && finalGross > 0) {
       totals.weightedHourlyPay += finalGross;
-      totals.weightedHours += totalPaidHours;
+      totals.weightedHours += overtimeWeightedHours;
     }
   });
 
