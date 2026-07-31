@@ -16,6 +16,7 @@
   <meta name="theme-color" content="#0b3c5d">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -999,6 +1000,339 @@
       .mechanical-import-summary-grid { grid-template-columns: 1fr; }
     }
 
+
+
+    /* Weekly Samsara Reporting */
+    .samsara-toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+
+    .samsara-upload-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 1.1fr) minmax(280px, 1fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .samsara-drop-zone {
+      min-height: 190px;
+      border: 2px dashed #94a3b8;
+      border-radius: 14px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+    }
+
+    .samsara-drop-zone:hover,
+    .samsara-drop-zone.dragover {
+      border-color: var(--accent);
+      background: #ecfeff;
+      transform: translateY(-1px);
+    }
+
+    .samsara-drop-zone strong {
+      color: var(--header);
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .samsara-drop-zone span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .samsara-file-name {
+      margin-top: 12px;
+      font-weight: 700;
+      color: var(--header);
+      word-break: break-word;
+    }
+
+    .samsara-meta-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: white;
+    }
+
+    .samsara-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .samsara-meta-grid .full-span {
+      grid-column: 1 / -1;
+    }
+
+    .samsara-meta-grid label {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--header);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .samsara-meta-grid input,
+    .samsara-meta-grid textarea,
+    .samsara-toolbar select {
+      width: 100%;
+      padding: 10px 11px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: white;
+      font: inherit;
+    }
+
+    .samsara-meta-grid textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+
+    .samsara-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .samsara-actions button {
+      margin: 0;
+    }
+
+    .samsara-message {
+      display: none;
+      padding: 11px 13px;
+      border-radius: 8px;
+      margin: 12px 0;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .samsara-message.show { display: block; }
+    .samsara-message.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; }
+    .samsara-message.success { background: #ecfdf3; border: 1px solid #bbf7d0; color: #166534; }
+    .samsara-message.warning { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+    .samsara-message.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+
+    .samsara-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .samsara-metric-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+
+    .samsara-metric-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .samsara-metric-value {
+      margin-top: 7px;
+      color: var(--header);
+      font-size: 25px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .samsara-metric-help {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .samsara-report-shell {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: white;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+
+    .samsara-report-title {
+      text-align: center;
+      padding: 18px 16px 12px;
+      font-size: 26px;
+      font-weight: 900;
+      color: #111827;
+    }
+
+    .samsara-report-period {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      padding-bottom: 14px;
+    }
+
+    .samsara-report-columns {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: 0;
+      border-top: 8px solid #111827;
+    }
+
+    .samsara-report-column {
+      padding: 18px;
+      min-width: 0;
+    }
+
+    .samsara-report-column + .samsara-report-column {
+      border-left: 1px solid var(--border);
+    }
+
+    .samsara-section-heading {
+      font-size: 20px;
+      font-weight: 900;
+      color: #111827;
+      margin: 0 0 12px;
+    }
+
+    .samsara-dual-table {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .samsara-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .samsara-table {
+      width: 100%;
+      min-width: 340px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .samsara-table th,
+    .samsara-table td {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    .samsara-table th {
+      background: #f8fafc;
+      color: var(--header);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-size: 11px;
+      position: static;
+    }
+
+    .samsara-table td.metric-cell {
+      text-align: right;
+      font-weight: 800;
+    }
+
+    .samsara-no-data {
+      color: #9a3412;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .samsara-comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .samsara-comparison-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .samsara-comparison-card h4 {
+      margin: 0;
+      padding: 10px;
+      text-align: center;
+      background: #f8fafc;
+      color: var(--header);
+    }
+
+    .samsara-comparison-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 9px 11px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .samsara-difference.good { color: #027a48; }
+    .samsara-difference.bad { color: #b42318; }
+    .samsara-difference.neutral { color: #475467; }
+
+    .samsara-safety-message {
+      margin-top: 20px;
+      padding: 20px 14px;
+      text-align: center;
+      font-size: 22px;
+      line-height: 1.35;
+      color: #111827;
+    }
+
+    .samsara-detail-table {
+      margin-top: 16px;
+    }
+
+    .samsara-excluded-list {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      color: #9a3412;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1050px) {
+      .samsara-upload-grid,
+      .samsara-report-columns {
+        grid-template-columns: 1fr;
+      }
+
+      .samsara-report-column + .samsara-report-column {
+        border-left: 0;
+        border-top: 1px solid var(--border);
+      }
+
+      .samsara-metric-grid {
+        grid-template-columns: repeat(2, minmax(150px, 1fr));
+      }
+    }
+
     @media (max-width: 650px) {
       .header-bar { padding: 16px 18px; text-align: center; justify-content: center; }
       .header-title { width: 100%; text-align: center; }
@@ -1020,6 +1354,15 @@
       .task-section-header { display: block; }
       .task-section-actions { justify-content: flex-start; margin-top: 12px; }
       .collapse-section-btn { width: 100%; }
+      .samsara-toolbar,
+      .samsara-meta-grid,
+      .samsara-metric-grid,
+      .samsara-dual-table,
+      .samsara-comparison-grid { grid-template-columns: 1fr; }
+      .samsara-actions { display: grid; grid-template-columns: 1fr; }
+      .samsara-actions button { width: 100%; }
+      .samsara-report-title { font-size: 22px; }
+      .samsara-safety-message { font-size: 18px; }
     }
 
   </style>
@@ -1671,13 +2014,160 @@
         <section id="weeklySamsaraPanel" class="task-panel" role="tabpanel" aria-labelledby="weeklySamsaraTab">
           <div class="task-section-header">
             <div>
-              <h2>Weekly Samsara</h2>
-              <p>Future Client Services section for weekly Samsara review tasks.</p>
+              <h2>Weekly Samsara Reporting</h2>
+              <p>Drop the weekly Samsara Excel export to build the Route Tech and David Clearwater safety report, compare it with the prior week, save the results, print, or export.</p>
+            </div>
+            <div class="task-section-actions">
+              <span class="section-summary-pill" id="samsaraCurrentWeekPill">No week loaded</span>
             </div>
           </div>
-          <div class="placeholder-card">
-            <h3>Coming Soon</h3>
-            <p>This section is reserved for weekly Samsara workflow tasks.</p>
+
+          <div class="samsara-toolbar">
+            <div>
+              <label for="samsaraSavedWeekSelect"><strong>Saved Weekly Reports</strong></label>
+              <select id="samsaraSavedWeekSelect" onchange="loadSelectedSamsaraReport()">
+                <option value="">Select a saved week...</option>
+              </select>
+            </div>
+            <button class="secondary-btn" type="button" onclick="loadSamsaraReportHistory(true)">Refresh History</button>
+          </div>
+
+          <div class="samsara-upload-grid">
+            <div>
+              <div class="samsara-drop-zone" id="samsaraDropZone" tabindex="0" role="button" aria-label="Upload weekly Samsara Excel file">
+                <strong>Drop Weekly Samsara Excel File Here</strong>
+                <span>Or click to choose the .xlsx file downloaded from Samsara.<br>The report is generated immediately after the file is read.</span>
+                <div class="samsara-file-name" id="samsaraFileName">No file selected</div>
+              </div>
+              <input id="samsaraFileInput" type="file" accept=".xlsx,.xls" hidden>
+              <div class="samsara-excluded-list hidden" id="samsaraExcludedDrivers"></div>
+            </div>
+
+            <div class="samsara-meta-card">
+              <div class="samsara-meta-grid">
+                <div>
+                  <label for="samsaraWeekStartDate">Report Week Of</label>
+                  <input id="samsaraWeekStartDate" type="date" onchange="handleSamsaraWeekDateChange()">
+                </div>
+                <div>
+                  <label for="samsaraSourceSheetName">Source Sheet</label>
+                  <input id="samsaraSourceSheetName" type="text" readonly>
+                </div>
+                <div>
+                  <label for="samsaraPeriodStartDate">Samsara Period Start</label>
+                  <input id="samsaraPeriodStartDate" type="date" onchange="renderSamsaraReport()">
+                </div>
+                <div>
+                  <label for="samsaraPeriodEndDate">Samsara Period End</label>
+                  <input id="samsaraPeriodEndDate" type="date" onchange="renderSamsaraReport()">
+                </div>
+                <div class="full-span">
+                  <label for="samsaraReportNotes">Report Notes</label>
+                  <textarea id="samsaraReportNotes" placeholder="Optional notes for this weekly report..."></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="samsara-actions">
+            <button class="admin-btn" id="samsaraSaveReportBtn" type="button" onclick="saveCurrentSamsaraReport()" disabled>Save Weekly Report</button>
+            <button class="secondary-btn" id="samsaraPrintReportBtn" type="button" onclick="printCurrentSamsaraReport()" disabled>Print Report</button>
+            <button class="secondary-btn" id="samsaraExportReportBtn" type="button" onclick="exportCurrentSamsaraReportCsv()" disabled>Export Report CSV</button>
+            <button class="secondary-btn" type="button" onclick="clearCurrentSamsaraReport()">Clear</button>
+          </div>
+
+          <div class="samsara-message info" id="samsaraMessage">Drop the current Samsara export to begin.</div>
+
+          <div class="samsara-metric-grid">
+            <div class="samsara-metric-card">
+              <div class="samsara-metric-label">Reporting Drivers</div>
+              <div class="samsara-metric-value" id="samsaraMetricDrivers">0</div>
+              <div class="samsara-metric-help">Active Route Techs plus David Clearwater</div>
+            </div>
+            <div class="samsara-metric-card">
+              <div class="samsara-metric-label">Matched Drivers</div>
+              <div class="samsara-metric-value" id="samsaraMetricMatched">0</div>
+              <div class="samsara-metric-help">Drivers with valid Samsara activity data</div>
+            </div>
+            <div class="samsara-metric-card">
+              <div class="samsara-metric-label">Mobile Uses</div>
+              <div class="samsara-metric-value" id="samsaraMetricMobile">0</div>
+              <div class="samsara-metric-help">Current weekly total</div>
+            </div>
+            <div class="samsara-metric-card">
+              <div class="samsara-metric-label">No Seat Belt</div>
+              <div class="samsara-metric-value" id="samsaraMetricSeatBelt">0</div>
+              <div class="samsara-metric-help">Current weekly total</div>
+            </div>
+          </div>
+
+          <div class="samsara-report-shell" id="samsaraReportPreview">
+            <div class="samsara-report-title">Weekly Safety Reporting</div>
+            <div class="samsara-report-period" id="samsaraReportPeriod">Drop a Samsara file to generate the report.</div>
+            <div class="samsara-report-columns">
+              <div class="samsara-report-column">
+                <h3 class="samsara-section-heading">Weekly Safety Reporting</h3>
+                <div class="samsara-dual-table">
+                  <div class="samsara-table-wrap">
+                    <table class="samsara-table">
+                      <thead><tr><th>Driver Name</th><th># of Mobile Uses</th></tr></thead>
+                      <tbody id="samsaraWeeklyMobileBody"><tr><td colspan="2">No report loaded.</td></tr></tbody>
+                    </table>
+                  </div>
+                  <div class="samsara-table-wrap">
+                    <table class="samsara-table">
+                      <thead><tr><th>Driver Name</th><th># of No Seat Belt</th></tr></thead>
+                      <tbody id="samsaraWeeklySeatBeltBody"><tr><td colspan="2">No report loaded.</td></tr></tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div class="samsara-comparison-grid">
+                  <div class="samsara-comparison-card">
+                    <h4>Mobile Usage</h4>
+                    <div class="samsara-comparison-row"><span>This Week</span><span id="samsaraThisWeekMobile">0</span></div>
+                    <div class="samsara-comparison-row"><span>Prior Week</span><span id="samsaraPriorWeekMobile">—</span></div>
+                    <div class="samsara-comparison-row"><span>Difference</span><span id="samsaraDifferenceMobile" class="samsara-difference neutral">—</span></div>
+                  </div>
+                  <div class="samsara-comparison-card">
+                    <h4>No Seat Belt</h4>
+                    <div class="samsara-comparison-row"><span>This Week</span><span id="samsaraThisWeekSeatBelt">0</span></div>
+                    <div class="samsara-comparison-row"><span>Prior Week</span><span id="samsaraPriorWeekSeatBelt">—</span></div>
+                    <div class="samsara-comparison-row"><span>Difference</span><span id="samsaraDifferenceSeatBelt" class="samsara-difference neutral">—</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="samsara-report-column">
+                <h3 class="samsara-section-heading">Safety Focus – Individuals</h3>
+                <div class="samsara-dual-table">
+                  <div class="samsara-table-wrap">
+                    <table class="samsara-table">
+                      <thead><tr><th>Driver Name</th><th># of Mobile Uses</th></tr></thead>
+                      <tbody id="samsaraFocusMobileBody"><tr><td colspan="2">No report loaded.</td></tr></tbody>
+                    </table>
+                  </div>
+                  <div class="samsara-table-wrap">
+                    <table class="samsara-table">
+                      <thead><tr><th>Driver Name</th><th># of No Seat Belt</th></tr></thead>
+                      <tbody id="samsaraFocusSeatBeltBody"><tr><td colspan="2">No report loaded.</td></tr></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="samsara-safety-message">Great job keeping these numbers low and being SAFE!<br>Thank you!</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="samsara-detail-table">
+            <div class="samsara-table-wrap">
+              <table class="samsara-table">
+                <thead>
+                  <tr><th>Driver</th><th>Type</th><th>Status</th><th>Eco Score</th><th>Distance</th><th>Mobile Uses</th><th>No Seat Belt</th></tr>
+                </thead>
+                <tbody id="samsaraDetailBody"><tr><td colspan="7">No report loaded.</td></tr></tbody>
+              </table>
+            </div>
           </div>
         </section>
       </div>
@@ -1816,6 +2306,21 @@ let currentMechanicalAssessmentImportStatus = '';
 let currentMechanicalAssessmentImportFileName = '';
 let currentMechanicalAssessmentImportDetails = [];
 
+
+const SAMSARA_REPORTING_PEOPLE_RPC = 'get_client_services_samsara_reporting_people';
+const SAMSARA_SAVE_REPORT_RPC = 'save_client_services_samsara_weekly_report';
+const SAMSARA_REPORT_SUMMARY_VIEW = 'client_services_samsara_weekly_report_summary_view';
+const SAMSARA_REPORT_DETAIL_VIEW = 'client_services_samsara_weekly_report_detail_view';
+let samsaraReportingPeople = [];
+let samsaraSourceRows = [];
+let samsaraReportRows = [];
+let samsaraExcludedSourceRows = [];
+let samsaraCurrentFile = null;
+let samsaraCurrentSheetName = '';
+let samsaraCurrentReportId = null;
+let samsaraPriorSummary = null;
+let samsaraHistoryLoaded = false;
+
 window.addEventListener('load', async () => {
   initializeClientServicesTabs();
   initializeMissingDataSection();
@@ -1824,6 +2329,7 @@ window.addEventListener('load', async () => {
   if (!hasAccess) return;
 
   initializeMechanicalAssessmentImportControls();
+  initializeSamsaraUploadControls();
   await loadClientWorklist();
 
   const activeWeeklyRevenueTab = document.getElementById('weeklyRevenueTab');
@@ -1840,6 +2346,12 @@ window.addEventListener('load', async () => {
   const activeMechanicalAssessmentTab = document.getElementById('mechanicalAssessmentTab');
   if (activeMechanicalAssessmentTab && activeMechanicalAssessmentTab.classList.contains('active')) {
     await loadMechanicalAssessmentData(false);
+  }
+
+  const activeSamsaraTab = document.getElementById('weeklySamsaraTab');
+  if (activeSamsaraTab && activeSamsaraTab.classList.contains('active')) {
+    await ensureSamsaraReportingPeople();
+    await loadSamsaraReportHistory(false);
   }
 });
 
@@ -1892,6 +2404,11 @@ function showClientServicesSection(sectionKey, saveState = true) {
   if (activeSection === 'mechanicalAssessment' && currentSession) {
     if (!mechanicalAssessmentLoaded) loadMechanicalAssessmentData(false);
     loadMechanicalAssessmentImportHistory();
+  }
+
+  if (activeSection === 'weeklySamsara' && currentSession) {
+    ensureSamsaraReportingPeople();
+    if (!samsaraHistoryLoaded) loadSamsaraReportHistory(false);
   }
 }
 
@@ -4141,6 +4658,869 @@ const inspectionModalBackdropClickHandler = () => {
 };
 
 window.addEventListener('load', inspectionModalBackdropClickHandler);
+
+
+// ------------------------------
+// Weekly Samsara Reporting
+// ------------------------------
+function initializeSamsaraUploadControls() {
+  const dropZone = document.getElementById('samsaraDropZone');
+  const fileInput = document.getElementById('samsaraFileInput');
+
+  if (!dropZone || !fileInput || dropZone.dataset.bound === 'true') return;
+  dropZone.dataset.bound = 'true';
+
+  const openFilePicker = () => fileInput.click();
+
+  dropZone.addEventListener('click', openFilePicker);
+  dropZone.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openFilePicker();
+    }
+  });
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, event => {
+      event.preventDefault();
+      event.stopPropagation();
+      dropZone.classList.add('dragover');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, event => {
+      event.preventDefault();
+      event.stopPropagation();
+      dropZone.classList.remove('dragover');
+    });
+  });
+
+  dropZone.addEventListener('drop', event => {
+    const file = event.dataTransfer?.files?.[0];
+    if (file) processSamsaraFile(file);
+  });
+
+  fileInput.addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    if (file) processSamsaraFile(file);
+    fileInput.value = '';
+  });
+}
+
+function setSamsaraMessage(message, type = 'info') {
+  const element = document.getElementById('samsaraMessage');
+  if (!element) return;
+  element.textContent = message;
+  element.className = `samsara-message show ${type}`;
+}
+
+function setSamsaraActionState(enabled, allowSave = enabled) {
+  const saveButton = document.getElementById('samsaraSaveReportBtn');
+  const printButton = document.getElementById('samsaraPrintReportBtn');
+  const exportButton = document.getElementById('samsaraExportReportBtn');
+  if (saveButton) saveButton.disabled = !allowSave;
+  if (printButton) printButton.disabled = !enabled;
+  if (exportButton) exportButton.disabled = !enabled;
+}
+
+function normalizeSamsaraName(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function samsaraText(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+function samsaraNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const cleaned = String(value).replace(/,/g, '').trim();
+  if (!cleaned || !/^-?\d+(\.\d+)?$/.test(cleaned)) return null;
+  const number = Number(cleaned);
+  return Number.isFinite(number) ? number : null;
+}
+
+function samsaraInteger(value) {
+  const number = samsaraNumber(value);
+  if (number === null || number < 0) return null;
+  return Math.round(number);
+}
+
+function samsaraDateISO(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function samsaraParseISODate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return null;
+  const [year, month, day] = String(value).split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function samsaraFormatDate(value) {
+  const date = samsaraParseISODate(value);
+  if (!date) return value || '';
+  return date.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: '2-digit' });
+}
+
+function parseSamsaraDatesFromFileName(fileName) {
+  const normalized = String(fileName || '').replace(/_/g, ' ');
+  const match = normalized.match(/([A-Za-z]{3,9})\s+(\d{1,2})\s+(\d{4})\s*-\s*([A-Za-z]{3,9})\s+(\d{1,2})\s+(\d{4})/i);
+  if (!match) return null;
+
+  const start = new Date(`${match[1]} ${match[2]}, ${match[3]} 12:00:00`);
+  const end = new Date(`${match[4]} ${match[5]}, ${match[6]} 12:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+
+  const weekStart = new Date(start);
+  const daysUntilSunday = (7 - weekStart.getDay()) % 7;
+  weekStart.setDate(weekStart.getDate() + daysUntilSunday);
+
+  return {
+    periodStart: samsaraDateISO(start),
+    periodEnd: samsaraDateISO(end),
+    weekStart: samsaraDateISO(weekStart)
+  };
+}
+
+async function ensureSamsaraReportingPeople(force = false) {
+  if (samsaraReportingPeople.length && !force) return samsaraReportingPeople;
+
+  const { data, error } = await client.rpc(SAMSARA_REPORTING_PEOPLE_RPC);
+  if (error) {
+    samsaraReportingPeople = [];
+    setSamsaraMessage('Unable to load the active Route Tech reporting list: ' + error.message, 'error');
+    return [];
+  }
+
+  samsaraReportingPeople = (data || [])
+    .map(row => ({
+      employee_type: row.employee_type || 'ROUTE_TECH',
+      route_tech_id: row.route_tech_id || null,
+      rt_code: row.rt_code || '',
+      driver_name: samsaraText(row.driver_name),
+      normalized_driver_name: normalizeSamsaraName(row.driver_name)
+    }))
+    .filter(row => row.driver_name)
+    .sort((a, b) => a.driver_name.localeCompare(b.driver_name));
+
+  setText('samsaraMetricDrivers', samsaraReportingPeople.length.toLocaleString());
+  return samsaraReportingPeople;
+}
+
+async function processSamsaraFile(file) {
+  try {
+    if (!file || !/\.(xlsx|xls)$/i.test(file.name || '')) {
+      setSamsaraMessage('Choose the Excel file downloaded from Samsara (.xlsx or .xls).', 'error');
+      return;
+    }
+
+    if (typeof XLSX === 'undefined') {
+      setSamsaraMessage('The Excel reader did not load. Refresh the page and try again.', 'error');
+      return;
+    }
+
+    setSamsaraMessage('Reading Samsara file and loading the current Route Tech roster...', 'info');
+    const people = await ensureSamsaraReportingPeople(true);
+    if (!people.length) return;
+
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array', cellDates: false });
+    const sheetName = workbook.SheetNames?.[0];
+    if (!sheetName) throw new Error('No worksheet was found in the uploaded file.');
+
+    const worksheet = workbook.Sheets[sheetName];
+    const matrix = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null, raw: true });
+    const parsed = parseSamsaraWorksheet(matrix);
+
+    samsaraCurrentFile = file;
+    samsaraCurrentSheetName = sheetName;
+    samsaraSourceRows = parsed.rows;
+    samsaraCurrentReportId = null;
+
+    setText('samsaraFileName', file.name);
+    setValue('samsaraSourceSheetName', sheetName);
+
+    const fileDates = parseSamsaraDatesFromFileName(file.name);
+    if (fileDates) {
+      setValue('samsaraPeriodStartDate', fileDates.periodStart);
+      setValue('samsaraPeriodEndDate', fileDates.periodEnd);
+      setValue('samsaraWeekStartDate', fileDates.weekStart);
+    } else if (!document.getElementById('samsaraWeekStartDate')?.value) {
+      const today = new Date();
+      const sunday = new Date(today);
+      sunday.setDate(today.getDate() - today.getDay());
+      setValue('samsaraWeekStartDate', samsaraDateISO(sunday));
+    }
+
+    buildSamsaraReportRows();
+    await loadSamsaraPriorWeekSummary();
+    renderSamsaraReport();
+    setSamsaraActionState(true);
+
+    const missingCount = samsaraReportRows.filter(row => row.data_status !== 'MATCHED').length;
+    const message = `Report generated from ${parsed.rows.length} Samsara driver rows. ${samsaraReportRows.length} required reporting drivers are included${missingCount ? `; ${missingCount} require attention because Samsara data was unavailable` : ''}.`;
+    setSamsaraMessage(message, missingCount ? 'warning' : 'success');
+  } catch (error) {
+    console.error('Samsara file processing error:', error);
+    setSamsaraActionState(false);
+    setSamsaraMessage('Unable to read the Samsara file: ' + (error?.message || error), 'error');
+  }
+}
+
+function parseSamsaraWorksheet(matrix) {
+  const rows = Array.isArray(matrix) ? matrix : [];
+  const headerIndex = rows.findIndex(row => {
+    const headers = (row || []).map(value => samsaraText(value).toLowerCase());
+    return headers.includes('name') && headers.includes('mobile usage') && headers.includes('no seat belt');
+  });
+
+  if (headerIndex < 0) {
+    throw new Error('Required columns were not found. Expected Name, Mobile Usage, and No Seat Belt.');
+  }
+
+  const headers = rows[headerIndex].map(value => samsaraText(value));
+  const findColumn = (...names) => headers.findIndex(header => names.includes(header.toLowerCase()));
+
+  const nameIndex = findColumn('name', 'driver name');
+  const tagIndex = findColumn('tag: name', 'tag name');
+  const ecoIndex = findColumn('eco driving score');
+  const distanceIndex = findColumn('distance (mi)', 'distance');
+  const mobileIndex = findColumn('mobile usage');
+  const seatBeltIndex = findColumn('no seat belt');
+
+  const parsedRows = [];
+
+  rows.slice(headerIndex + 1).forEach((row, offset) => {
+    const name = samsaraText(row?.[nameIndex]);
+    if (!name) return;
+
+    const tagValue = samsaraText(row?.[tagIndex]);
+    const rawMetricValues = [row?.[ecoIndex], row?.[distanceIndex], row?.[mobileIndex], row?.[seatBeltIndex]];
+    const isRepeatedTagPlaceholder = Boolean(tagValue) && rawMetricValues.every(value => samsaraText(value) === tagValue);
+
+    parsedRows.push({
+      source_row_number: headerIndex + offset + 2,
+      driver_name: name,
+      normalized_driver_name: normalizeSamsaraName(name),
+      tag_name: tagValue,
+      eco_driving_score: isRepeatedTagPlaceholder ? null : samsaraNumber(row?.[ecoIndex]),
+      distance_miles: isRepeatedTagPlaceholder ? null : samsaraNumber(row?.[distanceIndex]),
+      mobile_usage: isRepeatedTagPlaceholder ? null : samsaraInteger(row?.[mobileIndex]),
+      no_seat_belt: isRepeatedTagPlaceholder ? null : samsaraInteger(row?.[seatBeltIndex]),
+      no_data_placeholder: isRepeatedTagPlaceholder,
+      raw_values: headers.reduce((object, header, index) => {
+        if (header) object[header] = row?.[index] ?? null;
+        return object;
+      }, {})
+    });
+  });
+
+  if (!parsedRows.length) throw new Error('The worksheet did not contain any driver rows.');
+  return { headers, rows: parsedRows };
+}
+
+function groupSamsaraSourceRows() {
+  const grouped = new Map();
+
+  samsaraSourceRows.forEach(row => {
+    const key = row.normalized_driver_name || normalizeSamsaraName(row.driver_name);
+    if (!key) return;
+
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(row);
+  });
+
+  const result = new Map();
+
+  grouped.forEach((rows, key) => {
+    const validRows = rows.filter(row => !row.no_data_placeholder && (
+      row.mobile_usage !== null || row.no_seat_belt !== null || row.distance_miles !== null || row.eco_driving_score !== null
+    ));
+
+    if (!validRows.length) {
+      result.set(key, {
+        driver_name: rows[0].driver_name,
+        normalized_driver_name: key,
+        data_status: 'NO_SAMSARA_DATA',
+        eco_driving_score: null,
+        distance_miles: null,
+        mobile_usage: null,
+        no_seat_belt: null,
+        raw_rows: rows
+      });
+      return;
+    }
+
+    const ecoScores = validRows.map(row => row.eco_driving_score).filter(value => value !== null);
+    const distances = validRows.map(row => row.distance_miles).filter(value => value !== null);
+    const mobileValues = validRows.map(row => row.mobile_usage).filter(value => value !== null);
+    const seatValues = validRows.map(row => row.no_seat_belt).filter(value => value !== null);
+
+    result.set(key, {
+      driver_name: validRows[0].driver_name,
+      normalized_driver_name: key,
+      data_status: 'MATCHED',
+      eco_driving_score: ecoScores.length ? ecoScores.reduce((sum, value) => sum + value, 0) / ecoScores.length : null,
+      distance_miles: distances.length ? distances.reduce((sum, value) => sum + value, 0) : null,
+      mobile_usage: mobileValues.length ? mobileValues.reduce((sum, value) => sum + value, 0) : 0,
+      no_seat_belt: seatValues.length ? seatValues.reduce((sum, value) => sum + value, 0) : 0,
+      raw_rows: rows
+    });
+  });
+
+  return result;
+}
+
+function buildSamsaraReportRows() {
+  const groupedSource = groupSamsaraSourceRows();
+  const reportingKeys = new Set(samsaraReportingPeople.map(person => person.normalized_driver_name));
+
+  samsaraReportRows = samsaraReportingPeople.map(person => {
+    const source = groupedSource.get(person.normalized_driver_name);
+
+    if (!source) {
+      return {
+        ...person,
+        source_driver_name: '',
+        data_status: 'NOT_IN_EXPORT',
+        eco_driving_score: null,
+        distance_miles: null,
+        mobile_usage: null,
+        no_seat_belt: null,
+        raw_row: {}
+      };
+    }
+
+    return {
+      ...person,
+      source_driver_name: source.driver_name,
+      data_status: source.data_status,
+      eco_driving_score: source.eco_driving_score,
+      distance_miles: source.distance_miles,
+      mobile_usage: source.mobile_usage,
+      no_seat_belt: source.no_seat_belt,
+      raw_row: { source_rows: source.raw_rows }
+    };
+  });
+
+  samsaraExcludedSourceRows = samsaraSourceRows.filter(row => !reportingKeys.has(row.normalized_driver_name));
+}
+
+function samsaraTotals() {
+  return samsaraReportRows.reduce((totals, row) => {
+    if (row.data_status === 'MATCHED') {
+      totals.mobile += Number(row.mobile_usage || 0);
+      totals.seatBelt += Number(row.no_seat_belt || 0);
+      totals.matched += 1;
+    } else {
+      totals.missing += 1;
+    }
+    return totals;
+  }, { mobile: 0, seatBelt: 0, matched: 0, missing: 0 });
+}
+
+function samsaraMetricDisplay(row, key) {
+  if (row.data_status !== 'MATCHED') return '<span class="samsara-no-data">No Samsara Data</span>';
+  const value = row[key];
+  return Number(value || 0).toLocaleString();
+}
+
+function samsaraStatusLabel(status) {
+  if (status === 'MATCHED') return 'Matched';
+  if (status === 'NO_SAMSARA_DATA') return 'No Samsara Data';
+  return 'Not in Export';
+}
+
+function samsaraStatusBadge(status) {
+  const badgeClass = status === 'MATCHED' ? 'green' : status === 'NO_SAMSARA_DATA' ? 'orange' : 'red';
+  return `<span class="badge ${badgeClass}">${escapeHTML(samsaraStatusLabel(status))}</span>`;
+}
+
+function renderSamsaraMetricTable(bodyId, rows, key) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  body.innerHTML = '';
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="2">No report loaded.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHTML(row.driver_name)}</td><td class="metric-cell">${samsaraMetricDisplay(row, key)}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+function renderSamsaraReport() {
+  const totals = samsaraTotals();
+  const alphabeticRows = samsaraReportRows.slice().sort((a, b) => a.driver_name.localeCompare(b.driver_name));
+  const focusMobileRows = samsaraReportRows.slice().sort((a, b) => {
+    const aMissing = a.data_status !== 'MATCHED';
+    const bMissing = b.data_status !== 'MATCHED';
+    if (aMissing !== bMissing) return aMissing ? 1 : -1;
+    const metricDifference = Number(b.mobile_usage || 0) - Number(a.mobile_usage || 0);
+    return metricDifference || a.driver_name.localeCompare(b.driver_name);
+  });
+  const focusSeatRows = samsaraReportRows.slice().sort((a, b) => {
+    const aMissing = a.data_status !== 'MATCHED';
+    const bMissing = b.data_status !== 'MATCHED';
+    if (aMissing !== bMissing) return aMissing ? 1 : -1;
+    const metricDifference = Number(b.no_seat_belt || 0) - Number(a.no_seat_belt || 0);
+    return metricDifference || a.driver_name.localeCompare(b.driver_name);
+  });
+
+  renderSamsaraMetricTable('samsaraWeeklyMobileBody', alphabeticRows, 'mobile_usage');
+  renderSamsaraMetricTable('samsaraWeeklySeatBeltBody', alphabeticRows, 'no_seat_belt');
+  renderSamsaraMetricTable('samsaraFocusMobileBody', focusMobileRows, 'mobile_usage');
+  renderSamsaraMetricTable('samsaraFocusSeatBeltBody', focusSeatRows, 'no_seat_belt');
+
+  setText('samsaraMetricDrivers', samsaraReportRows.length.toLocaleString());
+  setText('samsaraMetricMatched', totals.matched.toLocaleString());
+  setText('samsaraMetricMobile', totals.mobile.toLocaleString());
+  setText('samsaraMetricSeatBelt', totals.seatBelt.toLocaleString());
+  setText('samsaraThisWeekMobile', totals.mobile.toLocaleString());
+  setText('samsaraThisWeekSeatBelt', totals.seatBelt.toLocaleString());
+
+  const weekStart = document.getElementById('samsaraWeekStartDate')?.value || '';
+  const periodStart = document.getElementById('samsaraPeriodStartDate')?.value || '';
+  const periodEnd = document.getElementById('samsaraPeriodEndDate')?.value || '';
+  const weekText = weekStart ? `Week of: ${samsaraFormatDate(weekStart)}` : 'Week date not selected';
+  const periodText = periodStart && periodEnd ? ` | Samsara period: ${samsaraFormatDate(periodStart)} – ${samsaraFormatDate(periodEnd)}` : '';
+  setText('samsaraReportPeriod', weekText + periodText);
+  setText('samsaraCurrentWeekPill', weekStart ? `Week of ${samsaraFormatDate(weekStart)}` : 'Week date needed');
+
+  renderSamsaraComparison(totals);
+  renderSamsaraDetailRows(alphabeticRows);
+  renderSamsaraExcludedRows();
+}
+
+function renderSamsaraComparison(totals = samsaraTotals()) {
+  const priorMobile = samsaraPriorSummary?.total_mobile_usage;
+  const priorSeatBelt = samsaraPriorSummary?.total_no_seat_belt;
+
+  setText('samsaraPriorWeekMobile', priorMobile === null || priorMobile === undefined ? '—' : Number(priorMobile).toLocaleString());
+  setText('samsaraPriorWeekSeatBelt', priorSeatBelt === null || priorSeatBelt === undefined ? '—' : Number(priorSeatBelt).toLocaleString());
+
+  updateSamsaraDifference('samsaraDifferenceMobile', priorMobile === null || priorMobile === undefined ? null : totals.mobile - Number(priorMobile));
+  updateSamsaraDifference('samsaraDifferenceSeatBelt', priorSeatBelt === null || priorSeatBelt === undefined ? null : totals.seatBelt - Number(priorSeatBelt));
+}
+
+function updateSamsaraDifference(elementId, difference) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+
+  element.className = 'samsara-difference neutral';
+  if (difference === null || difference === undefined) {
+    element.textContent = '—';
+    return;
+  }
+
+  const number = Number(difference || 0);
+  const arrow = number < 0 ? '↓' : number > 0 ? '↑' : '→';
+  element.textContent = `${number > 0 ? '+' : ''}${number.toLocaleString()} ${arrow}`;
+  element.classList.add(number < 0 ? 'good' : number > 0 ? 'bad' : 'neutral');
+}
+
+function renderSamsaraDetailRows(rows) {
+  const body = document.getElementById('samsaraDetailBody');
+  if (!body) return;
+  body.innerHTML = '';
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="7">No report loaded.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${escapeHTML(row.driver_name)}</strong>${row.rt_code ? `<span class="muted-small">${escapeHTML(row.rt_code)}</span>` : ''}</td>
+      <td>${escapeHTML(row.employee_type === 'REPAIR_TECH' ? 'Repair Tech' : 'Route Tech')}</td>
+      <td>${samsaraStatusBadge(row.data_status)}</td>
+      <td>${row.eco_driving_score === null ? '—' : escapeHTML(formatNumber(row.eco_driving_score))}</td>
+      <td>${row.distance_miles === null ? '—' : `${escapeHTML(formatNumber(row.distance_miles))} mi`}</td>
+      <td class="metric-cell">${row.data_status === 'MATCHED' ? Number(row.mobile_usage || 0).toLocaleString() : '—'}</td>
+      <td class="metric-cell">${row.data_status === 'MATCHED' ? Number(row.no_seat_belt || 0).toLocaleString() : '—'}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+function renderSamsaraExcludedRows() {
+  const element = document.getElementById('samsaraExcludedDrivers');
+  if (!element) return;
+
+  const names = [...new Set(samsaraExcludedSourceRows.map(row => row.driver_name).filter(Boolean))].sort();
+  element.classList.toggle('hidden', !names.length);
+  element.innerHTML = names.length
+    ? `<strong>Excluded Samsara drivers:</strong> ${names.map(escapeHTML).join(', ')}. The weekly team report includes only active Route Techs and David Clearwater.`
+    : '';
+}
+
+async function loadSamsaraPriorWeekSummary() {
+  const weekStartValue = document.getElementById('samsaraWeekStartDate')?.value || '';
+  const weekStart = samsaraParseISODate(weekStartValue);
+  samsaraPriorSummary = null;
+
+  if (!weekStart) {
+    renderSamsaraComparison();
+    return;
+  }
+
+  const priorDate = new Date(weekStart);
+  priorDate.setDate(priorDate.getDate() - 7);
+  const priorWeekISO = samsaraDateISO(priorDate);
+
+  const { data, error } = await client
+    .from(SAMSARA_REPORT_SUMMARY_VIEW)
+    .select('*')
+    .eq('week_start_date', priorWeekISO)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('Prior Samsara report load error:', error);
+  } else {
+    samsaraPriorSummary = data || null;
+  }
+
+  renderSamsaraComparison();
+}
+
+async function handleSamsaraWeekDateChange() {
+  await loadSamsaraPriorWeekSummary();
+  renderSamsaraReport();
+}
+
+async function saveCurrentSamsaraReport() {
+  if (!samsaraReportRows.length || !samsaraCurrentFile) {
+    setSamsaraMessage('Drop a Samsara file before saving the weekly report.', 'error');
+    return;
+  }
+
+  const weekStart = document.getElementById('samsaraWeekStartDate')?.value || '';
+  const periodStart = document.getElementById('samsaraPeriodStartDate')?.value || '';
+  const periodEnd = document.getElementById('samsaraPeriodEndDate')?.value || '';
+
+  if (!weekStart) {
+    setSamsaraMessage('Select the Report Week Of date before saving.', 'error');
+    return;
+  }
+
+  if (periodStart && periodEnd && periodEnd < periodStart) {
+    setSamsaraMessage('The Samsara period end date cannot be before the start date.', 'error');
+    return;
+  }
+
+  const button = document.getElementById('samsaraSaveReportBtn');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Saving...';
+  }
+
+  const payloadRows = samsaraReportRows.map(row => ({
+    employee_type: row.employee_type,
+    route_tech_id: row.route_tech_id,
+    rt_code: row.rt_code,
+    driver_name: row.driver_name,
+    normalized_driver_name: row.normalized_driver_name,
+    source_driver_name: row.source_driver_name,
+    data_status: row.data_status,
+    eco_driving_score: row.eco_driving_score,
+    distance_miles: row.distance_miles,
+    mobile_usage: row.mobile_usage,
+    no_seat_belt: row.no_seat_belt,
+    raw_row: row.raw_row
+  }));
+
+  const sourceRows = samsaraSourceRows.map(row => ({
+    source_row_number: row.source_row_number,
+    driver_name: row.driver_name,
+    normalized_driver_name: row.normalized_driver_name,
+    tag_name: row.tag_name,
+    eco_driving_score: row.eco_driving_score,
+    distance_miles: row.distance_miles,
+    mobile_usage: row.mobile_usage,
+    no_seat_belt: row.no_seat_belt,
+    no_data_placeholder: row.no_data_placeholder,
+    raw_values: row.raw_values
+  }));
+
+  const { data, error } = await client.rpc(SAMSARA_SAVE_REPORT_RPC, {
+    p_week_start_date: weekStart,
+    p_period_start_date: periodStart || null,
+    p_period_end_date: periodEnd || null,
+    p_source_file_name: samsaraCurrentFile.name,
+    p_source_file_size: samsaraCurrentFile.size,
+    p_source_sheet_name: samsaraCurrentSheetName,
+    p_source_row_count: samsaraSourceRows.length,
+    p_source_rows: sourceRows,
+    p_rows: payloadRows,
+    p_imported_by_name: currentProfile?.full_name || currentSession?.user?.email || '',
+    p_notes: document.getElementById('samsaraReportNotes')?.value || null
+  });
+
+  if (button) {
+    button.disabled = false;
+    button.textContent = 'Save Weekly Report';
+  }
+
+  if (error) {
+    setSamsaraMessage('Unable to save the Weekly Samsara report: ' + error.message, 'error');
+    return;
+  }
+
+  samsaraCurrentReportId = data?.report_id || null;
+  setSamsaraMessage(`Weekly Samsara report saved for ${samsaraFormatDate(weekStart)}. Uploading the same week again will replace that week's saved report.`, 'success');
+  await loadSamsaraReportHistory(true);
+  await loadSamsaraPriorWeekSummary();
+}
+
+async function loadSamsaraReportHistory(showMessage = false) {
+  const select = document.getElementById('samsaraSavedWeekSelect');
+  if (!select) return;
+
+  const { data, error } = await client
+    .from(SAMSARA_REPORT_SUMMARY_VIEW)
+    .select('*')
+    .order('week_start_date', { ascending: false })
+    .limit(104);
+
+  if (error) {
+    samsaraHistoryLoaded = false;
+    select.innerHTML = '<option value="">Unable to load saved reports</option>';
+    if (showMessage) setSamsaraMessage('Unable to load saved Weekly Samsara reports: ' + error.message, 'error');
+    return;
+  }
+
+  samsaraHistoryLoaded = true;
+  const rows = data || [];
+  select.innerHTML = '<option value="">Select a saved week...</option>' + rows.map(row => {
+    const label = `Week of ${samsaraFormatDate(row.week_start_date)} — Mobile ${Number(row.total_mobile_usage || 0).toLocaleString()} | Seat Belt ${Number(row.total_no_seat_belt || 0).toLocaleString()}`;
+    return `<option value="${escapeHTML(row.id)}">${escapeHTML(label)}</option>`;
+  }).join('');
+
+  if (samsaraCurrentReportId) select.value = samsaraCurrentReportId;
+  if (showMessage) setSamsaraMessage(`${rows.length} saved Weekly Samsara report${rows.length === 1 ? '' : 's'} loaded.`, 'success');
+}
+
+async function loadSelectedSamsaraReport() {
+  const reportId = document.getElementById('samsaraSavedWeekSelect')?.value || '';
+  if (!reportId) return;
+
+  setSamsaraMessage('Loading saved Weekly Samsara report...', 'info');
+
+  const [summaryResult, detailResult] = await Promise.all([
+    client.from(SAMSARA_REPORT_SUMMARY_VIEW).select('*').eq('id', reportId).single(),
+    client.from(SAMSARA_REPORT_DETAIL_VIEW).select('*').eq('report_id', reportId).order('driver_name', { ascending: true })
+  ]);
+
+  if (summaryResult.error || detailResult.error) {
+    setSamsaraMessage('Unable to load the saved report: ' + (summaryResult.error?.message || detailResult.error?.message), 'error');
+    return;
+  }
+
+  const summary = summaryResult.data;
+  const details = detailResult.data || [];
+  samsaraCurrentReportId = reportId;
+  samsaraCurrentFile = {
+    name: summary.source_file_name || 'Saved Samsara report',
+    size: Number(summary.source_file_size || 0)
+  };
+  samsaraCurrentSheetName = summary.source_sheet_name || '';
+  samsaraSourceRows = [];
+  samsaraExcludedSourceRows = [];
+  samsaraReportRows = details.map(row => ({
+    employee_type: row.employee_type,
+    route_tech_id: row.route_tech_id,
+    rt_code: row.rt_code || '',
+    driver_name: row.driver_name,
+    normalized_driver_name: row.normalized_driver_name,
+    source_driver_name: row.source_driver_name || '',
+    data_status: row.data_status,
+    eco_driving_score: row.eco_driving_score === null ? null : Number(row.eco_driving_score),
+    distance_miles: row.distance_miles === null ? null : Number(row.distance_miles),
+    mobile_usage: row.mobile_usage === null ? null : Number(row.mobile_usage),
+    no_seat_belt: row.no_seat_belt === null ? null : Number(row.no_seat_belt),
+    raw_row: row.raw_row || {}
+  }));
+
+  setText('samsaraFileName', summary.source_file_name || 'Saved report');
+  setValue('samsaraSourceSheetName', summary.source_sheet_name || '');
+  setValue('samsaraWeekStartDate', summary.week_start_date || '');
+  setValue('samsaraPeriodStartDate', summary.period_start_date || '');
+  setValue('samsaraPeriodEndDate', summary.period_end_date || '');
+  setValue('samsaraReportNotes', summary.notes || '');
+
+  samsaraPriorSummary = summary.prior_report_id ? {
+    total_mobile_usage: summary.prior_mobile_usage,
+    total_no_seat_belt: summary.prior_no_seat_belt
+  } : null;
+
+  renderSamsaraReport();
+  setSamsaraActionState(true, false);
+  setSamsaraMessage(`Saved report loaded for ${samsaraFormatDate(summary.week_start_date)}. Drop a new Samsara file to replace or save a report.`, 'success');
+}
+
+function clearCurrentSamsaraReport() {
+  samsaraSourceRows = [];
+  samsaraReportRows = [];
+  samsaraExcludedSourceRows = [];
+  samsaraCurrentFile = null;
+  samsaraCurrentSheetName = '';
+  samsaraCurrentReportId = null;
+  samsaraPriorSummary = null;
+
+  setText('samsaraFileName', 'No file selected');
+  setValue('samsaraSourceSheetName', '');
+  setValue('samsaraPeriodStartDate', '');
+  setValue('samsaraPeriodEndDate', '');
+  setValue('samsaraWeekStartDate', '');
+  setValue('samsaraReportNotes', '');
+  setText('samsaraCurrentWeekPill', 'No week loaded');
+  setText('samsaraReportPeriod', 'Drop a Samsara file to generate the report.');
+  setText('samsaraMetricDrivers', samsaraReportingPeople.length.toLocaleString());
+  setText('samsaraMetricMatched', '0');
+  setText('samsaraMetricMobile', '0');
+  setText('samsaraMetricSeatBelt', '0');
+  setText('samsaraThisWeekMobile', '0');
+  setText('samsaraThisWeekSeatBelt', '0');
+  setText('samsaraPriorWeekMobile', '—');
+  setText('samsaraPriorWeekSeatBelt', '—');
+  updateSamsaraDifference('samsaraDifferenceMobile', null);
+  updateSamsaraDifference('samsaraDifferenceSeatBelt', null);
+
+  ['samsaraWeeklyMobileBody', 'samsaraWeeklySeatBeltBody', 'samsaraFocusMobileBody', 'samsaraFocusSeatBeltBody'].forEach(id => {
+    const body = document.getElementById(id);
+    if (body) body.innerHTML = '<tr><td colspan="2">No report loaded.</td></tr>';
+  });
+
+  const detailBody = document.getElementById('samsaraDetailBody');
+  if (detailBody) detailBody.innerHTML = '<tr><td colspan="7">No report loaded.</td></tr>';
+
+  const excluded = document.getElementById('samsaraExcludedDrivers');
+  if (excluded) {
+    excluded.classList.add('hidden');
+    excluded.innerHTML = '';
+  }
+
+  setSamsaraActionState(false);
+  setSamsaraMessage('Drop the current Samsara export to begin.', 'info');
+}
+
+function samsaraCsvEscape(value) {
+  const text = value === null || value === undefined ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function exportCurrentSamsaraReportCsv() {
+  if (!samsaraReportRows.length) {
+    setSamsaraMessage('No Weekly Samsara report is available to export.', 'error');
+    return;
+  }
+
+  const weekStart = document.getElementById('samsaraWeekStartDate')?.value || 'report';
+  const rows = [[
+    'Week Of', 'Driver Name', 'Employee Type', 'RT Code', 'Data Status', 'Eco Driving Score',
+    'Distance Miles', 'Mobile Usage', 'No Seat Belt', 'Source Driver Name'
+  ]];
+
+  samsaraReportRows.slice().sort((a, b) => a.driver_name.localeCompare(b.driver_name)).forEach(row => {
+    rows.push([
+      weekStart,
+      row.driver_name,
+      row.employee_type,
+      row.rt_code,
+      samsaraStatusLabel(row.data_status),
+      row.eco_driving_score,
+      row.distance_miles,
+      row.mobile_usage,
+      row.no_seat_belt,
+      row.source_driver_name
+    ]);
+  });
+
+  const csv = rows.map(row => row.map(samsaraCsvEscape).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `weekly_samsara_report_${weekStart}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function buildSamsaraPrintableTable(rows, key, heading) {
+  const body = rows.map(row => {
+    const metric = row.data_status === 'MATCHED' ? Number(row[key] || 0).toLocaleString() : 'No Samsara Data';
+    return `<tr><td>${escapeHTML(row.driver_name)}</td><td>${escapeHTML(metric)}</td></tr>`;
+  }).join('');
+
+  return `<table><thead><tr><th>Driver Name</th><th>${escapeHTML(heading)}</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function printCurrentSamsaraReport() {
+  if (!samsaraReportRows.length) {
+    setSamsaraMessage('No Weekly Samsara report is available to print.', 'error');
+    return;
+  }
+
+  const totals = samsaraTotals();
+  const alphabeticRows = samsaraReportRows.slice().sort((a, b) => a.driver_name.localeCompare(b.driver_name));
+  const focusMobile = samsaraReportRows.slice().sort((a, b) => {
+    const aMissing = a.data_status !== 'MATCHED';
+    const bMissing = b.data_status !== 'MATCHED';
+    if (aMissing !== bMissing) return aMissing ? 1 : -1;
+    return Number(b.mobile_usage || 0) - Number(a.mobile_usage || 0) || a.driver_name.localeCompare(b.driver_name);
+  });
+  const focusSeat = samsaraReportRows.slice().sort((a, b) => {
+    const aMissing = a.data_status !== 'MATCHED';
+    const bMissing = b.data_status !== 'MATCHED';
+    if (aMissing !== bMissing) return aMissing ? 1 : -1;
+    return Number(b.no_seat_belt || 0) - Number(a.no_seat_belt || 0) || a.driver_name.localeCompare(b.driver_name);
+  });
+  const weekStart = document.getElementById('samsaraWeekStartDate')?.value || '';
+  const priorMobile = samsaraPriorSummary?.total_mobile_usage;
+  const priorSeat = samsaraPriorSummary?.total_no_seat_belt;
+  const mobileDifference = priorMobile === null || priorMobile === undefined ? '—' : totals.mobile - Number(priorMobile);
+  const seatDifference = priorSeat === null || priorSeat === undefined ? '—' : totals.seatBelt - Number(priorSeat);
+
+  const printWindow = window.open('', '_blank', 'width=1200,height=850');
+  if (!printWindow) {
+    setSamsaraMessage('The print window was blocked by the browser. Allow pop-ups and try again.', 'error');
+    return;
+  }
+
+  printWindow.document.write(`<!DOCTYPE html><html><head><title>Weekly Samsara Report</title><style>
+    body{font-family:Arial,sans-serif;color:#111827;margin:24px}h1{text-align:center;margin:0 0 6px}h2{font-size:18px;margin:0 0 10px}.period{text-align:center;margin-bottom:18px}.columns{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;border-top:8px solid #111;padding-top:18px}.dual{display:grid;grid-template-columns:1fr 1fr;gap:14px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #d1d5db;padding:7px;text-align:left}th{background:#f3f4f6}.compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}.compare div{border:1px solid #d1d5db;padding:10px}.message{text-align:center;font-size:20px;line-height:1.4;margin-top:24px}@media print{body{margin:10px}.columns{gap:14px}}
+  </style></head><body>
+    <h1>Weekly Safety Reporting</h1><div class="period">Week of: ${escapeHTML(samsaraFormatDate(weekStart))}</div>
+    <div class="columns"><section><h2>Weekly Safety Reporting</h2><div class="dual">
+      ${buildSamsaraPrintableTable(alphabeticRows, 'mobile_usage', '# of Mobile Uses')}
+      ${buildSamsaraPrintableTable(alphabeticRows, 'no_seat_belt', '# of No Seat Belt')}
+    </div><div class="compare"><div><strong>Mobile Usage</strong><br>This Week: ${totals.mobile}<br>Prior Week: ${priorMobile ?? '—'}<br>Difference: ${mobileDifference}</div><div><strong>No Seat Belt</strong><br>This Week: ${totals.seatBelt}<br>Prior Week: ${priorSeat ?? '—'}<br>Difference: ${seatDifference}</div></div></section>
+    <section><h2>Safety Focus – Individuals</h2><div class="dual">
+      ${buildSamsaraPrintableTable(focusMobile, 'mobile_usage', '# of Mobile Uses')}
+      ${buildSamsaraPrintableTable(focusSeat, 'no_seat_belt', '# of No Seat Belt')}
+    </div><div class="message">Great job keeping these numbers low and being SAFE!<br>Thank you!</div></section></div>
+  </body></html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  window.setTimeout(() => printWindow.print(), 250);
+}
 
 </script>
 </body>
