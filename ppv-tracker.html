@@ -2252,6 +2252,7 @@ let currentLiveSummaryRows = [];
 let currentLivePayrollRows = [];
 let currentPayrollReportingRows = [];
 let currentSafeguardEventRows = [];
+let currentAdjustmentRows = [];
 let currentImportBatchRows = [];
 let currentPayrollExportRows = [];
 let currentBiweeklySubmittalRows = [];
@@ -2888,7 +2889,8 @@ async function refreshSelectedPayPeriodData() {
   await Promise.all([
     loadLiveSummaryRows(),
     loadImportBatches(),
-    loadSafeguardEventRows()
+    loadSafeguardEventRows(),
+    loadAdjustmentRows()
   ]);
 
   if (!currentRouteTechRows.length) {
@@ -2949,6 +2951,28 @@ async function loadSafeguardEventRows() {
   }
 
   currentSafeguardEventRows = data || [];
+}
+
+
+async function loadAdjustmentRows() {
+  if (!currentPayPeriodId) {
+    currentAdjustmentRows = [];
+    return;
+  }
+
+  const { data, error } = await client
+    .from('ppv_adjustments')
+    .select('id, pay_period_id, route_tech_id, adjustment_type, visit_adjustment_count, adjustment_amount, reason, notes, status, created_at, updated_at')
+    .eq('pay_period_id', currentPayPeriodId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.warn('Adjustment rows could not be loaded for attestation detail:', error.message);
+    currentAdjustmentRows = [];
+    return;
+  }
+
+  currentAdjustmentRows = data || [];
 }
 
 async function loadImportBatches() {
@@ -5171,6 +5195,55 @@ function buildSafeguardPaySheetRows(row, fallbackSafeguardPenalty) {
           </tr>`;
 }
 
+
+function cleanExtraCompletedVisitReason(value) {
+  return String(value || '')
+    .replace(/^Extra Completed Visits\s*-\s*/i, '')
+    .trim();
+}
+
+function getApprovedExtraCompletedVisitInfo(routeTechId) {
+  if (!routeTechId) {
+    return {
+      total: 0,
+      explanation: 'No approved extra completed visits for this pay period.'
+    };
+  }
+
+  const matchingRows = (currentAdjustmentRows || []).filter(adjustment => {
+    const status = String(getRecordValue(adjustment, ['status']) || '').toUpperCase();
+    const adjustmentType = String(getRecordValue(adjustment, ['adjustment_type']) || '').toUpperCase();
+    const adjustmentRouteTechId = getRecordValue(adjustment, ['route_tech_id']);
+    const visitCount = numberFromRecord(adjustment, ['visit_adjustment_count']);
+
+    return String(adjustmentRouteTechId || '') === String(routeTechId)
+      && adjustmentType === 'CORRECTION'
+      && status === 'APPROVED'
+      && visitCount > 0;
+  });
+
+  const total = matchingRows.reduce((sum, adjustment) => {
+    return sum + numberFromRecord(adjustment, ['visit_adjustment_count']);
+  }, 0);
+
+  const reasons = Array.from(new Set(
+    matchingRows
+      .map(adjustment => cleanExtraCompletedVisitReason(
+        getRecordValue(adjustment, ['reason', 'notes'])
+      ))
+      .filter(Boolean)
+  ));
+
+  return {
+    total,
+    explanation: reasons.length
+      ? reasons.join('; ')
+      : total > 0
+        ? 'Approved extra completed visit correction included in the total.'
+        : 'No approved extra completed visits for this pay period.'
+  };
+}
+
 function buildRouteTechPaySheetHTML(row, printMode = false) {
   const periodLabel = getRecordValue(row, ['pay_period_label']) || formatPayPeriodLabel(currentPayPeriodRecord || {});
   const startDate = getRecordValue(row, ['period_start_date']);
@@ -5181,6 +5254,20 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
   const week1Visits = numberFromRecord(row, ['week_1_visits']);
   const week2Visits = numberFromRecord(row, ['week_2_visits']);
   const totalVisits = numberFromRecord(row, ['total_visits']);
+  const routeTechId = getRecordValue(row, ['route_tech_id']);
+  const extraCompletedVisitInfo = getApprovedExtraCompletedVisitInfo(routeTechId);
+  const derivedExtraCompletedVisits = Math.max(
+    roundNumber(totalVisits - week1Visits - week2Visits, 3),
+    0
+  );
+  const extraCompletedVisits = extraCompletedVisitInfo.total > 0
+    ? extraCompletedVisitInfo.total
+    : derivedExtraCompletedVisits;
+  const extraCompletedVisitExplanation = extraCompletedVisitInfo.total > 0
+    ? extraCompletedVisitInfo.explanation
+    : extraCompletedVisits > 0
+      ? 'Approved extra completed visit correction included in the total.'
+      : extraCompletedVisitInfo.explanation;
   const assignedBase = numberFromRecord(row, ['assigned_base_visits', 'baseline_biweekly_visits']);
   const regularVisits = numberFromRecord(row, ['regular_ppv_visits']);
   const pickupVisits = numberFromRecord(row, ['pickup_visits']);
@@ -5248,21 +5335,28 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
             <td>${formatNumber(week1Visits)}</td>
             <td></td>
             <td></td>
-            <td>Imported from Skimmer cleanings plus approved visit corrections where applicable.</td>
+            <td>Imported from the Week 1 Skimmer Tech Summary.</td>
           </tr>
           <tr>
             <td>Week 2 Actual Visits</td>
             <td>${formatNumber(week2Visits)}</td>
             <td></td>
             <td></td>
-            <td>Imported from Skimmer cleanings plus approved visit corrections where applicable.</td>
+            <td>Imported from the Week 2 Skimmer Tech Summary.</td>
+          </tr>
+          <tr>
+            <td><strong>Approved Extra Completed Visits</strong></td>
+            <td><strong>${formatNumber(extraCompletedVisits)}</strong></td>
+            <td></td>
+            <td></td>
+            <td>${escapeHTML(extraCompletedVisitExplanation)}</td>
           </tr>
           <tr>
             <td>Total Actual Visits</td>
             <td>${formatNumber(totalVisits)}</td>
             <td></td>
             <td></td>
-            <td>Total visits used in PPV calculation.</td>
+            <td>Week 1 visits + Week 2 visits + approved extra completed visits. This is the total used in the PPV calculation.</td>
           </tr>
           <tr>
             <td>Regular PPV Visits</td>
