@@ -2497,7 +2497,7 @@
 <h3>Step 3: Enter Counts and Verify Serialized Items</h3>
 <div class="warning-note">
       A cycle count session can include both non-serialized quantity lines and serialized verification lines.
-      Enter counted quantities for non-serialized parts. Verify serialized items by serial number using FOUND, MISSING, WRONG LOCATION, DAMAGED, or NEEDS REVIEW.
+      Enter counted quantities for non-serialized parts. Verify each serialized item by selecting FOUND or MISSING.
       Saving records the physical count and verification results. It does not post adjustments to inventory yet.
     </div>
 <div class="button-row">
@@ -2536,8 +2536,8 @@
 <h3>Serialized Verification Lines</h3>
 <div class="warning-note">
       Serialized parts are verified one serial number at a time. For Main Warehouse category counts, Counted Shelf automatically uses the saved counted shelf or the assigned expected shelf.
-      Only enter a shelf when the serialized part is unassigned or physically found on a different shelf. FOUND means the expected serial was physically located at the expected location.
-      MISSING, WRONG LOCATION, DAMAGED, and NEEDS REVIEW will require Admin review before any posting/reconciliation.
+      Only enter a shelf when the serialized part is unassigned or physically found on a different shelf.
+      FOUND means the expected serial was physically located. MISSING means the expected serial could not be located and will require Admin review before posting.
     </div>
 <div class="count-table-wrapper">
 <table class="serialized-verification-table">
@@ -10015,18 +10015,26 @@ function renderCycleCountSerialLinesTable() {
 }
 
 function getSerializedCountResultOptionsHTML(currentValue) {
+  const normalizedCurrentValue = String(currentValue || '').trim().toUpperCase();
+  const allowedResults = ['FOUND', 'MISSING'];
   const options = [
     { value: '', label: 'Select result...' },
     { value: 'FOUND', label: 'FOUND' },
-    { value: 'MISSING', label: 'MISSING' },
-    { value: 'WRONG_LOCATION', label: 'WRONG LOCATION' },
-    { value: 'DAMAGED', label: 'DAMAGED' },
-    { value: 'NEEDS_REVIEW', label: 'NEEDS REVIEW' }
+    { value: 'MISSING', label: 'MISSING' }
   ];
 
+  if (normalizedCurrentValue && !allowedResults.includes(normalizedCurrentValue)) {
+    options.unshift({
+      value: normalizedCurrentValue,
+      label: `${normalizedCurrentValue.replace(/_/g, ' ')} (LEGACY)`,
+      disabled: true
+    });
+  }
+
   return options.map(option => {
-    const selected = option.value === currentValue ? ' selected' : '';
-    return `<option value="${escapeHTML(option.value)}"${selected}>${escapeHTML(option.label)}</option>`;
+    const selected = option.value === normalizedCurrentValue ? ' selected' : '';
+    const disabled = option.disabled === true ? ' disabled' : '';
+    return `<option value="${escapeHTML(option.value)}"${selected}${disabled}>${escapeHTML(option.label)}</option>`;
   }).join('');
 }
 
