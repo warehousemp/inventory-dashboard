@@ -2235,6 +2235,13 @@
 <select id="newPartCategory">
 <option value="">Loading categories...</option>
 </select>
+<label>Main Warehouse Shelf Location (Optional):</label>
+<select id="newPartShelfLocation">
+<option value="">Loading shelf locations...</option>
+</select>
+<div class="help-text">
+      Leave this blank when the shelf has not been determined. Selecting a shelf assigns the new part to that Main Warehouse shelf after the part is created.
+    </div>
 <label>Serialized Item?</label>
 <select id="newPartSerialized">
 <option value="false">No</option>
@@ -5487,6 +5494,7 @@ async function createPart() {
   const unitCost = Number(document.getElementById('newPartUnitCost').value || 0);
   const reorderPoint = Number(document.getElementById('newPartReorderPoint').value || 0);
   const category = document.getElementById('newPartCategory').value;
+  const shelfCode = document.getElementById('newPartShelfLocation')?.value.trim() || '';
   const isSerialized = document.getElementById('newPartSerialized').value === 'true';
 
   if (!partNumber) {
@@ -5530,14 +5538,43 @@ async function createPart() {
     return;
   }
 
-  document.getElementById('createPartResult').textContent =
-    `Part created successfully.\nCategory: ${category}`;
+  let resultMessage =
+    `Part created successfully.\nCategory: ${category}\nSerialized: ${isSerialized ? 'Yes' : 'No'}`;
+
+  if (shelfCode) {
+    document.getElementById('createPartResult').textContent =
+      `Part created successfully. Assigning Main Warehouse Shelf ${shelfCode}...`;
+
+    const { data: shelfData, error: shelfError } = await client.rpc('set_main_warehouse_part_shelf_location', {
+      p_part_number: partNumber,
+      p_shelf_code: shelfCode,
+      p_updated_by: getCurrentUserDisplayName(),
+      p_notes: 'Assigned during new part creation'
+    });
+
+    if (shelfError) {
+      resultMessage +=
+        `\nMain Warehouse Shelf: NOT ASSIGNED\nShelf assignment error: ${shelfError.message}`;
+    } else {
+      const shelfResult = Array.isArray(shelfData) && shelfData.length > 0
+        ? shelfData[0]
+        : null;
+
+      resultMessage +=
+        `\nMain Warehouse Shelf: ${shelfResult?.shelf_code || shelfCode}`;
+    }
+  } else {
+    resultMessage += '\nMain Warehouse Shelf: Unassigned';
+  }
+
+  document.getElementById('createPartResult').textContent = resultMessage;
 
   document.getElementById('newPartNumber').value = '';
   document.getElementById('newPartDescription').value = '';
   document.getElementById('newPartUnitCost').value = '0';
   document.getElementById('newPartReorderPoint').value = '0';
   document.getElementById('newPartCategory').value = '';
+  document.getElementById('newPartShelfLocation').value = '';
   document.getElementById('newPartSerialized').value = 'false';
 
   await loadParts();
@@ -6827,15 +6864,30 @@ async function loadMainWarehouseShelfLocations() {
     mainWarehouseShelfLocationData = data || [];
   }
 
+  populateNewPartShelfLocationDropdown();
   console.log('Main Warehouse Shelf Locations loaded:', mainWarehouseShelfLocationData.length);
+}
+
+function populateNewPartShelfLocationDropdown() {
+  const select = document.getElementById('newPartShelfLocation');
+
+  if (!select) {
+    return;
+  }
+
+  const currentValue = select.value || '';
+  select.innerHTML = getShelfLocationOptionsHTML(
+    currentValue,
+    'Leave unassigned / select shelf...'
+  );
 }
 
 function getShelfLocationCode(row) {
   return row?.shelf_code || row?.shelf_location || '';
 }
 
-function getShelfLocationOptionsHTML(currentValue = '') {
-  let options = '<option value="">Select shelf...</option>';
+function getShelfLocationOptionsHTML(currentValue = '', placeholder = 'Select shelf...') {
+  let options = `<option value="">${escapeHTML(placeholder)}</option>`;
   const selectedValue = String(currentValue || '').trim().toUpperCase();
 
   mainWarehouseShelfLocationData.forEach(row => {
