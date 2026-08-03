@@ -660,7 +660,7 @@
 
     .serialized-verification-table {
       table-layout: fixed;
-      min-width: 1450px;
+      min-width: 1850px;
     }
 
     .serialized-verification-table th,
@@ -670,23 +670,27 @@
     }
 
     .serialized-verification-table th:nth-child(1),
-    .serialized-verification-table td:nth-child(1) { width: 145px; }
+    .serialized-verification-table td:nth-child(1) { width: 125px; }
     .serialized-verification-table th:nth-child(2),
-    .serialized-verification-table td:nth-child(2) { width: 310px; word-break: break-word; line-height: 1.35; }
+    .serialized-verification-table td:nth-child(2) { width: 125px; }
     .serialized-verification-table th:nth-child(3),
-    .serialized-verification-table td:nth-child(3) { width: 210px; word-break: break-word; }
+    .serialized-verification-table td:nth-child(3) { width: 145px; }
     .serialized-verification-table th:nth-child(4),
-    .serialized-verification-table td:nth-child(4) { width: 160px; }
+    .serialized-verification-table td:nth-child(4) { width: 310px; word-break: break-word; line-height: 1.35; }
     .serialized-verification-table th:nth-child(5),
-    .serialized-verification-table td:nth-child(5) { width: 135px; }
+    .serialized-verification-table td:nth-child(5) { width: 210px; word-break: break-word; }
     .serialized-verification-table th:nth-child(6),
-    .serialized-verification-table td:nth-child(6) { width: 180px; }
+    .serialized-verification-table td:nth-child(6) { width: 160px; }
     .serialized-verification-table th:nth-child(7),
-    .serialized-verification-table td:nth-child(7) { width: 220px; }
+    .serialized-verification-table td:nth-child(7) { width: 135px; }
     .serialized-verification-table th:nth-child(8),
-    .serialized-verification-table td:nth-child(8) { width: 160px; }
+    .serialized-verification-table td:nth-child(8) { width: 180px; }
     .serialized-verification-table th:nth-child(9),
-    .serialized-verification-table td:nth-child(9) { width: 170px; }
+    .serialized-verification-table td:nth-child(9) { width: 220px; }
+    .serialized-verification-table th:nth-child(10),
+    .serialized-verification-table td:nth-child(10) { width: 160px; }
+    .serialized-verification-table th:nth-child(11),
+    .serialized-verification-table td:nth-child(11) { width: 170px; }
 
     .serial-result-select {
       width: 160px;
@@ -2524,7 +2528,8 @@
 </div>
 <h3>Serialized Verification Lines</h3>
 <div class="warning-note">
-      Serialized parts are verified one serial number at a time. FOUND means the expected serial was physically located at the expected location.
+      Serialized parts are verified one serial number at a time. For Main Warehouse category counts, Counted Shelf automatically uses the saved counted shelf or the assigned expected shelf.
+      Only enter a shelf when the serialized part is unassigned or physically found on a different shelf. FOUND means the expected serial was physically located at the expected location.
       MISSING, WRONG LOCATION, DAMAGED, and NEEDS REVIEW will require Admin review before any posting/reconciliation.
     </div>
 <div class="count-table-wrapper">
@@ -2532,6 +2537,7 @@
 <thead>
 <tr>
 <th>Expected Shelf</th>
+<th>Counted Shelf</th>
 <th>Part Number</th>
 <th>Description</th>
 <th>Expected Serial Number</th>
@@ -2545,7 +2551,7 @@
 </thead>
 <tbody id="cycleCountSerialLinesTableBody">
 <tr>
-<td colspan="10">Create, load, or open a cycle count session to verify serialized items.</td>
+<td colspan="11">Create, load, or open a cycle count session to verify serialized items.</td>
 </tr>
 </tbody>
 </table>
@@ -9898,21 +9904,38 @@ function renderCycleCountSerialLinesTable() {
 
   if (!activeCycleCountSerialLines || activeCycleCountSerialLines.length === 0) {
     tableBody.innerHTML =
-      '<tr><td colspan="10">No serialized verification lines loaded for this active count.</td></tr>';
+      '<tr><td colspan="11">No serialized verification lines loaded for this active count.</td></tr>';
     return;
   }
+
+  const allowShelfEntry = isActiveMainWarehouseCategoryCount();
 
   activeCycleCountSerialLines.forEach(line => {
     const tr = document.createElement('tr');
     const lineId = line.serial_line_id || line.id;
     const countResult = line.count_result || '';
+    const expectedShelfCode = normalizeShelfInputValue(line.expected_shelf_code);
+    const countedShelfCode = normalizeShelfInputValue(line.counted_shelf_code || line.expected_shelf_code || '');
 
     if (countResult && countResult !== 'FOUND') {
       tr.classList.add('serialized-result-exception');
     }
 
     tr.innerHTML = `
-      <td>${formatShelfLocationDisplay(isActiveMainWarehouseCategoryCount() ? line.expected_shelf_code : 'N/A')}</td>
+      <td>${formatShelfLocationDisplay(allowShelfEntry ? expectedShelfCode : 'N/A')}</td>
+      <td>
+        ${allowShelfEntry
+          ? `<input
+              class="shelf-location-input"
+              id="serial_shelf_${lineId}"
+              value="${escapeHTML(countedShelfCode)}"
+              maxlength="2"
+              placeholder="A"
+              title="Enter counted Shelf Location, for example A, J, BB, or LL"
+              oninput="this.value = this.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2)"
+            >`
+          : '<span class="shelf-location-unassigned">N/A</span>'}
+      </td>
       <td>${escapeHTML(line.part_number || '')}</td>
       <td>${escapeHTML(line.description || '')}</td>
       <td>${escapeHTML(line.serial_number_raw || '')}</td>
@@ -10069,6 +10092,8 @@ async function saveAllCycleCountLines() {
   let skippedQuantityCount = 0;
   let savedShelfCount = 0;
   let skippedShelfCount = 0;
+  let savedSerializedShelfCount = 0;
+  let skippedSerializedShelfCount = 0;
   let savedSerializedCount = 0;
   let skippedSerializedCount = 0;
   let errorMessages = [];
@@ -10145,6 +10170,46 @@ async function saveAllCycleCountLines() {
     const lineId = line.serial_line_id || line.id;
     const resultInput = document.getElementById(`serial_result_${lineId}`);
     const notesInput = document.getElementById(`serial_notes_${lineId}`);
+    const shelfInput = document.getElementById(`serial_shelf_${lineId}`);
+    const countedShelfCode = normalizeShelfInputValue(shelfInput ? shelfInput.value : '');
+
+    if (shelfInput && countedShelfCode) {
+      if (!/^[A-Z]{1,2}$/.test(countedShelfCode)) {
+        errorMessages.push(`${line.part_number} ${line.serial_number_raw || ''}: invalid counted Shelf Location ${countedShelfCode}`);
+      } else {
+        const { error: serialShelfLineError } = await client.rpc('save_cycle_count_serial_line_counted_shelf_location', {
+          p_serial_line_id: lineId,
+          p_counted_shelf_code: countedShelfCode,
+          p_updated_by: countedBy
+        });
+
+        if (serialShelfLineError) {
+          errorMessages.push(`${line.part_number} ${line.serial_number_raw || ''} shelf save: ${serialShelfLineError.message}`);
+        } else {
+          savedSerializedShelfCount++;
+
+          const expectedShelfCode = normalizeShelfInputValue(line.expected_shelf_code);
+
+          if (
+            isActiveMainWarehouseCategoryCount()
+            && countedShelfCode !== expectedShelfCode
+          ) {
+            const { error: shelfAssignmentError } = await client.rpc('set_main_warehouse_part_shelf_location', {
+              p_part_number: line.part_number,
+              p_shelf_code: countedShelfCode,
+              p_updated_by: countedBy,
+              p_notes: `Updated from serialized cycle count ${activeCycleCountId}`
+            });
+
+            if (shelfAssignmentError) {
+              errorMessages.push(`${line.part_number} serialized shelf assignment update: ${shelfAssignmentError.message}`);
+            }
+          }
+        }
+      }
+    } else if (shelfInput) {
+      skippedSerializedShelfCount++;
+    }
 
     if (!resultInput || resultInput.value === '') {
       skippedSerializedCount++;
@@ -10172,8 +10237,10 @@ async function saveAllCycleCountLines() {
     `Save complete.\n` +
     `Saved Quantity Lines: ${formatNumber(savedQuantityCount)}\n` +
     `Skipped Blank Quantity Lines: ${formatNumber(skippedQuantityCount)}\n` +
-    `Saved Counted Shelf Locations: ${formatNumber(savedShelfCount)}\n` +
-    `Skipped Blank Shelf Locations: ${formatNumber(skippedShelfCount)}\n` +
+    `Saved Quantity Counted Shelf Locations: ${formatNumber(savedShelfCount)}\n` +
+    `Skipped Blank Quantity Shelf Locations: ${formatNumber(skippedShelfCount)}\n` +
+    `Saved Serialized Counted Shelf Locations: ${formatNumber(savedSerializedShelfCount)}\n` +
+    `Skipped Blank Serialized Shelf Locations: ${formatNumber(skippedSerializedShelfCount)}\n` +
     `Saved Serialized Lines: ${formatNumber(savedSerializedCount)}\n` +
     `Skipped Blank Serialized Lines: ${formatNumber(skippedSerializedCount)}`;
 
