@@ -1660,6 +1660,7 @@ function renderNewClientRecords() {
     <td>
       <div class="record-actions">
         <button class="btn-secondary" type="button" onclick="editNewClientRecord('${escapeHtml(row.id)}')">Edit</button>
+        <button class="btn-danger" type="button" onclick="deleteNewClientRecord('${escapeHtml(row.id)}')">Delete</button>
       </div>
     </td>
   `, 10, 'No New Client records found.');
@@ -1904,6 +1905,46 @@ async function saveTrackingRecord({
   } finally {
     setButtonLoading(buttonId, false, originalText);
     if (savedSuccessfully) resetFunction(false);
+  }
+}
+
+async function deleteNewClientRecord(id) {
+  const row = newClientRecords.find(record => record.id === id);
+  if (!row) {
+    setMessage('newClientMessage', 'error', 'The selected New Client record could not be found.');
+    return;
+  }
+
+  const clientLabel = safe(row.client_name).trim() || 'this client';
+  const enteredDate = formatDate(row.date_entered);
+  const confirmed = confirm(
+    `Permanently delete the New Client record for ${clientLabel}${enteredDate ? ` entered ${enteredDate}` : ''}?\n\nThis action cannot be undone.`
+  );
+
+  if (!confirmed) return;
+
+  setMessage('newClientMessage', 'info', `Deleting ${clientLabel}...`);
+
+  try {
+    const { data, error } = await client
+      .from('client_new_client_tracking')
+      .delete()
+      .eq('id', id)
+      .select('id');
+
+    if (error) throw new Error(error.message);
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('The record was not deleted. Your database permissions may not allow DELETE access.');
+    }
+
+    if (safe(document.getElementById('newClientId')?.value).trim() === id) {
+      resetNewClientForm(false);
+    }
+
+    await loadClientChangeEntryRecords();
+    setMessage('newClientMessage', 'success', `${clientLabel} was deleted from New Client Records.`);
+  } catch (error) {
+    setMessage('newClientMessage', 'error', 'Unable to delete the New Client record: ' + (error.message || String(error)));
   }
 }
 
