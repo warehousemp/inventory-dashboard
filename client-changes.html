@@ -343,6 +343,90 @@
 
     .import-grid .full { grid-column: 1 / -1; }
 
+    .skimmer-import-instructions {
+      margin-bottom: 18px;
+      padding: 16px 18px;
+      border: 1px solid #b2ddff;
+      border-radius: 12px;
+      background: #eff8ff;
+    }
+
+    .skimmer-import-instructions h3 {
+      margin: 0 0 10px;
+      color: var(--header);
+    }
+
+    .skimmer-import-instructions ol {
+      margin: 0;
+      padding-left: 22px;
+      color: #344054;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .skimmer-import-instructions strong { color: var(--header); }
+
+    .import-file-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .import-drop-zone {
+      min-height: 132px;
+      padding: 20px;
+      border: 2px dashed #98a2b3;
+      border-radius: 12px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+    }
+
+    .import-drop-zone:hover,
+    .import-drop-zone:focus,
+    .import-drop-zone.dragover {
+      outline: none;
+      border-color: var(--accent);
+      background: #ecfeff;
+      box-shadow: 0 0 0 3px rgba(26,163,176,0.14);
+    }
+
+    .import-drop-zone.file-selected {
+      border-style: solid;
+      border-color: #12b76a;
+      background: #f6fef9;
+    }
+
+    .import-drop-icon {
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    .import-drop-title {
+      color: var(--header);
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .import-drop-detail {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+
     .import-preview {
       display: grid;
       grid-template-columns: repeat(6, minmax(120px, 1fr));
@@ -821,10 +905,27 @@
           <h2>Tech Details Import</h2>
           <p class="section-description">Upload a Skimmer Tech Details CSV. Only Cleaning and Skipped Stop rows are inserted. Molinari Pools rows are flagged as internal and excluded from client-change reporting.</p>
 
+          <div class="skimmer-import-instructions">
+            <h3>How to Export the Tech Details Report from Skimmer</h3>
+            <ol>
+              <li>Open <strong>Skimmer</strong>.</li>
+              <li>Go to <strong>Reports</strong>.</li>
+              <li>Select <strong>Operations Reports (Labor)</strong>.</li>
+              <li>Choose <strong>Last 1 Week</strong> and confirm the date range runs from <strong>Sunday through Saturday</strong>.</li>
+              <li>Click <strong>Export</strong>.</li>
+              <li>Select <strong>CSV</strong>.</li>
+            </ol>
+          </div>
+
           <div class="import-grid">
             <div class="full">
               <label for="importFile">Tech Details CSV</label>
-              <input id="importFile" type="file" accept=".csv,text/csv">
+              <input id="importFile" class="import-file-input" type="file" accept=".csv,text/csv">
+              <label id="importDropZone" class="import-drop-zone" for="importFile" tabindex="0">
+                <span class="import-drop-icon" aria-hidden="true">⬆</span>
+                <span id="importDropTitle" class="import-drop-title">Drag and drop the Skimmer Tech Details CSV here</span>
+                <span id="importDropDetail" class="import-drop-detail">CSV files only · You may also click this area to browse</span>
+              </label>
             </div>
             <div>
               <label for="importStartDate">First Service Date</label>
@@ -1253,6 +1354,7 @@ let selectedWeekStart = '';
 let activeTab = 'added';
 let latestServiceDate = null;
 let parsedImport = null;
+let selectedImportFile = null;
 let growthRetentionChart = null;
 let entryTab = 'newClient';
 let newClientRecords = [];
@@ -1352,6 +1454,7 @@ function bindEvents() {
   document.getElementById('exportCurrentBtn')?.addEventListener('click', () => exportDataset(activeTab));
   document.getElementById('previewImportBtn')?.addEventListener('click', previewImport);
   document.getElementById('runImportBtn')?.addEventListener('click', runImport);
+  initializeImportDropZone();
   document.getElementById('growthPeriod')?.addEventListener('change', handleGrowthPeriodChange);
   document.getElementById('applyGrowthPeriodBtn')?.addEventListener('click', loadGrowthRetentionSummary);
   document.getElementById('newClientForm')?.addEventListener('submit', saveNewClientRecord);
@@ -2337,6 +2440,102 @@ function clearTables() {
   renderSummary(null, null);
 }
 
+function initializeImportDropZone() {
+  const fileInput = document.getElementById('importFile');
+  const dropZone = document.getElementById('importDropZone');
+
+  if (!fileInput || !dropZone) return;
+
+  fileInput.addEventListener('change', event => {
+    setSelectedImportFile(event.target.files?.[0] || null);
+  });
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, event => {
+      event.preventDefault();
+      event.stopPropagation();
+      dropZone.classList.add('dragover');
+    });
+  });
+
+  ['dragleave', 'dragend'].forEach(eventName => {
+    dropZone.addEventListener(eventName, event => {
+      event.preventDefault();
+      event.stopPropagation();
+      dropZone.classList.remove('dragover');
+    });
+  });
+
+  dropZone.addEventListener('drop', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    dropZone.classList.remove('dragover');
+    setSelectedImportFile(event.dataTransfer?.files?.[0] || null);
+  });
+
+  dropZone.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  updateImportDropZone(null);
+}
+
+function setSelectedImportFile(file) {
+  const fileInput = document.getElementById('importFile');
+  const runButton = document.getElementById('runImportBtn');
+
+  parsedImport = null;
+  if (runButton) runButton.disabled = true;
+  document.getElementById('importPreview')?.classList.add('hidden');
+
+  if (!file) {
+    selectedImportFile = null;
+    if (fileInput) fileInput.value = '';
+    updateImportDropZone(null);
+    return;
+  }
+
+  if (!safe(file.name).toLowerCase().endsWith('.csv')) {
+    selectedImportFile = null;
+    if (fileInput) fileInput.value = '';
+    updateImportDropZone(null);
+    setMessage('importMessage', 'error', 'Only CSV files can be imported.');
+    return;
+  }
+
+  selectedImportFile = file;
+  updateImportDropZone(file);
+  setMessage('importMessage', 'info', `${file.name} is ready. Enter the first and last service dates, then click Preview Import.`);
+}
+
+function updateImportDropZone(file) {
+  const dropZone = document.getElementById('importDropZone');
+  const title = document.getElementById('importDropTitle');
+  const detail = document.getElementById('importDropDetail');
+
+  if (!dropZone || !title || !detail) return;
+
+  dropZone.classList.toggle('file-selected', Boolean(file));
+
+  if (file) {
+    title.textContent = file.name;
+    detail.textContent = `${formatFileSize(file.size)} · CSV selected · Drop another file here to replace it`;
+  } else {
+    title.textContent = 'Drag and drop the Skimmer Tech Details CSV here';
+    detail.textContent = 'CSV files only · You may also click this area to browse';
+  }
+}
+
+function formatFileSize(bytes) {
+  const size = Number(bytes || 0);
+  if (size < 1024) return `${size} bytes`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 async function loadImportHistory() {
   const { data, error } = await client
     .from('client_changes_weekly_imports')
@@ -2360,7 +2559,7 @@ async function loadImportHistory() {
 }
 
 async function previewImport() {
-  const file = document.getElementById('importFile')?.files?.[0];
+  const file = selectedImportFile || document.getElementById('importFile')?.files?.[0];
   const startDate = document.getElementById('importStartDate')?.value;
   const endDate = document.getElementById('importEndDate')?.value;
 
@@ -2368,7 +2567,7 @@ async function previewImport() {
   document.getElementById('runImportBtn').disabled = true;
 
   if (!file) {
-    setMessage('importMessage', 'error', 'Select a Tech Details CSV first.');
+    setMessage('importMessage', 'error', 'Drag and drop a Tech Details CSV first.');
     return;
   }
 
@@ -2579,8 +2778,11 @@ async function runImport() {
     );
 
     parsedImport = null;
+    selectedImportFile = null;
     document.getElementById('runImportBtn').disabled = true;
     document.getElementById('importFile').value = '';
+    document.getElementById('importPreview')?.classList.add('hidden');
+    updateImportDropZone(null);
 
     await loadAllData();
   } catch (error) {
