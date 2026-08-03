@@ -705,6 +705,107 @@
       line-height: 1.4;
     }
 
+    .skimmer-report-instructions {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-left: 4px solid var(--accent);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 18px;
+      color: var(--text);
+    }
+
+    .skimmer-report-instructions-title {
+      color: var(--header);
+      font-size: 14px;
+      font-weight: 900;
+      margin-bottom: 7px;
+    }
+
+    .skimmer-report-instructions-path {
+      font-size: 13px;
+      line-height: 1.55;
+      font-weight: 700;
+    }
+
+    .file-drop-zone {
+      position: relative;
+      width: 100%;
+      min-height: 150px;
+      margin-bottom: 14px;
+      padding: 24px 18px;
+      border: 2px dashed #94a3b8;
+      border-radius: 12px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .file-drop-zone:hover,
+    .file-drop-zone:focus,
+    .file-drop-zone.drag-active {
+      outline: none;
+      border-color: var(--accent);
+      background: #ecfeff;
+      box-shadow: 0 0 0 3px rgba(26,163,176,0.12);
+    }
+
+    .file-drop-zone.file-selected {
+      border-style: solid;
+      border-color: var(--success);
+      background: var(--success-bg);
+    }
+
+    .file-drop-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .file-drop-icon {
+      color: var(--header);
+      font-size: 30px;
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .file-drop-title {
+      color: var(--header);
+      font-size: 16px;
+      font-weight: 900;
+      margin-bottom: 5px;
+    }
+
+    .file-drop-subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+
+    .file-drop-selected {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .file-drop-selected.file-ready {
+      color: var(--success);
+    }
+
+    .file-drop-selected.file-error {
+      color: var(--danger);
+    }
+
     .hidden {
       display: none !important;
     }
@@ -1541,6 +1642,13 @@
               <div class="card manager-only">
                 <h2>Import Skimmer Tech Summary CSV</h2>
 
+                <div class="skimmer-report-instructions">
+                  <div class="skimmer-report-instructions-title">How to Export the Report from Skimmer</div>
+                  <div class="skimmer-report-instructions-path">
+                    Skimmer → Reports → Operations Reports (Labor) → Last 1 Week (Saturday to Sunday) → Click the three dots on the right side of the chart → Export → CSV
+                  </div>
+                </div>
+
                 <label>Import Week:</label>
                 <select id="importWeekSelect">
                   <option value="1">Week 1 Skimmer Tech Summary CSV</option>
@@ -1548,7 +1656,20 @@
                 </select>
 
                 <label>Skimmer Tech Summary CSV:</label>
-                <input id="skimmerImportFileInput" type="file" accept=".csv,text/csv">
+                <div
+                  id="skimmerImportDropZone"
+                  class="file-drop-zone"
+                  role="button"
+                  tabindex="0"
+                  aria-label="Drag and drop a Skimmer Tech Summary CSV file here, or click to browse"
+                  aria-controls="skimmerImportFileInput"
+                >
+                  <input id="skimmerImportFileInput" class="file-drop-input" type="file" accept=".csv,text/csv">
+                  <div class="file-drop-icon" aria-hidden="true">⇩</div>
+                  <div class="file-drop-title">Drag and Drop the CSV File Here</div>
+                  <div class="file-drop-subtitle">or click this box to select the file</div>
+                  <div id="skimmerImportSelectedFile" class="file-drop-selected">No file selected</div>
+                </div>
 
                 <div class="help-text">
                   Upload Week 1 and Week 2 Skimmer Tech Summary files separately into this selected bi-weekly pay period. Cleanings count as actual visits. Work Orders remain reference-only.
@@ -2137,6 +2258,7 @@ let currentBiweeklySubmittalRows = [];
 let currentReportingHistoryRows = [];
 let currentSelectedHoursRow = null;
 let payrollWorkflowStateByPeriod = {};
+let selectedSkimmerImportFile = null;
 
 let isAccountingMode = false;
 let isManagerMode = false;
@@ -2145,6 +2267,7 @@ let isAdminMode = false;
 
 document.addEventListener('DOMContentLoaded', () => {
   initializePayrollWorkflowUI();
+  initializeSkimmerImportDropZone();
   setInputValue('safeguardIncidentDateInput', getTodayISODate());
   setInputValue('hrSignoffDateInput', getTodayISODate());
 });
@@ -3281,6 +3404,126 @@ async function upsertPayPeriodFromForm() {
   await refreshSelectedPayPeriodData();
 }
 
+function initializeSkimmerImportDropZone() {
+  const dropZone = document.getElementById('skimmerImportDropZone');
+  const fileInput = document.getElementById('skimmerImportFileInput');
+
+  if (!dropZone || !fileInput) {
+    return;
+  }
+
+  dropZone.addEventListener('click', () => {
+    fileInput.click();
+  });
+
+  dropZone.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  fileInput.addEventListener('click', event => {
+    event.stopPropagation();
+  });
+
+  fileInput.addEventListener('change', event => {
+    handleSkimmerImportFileSelection(event.target.files?.[0] || null);
+  });
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, event => {
+      event.preventDefault();
+      event.stopPropagation();
+      dropZone.classList.add('drag-active');
+
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'copy';
+      }
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, event => {
+      event.preventDefault();
+      event.stopPropagation();
+      dropZone.classList.remove('drag-active');
+    });
+  });
+
+  dropZone.addEventListener('drop', event => {
+    const droppedFile = event.dataTransfer?.files?.[0] || null;
+    handleSkimmerImportFileSelection(droppedFile);
+  });
+}
+
+function handleSkimmerImportFileSelection(file) {
+  const dropZone = document.getElementById('skimmerImportDropZone');
+  const fileInput = document.getElementById('skimmerImportFileInput');
+  const selectedFileDisplay = document.getElementById('skimmerImportSelectedFile');
+
+  if (!file) {
+    clearSelectedSkimmerImportFile();
+    return;
+  }
+
+  const isCSVFile = String(file.name || '').toLowerCase().endsWith('.csv');
+
+  if (!isCSVFile) {
+    selectedSkimmerImportFile = null;
+
+    if (fileInput) {
+      fileInput.value = '';
+    }
+
+    if (dropZone) {
+      dropZone.classList.remove('file-selected');
+    }
+
+    if (selectedFileDisplay) {
+      selectedFileDisplay.textContent = `Invalid file: ${file.name || 'Unknown file'}. Select a CSV file.`;
+      selectedFileDisplay.className = 'file-drop-selected file-error';
+    }
+
+    setPPVStatus('Only CSV files can be imported. Drag and drop or select a file ending in .csv.', 'error');
+    return;
+  }
+
+  selectedSkimmerImportFile = file;
+
+  if (dropZone) {
+    dropZone.classList.add('file-selected');
+  }
+
+  if (selectedFileDisplay) {
+    selectedFileDisplay.textContent = `Selected: ${file.name}`;
+    selectedFileDisplay.className = 'file-drop-selected file-ready';
+  }
+
+  setPPVStatus(`Skimmer CSV selected: ${file.name}`, 'success');
+}
+
+function clearSelectedSkimmerImportFile() {
+  const dropZone = document.getElementById('skimmerImportDropZone');
+  const fileInput = document.getElementById('skimmerImportFileInput');
+  const selectedFileDisplay = document.getElementById('skimmerImportSelectedFile');
+
+  selectedSkimmerImportFile = null;
+
+  if (fileInput) {
+    fileInput.value = '';
+  }
+
+  if (dropZone) {
+    dropZone.classList.remove('drag-active', 'file-selected');
+  }
+
+  if (selectedFileDisplay) {
+    selectedFileDisplay.textContent = 'No file selected';
+    selectedFileDisplay.className = 'file-drop-selected';
+  }
+}
+
 async function importSkimmerTechSummaryCSV() {
   if (!isManagerMode) {
     setPPVStatus('Accounting users cannot import Skimmer files.', 'error');
@@ -3294,10 +3537,10 @@ async function importSkimmerTechSummaryCSV() {
 
   const fileInput = document.getElementById('skimmerImportFileInput');
   const weekNumber = Number(document.getElementById('importWeekSelect').value || 0);
-  const file = fileInput?.files?.[0];
+  const file = selectedSkimmerImportFile || fileInput?.files?.[0];
 
   if (!file) {
-    setPPVStatus('Choose a Skimmer Tech Summary CSV file first.', 'error');
+    setPPVStatus('Drag and drop or select a Skimmer Tech Summary CSV file first.', 'error');
     return;
   }
 
@@ -3341,7 +3584,7 @@ async function importSkimmerTechSummaryCSV() {
     : String(data || 'Import completed.');
 
   setPPVStatus('Skimmer Tech Summary import completed.\n' + importSummary, 'success');
-  fileInput.value = '';
+  clearSelectedSkimmerImportFile();
   await refreshSelectedPayPeriodData();
   completeWorkflowStepAndOpenNext(2);
 }
