@@ -49,12 +49,28 @@
     },
     {
       label: 'Warehouse',
-      roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN'],
+      roles: ['WAREHOUSE', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
       links: [
-        { label: 'Warehouse Operations', href: 'warehouse.html' },
-        { label: 'Warehouse Management', href: 'warehouse-management.html' },
-        { label: 'Warehouse Reports', href: 'warehouse-reports.html' },
-        { label: 'Warehouse Admin', href: 'admin.html', roles: ['ADMIN', 'SYSTEM_ADMIN'] }
+        {
+          label: 'Warehouse Operations',
+          href: 'warehouse.html',
+          roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'Warehouse Management',
+          href: 'warehouse-management.html',
+          roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'Warehouse Reports',
+          href: 'warehouse-reports.html',
+          roles: ['WAREHOUSE', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'Warehouse Admin',
+          href: 'admin.html',
+          roles: ['ADMIN', 'SYSTEM_ADMIN']
+        }
       ]
     }
   ];
