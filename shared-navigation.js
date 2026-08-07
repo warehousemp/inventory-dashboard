@@ -40,7 +40,8 @@
       roles: ['SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'SALES', 'TECHS', 'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
       links: [
         { label: 'Service Parts Lookup', href: 'service.html' },
-        { label: 'Client Services Dashboard', href: 'client-services.html' },
+        { label: 'Client Services Dashboard', href: 'client-services.html', roles: ['SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'TECHS', 'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'] },
+        { label: 'Service Map', href: 'service-map.html' },
         { label: 'Service Manager Dashboard', href: 'service-manager-dashboard.html', roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
         { label: 'Inspection Requests', href: 'inspection-requests-office.html', roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
         { label: 'Client Marketing Sync', href: 'client-marketing-sync.html', roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN'] },
