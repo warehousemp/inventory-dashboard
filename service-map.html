@@ -918,14 +918,14 @@
                 <option value="repair">Pool EQ Repair</option>
               </select>
 
-              <label for="addressInput">Address, City, or ZIP:</label>
-              <input id="addressInput" placeholder="Example: Vero Beach 32963" autocomplete="off">
+              <label for="addressInput">City, Town, or ZIP:</label>
+              <input id="addressInput" placeholder="Example: Vero Beach or 32963" autocomplete="off">
 
               <button class="primary-btn" onclick="checkServiceArea()">CHECK SERVICE AREA</button>
               <button class="secondary-btn" onclick="resetMapView()">RESET MAP VIEW</button>
 
               <div id="serviceAreaResult" class="result-box">
-                Enter the prospective client's address, city, or ZIP code. The map highlights service ZIPs only and does not show customer pins.
+                Enter a city, town, or 5-digit ZIP code. Address searches are not supported.
               </div>
             </div>
 
@@ -2483,7 +2483,6 @@ function handleMapPointerDown(event) {
     startView: { ...currentMapViewBox },
     moved: false
   };
-  event.currentTarget.setPointerCapture(event.pointerId);
 }
 
 function handleMapPointerMove(event) {
@@ -2497,6 +2496,10 @@ function handleMapPointerMove(event) {
 
   if (!mapPointerState.moved && Math.hypot(deltaX, deltaY) < 4) {
     return;
+  }
+
+  if (!mapPointerState.moved && !svg.hasPointerCapture?.(event.pointerId)) {
+    svg.setPointerCapture(event.pointerId);
   }
 
   mapPointerState.moved = true;
@@ -2828,14 +2831,23 @@ function checkServiceArea() {
     setResult(
       resultBox,
       'review',
-      'Enter an address, city, or ZIP code before checking the service area.'
+      'Enter a city, town, or 5-digit ZIP code before checking the service area.'
     );
     return;
   }
 
-  const normalized = rawValue.toLowerCase();
-  const zip = extractZip(normalized);
+  const normalized = normalizeLocationSearch(rawValue);
+  const zip = extractZip(rawValue);
   const rule = getServiceRule(normalized, zip);
+
+  if (!zip && !getCityRule(normalized)) {
+    setResult(
+      resultBox,
+      'review',
+      'Search by city, town, or a 5-digit ZIP code only. Street-address searches are not supported.'
+    );
+    return;
+  }
 
   if (serviceLine === 'repair') {
     if (rule?.repair === 'approved') {
@@ -2903,8 +2915,23 @@ function getServiceRule(normalizedValue, zip) {
     return serviceZipRules[zip];
   }
 
-  const cityRule = serviceCityRules.find(rule => includesAny(normalizedValue, rule.tokens));
+  const cityRule = getCityRule(normalizedValue);
   return cityRule ? serviceZipRules[cityRule.zip] : null;
+}
+
+function getCityRule(normalizedValue) {
+  return serviceCityRules.find(rule =>
+    rule.tokens.some(token => normalizeLocationSearch(token) === normalizedValue)
+  ) || null;
+}
+
+function normalizeLocationSearch(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[.]/g, '')
+    .replace(/-/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function setResult(element, statusClass, message) {
@@ -2929,12 +2956,8 @@ function formatServiceStatus(status) {
 }
 
 function extractZip(value) {
-  const match = value.match(/\b\d{5}\b/);
+  const match = String(value || '').trim().match(/^\d{5}$/);
   return match ? match[0] : '';
-}
-
-function includesAny(value, tokens) {
-  return tokens.some(token => value.includes(token));
 }
 
 function escapeHtml(value) {
