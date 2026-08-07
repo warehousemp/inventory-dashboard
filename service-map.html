@@ -616,6 +616,30 @@
       text-anchor: middle;
     }
 
+    .place-map-label {
+      fill: #263746;
+      font-size: 10.5px;
+      font-weight: 750;
+      letter-spacing: 0.15px;
+      paint-order: stroke;
+      pointer-events: none;
+      stroke: rgba(255,255,255,0.96);
+      stroke-linejoin: round;
+      stroke-width: 3.5px;
+      text-anchor: middle;
+    }
+
+    .place-map-label.local {
+      fill: #586775;
+      font-size: 8.25px;
+      font-weight: 650;
+      stroke-width: 3px;
+    }
+
+    .place-map-label[data-visible="false"] {
+      display: none;
+    }
+
     .restriction-shape {
       cursor: pointer;
       fill: url(#restrictionHatch);
@@ -936,6 +960,13 @@
                 </span>
               </label>
               <label class="toggle-row">
+                <input id="placeLayerToggle" type="checkbox" checked onchange="toggleLayer('places')">
+                <span>
+                  <span class="row-title">City &amp; Town Names</span>
+                  <span class="row-detail">Major places at full view; smaller local names appear when zoomed in.</span>
+                </span>
+              </label>
+              <label class="toggle-row">
                 <input id="restrictionLayerToggle" type="checkbox" checked onchange="toggleLayer('restrictions')">
                 <span>
                   <span class="row-title">Manual Restrictions</span>
@@ -1036,6 +1067,13 @@
                   <td>No route</td>
                   <td>Approval required</td>
                   <td>Do not promise repair or route service without leadership approval.</td>
+                </tr>
+                <tr>
+                  <td>32949</td>
+                  <td>Grant-Valkaria</td>
+                  <td>No route</td>
+                  <td>Approval required</td>
+                  <td>Repair requires management review. Route service is not offered.</td>
                 </tr>
                 <tr>
                   <td>32950</td>
@@ -1157,7 +1195,10 @@ const SERVICE_MAP_ALLOWED_ROLES = [
   'WAREHOUSE',
   'ACCOUNTING',
   'SERVICE',
+  'READ_ONLY',
   'SALES',
+  'TECHS',
+  'PROJECTS'
 ];
 
 const SERVICE_MAP_ADMIN_ROLES = ['SYSTEM_ADMIN', 'ADMIN'];
@@ -1165,6 +1206,13 @@ const SERVICE_MAP_ADMIN_ROLES = ['SYSTEM_ADMIN', 'ADMIN'];
 const serviceZipRules = {
   '32948': {
     area: 'Fellsmere',
+    repair: 'review',
+    route: 'outside',
+    repairNote: 'Repair requires leadership approval before it is promised.',
+    routeNote: 'Route service is not offered for this ZIP.'
+  },
+  '32949': {
+    area: 'Grant-Valkaria',
     repair: 'review',
     route: 'outside',
     repairNote: 'Repair requires leadership approval before it is promised.',
@@ -1272,7 +1320,8 @@ const serviceZipRules = {
 
 const serviceCityRules = [
   { tokens: ['fellsmere'], zip: '32948' },
-  { tokens: ['malabar', 'grant-valkaria', 'grant valkaria', 'grant'], zip: '32950' },
+  { tokens: ['grant-valkaria', 'grant valkaria'], zip: '32949' },
+  { tokens: ['malabar', 'grant'], zip: '32950' },
   { tokens: ['melbourne beach'], zip: '32951' },
   { tokens: ['sebastian'], zip: '32958' },
   { tokens: ['vero central', 'vero beach', 'indian river shores', 'orchid'], zip: '32960' },
@@ -1325,6 +1374,40 @@ const roadLabelRules = [
 let regionalRoadGeoJson = null;
 let roadLoadPromise = null;
 let roadLoadFailed = false;
+
+const placeLayerConfig = [4, 5];
+const placeQueryBounds = roadQueryBounds;
+const placeLabelRules = {
+  'palm bay': { level: 'major', minZoom: 1, x: 0, y: 12 },
+  'melbourne beach': { level: 'major', minZoom: 1, x: 0, y: 12 },
+  'malabar': { level: 'major', minZoom: 1, x: 0, y: 30 },
+  'grant-valkaria': { level: 'major', minZoom: 1, x: 0, y: 12 },
+  'fellsmere': { level: 'major', minZoom: 1, x: 0, y: 12 },
+  'sebastian': { level: 'major', minZoom: 1, x: 0, y: 12 },
+  'vero beach': { level: 'major', minZoom: 1, x: 22, y: 14 },
+  'fort pierce': { level: 'major', minZoom: 1, x: 0, y: 13 },
+  'micco': { level: 'local', minZoom: 1.35, x: 0, y: 10 },
+  'roseland': { level: 'local', minZoom: 1.55, x: 0, y: 10 },
+  'wabasso': { level: 'local', minZoom: 1.35, x: -18, y: 10 },
+  'wabasso beach': { level: 'local', minZoom: 2.25, x: 12, y: 10 },
+  'gifford': { level: 'local', minZoom: 1.55, x: 0, y: 10 },
+  'winter beach': { level: 'local', minZoom: 1.55, x: 0, y: 10 },
+  'indian river shores': { level: 'local', minZoom: 1.55, x: 5, y: 10 },
+  'orchid': { level: 'local', minZoom: 1.55, x: 18, y: 10 },
+  'south beach': { level: 'local', minZoom: 1.75, x: 5, y: 10 },
+  'florida ridge': { level: 'local', minZoom: 1.75, x: -18, y: 10 },
+  'vero beach south': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
+  'west vero corridor': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
+  'vero lake estates': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
+  'lakewood park': { level: 'local', minZoom: 1.55, x: 0, y: 10 },
+  'fort pierce north': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
+  'white city': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
+  'indian river estates': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
+  'st. lucie village': { level: 'local', minZoom: 1.75, x: 0, y: 10 }
+};
+let regionalPlaceGeoJson = null;
+let placeLoadPromise = null;
+let placeLoadFailed = false;
 
 window.addEventListener('load', async () => {
   const hasAccess = await enforceServiceMapAccess();
@@ -1540,6 +1623,8 @@ function applyMapViewBox() {
   if (zoomLabel) {
     zoomLabel.textContent = `${Math.round(MAP_BASE_SIZE / currentMapViewBox.width * 100)}%`;
   }
+
+  updatePlaceLabelVisibility();
 }
 
 function constrainMapViewBox(view) {
@@ -1569,6 +1654,7 @@ function renderZipServiceMap() {
   const showRepair = Boolean(document.getElementById('repairLayerToggle')?.checked);
   const showReview = Boolean(document.getElementById('reviewLayerToggle')?.checked);
   const showStreets = Boolean(document.getElementById('streetLayerToggle')?.checked);
+  const showPlaces = Boolean(document.getElementById('placeLayerToggle')?.checked);
   const showRestrictions = Boolean(document.getElementById('restrictionLayerToggle')?.checked);
   const projection = createZipMapProjection(760, 760, 34);
   currentZipMapProjection = projection;
@@ -1602,6 +1688,9 @@ function renderZipServiceMap() {
   const roadOverlay = showStreets && regionalRoadGeoJson
     ? renderRoadOverlay(regionalRoadGeoJson, projection)
     : { casings: '', lines: '', labels: '' };
+  const placeLabels = showPlaces && regionalPlaceGeoJson
+    ? renderPlaceLabels(regionalPlaceGeoJson, projection)
+    : '';
   const restrictionOverlay = showRestrictions
     ? renderRestrictionOverlay(serviceMapRestrictions.filter(restriction => restriction.active), projection)
     : '';
@@ -1611,12 +1700,17 @@ function renderZipServiceMap() {
       ? 'Major roads and main streets are overlaid for orientation.'
       : (roadLoadFailed ? 'The optional street overlay is temporarily unavailable.' : 'Loading the optional street overlay...'))
     : 'The optional street overlay is hidden.';
+  const placeStatus = showPlaces
+    ? (regionalPlaceGeoJson
+      ? 'City and town names are shown; zoom in for smaller local names.'
+      : (placeLoadFailed ? 'The optional city and town label layer is temporarily unavailable.' : 'Loading city and town names...'))
+    : 'The city and town label layer is hidden.';
 
   mapContainer.innerHTML = `
     <div class="zip-map-shell">
       <div class="zip-map-title">Actual Service Area ZIP Boundaries</div>
       <div class="zip-map-subtitle">
-        Service ZIPs are shown in their real geographic locations. Use + / &minus; or the mouse wheel to zoom, then drag to move the map. ${roadStatus}
+        Service ZIPs are shown in their real geographic locations. Use + / &minus; or the mouse wheel to zoom, then drag to move the map. ${roadStatus} ${placeStatus}
       </div>
       <div class="zip-map-frame">
         <div class="map-navigation-controls" role="group" aria-label="Map zoom controls">
@@ -1650,12 +1744,13 @@ function renderZipServiceMap() {
           <g aria-label="Major streets">${roadOverlay.lines}</g>
           <g aria-hidden="true">${roadOverlay.labels}</g>
           <g aria-label="Manual service restrictions">${restrictionOverlay}</g>
+          <g aria-label="City and town names">${placeLabels}</g>
           <g aria-hidden="true">${labels}</g>
           <g aria-label="Restriction being drawn">${restrictionDraft}</g>
         </svg>
       </div>
       <div class="zip-map-note">
-        Sources: U.S. Census Bureau 2020 ZIP Code Tabulation Areas and TIGERweb Transportation. ZIP 34946 is repair service east of US-1 only; ZIP 34949 route service depends on the North/South Bridge area. Use the rules table for those location-specific decisions.
+        Sources: U.S. Census Bureau 2020 ZIP Code Tabulation Areas, 2025 incorporated places and Census Designated Places, and TIGERweb Transportation. ZIP 34946 is repair service east of US-1 only; ZIP 34949 route service depends on the North/South Bridge area. Use the rules table for those location-specific decisions.
       </div>
     </div>
   `;
@@ -1665,6 +1760,10 @@ function renderZipServiceMap() {
 
   if (showStreets && !regionalRoadGeoJson && !roadLoadPromise && !roadLoadFailed) {
     loadRoadOverlay();
+  }
+
+  if (showPlaces && !regionalPlaceGeoJson && !placeLoadPromise && !placeLoadFailed) {
+    loadPlaceLabels();
   }
 }
 
@@ -1747,6 +1846,100 @@ function loadRoadOverlay() {
       roadLoadPromise = null;
       renderZipServiceMap();
     });
+}
+
+function loadPlaceLabels() {
+  placeLoadPromise = Promise.all(
+    placeLayerConfig.map(async layerId => {
+      const parameters = new URLSearchParams({
+        where: "STATE='12'",
+        outFields: 'BASENAME,NAME,GEOID,CENTLAT,CENTLON',
+        geometry: placeQueryBounds,
+        geometryType: 'esriGeometryEnvelope',
+        inSR: '4326',
+        spatialRel: 'esriSpatialRelIntersects',
+        returnGeometry: 'false',
+        f: 'json'
+      });
+      const url = `https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Places_CouSub_ConCity_SubMCD/MapServer/${layerId}/query?${parameters}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Place label request failed with status ${response.status}.`);
+      }
+
+      const placeData = await response.json();
+
+      if (placeData.error) {
+        throw new Error(placeData.error.message || 'Place label data request failed.');
+      }
+
+      return (placeData.features || []).map(feature => ({
+        type: 'Feature',
+        properties: feature.attributes || {},
+        geometry: null
+      }));
+    })
+  )
+    .then(featureGroups => {
+      regionalPlaceGeoJson = {
+        type: 'FeatureCollection',
+        features: featureGroups.flat()
+      };
+    })
+    .catch(error => {
+      placeLoadFailed = true;
+      console.warn('Optional city and town labels unavailable:', error);
+    })
+    .finally(() => {
+      placeLoadPromise = null;
+      renderZipServiceMap();
+    });
+}
+
+function renderPlaceLabels(geoJson, projection) {
+  const currentZoom = MAP_BASE_SIZE / currentMapViewBox.width;
+
+  return (geoJson.features || []).map(feature => {
+    const name = String(feature.properties?.BASENAME || feature.properties?.NAME || '').trim();
+    const rule = placeLabelRules[name.toLowerCase()];
+    const longitude = Number(feature.properties?.CENTLON);
+    const latitude = Number(feature.properties?.CENTLAT);
+
+    if (!rule || !Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+      return '';
+    }
+
+    const [baseX, baseY] = projection([longitude, latitude]);
+    const x = baseX + (rule.x || 0);
+    const y = baseY + (rule.y || 0);
+
+    if (x < 18 || x > 742 || y < 18 || y > 742) {
+      return '';
+    }
+
+    return `
+      <text
+        class="place-map-label ${rule.level}"
+        data-place-label
+        data-min-zoom="${rule.minZoom}"
+        data-visible="${currentZoom + 0.001 >= rule.minZoom}"
+        x="${x.toFixed(1)}"
+        y="${y.toFixed(1)}"
+      >
+        <title>${escapeHtml(name)}</title>${escapeHtml(name)}
+      </text>
+    `;
+  }).join('');
+}
+
+function updatePlaceLabelVisibility() {
+  const currentZoom = MAP_BASE_SIZE / currentMapViewBox.width;
+
+  document.querySelectorAll('[data-place-label]').forEach(label => {
+    const minimumZoom = Number(label.dataset.minZoom || 1);
+    label.dataset.visible = String(currentZoom + 0.001 >= minimumZoom);
+  });
 }
 
 function renderRoadOverlay(geoJson, projection) {
