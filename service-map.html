@@ -1386,28 +1386,29 @@ const placeLabelRules = {
   'sebastian': { level: 'major', minZoom: 1, x: 0, y: 12 },
   'vero beach': { level: 'major', minZoom: 1, x: 22, y: 14 },
   'fort pierce': { level: 'major', minZoom: 1, x: 0, y: 13 },
-  'micco': { level: 'local', minZoom: 1.35, x: 0, y: 10 },
-  'roseland': { level: 'local', minZoom: 1.55, x: 0, y: 10 },
-  'wabasso': { level: 'local', minZoom: 1.35, x: -18, y: 10 },
-  'wabasso beach': { level: 'local', minZoom: 2.25, x: 12, y: 10 },
-  'gifford': { level: 'local', minZoom: 1.55, x: 0, y: 10 },
-  'winter beach': { level: 'local', minZoom: 1.55, x: 0, y: 10 },
-  'indian river shores': { level: 'local', minZoom: 1.55, x: 5, y: 10 },
-  'orchid': { level: 'local', minZoom: 1.55, x: 18, y: 10 },
-  'south beach': { level: 'local', minZoom: 1.75, x: 5, y: 10 },
-  'florida ridge': { level: 'local', minZoom: 1.75, x: -18, y: 10 },
-  'vero beach south': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
-  'west vero corridor': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
-  'vero lake estates': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
-  'lakewood park': { level: 'local', minZoom: 1.55, x: 0, y: 10 },
-  'fort pierce north': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
-  'white city': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
-  'indian river estates': { level: 'local', minZoom: 1.75, x: 0, y: 10 },
-  'st. lucie village': { level: 'local', minZoom: 1.75, x: 0, y: 10 }
+  'micco': { level: 'local', minZoom: 1.8, x: 0, y: 10 },
+  'roseland': { level: 'local', minZoom: 2.25, x: 0, y: 10 },
+  'wabasso': { level: 'local', minZoom: 2.35, x: -18, y: 10 },
+  'wabasso beach': { level: 'local', minZoom: 3.25, x: 12, y: 10 },
+  'gifford': { level: 'local', minZoom: 2.6, x: 0, y: 10 },
+  'winter beach': { level: 'local', minZoom: 2.75, x: 0, y: 10 },
+  'indian river shores': { level: 'local', minZoom: 3, x: 5, y: 10 },
+  'orchid': { level: 'local', minZoom: 3, x: 18, y: 10 },
+  'south beach': { level: 'local', minZoom: 3.1, x: 5, y: 10 },
+  'florida ridge': { level: 'local', minZoom: 2.85, x: -18, y: 10 },
+  'vero beach south': { level: 'local', minZoom: 3.1, x: 0, y: 10 },
+  'west vero corridor': { level: 'local', minZoom: 3.1, x: 0, y: 10 },
+  'vero lake estates': { level: 'local', minZoom: 3, x: 0, y: 10 },
+  'lakewood park': { level: 'local', minZoom: 2.6, x: 0, y: 10 },
+  'fort pierce north': { level: 'local', minZoom: 2.8, x: 0, y: 10 },
+  'white city': { level: 'local', minZoom: 2.8, x: 0, y: 10 },
+  'indian river estates': { level: 'local', minZoom: 3, x: 0, y: 10 },
+  'st. lucie village': { level: 'local', minZoom: 3, x: 0, y: 10 }
 };
 let regionalPlaceGeoJson = null;
 let placeLoadPromise = null;
 let placeLoadFailed = false;
+let placeLabelLayoutFrame = null;
 
 window.addEventListener('load', async () => {
   const hasAccess = await enforceServiceMapAccess();
@@ -1624,7 +1625,7 @@ function applyMapViewBox() {
     zoomLabel.textContent = `${Math.round(MAP_BASE_SIZE / currentMapViewBox.width * 100)}%`;
   }
 
-  updatePlaceLabelVisibility();
+  schedulePlaceLabelLayout();
 }
 
 function constrainMapViewBox(view) {
@@ -1757,6 +1758,7 @@ function renderZipServiceMap() {
 
   wireRestrictionDrawingToMap();
   wireMapNavigation();
+  schedulePlaceLabelLayout();
 
   if (showStreets && !regionalRoadGeoJson && !roadLoadPromise && !roadLoadFailed) {
     loadRoadOverlay();
@@ -1924,6 +1926,8 @@ function renderPlaceLabels(geoJson, projection) {
         data-place-label
         data-min-zoom="${rule.minZoom}"
         data-visible="${currentZoom + 0.001 >= rule.minZoom}"
+        data-base-x="${x.toFixed(1)}"
+        data-base-y="${y.toFixed(1)}"
         x="${x.toFixed(1)}"
         y="${y.toFixed(1)}"
       >
@@ -1933,13 +1937,125 @@ function renderPlaceLabels(geoJson, projection) {
   }).join('');
 }
 
-function updatePlaceLabelVisibility() {
-  const currentZoom = MAP_BASE_SIZE / currentMapViewBox.width;
+function schedulePlaceLabelLayout() {
+  if (placeLabelLayoutFrame) {
+    cancelAnimationFrame(placeLabelLayoutFrame);
+  }
 
-  document.querySelectorAll('[data-place-label]').forEach(label => {
+  placeLabelLayoutFrame = requestAnimationFrame(() => {
+    placeLabelLayoutFrame = null;
+    updatePlaceLabelVisibility();
+  });
+}
+
+function updatePlaceLabelVisibility() {
+  const svg = document.getElementById('serviceMapSvg');
+
+  if (!svg) {
+    return;
+  }
+
+  const currentZoom = MAP_BASE_SIZE / currentMapViewBox.width;
+  const svgRect = svg.getBoundingClientRect();
+  const horizontalUnitsPerPixel = currentMapViewBox.width / Math.max(svgRect.width, 1);
+  const verticalUnitsPerPixel = currentMapViewBox.height / Math.max(svgRect.height, 1);
+
+  document.querySelectorAll('.zip-map-label').forEach(label => {
+    label.style.fontSize = `${12 / currentZoom}px`;
+    label.style.strokeWidth = `${3 / currentZoom}px`;
+  });
+
+  const placeLabels = Array.from(document.querySelectorAll('[data-place-label]'));
+
+  placeLabels.forEach(label => {
     const minimumZoom = Number(label.dataset.minZoom || 1);
     label.dataset.visible = String(currentZoom + 0.001 >= minimumZoom);
+    label.setAttribute('x', label.dataset.baseX || label.getAttribute('x'));
+    label.setAttribute('y', label.dataset.baseY || label.getAttribute('y'));
+
+    const isLocal = label.classList.contains('local');
+    label.style.fontSize = `${(isLocal ? 7.5 : 10) / currentZoom}px`;
+    label.style.strokeWidth = `${(isLocal ? 2.6 : 3.2) / currentZoom}px`;
   });
+
+  const occupiedRectangles = Array.from(document.querySelectorAll('.zip-map-label'))
+    .map(label => label.getBoundingClientRect())
+    .filter(rect => rectangleIntersects(rect, svgRect))
+    .map(rect => expandRectangle(rect, 4));
+
+  const candidateOffsets = [
+    [0, 0], [0, -16], [0, 16], [20, 0], [-20, 0],
+    [20, -16], [-20, -16], [20, 16], [-20, 16],
+    [0, -30], [0, 30], [34, 0], [-34, 0]
+  ];
+
+  placeLabels
+    .sort((first, second) => {
+      const firstPriority = first.classList.contains('local') ? 1 : 0;
+      const secondPriority = second.classList.contains('local') ? 1 : 0;
+      return firstPriority - secondPriority
+        || Number(first.dataset.minZoom || 1) - Number(second.dataset.minZoom || 1)
+        || first.textContent.trim().localeCompare(second.textContent.trim());
+    })
+    .forEach(label => {
+      if (label.dataset.visible === 'false') {
+        return;
+      }
+
+      const baseX = Number(label.dataset.baseX);
+      const baseY = Number(label.dataset.baseY);
+      let placedRectangle = null;
+
+      for (const [screenOffsetX, screenOffsetY] of candidateOffsets) {
+        label.setAttribute('x', (baseX + screenOffsetX * horizontalUnitsPerPixel).toFixed(1));
+        label.setAttribute('y', (baseY + screenOffsetY * verticalUnitsPerPixel).toFixed(1));
+
+        const labelRect = label.getBoundingClientRect();
+        const insideMap = rectangleInside(labelRect, svgRect, 3);
+        const overlaps = occupiedRectangles.some(rect => rectanglesOverlap(labelRect, rect));
+
+        if (insideMap && !overlaps) {
+          placedRectangle = expandRectangle(labelRect, 4);
+          break;
+        }
+      }
+
+      if (placedRectangle) {
+        occupiedRectangles.push(placedRectangle);
+      } else {
+        label.dataset.visible = 'false';
+      }
+    });
+}
+
+function rectangleIntersects(first, second) {
+  return first.right > second.left
+    && first.left < second.right
+    && first.bottom > second.top
+    && first.top < second.bottom;
+}
+
+function rectangleInside(rectangle, container, margin = 0) {
+  return rectangle.left >= container.left + margin
+    && rectangle.right <= container.right - margin
+    && rectangle.top >= container.top + margin
+    && rectangle.bottom <= container.bottom - margin;
+}
+
+function rectanglesOverlap(first, second) {
+  return first.left < second.right
+    && first.right > second.left
+    && first.top < second.bottom
+    && first.bottom > second.top;
+}
+
+function expandRectangle(rectangle, padding) {
+  return {
+    left: rectangle.left - padding,
+    right: rectangle.right + padding,
+    top: rectangle.top - padding,
+    bottom: rectangle.bottom + padding
+  };
 }
 
 function renderRoadOverlay(geoJson, projection) {
