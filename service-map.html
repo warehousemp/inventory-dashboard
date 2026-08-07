@@ -502,6 +502,47 @@
       text-anchor: middle;
     }
 
+    .road-line,
+    .road-casing {
+      fill: none;
+      pointer-events: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .road-casing.primary {
+      stroke: rgba(255,255,255,0.9);
+      stroke-width: 4.4;
+    }
+
+    .road-casing.secondary {
+      stroke: rgba(255,255,255,0.78);
+      stroke-width: 2.8;
+    }
+
+    .road-line.primary {
+      stroke: #596673;
+      stroke-width: 2.3;
+    }
+
+    .road-line.secondary {
+      stroke: #8d99a5;
+      stroke-width: 1.25;
+    }
+
+    .road-map-label {
+      fill: #4b5563;
+      font-size: 9px;
+      font-weight: 700;
+      paint-order: stroke;
+      pointer-events: none;
+      stroke: rgba(255,255,255,0.96);
+      stroke-linejoin: round;
+      stroke-width: 3px;
+      text-anchor: middle;
+    }
+
     .zip-map-note {
       color: #667085;
       font-size: 11px;
@@ -677,6 +718,13 @@
                 <span>
                   <span class="row-title">Management Review</span>
                   <span class="row-detail">ZIPs requiring route, repair, bridge, or boundary approval.</span>
+                </span>
+              </label>
+              <label class="toggle-row">
+                <input id="streetLayerToggle" type="checkbox" checked onchange="toggleLayer('streets')">
+                <span>
+                  <span class="row-title">Major Streets</span>
+                  <span class="row-detail">Primary roads, main streets, and causeways for orientation.</span>
                 </span>
               </label>
             </div>
@@ -995,6 +1043,21 @@ const zipLabelOffsets = {
   '34949': { x: 0, y: 9 }
 };
 
+const roadLayerConfig = [
+  { id: 2, roadClass: 'primary' },
+  { id: 6, roadClass: 'secondary' }
+];
+const roadQueryBounds = '-80.93,27.32,-80.20,28.13';
+const roadLabelRules = [
+  { label: 'I-95', matches: road => road.name === 'I- 95' },
+  { label: 'US-1', matches: road => road.routeType === 'U' && road.baseName === '1' },
+  { label: 'A1A', matches: road => road.baseName === 'A1A' },
+  { label: 'SR-60', matches: road => road.routeType === 'S' && road.baseName === '60' }
+];
+let regionalRoadGeoJson = null;
+let roadLoadPromise = null;
+let roadLoadFailed = false;
+
 window.addEventListener('load', async () => {
   const hasAccess = await enforceServiceMapAccess();
 
@@ -1135,7 +1198,7 @@ function toggleLayer(layerName) {
 }
 
 function resetMapView() {
-  ['cleaningLayerToggle', 'repairLayerToggle', 'reviewLayerToggle'].forEach(id => {
+  ['cleaningLayerToggle', 'repairLayerToggle', 'reviewLayerToggle', 'streetLayerToggle'].forEach(id => {
     const toggle = document.getElementById(id);
     if (toggle) {
       toggle.checked = true;
@@ -1155,6 +1218,7 @@ function renderZipServiceMap() {
   const showCleaning = Boolean(document.getElementById('cleaningLayerToggle')?.checked);
   const showRepair = Boolean(document.getElementById('repairLayerToggle')?.checked);
   const showReview = Boolean(document.getElementById('reviewLayerToggle')?.checked);
+  const showStreets = Boolean(document.getElementById('streetLayerToggle')?.checked);
   const projection = createZipMapProjection(760, 760, 34);
 
   const contextShapes = regionalZipGeoJson.features
@@ -1183,11 +1247,20 @@ function renderZipServiceMap() {
     .map(feature => renderZipLabel(feature, projection))
     .join('');
 
+  const roadOverlay = showStreets && regionalRoadGeoJson
+    ? renderRoadOverlay(regionalRoadGeoJson, projection)
+    : { casings: '', lines: '', labels: '' };
+  const roadStatus = showStreets
+    ? (regionalRoadGeoJson
+      ? 'Major roads and main streets are overlaid for orientation.'
+      : (roadLoadFailed ? 'The optional street overlay is temporarily unavailable.' : 'Loading the optional street overlay...'))
+    : 'The optional street overlay is hidden.';
+
   mapContainer.innerHTML = `
     <div class="zip-map-shell">
       <div class="zip-map-title">Actual Service Area ZIP Boundaries</div>
       <div class="zip-map-subtitle">
-        Service ZIPs are shown in their real geographic locations. Nearby ZIP borders are included only for orientation.
+        Service ZIPs are shown in their real geographic locations. ${roadStatus}
       </div>
       <div class="zip-map-frame">
         <svg
@@ -1205,14 +1278,21 @@ function renderZipServiceMap() {
           <rect width="760" height="760" fill="#edf6fb"></rect>
           <g aria-label="Nearby ZIP borders">${contextShapes}</g>
           <g aria-label="Molinari service ZIPs">${serviceShapes}</g>
+          <g aria-hidden="true">${roadOverlay.casings}</g>
+          <g aria-label="Major streets">${roadOverlay.lines}</g>
+          <g aria-hidden="true">${roadOverlay.labels}</g>
           <g aria-hidden="true">${labels}</g>
         </svg>
       </div>
       <div class="zip-map-note">
-        Source: U.S. Census Bureau 2020 ZIP Code Tabulation Areas. ZIP 34946 is repair service east of US-1 only; ZIP 34949 route service depends on the North/South Bridge area. Use the rules table for those location-specific decisions.
+        Sources: U.S. Census Bureau 2020 ZIP Code Tabulation Areas and TIGERweb Transportation. ZIP 34946 is repair service east of US-1 only; ZIP 34949 route service depends on the North/South Bridge area. Use the rules table for those location-specific decisions.
       </div>
     </div>
   `;
+
+  if (showStreets && !regionalRoadGeoJson && !roadLoadPromise && !roadLoadFailed) {
+    loadRoadOverlay();
+  }
 }
 
 function createZipMapProjection(width, height, padding) {
@@ -1239,6 +1319,165 @@ function createZipMapProjection(width, height, padding) {
     width / 2 + (longitude - centerLongitude) * longitudeCorrection * scale,
     height / 2 - (latitude - centerLatitude) * scale
   ];
+}
+
+function loadRoadOverlay() {
+  roadLoadPromise = Promise.all(
+    roadLayerConfig.map(async layer => {
+      const parameters = new URLSearchParams({
+        where: '1=1',
+        outFields: 'NAME,BASENAME,RTTYP,MTFCC',
+        geometry: roadQueryBounds,
+        geometryType: 'esriGeometryEnvelope',
+        inSR: '4326',
+        spatialRel: 'esriSpatialRelIntersects',
+        returnGeometry: 'true',
+        outSR: '4326',
+        maxAllowableOffset: '0.00025',
+        f: 'geojson'
+      });
+      const url = `https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/${layer.id}/query?${parameters}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Street data request failed with status ${response.status}.`);
+      }
+
+      const geoJson = await response.json();
+      return (geoJson.features || []).map(feature => ({
+        ...feature,
+        properties: {
+          ...feature.properties,
+          roadClass: layer.roadClass
+        }
+      }));
+    })
+  )
+    .then(featureGroups => {
+      regionalRoadGeoJson = {
+        type: 'FeatureCollection',
+        features: featureGroups.flat()
+      };
+    })
+    .catch(error => {
+      roadLoadFailed = true;
+      console.warn('Optional street overlay unavailable:', error);
+    })
+    .finally(() => {
+      roadLoadPromise = null;
+      renderZipServiceMap();
+    });
+}
+
+function renderRoadOverlay(geoJson, projection) {
+  const roadFeatures = (geoJson.features || []).map(feature => ({
+    feature,
+    road: {
+      name: String(feature.properties?.NAME || ''),
+      baseName: String(feature.properties?.BASENAME || ''),
+      routeType: String(feature.properties?.RTTYP || ''),
+      roadClass: feature.properties?.roadClass === 'primary' ? 'primary' : 'secondary'
+    },
+    lines: getRoadLines(feature.geometry)
+  }));
+  const pathRecords = roadFeatures.flatMap(({ road, lines }) =>
+    lines.map(line => ({ road, line, pathData: renderRoadLinePath(line, projection) }))
+  ).filter(record => record.pathData);
+  const casings = pathRecords
+    .map(record => `<path class="road-casing ${record.road.roadClass}" d="${record.pathData}"></path>`)
+    .join('');
+  const lines = pathRecords
+    .map(record => `<path class="road-line ${record.road.roadClass}" d="${record.pathData}"><title>${escapeHtml(record.road.name || 'Road')}</title></path>`)
+    .join('');
+  const labels = roadLabelRules.map(rule => {
+    const candidates = pathRecords.filter(record => rule.matches(record.road));
+
+    if (!candidates.length) {
+      return '';
+    }
+
+    const visibleCandidates = candidates.map(record => {
+      const midpoint = getLineMidpoint(record.line);
+      const [x, y] = projection(midpoint);
+      return { record, x, y };
+    }).filter(candidate => candidate.x >= 24 && candidate.x <= 736 && candidate.y >= 24 && candidate.y <= 736);
+
+    if (!visibleCandidates.length) {
+      return '';
+    }
+
+    const selected = visibleCandidates
+      .sort((a, b) => getLineLength(b.record.line) - getLineLength(a.record.line))[0];
+    const { x, y } = selected;
+    return `<text class="road-map-label" x="${x.toFixed(1)}" y="${y.toFixed(1)}">${escapeHtml(rule.label)}</text>`;
+  }).join('');
+
+  return { casings, lines, labels };
+}
+
+function getRoadLines(geometry) {
+  if (!geometry) {
+    return [];
+  }
+
+  if (geometry.type === 'LineString') {
+    return [geometry.coordinates];
+  }
+
+  if (geometry.type === 'MultiLineString') {
+    return geometry.coordinates;
+  }
+
+  return [];
+}
+
+function renderRoadLinePath(line, projection) {
+  return line
+    .filter(point => Array.isArray(point) && Number.isFinite(point[0]) && Number.isFinite(point[1]))
+    .map((point, index) => {
+      const [x, y] = projection(point);
+      return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join('');
+}
+
+function getLineLength(line) {
+  let length = 0;
+
+  for (let index = 1; index < line.length; index += 1) {
+    const longitudeDistance = line[index][0] - line[index - 1][0];
+    const latitudeDistance = line[index][1] - line[index - 1][1];
+    length += Math.hypot(longitudeDistance, latitudeDistance);
+  }
+
+  return length;
+}
+
+function getLineMidpoint(line) {
+  if (!line.length) {
+    return [0, 0];
+  }
+
+  const targetLength = getLineLength(line) / 2;
+  let travelled = 0;
+
+  for (let index = 1; index < line.length; index += 1) {
+    const start = line[index - 1];
+    const end = line[index];
+    const segmentLength = Math.hypot(end[0] - start[0], end[1] - start[1]);
+
+    if (travelled + segmentLength >= targetLength && segmentLength > 0) {
+      const ratio = (targetLength - travelled) / segmentLength;
+      return [
+        start[0] + (end[0] - start[0]) * ratio,
+        start[1] + (end[1] - start[1]) * ratio
+      ];
+    }
+
+    travelled += segmentLength;
+  }
+
+  return line[line.length - 1];
 }
 
 function getGeometryPoints(geometry) {
