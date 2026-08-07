@@ -9,7 +9,6 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="shared-navigation.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Molinari Service Map">
@@ -202,9 +201,10 @@
 
     #serviceMap {
       width: 100%;
-      height: 680px;
-      min-height: 520px;
-      background: #dbeafe;
+      min-height: 680px;
+      background: #edf6fb;
+      overflow: auto;
+      padding: 18px;
     }
 
     .control-stack {
@@ -408,10 +408,111 @@
       display: none !important;
     }
 
-    .leaflet-control-layers,
-    .leaflet-bar {
+    .zip-map-shell {
+      min-width: 720px;
+    }
+
+    .zip-map-title {
+      color: var(--header);
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .zip-map-subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      margin-bottom: 14px;
+    }
+
+    .zip-map-grid {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(72px, 1fr));
+      grid-template-rows: repeat(11, 58px);
+      gap: 6px;
+      position: relative;
+    }
+
+    .zip-cell {
+      align-items: center;
+      background: rgba(255,255,255,0.58);
+      border: 2px solid #d5e2ee;
       border-radius: 8px;
-      overflow: hidden;
+      color: #475467;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+      padding: 6px;
+      text-align: center;
+    }
+
+    .zip-cell.service-approved-route {
+      background: rgba(26,163,176,0.28);
+      border-color: #1aa3b0;
+      color: #0b3c5d;
+    }
+
+    .zip-cell.service-repair-only {
+      background: rgba(11,60,93,0.18);
+      border-color: #0b3c5d;
+      color: #0b3c5d;
+    }
+
+    .zip-cell.service-review {
+      background: rgba(245,158,11,0.24);
+      border-color: #f59e0b;
+      color: #7c2d12;
+      border-style: dashed;
+    }
+
+    .zip-cell.service-hidden {
+      display: none;
+    }
+
+    .zip-code {
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 1.1;
+    }
+
+    .zip-area {
+      font-size: 11px;
+      line-height: 1.15;
+      margin-top: 3px;
+    }
+
+    .zip-status {
+      font-size: 10px;
+      font-weight: bold;
+      line-height: 1.15;
+      margin-top: 4px;
+      text-transform: uppercase;
+    }
+
+    .map-water-label,
+    .map-road-label {
+      align-items: center;
+      border-radius: 8px;
+      color: #667085;
+      display: flex;
+      font-size: 11px;
+      font-weight: bold;
+      justify-content: center;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .map-water-label {
+      background: rgba(125,211,252,0.28);
+      border: 1px solid rgba(14,116,144,0.18);
+      color: #0e7490;
+    }
+
+    .map-road-label {
+      background: rgba(255,255,255,0.72);
+      border: 1px dashed #94a3b8;
     }
 
     @media print {
@@ -443,7 +544,7 @@
       }
 
       #serviceMap {
-        height: 9.2in;
+        min-height: 9.2in;
       }
     }
 
@@ -453,7 +554,7 @@
       }
 
       #serviceMap {
-        height: 540px;
+        min-height: 540px;
       }
     }
 
@@ -488,7 +589,6 @@
       }
 
       #serviceMap {
-        height: 460px;
         min-height: 420px;
       }
 
@@ -558,7 +658,7 @@
               <button class="secondary-btn" onclick="resetMapView()">RESET MAP VIEW</button>
 
               <div id="serviceAreaResult" class="result-box">
-                Enter the prospective client's address, city, or ZIP code. This page does not show customer pins.
+                Enter the prospective client's address, city, or ZIP code. The map highlights service ZIPs only and does not show customer pins.
               </div>
             </div>
 
@@ -568,21 +668,21 @@
                 <input id="cleaningLayerToggle" type="checkbox" checked onchange="toggleLayer('cleaning')">
                 <span>
                   <span class="row-title">Pool Cleaning</span>
-                  <span class="row-detail">Barrier island and mainland east of US-1. Review exact edge cases.</span>
+                  <span class="row-detail">Route-approved ZIP boundaries only.</span>
                 </span>
               </label>
               <label class="toggle-row">
                 <input id="repairLayerToggle" type="checkbox" checked onchange="toggleLayer('repair')">
                 <span>
                   <span class="row-title">Pool EQ Repair</span>
-                  <span class="row-detail">All of Indian River County.</span>
+                  <span class="row-detail">Repair-approved ZIP boundaries only.</span>
                 </span>
               </label>
               <label class="toggle-row">
                 <input id="reviewLayerToggle" type="checkbox" checked onchange="toggleLayer('review')">
                 <span>
                   <span class="row-title">Management Review</span>
-                  <span class="row-detail">Coastal extensions and boundary questions.</span>
+                  <span class="row-detail">ZIPs requiring route, repair, bridge, or boundary approval.</span>
                 </span>
               </label>
             </div>
@@ -593,14 +693,14 @@
                 <span class="legend-swatch" style="background:#1aa3b0;"></span>
                 <span>
                   <span class="row-title">Pool Cleaning</span>
-                  <span class="row-detail">Confirm route capacity before promising service.</span>
+                  <span class="row-detail">Route-approved ZIPs. Confirm route capacity before promising service.</span>
                 </span>
               </div>
               <div class="legend-row">
                 <span class="legend-swatch" style="background:#0b3c5d;"></span>
                 <span>
                   <span class="row-title">Pool EQ Repair</span>
-                  <span class="row-detail">Indian River County service territory.</span>
+                  <span class="row-detail">Repair-approved ZIPs. Confirm normal scheduling capacity.</span>
                 </span>
               </div>
               <div class="legend-row">
@@ -621,6 +721,7 @@
             <table>
               <thead>
                 <tr>
+                  <th>ZIP</th>
                   <th>Area</th>
                   <th>Pool Cleaning</th>
                   <th>Pool EQ Repair</th>
@@ -629,34 +730,109 @@
               </thead>
               <tbody>
                 <tr>
-                  <td>Indian River County - barrier island</td>
+                  <td>32948</td>
+                  <td>Fellsmere</td>
+                  <td>No route</td>
+                  <td>Approval required</td>
+                  <td>Do not promise repair or route service without leadership approval.</td>
+                </tr>
+                <tr>
+                  <td>32950</td>
+                  <td>Malabar to Grant</td>
+                  <td>No route</td>
+                  <td>Approval required</td>
+                  <td>Do not promise repair or route service without leadership approval.</td>
+                </tr>
+                <tr>
+                  <td>32951</td>
+                  <td>Melbourne Beachside</td>
+                  <td>Management review</td>
+                  <td>In service area</td>
+                  <td>Repair can proceed. Route service requires approval.</td>
+                </tr>
+                <tr>
+                  <td>32958</td>
+                  <td>Sebastian</td>
                   <td>In service area</td>
                   <td>In service area</td>
                   <td>Proceed, then confirm route availability.</td>
                 </tr>
                 <tr>
-                  <td>Indian River County - mainland east of US-1</td>
+                  <td>32960</td>
+                  <td>Vero Central</td>
                   <td>In service area</td>
                   <td>In service area</td>
                   <td>Proceed, then confirm route availability.</td>
                 </tr>
                 <tr>
-                  <td>Indian River County - west of US-1</td>
+                  <td>32962</td>
+                  <td>Vero South</td>
+                  <td>In service area</td>
+                  <td>In service area</td>
+                  <td>Proceed, then confirm route availability.</td>
+                </tr>
+                <tr>
+                  <td>32963</td>
+                  <td>Vero Beachside</td>
+                  <td>In service area</td>
+                  <td>In service area</td>
+                  <td>Proceed, then confirm route availability.</td>
+                </tr>
+                <tr>
+                  <td>32966</td>
+                  <td>Vero West / Citrus Ridge</td>
+                  <td>In service area</td>
+                  <td>In service area</td>
+                  <td>Proceed, then confirm route availability.</td>
+                </tr>
+                <tr>
+                  <td>32967</td>
+                  <td>Vero North</td>
+                  <td>In service area</td>
+                  <td>In service area</td>
+                  <td>Proceed, then confirm route availability.</td>
+                </tr>
+                <tr>
+                  <td>32968</td>
+                  <td>Vero West</td>
+                  <td>In service area</td>
+                  <td>In service area</td>
+                  <td>Proceed, then confirm route availability.</td>
+                </tr>
+                <tr>
+                  <td>32970</td>
+                  <td>Wabasso</td>
+                  <td>In service area</td>
+                  <td>In service area</td>
+                  <td>Proceed, then confirm route availability.</td>
+                </tr>
+                <tr>
+                  <td>32976</td>
+                  <td>Micco</td>
                   <td>Management review</td>
                   <td>In service area</td>
-                  <td>Repair can proceed. Cleaning requires approval.</td>
+                  <td>Repair can proceed. Route service requires approval.</td>
                 </tr>
                 <tr>
-                  <td>Coastal extension south toward Fort Pierce</td>
-                  <td>Management review</td>
-                  <td>Management review</td>
-                  <td>Do not promise service without leadership approval.</td>
+                  <td>34946</td>
+                  <td>St. Lucie North, east of US-1</td>
+                  <td>No route</td>
+                  <td>In service area</td>
+                  <td>Repair can proceed. Route service is not offered.</td>
                 </tr>
                 <tr>
-                  <td>Outside shown territory</td>
-                  <td>Outside service area</td>
-                  <td>Outside service area</td>
-                  <td>Politely decline unless leadership approves an exception.</td>
+                  <td>34949</td>
+                  <td>Fort Pierce Beachside</td>
+                  <td>Management review north bridge / no route south bridge</td>
+                  <td>In service area</td>
+                  <td>Repair can proceed. Route service depends on bridge/location approval.</td>
+                </tr>
+                <tr>
+                  <td>34951</td>
+                  <td>Fort Pierce, Portofino Shores</td>
+                  <td>Management review</td>
+                  <td>In service area</td>
+                  <td>Repair can proceed. Route service requires approval.</td>
                 </tr>
               </tbody>
             </table>
@@ -666,7 +842,6 @@
     </main>
   </div>
 
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="shared-navigation.js"></script>
 
 <script>
@@ -687,155 +862,151 @@ const SERVICE_MAP_ALLOWED_ROLES = [
   'PROJECTS'
 ];
 
-const indianRiverZips = new Set([
-  '32948',
-  '32957',
-  '32958',
-  '32960',
-  '32961',
-  '32962',
-  '32963',
-  '32964',
-  '32965',
-  '32966',
-  '32967',
-  '32968',
-  '32969',
-  '32970',
-  '32971',
-  '32976',
-  '32978'
-]);
+const serviceZipRules = {
+  '32948': {
+    area: 'Fellsmere',
+    repair: 'review',
+    route: 'outside',
+    repairNote: 'Repair requires leadership approval before it is promised.',
+    routeNote: 'Route service is not offered for this ZIP.'
+  },
+  '32950': {
+    area: 'Malabar to Grant',
+    repair: 'review',
+    route: 'outside',
+    repairNote: 'Repair requires leadership approval before it is promised.',
+    routeNote: 'Route service is not offered for this ZIP.'
+  },
+  '32951': {
+    area: 'Melbourne Beachside',
+    repair: 'approved',
+    route: 'review',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service requires leadership approval before it is promised.'
+  },
+  '32958': {
+    area: 'Sebastian',
+    repair: 'approved',
+    route: 'approved',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service is approved for this ZIP.'
+  },
+  '32960': {
+    area: 'Vero Central',
+    repair: 'approved',
+    route: 'approved',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service is approved for this ZIP.'
+  },
+  '32962': {
+    area: 'Vero South',
+    repair: 'approved',
+    route: 'approved',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service is approved for this ZIP.'
+  },
+  '32963': {
+    area: 'Vero Beachside',
+    repair: 'approved',
+    route: 'approved',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service is approved for this ZIP.'
+  },
+  '32966': {
+    area: 'Vero West / Citrus Ridge',
+    repair: 'approved',
+    route: 'approved',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service is approved for this ZIP.'
+  },
+  '32967': {
+    area: 'Vero North',
+    repair: 'approved',
+    route: 'approved',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service is approved for this ZIP.'
+  },
+  '32968': {
+    area: 'Vero West',
+    repair: 'approved',
+    route: 'approved',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service is approved for this ZIP.'
+  },
+  '32970': {
+    area: 'Wabasso',
+    repair: 'approved',
+    route: 'approved',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service is approved for this ZIP.'
+  },
+  '32976': {
+    area: 'Micco',
+    repair: 'approved',
+    route: 'review',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service requires leadership approval before it is promised.'
+  },
+  '34946': {
+    area: 'St. Lucie North, east of US-1',
+    repair: 'approved',
+    route: 'outside',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service is not offered for this ZIP.'
+  },
+  '34949': {
+    area: 'Fort Pierce Beachside',
+    repair: 'approved',
+    route: 'review',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service needs approval for the North Bridge area. South Bridge is no route service.'
+  },
+  '34951': {
+    area: 'Fort Pierce, Portofino Shores',
+    repair: 'approved',
+    route: 'review',
+    repairNote: 'Repair is approved for this ZIP.',
+    routeNote: 'Route service requires leadership approval before it is promised.'
+  }
+};
 
-const cleaningCoreZips = new Set([
-  '32960',
-  '32962',
-  '32963',
-  '32967'
-]);
-
-const reviewZips = new Set([
-  '34945',
-  '34946',
-  '34947',
-  '34949',
-  '34950',
-  '34951',
-  '34981',
-  '34982'
-]);
-
-const cleaningCityTokens = [
-  'vero beach',
-  'indian river shores',
-  'orchid',
-  'wabasso beach'
-];
-
-const repairCityTokens = [
-  'vero beach',
-  'sebastian',
-  'fellsmere',
-  'orchid',
-  'indian river shores',
-  'wabasso',
-  'winter beach',
-  'gifford',
-  'roseland'
-];
-
-const reviewCityTokens = [
-  'fort pierce',
-  'floridana beach'
+const serviceCityRules = [
+  { tokens: ['fellsmere'], zip: '32948' },
+  { tokens: ['malabar', 'grant-valkaria', 'grant valkaria', 'grant'], zip: '32950' },
+  { tokens: ['melbourne beach'], zip: '32951' },
+  { tokens: ['sebastian'], zip: '32958' },
+  { tokens: ['vero central', 'vero beach', 'indian river shores', 'orchid'], zip: '32960' },
+  { tokens: ['vero south'], zip: '32962' },
+  { tokens: ['vero beachside'], zip: '32963' },
+  { tokens: ['citrus ridge'], zip: '32966' },
+  { tokens: ['vero north', 'gifford', 'winter beach'], zip: '32967' },
+  { tokens: ['vero west'], zip: '32968' },
+  { tokens: ['wabasso', 'wabasso beach'], zip: '32970' },
+  { tokens: ['micco'], zip: '32976' },
+  { tokens: ['st lucie north', 'st. lucie north'], zip: '34946' },
+  { tokens: ['fort pierce beachside', 'fort pierce beach'], zip: '34949' },
+  { tokens: ['portofino shores', 'portifino shores'], zip: '34951' }
 ];
 
 let currentServiceMapProfile = null;
 let currentServiceMapSession = null;
-let serviceMap = null;
-
-const mapLayers = {
-  cleaning: [],
-  repair: [],
-  review: []
-};
-
-const zoneStyles = {
-  cleaning: {
-    color: '#1aa3b0',
-    fillColor: '#1aa3b0',
-    fillOpacity: 0.28,
-    weight: 2
-  },
-  repair: {
-    color: '#0b3c5d',
-    fillColor: '#0b3c5d',
-    fillOpacity: 0.18,
-    weight: 2
-  },
-  review: {
-    color: '#f59e0b',
-    fillColor: '#f59e0b',
-    fillOpacity: 0.22,
-    weight: 2,
-    dashArray: '7, 7'
-  }
-};
-
-const serviceZones = {
-  repairIndianRiver: {
-    layer: 'repair',
-    name: 'Pool EQ Repair - Indian River County',
-    detail: 'All of Indian River County. Confirm scheduling capacity before booking.',
-    coordinates: [
-      [27.867, -80.878],
-      [27.867, -80.445],
-      [27.845, -80.397],
-      [27.755, -80.371],
-      [27.642, -80.332],
-      [27.558, -80.318],
-      [27.558, -80.878]
-    ]
-  },
-  cleaningBarrierIsland: {
-    layer: 'cleaning',
-    name: 'Pool Cleaning - Barrier Island',
-    detail: 'Core cleaning territory. Confirm route availability before promising service.',
-    coordinates: [
-      [27.852, -80.449],
-      [27.854, -80.377],
-      [27.762, -80.344],
-      [27.604, -80.304],
-      [27.552, -80.317],
-      [27.563, -80.365],
-      [27.735, -80.412]
-    ]
-  },
-  cleaningEastUs1: {
-    layer: 'cleaning',
-    name: 'Pool Cleaning - Mainland East of US-1',
-    detail: 'Mainland cleaning territory east of US-1. Edge cases should be reviewed.',
-    coordinates: [
-      [27.842, -80.498],
-      [27.838, -80.433],
-      [27.730, -80.402],
-      [27.560, -80.368],
-      [27.560, -80.427],
-      [27.705, -80.462]
-    ]
-  },
-  coastalReview: {
-    layer: 'review',
-    name: 'Management Review - Coastal Extension',
-    detail: 'Coastal area south toward Fort Pierce. Do not promise service without approval.',
-    coordinates: [
-      [27.558, -80.365],
-      [27.558, -80.314],
-      [27.425, -80.276],
-      [27.394, -80.315],
-      [27.418, -80.360]
-    ]
-  }
-};
+const zipMapZones = [
+  { zip: '32950', row: 1, col: 2, rowSpan: 2, colSpan: 2 },
+  { zip: '32951', row: 1, col: 6, rowSpan: 2, colSpan: 1 },
+  { zip: '32976', row: 3, col: 5, rowSpan: 1, colSpan: 2 },
+  { zip: '32948', row: 4, col: 1, rowSpan: 2, colSpan: 3 },
+  { zip: '32958', row: 4, col: 5, rowSpan: 1, colSpan: 2 },
+  { zip: '32970', row: 5, col: 5, rowSpan: 1, colSpan: 2 },
+  { zip: '32967', row: 6, col: 4, rowSpan: 1, colSpan: 2 },
+  { zip: '32963', row: 6, col: 6, rowSpan: 2, colSpan: 1 },
+  { zip: '32966', row: 6, col: 2, rowSpan: 1, colSpan: 2 },
+  { zip: '32960', row: 7, col: 4, rowSpan: 1, colSpan: 2 },
+  { zip: '32968', row: 8, col: 2, rowSpan: 1, colSpan: 2 },
+  { zip: '32962', row: 8, col: 4, rowSpan: 1, colSpan: 2 },
+  { zip: '34951', row: 9, col: 3, rowSpan: 1, colSpan: 2 },
+  { zip: '34946', row: 9, col: 5, rowSpan: 1, colSpan: 1 },
+  { zip: '34949', row: 9, col: 6, rowSpan: 2, colSpan: 1 }
+];
 
 window.addEventListener('load', async () => {
   const hasAccess = await enforceServiceMapAccess();
@@ -969,85 +1140,128 @@ async function appLogout() {
 }
 
 function initializeServiceMap() {
-  if (serviceMap || typeof L === 'undefined') {
-    return;
-  }
-
-  serviceMap = L.map('serviceMap', {
-    scrollWheelZoom: true
-  }).setView([27.650, -80.480], 10);
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(serviceMap);
-
-  Object.values(serviceZones).forEach(zone => {
-    const polygon = L.polygon(zone.coordinates, zoneStyles[zone.layer])
-      .bindPopup(`<strong>${escapeHtml(zone.name)}</strong><br>${escapeHtml(zone.detail)}`);
-
-    polygon.addTo(serviceMap);
-    mapLayers[zone.layer].push(polygon);
-  });
-
-  addPlaceLabels();
-  resetMapView();
-}
-
-function addPlaceLabels() {
-  const labels = [
-    { name: 'Sebastian', coords: [27.816, -80.470] },
-    { name: 'Wabasso', coords: [27.750, -80.436] },
-    { name: 'Vero Beach', coords: [27.638, -80.397] },
-    { name: 'Indian River Shores', coords: [27.704, -80.362] },
-    { name: 'Fort Pierce Review Area', coords: [27.448, -80.325] }
-  ];
-
-  labels.forEach(label => {
-    L.marker(label.coords, {
-      interactive: false,
-      icon: L.divIcon({
-        className: 'service-place-label',
-        html: `<span style="background:white;border:1px solid #cbd5e1;border-radius:6px;padding:3px 6px;font-size:12px;font-weight:bold;color:#0b3c5d;box-shadow:0 2px 6px rgba(15,23,42,0.14);">${escapeHtml(label.name)}</span>`,
-        iconSize: [120, 24],
-        iconAnchor: [60, 12]
-      })
-    }).addTo(serviceMap);
-  });
+  renderZipServiceMap();
 }
 
 function toggleLayer(layerName) {
-  if (!serviceMap || !mapLayers[layerName]) {
-    return;
-  }
-
-  const toggle = document.getElementById(`${layerName}LayerToggle`);
-  const shouldShow = Boolean(toggle?.checked);
-
-  mapLayers[layerName].forEach(layer => {
-    if (shouldShow) {
-      layer.addTo(serviceMap);
-    } else {
-      serviceMap.removeLayer(layer);
-    }
-  });
+  renderZipServiceMap();
 }
 
 function resetMapView() {
-  if (!serviceMap) {
+  const mapContainer = document.getElementById('serviceMap');
+
+  if (!mapContainer) {
     return;
   }
 
-  const allLayers = [
-    ...mapLayers.cleaning,
-    ...mapLayers.repair,
-    ...mapLayers.review
-  ];
-
-  const bounds = L.featureGroup(allLayers).getBounds();
-  serviceMap.fitBounds(bounds, {
-    padding: [24, 24]
+  mapContainer.scrollTo({
+    left: 0,
+    top: 0,
+    behavior: 'smooth'
   });
+}
+
+function renderZipServiceMap() {
+  const mapContainer = document.getElementById('serviceMap');
+
+  if (!mapContainer) {
+    return;
+  }
+
+  const showCleaning = Boolean(document.getElementById('cleaningLayerToggle')?.checked);
+  const showRepair = Boolean(document.getElementById('repairLayerToggle')?.checked);
+  const showReview = Boolean(document.getElementById('reviewLayerToggle')?.checked);
+
+  const cells = zipMapZones
+    .map(zone => renderZipCell(zone, showCleaning, showRepair, showReview))
+    .filter(Boolean)
+    .join('');
+
+  mapContainer.innerHTML = `
+    <div class="zip-map-shell">
+      <div class="zip-map-title">Service Area by ZIP Code</div>
+      <div class="zip-map-subtitle">
+        Simplified operational map. ZIP blocks are arranged north to south and west to east; use the lookup and rules table for the official service decision.
+      </div>
+      <div class="zip-map-grid">
+        <div class="map-water-label" style="grid-row: 1 / span 10; grid-column: 7 / span 2;">Atlantic / Beachside</div>
+        <div class="map-road-label" style="grid-row: 1 / span 10; grid-column: 5 / span 1;">US-1 / Mainland East</div>
+        ${cells}
+      </div>
+    </div>
+  `;
+}
+
+function renderZipCell(zone, showCleaning, showRepair, showReview) {
+  const rule = serviceZipRules[zone.zip];
+
+  if (!rule) {
+    return '';
+  }
+
+  const displayClass = getZipDisplayClass(rule, showCleaning, showRepair, showReview);
+
+  if (!displayClass) {
+    return '';
+  }
+
+  const statusText = getZipMapStatus(rule, displayClass);
+
+  return `
+    <button
+      class="zip-cell ${displayClass}"
+      style="grid-row: ${zone.row} / span ${zone.rowSpan}; grid-column: ${zone.col} / span ${zone.colSpan};"
+      type="button"
+      onclick="fillLookupFromZip('${escapeHtml(zone.zip)}')"
+      title="${escapeHtml(zone.zip)} - ${escapeHtml(rule.area)}"
+    >
+      <span class="zip-code">${escapeHtml(zone.zip)}</span>
+      <span class="zip-area">${escapeHtml(rule.area)}</span>
+      <span class="zip-status">${escapeHtml(statusText)}</span>
+    </button>
+  `;
+}
+
+function getZipDisplayClass(rule, showCleaning, showRepair, showReview) {
+  if (showCleaning && rule.route === 'approved') {
+    return 'service-approved-route';
+  }
+
+  if (showRepair && rule.repair === 'approved' && rule.route !== 'approved') {
+    return 'service-repair-only';
+  }
+
+  if (showReview && (rule.repair === 'review' || rule.route === 'review')) {
+    return 'service-review';
+  }
+
+  return '';
+}
+
+function getZipMapStatus(rule, displayClass) {
+  if (displayClass === 'service-approved-route') {
+    return 'Route + Repair';
+  }
+
+  if (displayClass === 'service-repair-only') {
+    return 'Repair Only';
+  }
+
+  if (rule.repair === 'review' && rule.route === 'outside') {
+    return 'Repair Approval';
+  }
+
+  return 'Approval Needed';
+}
+
+function fillLookupFromZip(zip) {
+  const addressInput = document.getElementById('addressInput');
+
+  if (addressInput) {
+    addressInput.value = zip;
+  }
+
+  checkServiceArea();
 }
 
 function checkServiceArea() {
@@ -1066,28 +1280,23 @@ function checkServiceArea() {
 
   const normalized = rawValue.toLowerCase();
   const zip = extractZip(normalized);
-  const isIndianRiverZip = zip && indianRiverZips.has(zip);
-  const isCleaningCoreZip = zip && cleaningCoreZips.has(zip);
-  const isReviewZip = zip && reviewZips.has(zip);
-  const isCleaningCity = includesAny(normalized, cleaningCityTokens);
-  const isRepairCity = includesAny(normalized, repairCityTokens);
-  const isReviewCity = includesAny(normalized, reviewCityTokens);
+  const rule = getServiceRule(normalized, zip);
 
   if (serviceLine === 'repair') {
-    if (isIndianRiverZip || isRepairCity) {
+    if (rule?.repair === 'approved') {
       setResult(
         resultBox,
         'in-area',
-        `IN SERVICE AREA - Pool EQ Repair\n\n${rawValue}\n\nIndian River County is approved for Pool EQ Repair. Confirm normal scheduling capacity before booking.`
+        `IN SERVICE AREA - Pool EQ Repair\n\n${rawValue}\n\n${rule.area}: ${rule.repairNote} Confirm normal scheduling capacity before booking.`
       );
       return;
     }
 
-    if (isReviewZip || isReviewCity) {
+    if (rule?.repair === 'review') {
       setResult(
         resultBox,
         'review',
-        `MANAGEMENT REVIEW REQUIRED - Pool EQ Repair\n\n${rawValue}\n\nThis appears to be in a coastal extension or boundary area. Do not promise service until leadership approves.`
+        `MANAGEMENT REVIEW REQUIRED - Pool EQ Repair\n\n${rawValue}\n\n${rule.area}: ${rule.repairNote}`
       );
       return;
     }
@@ -1100,20 +1309,29 @@ function checkServiceArea() {
     return;
   }
 
-  if (isCleaningCoreZip || isCleaningCity) {
+  if (rule?.route === 'approved') {
     setResult(
       resultBox,
       'in-area',
-      `IN SERVICE AREA - Pool Cleaning\n\n${rawValue}\n\nThis appears to be in the barrier island or mainland east of US-1 cleaning area. Confirm route capacity before promising a start date.`
+      `IN SERVICE AREA - Pool Cleaning / Route\n\n${rawValue}\n\n${rule.area}: ${rule.routeNote} Confirm route capacity before promising a start date.`
     );
     return;
   }
 
-  if (isIndianRiverZip || isRepairCity || isReviewZip || isReviewCity) {
+  if (rule?.route === 'review') {
     setResult(
       resultBox,
       'review',
-      `MANAGEMENT REVIEW REQUIRED - Pool Cleaning\n\n${rawValue}\n\nCleaning service outside the core barrier island/east of US-1 area needs approval before it is promised.`
+      `MANAGEMENT REVIEW REQUIRED - Pool Cleaning / Route\n\n${rawValue}\n\n${rule.area}: ${rule.routeNote}`
+    );
+    return;
+  }
+
+  if (rule?.route === 'outside') {
+    setResult(
+      resultBox,
+      'outside',
+      `NO ROUTE SERVICE - Pool Cleaning / Route\n\n${rawValue}\n\n${rule.area}: ${rule.routeNote}`
     );
     return;
   }
@@ -1125,9 +1343,34 @@ function checkServiceArea() {
   );
 }
 
+function getServiceRule(normalizedValue, zip) {
+  if (zip && serviceZipRules[zip]) {
+    return serviceZipRules[zip];
+  }
+
+  const cityRule = serviceCityRules.find(rule => includesAny(normalizedValue, rule.tokens));
+  return cityRule ? serviceZipRules[cityRule.zip] : null;
+}
+
 function setResult(element, statusClass, message) {
   element.className = `result-box ${statusClass}`;
   element.textContent = message;
+}
+
+function formatServiceStatus(status) {
+  if (status === 'approved') {
+    return 'In service area';
+  }
+
+  if (status === 'review') {
+    return 'Management review required';
+  }
+
+  if (status === 'outside') {
+    return 'Not offered';
+  }
+
+  return 'Not listed';
 }
 
 function extractZip(value) {
