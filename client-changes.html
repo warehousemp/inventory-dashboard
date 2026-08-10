@@ -1684,6 +1684,7 @@ function renderCancellationRecords() {
     <td>
       <div class="record-actions">
         <button class="btn-secondary" type="button" onclick="editCancellationRecord('${escapeHtml(row.id)}')">Edit</button>
+        <button class="btn-danger" type="button" onclick="deleteCancellationRecord('${escapeHtml(row.id)}')">Delete</button>
       </div>
     </td>
   `, 11, 'No Cancelled Client records found.');
@@ -1708,6 +1709,7 @@ function renderSuspensionRecords() {
     <td>
       <div class="record-actions">
         <button class="btn-secondary" type="button" onclick="editSuspensionRecord('${escapeHtml(row.id)}')">Edit</button>
+        <button class="btn-danger" type="button" onclick="deleteSuspensionRecord('${escapeHtml(row.id)}')">Delete</button>
       </div>
     </td>
   `, 12, 'No Suspended / Reno Hold records found.');
@@ -1945,6 +1947,86 @@ async function deleteNewClientRecord(id) {
     setMessage('newClientMessage', 'success', `${clientLabel} was deleted from New Client Records.`);
   } catch (error) {
     setMessage('newClientMessage', 'error', 'Unable to delete the New Client record: ' + (error.message || String(error)));
+  }
+}
+
+async function deleteCancellationRecord(id) {
+  const row = cancellationRecords.find(record => record.id === id);
+  if (!row) {
+    setMessage('cancellationMessage', 'error', 'The selected Cancelled Client record could not be found.');
+    return;
+  }
+
+  const clientLabel = safe(row.client_name).trim() || 'this client';
+  const enteredDate = formatDate(row.date_entered);
+  const confirmed = confirm(
+    `Permanently delete the Cancelled Client record for ${clientLabel}${enteredDate ? ` entered ${enteredDate}` : ''}?\n\nThis action cannot be undone.`
+  );
+
+  if (!confirmed) return;
+
+  setMessage('cancellationMessage', 'info', `Deleting ${clientLabel}...`);
+
+  try {
+    const { data, error } = await client
+      .from('client_cancellation_tracking')
+      .delete()
+      .eq('id', id)
+      .select('id');
+
+    if (error) throw new Error(error.message);
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('The record was not deleted. Your database permissions may not allow DELETE access.');
+    }
+
+    if (safe(document.getElementById('cancellationId')?.value).trim() === id) {
+      resetCancellationForm(false);
+    }
+
+    await loadClientChangeEntryRecords();
+    setMessage('cancellationMessage', 'success', `${clientLabel} was deleted from Cancelled Client Records.`);
+  } catch (error) {
+    setMessage('cancellationMessage', 'error', 'Unable to delete the Cancelled Client record: ' + (error.message || String(error)));
+  }
+}
+
+async function deleteSuspensionRecord(id) {
+  const row = suspensionRecords.find(record => record.id === id);
+  if (!row) {
+    setMessage('suspensionMessage', 'error', 'The selected Suspended / Reno Hold record could not be found.');
+    return;
+  }
+
+  const clientLabel = safe(row.client_name).trim() || 'this client';
+  const enteredDate = formatDate(row.date_entered);
+  const confirmed = confirm(
+    `Permanently delete the Suspended / Reno Hold record for ${clientLabel}${enteredDate ? ` entered ${enteredDate}` : ''}?\n\nThis action cannot be undone.`
+  );
+
+  if (!confirmed) return;
+
+  setMessage('suspensionMessage', 'info', `Deleting ${clientLabel}...`);
+
+  try {
+    const { data, error } = await client
+      .from('client_suspension_tracking')
+      .delete()
+      .eq('id', id)
+      .select('id');
+
+    if (error) throw new Error(error.message);
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error('The record was not deleted. Your database permissions may not allow DELETE access.');
+    }
+
+    if (safe(document.getElementById('suspensionId')?.value).trim() === id) {
+      resetSuspensionForm(false);
+    }
+
+    await loadClientChangeEntryRecords();
+    setMessage('suspensionMessage', 'success', `${clientLabel} was deleted from Suspended / Reno Hold Records.`);
+  } catch (error) {
+    setMessage('suspensionMessage', 'error', 'Unable to delete the Suspended / Reno Hold record: ' + (error.message || String(error)));
   }
 }
 
