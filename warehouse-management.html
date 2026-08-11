@@ -8485,9 +8485,10 @@ async function loadCycleCountCompliance() {
 
   const [categoryResponse, postedResponse] = await Promise.all([
     client
-      .from('inventory_cycle_count_category_view')
-      .select('cycle_count_category')
-      .order('cycle_count_category', { ascending: true }),
+      .from('inventory_part_categories')
+      .select('category_name')
+      .eq('active', true)
+      .order('category_name', { ascending: true }),
     client
       .from('inventory_cycle_count_session_summary')
       .select('*')
@@ -8513,7 +8514,7 @@ async function loadCycleCountCompliance() {
 
   const categories = [...new Set(
     (categoryResponse.data || [])
-      .map(row => String(row.cycle_count_category || '').trim())
+      .map(row => String(row.category_name || '').trim())
       .filter(Boolean)
   )];
 
@@ -9202,9 +9203,10 @@ async function loadCycleCountCategories() {
   categorySelect.innerHTML = '<option value="">Loading categories...</option>';
 
   const { data, error } = await client
-    .from('inventory_cycle_count_category_view')
-    .select('cycle_count_category')
-    .order('cycle_count_category', { ascending: true });
+    .from('inventory_part_categories')
+    .select('category_name')
+    .eq('active', true)
+    .order('category_name', { ascending: true });
 
   if (error) {
     categorySelect.innerHTML = '<option value="">Category load error</option>';
@@ -9214,7 +9216,7 @@ async function loadCycleCountCategories() {
 
   const categories = [...new Set(
     (data || [])
-      .map(row => row.cycle_count_category)
+      .map(row => row.category_name)
       .filter(category => category !== null && category !== undefined && String(category).trim() !== '')
   )];
 
