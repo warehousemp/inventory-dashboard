@@ -1,1 +1,1038 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chemical Tracking | Molinari Pools</title>
+  <link rel="stylesheet" href="shared-navigation.css">
+  <style>
+:root {
+  --navy: #0d2741;
+  --blue: #1769aa;
+  --blue-dark: #0e4d80;
+  --aqua: #2ca6a4;
+  --ink: #17222d;
+  --muted: #647482;
+  --line: #d9e2e8;
+  --soft: #f3f7f9;
+  --white: #ffffff;
+  --success: #1f7a4d;
+  --success-soft: #eaf7f0;
+  --warning: #9b6500;
+  --warning-soft: #fff6dd;
+  --danger: #a63434;
+  --danger-soft: #fff0f0;
+  --shadow: 0 10px 24px rgba(13, 39, 65, 0.08);
+}
 
+* { box-sizing: border-box; }
+body { margin: 0; background: #edf3f6; color: var(--ink); font-family: Inter, "Segoe UI", Arial, sans-serif; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+
+.chem-app { width: min(1480px, calc(100% - 32px)); margin: 28px auto 60px; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 20px; }
+.eyebrow { margin: 0 0 6px; color: var(--blue); font-size: .76rem; font-weight: 800; letter-spacing: .14em; }
+h1, h2, h3 { color: var(--navy); line-height: 1.15; }
+h1 { margin: 0; font-size: clamp(2rem, 4vw, 3.25rem); letter-spacing: -.04em; }
+h2 { margin: 0 0 7px; font-size: 1.5rem; }
+h3 { margin: 0 0 5px; font-size: 1.1rem; }
+.page-subtitle, .section-heading p { margin: 7px 0 0; color: var(--muted); max-width: 820px; }
+.header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.role-badge { border: 1px solid #b7cad8; border-radius: 999px; background: var(--white); padding: 9px 13px; color: var(--navy); font-size: .85rem; font-weight: 700; }
+
+.button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 9px 15px; border: 1px solid transparent; border-radius: 8px; text-decoration: none; font-weight: 750; transition: .15s ease; }
+.button:disabled { opacity: .55; cursor: not-allowed; }
+.button-primary { background: var(--blue); color: var(--white); }
+.button-primary:hover:not(:disabled) { background: var(--blue-dark); }
+.button-secondary { border-color: #9fb8ca; background: var(--white); color: var(--navy); }
+.button-ghost { border-color: var(--line); background: #f9fbfc; color: var(--navy); }
+.button-danger { border-color: #e7b5b5; background: var(--danger-soft); color: var(--danger); min-height: 32px; padding: 5px 10px; font-size: .8rem; }
+
+.message { margin: 0 0 16px; padding: 12px 15px; border: 1px solid #b9d3e6; border-radius: 8px; background: #edf7ff; color: #174f75; }
+.message.success { border-color: #a9d6be; background: var(--success-soft); color: var(--success); }
+.message.error { border-color: #e1abab; background: var(--danger-soft); color: var(--danger); }
+.read-only-banner { margin: 0 0 16px; padding: 12px 15px; border: 1px solid #e8cb79; border-radius: 8px; background: var(--warning-soft); color: #72510b; font-weight: 650; }
+
+.tab-bar { display: flex; gap: 4px; overflow-x: auto; padding: 5px; border: 1px solid #cad8e1; border-radius: 11px; background: #dfe9ee; }
+.tab-button { white-space: nowrap; border: 0; border-radius: 8px; background: transparent; padding: 10px 13px; color: #405564; font-weight: 750; }
+.tab-button.active { background: var(--white); color: var(--blue); box-shadow: 0 2px 7px rgba(13,39,65,.12); }
+.tab-panel { display: none; padding-top: 24px; }
+.tab-panel.active { display: block; }
+.section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
+.subsection-heading { margin-top: 24px; }
+
+.card { border: 1px solid var(--line); border-radius: 12px; background: var(--white); box-shadow: var(--shadow); }
+.form-card { padding: 20px; }
+.form-grid { display: grid; gap: 16px; margin-bottom: 18px; }
+.form-grid-3 { grid-template-columns: minmax(160px, .7fr) minmax(240px, 1.2fr) minmax(240px, 1fr); }
+.form-grid-2 { grid-template-columns: 1fr 1fr; }
+label { display: grid; align-content: start; gap: 6px; color: #344957; font-size: .86rem; font-weight: 700; }
+label small { color: var(--muted); font-weight: 500; }
+input, select, textarea { width: 100%; border: 1px solid #b8c9d4; border-radius: 7px; background: var(--white); padding: 10px 11px; color: var(--ink); }
+input:focus, select:focus, textarea:focus { outline: 3px solid rgba(44,166,164,.2); border-color: var(--aqua); }
+textarea { resize: vertical; }
+.recipient-summary { display: flex; align-items: center; min-height: 63px; padding: 10px 12px; border: 1px dashed #b8c9d4; border-radius: 8px; background: var(--soft); }
+.recipient-summary strong { display: block; color: var(--navy); }
+.muted { color: var(--muted); }
+.notes-field { margin-top: 16px; }
+.form-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+.table-scroll { overflow: auto; }
+.compact-scroll { max-height: 540px; border: 1px solid var(--line); border-radius: 9px; }
+.standard-scroll { max-height: 520px; }
+.report-scroll { max-height: 650px; }
+.monthly-scroll { max-height: 680px; }
+.data-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .88rem; }
+.data-table th, .data-table td { padding: 10px 12px; border-bottom: 1px solid #e5ecef; text-align: left; vertical-align: top; }
+.data-table th { position: sticky; top: 0; z-index: 2; background: var(--navy); color: var(--white); font-size: .76rem; letter-spacing: .03em; text-transform: uppercase; }
+.data-table tbody tr:hover td { background: #f7fbfd; }
+.data-table td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.issuance-grid input { min-width: 140px; }
+.status-pill { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-size: .75rem; font-weight: 800; }
+.status-active, .status-posted { background: var(--success-soft); color: var(--success); }
+.status-pending, .status-draft { background: var(--warning-soft); color: var(--warning); }
+.status-voided, .status-failed { background: var(--danger-soft); color: var(--danger); }
+.status-superseded, .status-inactive { background: #edf0f2; color: #63727c; }
+.conversion-pending { color: var(--warning); font-weight: 750; }
+.variance-warning { background: #fff8e6 !important; color: #6d4a00; font-weight: 750; }
+
+.instruction-card { margin-bottom: 16px; padding: 16px 19px; border-left: 5px solid var(--aqua); border-radius: 8px; background: #eaf7f7; color: #214f53; }
+.instruction-card ol { margin: 8px 0 0 20px; padding: 0; }
+.instruction-card li + li { margin-top: 4px; }
+.import-card { padding: 20px; }
+.drop-zone { display: grid; place-items: center; gap: 6px; min-height: 190px; border: 2px dashed #8eafc3; border-radius: 10px; background: #f4f9fb; color: var(--navy); text-align: center; }
+.drop-zone.dragover { border-color: var(--aqua); background: #eaf8f7; }
+.drop-zone span { color: var(--muted); font-size: .9rem; }
+.import-preview { display: grid; grid-template-columns: 1.3fr .55fr .7fr .7fr auto; align-items: end; gap: 13px; margin-top: 16px; }
+.import-preview > div { display: grid; gap: 4px; }
+.import-preview span { color: var(--muted); font-size: .78rem; font-weight: 700; }
+
+.filter-bar { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; padding: 15px; }
+.filter-bar label { min-width: 190px; }
+.filter-bar .grow { flex: 1; min-width: 260px; }
+.report-note { margin: 10px 2px; color: var(--muted); font-size: .84rem; }
+.recipient-form { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 16px; padding: 16px; }
+.recipient-form label { min-width: 220px; }
+.recipient-form .grow { flex: 1; }
+.monthly-table th:first-child, .monthly-table td:first-child { position: sticky; left: 0; z-index: 1; }
+.monthly-table td:first-child { background: var(--white); font-weight: 750; }
+.monthly-table th:first-child { z-index: 3; }
+.access-denied { width: min(560px, calc(100% - 32px)); margin: 80px auto; padding: 30px; border-radius: 14px; background: var(--white); box-shadow: var(--shadow); text-align: center; }
+
+@media (max-width: 900px) {
+  .chem-app { width: min(100% - 20px, 1480px); margin-top: 18px; }
+  .page-header { display: grid; }
+  .header-actions { justify-content: flex-start; }
+  .form-grid-3, .form-grid-2 { grid-template-columns: 1fr; }
+  .import-preview { grid-template-columns: 1fr 1fr; }
+  .import-preview .button { grid-column: 1 / -1; }
+  .recipient-form { align-items: stretch; flex-direction: column; }
+  .recipient-form label { min-width: 0; }
+}
+
+@media (max-width: 560px) {
+  .header-actions, .form-actions { align-items: stretch; flex-direction: column; }
+  .button { width: 100%; }
+  .form-card, .import-card { padding: 14px; }
+  .import-preview { grid-template-columns: 1fr; }
+}
+
+  </style>
+</head>
+<body>
+  <div id="sharedNavigation"></div>
+
+  <main class="chem-app" id="chemApp" hidden>
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">WAREHOUSE + ACCOUNTING</p>
+        <h1>Chemical Tracking</h1>
+        <p class="page-subtitle">Track warehouse issuance, compare it with weekly Skimmer use, and identify chemical cost by route technician and client.</p>
+      </div>
+      <div class="header-actions">
+        <span class="role-badge" id="roleBadge">Loading access…</span>
+        <a
+          id="legacyChemsLink"
+          class="button button-secondary"
+          href="https://molinaripools.sharepoint.com/:x:/r/sites/AllCompany.10101108.pxrbheon/_layouts/15/Doc.aspx?sourcedoc=%7B33EA8309-56E9-4AE8-B7E4-A340E94FCD5E%7D&amp;file=Chems2026.xlsx&amp;action=default&amp;mobileredirect=true"
+          target="_blank"
+          rel="noopener noreferrer"
+          hidden
+        >Open Legacy Chems2026</a>
+      </div>
+    </header>
+
+    <div id="pageMessage" class="message" role="status" aria-live="polite" hidden></div>
+    <div id="readOnlyBanner" class="read-only-banner" hidden>
+      Accounting access is read-only. Warehouse entries and imported Skimmer data are available for review below.
+    </div>
+
+    <nav class="tab-bar" aria-label="Chemical tracking sections">
+      <button class="tab-button active" type="button" data-tab="issuance">Daily Issuance</button>
+      <button class="tab-button" type="button" data-tab="imports">Skimmer Import</button>
+      <button class="tab-button" type="button" data-tab="comparison">Issued vs. Used</button>
+      <button class="tab-button" type="button" data-tab="techs">Route Tech Analysis</button>
+      <button class="tab-button" type="button" data-tab="clients">Client Chemical Cost</button>
+      <button class="tab-button" type="button" data-tab="monthly">Monthly / YTD</button>
+      <button class="tab-button write-only-tab" type="button" data-tab="recipients">Recipients</button>
+    </nav>
+
+    <section class="tab-panel active" data-panel="issuance">
+      <div class="section-heading">
+        <div>
+          <h2>Daily Chemical Issuance</h2>
+          <p>Record chemicals issued to route technicians, Edgar under PGP, or Project Managers.</p>
+        </div>
+      </div>
+
+      <form id="issuanceForm" class="card form-card">
+        <div class="form-grid form-grid-3">
+          <label>
+            <span>Issue Date</span>
+            <input id="issueDate" type="date" required>
+          </label>
+          <label>
+            <span>Recipient</span>
+            <select id="recipientSelect" required>
+              <option value="">Select recipient</option>
+            </select>
+          </label>
+          <div class="recipient-summary" id="recipientSummary">
+            <span class="muted">Choose a recipient to see the reporting category.</span>
+          </div>
+        </div>
+
+        <div id="projectFields" class="form-grid form-grid-2" hidden>
+          <label>
+            <span>Project / Job Reference <small>(recommended)</small></span>
+            <input id="projectReference" type="text" maxlength="120" placeholder="Job number or project name">
+          </label>
+          <label>
+            <span>Client</span>
+            <input id="projectClient" type="text" maxlength="160" placeholder="Client or property name">
+          </label>
+        </div>
+
+        <div class="table-scroll compact-scroll">
+          <table class="data-table issuance-grid">
+            <thead><tr><th>Chemical</th><th>Quantity Issued</th><th>Warehouse Unit</th><th>Skimmer Comparison</th></tr></thead>
+            <tbody id="issuanceChemicalRows"></tbody>
+          </table>
+        </div>
+
+        <label class="notes-field">
+          <span>Notes</span>
+          <textarea id="issuanceNotes" rows="2" maxlength="500" placeholder="Optional issuance notes"></textarea>
+        </label>
+
+        <div class="form-actions">
+          <button id="saveIssuanceButton" class="button button-primary" type="submit">Save Daily Issuance</button>
+          <button id="clearIssuanceButton" class="button button-ghost" type="button">Clear</button>
+        </div>
+      </form>
+
+      <div class="section-heading subsection-heading">
+        <div><h3>Recent Issuance</h3><p>Voided entries remain visible for accountability.</p></div>
+        <button id="refreshIssuanceButton" class="button button-ghost" type="button">Refresh</button>
+      </div>
+      <div class="card table-scroll standard-scroll">
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>Recipient</th><th>Department</th><th>Chemical</th><th>Quantity</th><th>Cost</th><th>Status</th><th></th></tr></thead>
+          <tbody id="recentIssuanceRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="imports">
+      <div class="section-heading">
+        <div><h2>Weekly Skimmer Service History Import</h2><p>Import the chemical-use columns from the weekly Skimmer export.</p></div>
+      </div>
+
+      <div class="instruction-card">
+        <strong>Download instructions</strong>
+        <ol>
+          <li>Skimmer → Settings → Export → Export Service History</li>
+          <li>Choose the weekly date range.</li>
+          <li>Click <strong>Export to Excel</strong>.</li>
+          <li>Drag the downloaded Excel file into the box below.</li>
+        </ol>
+      </div>
+
+      <div id="importWriteArea" class="card import-card">
+        <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Choose or drop Skimmer Excel file">
+          <strong>Drop the Skimmer Excel file here</strong>
+          <span>or click to choose an .xlsx file</span>
+          <input id="skimmerFile" type="file" accept=".xlsx,.xls" hidden>
+        </div>
+        <div id="importPreview" class="import-preview" hidden>
+          <div><span>File</span><strong id="importFileName"></strong></div>
+          <div><span>Rows</span><strong id="importRowCount"></strong></div>
+          <label><span>Week Start</span><input id="importWeekStart" type="date" required></label>
+          <label><span>Week End</span><input id="importWeekEnd" type="date" required></label>
+          <button id="runImportButton" class="button button-primary" type="button">Import Weekly History</button>
+        </div>
+      </div>
+
+      <div class="section-heading subsection-heading">
+        <div><h3>Import History</h3><p>Only the active file for each week is included in reports.</p></div>
+        <button id="refreshImportsButton" class="button button-ghost" type="button">Refresh</button>
+      </div>
+      <div class="card table-scroll standard-scroll">
+        <table class="data-table">
+          <thead><tr><th>Week</th><th>File</th><th>Rows</th><th>Status</th><th>Imported</th></tr></thead>
+          <tbody id="importHistoryRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="comparison">
+      <div class="section-heading">
+        <div><h2>Issued vs. Used</h2><p>Compare warehouse quantities issued to route technicians with the chemicals they entered in Skimmer.</p></div>
+      </div>
+      <div class="card filter-bar">
+        <label><span>Week</span><select id="comparisonWeek"></select></label>
+        <label><span>Route Tech</span><select id="comparisonTech"><option value="">All Route Techs</option></select></label>
+        <button id="loadComparisonButton" class="button button-primary" type="button">Load Comparison</button>
+      </div>
+      <div class="card table-scroll report-scroll">
+        <table class="data-table">
+          <thead><tr><th>Route Tech</th><th>Chemical</th><th>Issued</th><th>Skimmer Used</th><th>Estimated Remaining</th><th>% of Issued Used</th><th>Conversion</th></tr></thead>
+          <tbody id="comparisonRows"></tbody>
+        </table>
+      </div>
+      <p class="report-note">Edgar/PGP and Project Manager issuance is excluded from this comparison. Pending conversion rows should not be treated as final variance.</p>
+    </section>
+
+    <section class="tab-panel" data-panel="techs">
+      <div class="section-heading">
+        <div><h2>Route Tech Analysis</h2><p>Review chemical-entry completeness, estimated chemical cost, and service-stop activity by route technician.</p></div>
+      </div>
+      <div class="card filter-bar">
+        <label><span>Week</span><select id="techWeek"></select></label>
+        <button id="loadTechButton" class="button button-primary" type="button">Load Route Tech Report</button>
+      </div>
+      <div class="card table-scroll report-scroll">
+        <table class="data-table">
+          <thead><tr><th>Route Tech</th><th>Service Stops</th><th>Stops With Chemicals</th><th>No Chemical Recorded</th><th>Entry Rate</th><th>Estimated Chemical Cost</th></tr></thead>
+          <tbody id="techRows"></tbody>
+        </table>
+      </div>
+      <p class="report-note">“No chemical recorded” is a review signal. It does not by itself prove that chemicals were used and omitted.</p>
+    </section>
+
+    <section class="tab-panel" data-panel="clients">
+      <div class="section-heading">
+        <div><h2>Client Chemical Cost</h2><p>Identify the client pools with the highest estimated chemical cost.</p></div>
+      </div>
+      <div class="card filter-bar">
+        <label><span>Week</span><select id="clientWeek"></select></label>
+        <label class="grow"><span>Client Search</span><input id="clientSearch" type="search" placeholder="Name, address, or customer code"></label>
+        <button id="loadClientButton" class="button button-primary" type="button">Load Client Report</button>
+      </div>
+      <div class="card table-scroll report-scroll">
+        <table class="data-table">
+          <thead><tr><th>Client</th><th>Address</th><th>Route Tech</th><th>Gallons</th><th>Estimated Cost</th><th>Cost / 10k Gallons</th><th>Chemical Detail</th></tr></thead>
+          <tbody id="clientRows"></tbody>
+        </table>
+      </div>
+      <p class="report-note">Costs use the configured effective chemical cost and package conversion. Chemicals with missing conversions or costs are identified but excluded from the dollar total.</p>
+    </section>
+
+    <section class="tab-panel" data-panel="monthly">
+      <div class="section-heading">
+        <div><h2>Monthly / Year-to-Date Summary</h2><p>Company totals include Route Service, PGP, and Projects. January–July 2026 is carried forward from the legacy Chems2026 workbook.</p></div>
+      </div>
+      <div class="card filter-bar">
+        <label><span>Year</span><select id="monthlyYear"><option value="2026">2026</option></select></label>
+        <button id="loadMonthlyButton" class="button button-primary" type="button">Load Monthly Totals</button>
+      </div>
+      <div class="card table-scroll monthly-scroll">
+        <table class="data-table monthly-table">
+          <thead id="monthlyHead"></thead>
+          <tbody id="monthlyRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="recipients">
+      <div class="section-heading">
+        <div><h2>PGP and Project Recipients</h2><p>Route technicians come from the route-tech roster. Add or deactivate non-route recipients here.</p></div>
+      </div>
+      <form id="recipientForm" class="card recipient-form">
+        <label><span>Recipient Type</span><select id="newRecipientType"><option value="PROJECT_PM">Project Manager</option><option value="PGP">PGP</option></select></label>
+        <label class="grow"><span>Name</span><input id="newRecipientName" type="text" maxlength="120" required placeholder="Recipient name"></label>
+        <button class="button button-primary" type="submit">Add Recipient</button>
+      </form>
+      <div class="card table-scroll standard-scroll">
+        <table class="data-table">
+          <thead><tr><th>Name</th><th>Type</th><th>Department</th><th>Route Code</th><th>Status</th><th></th></tr></thead>
+          <tbody id="recipientRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="accessDenied" class="access-denied" hidden>
+    <h1>Chemical Tracking</h1>
+    <p>Your account does not have access to this page.</p>
+    <a class="button button-primary" href="index.html">Return to Main Menu</a>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="shared-navigation.js"></script>
+  <script>
+(() => {
+  'use strict';
+
+  const SUPABASE_URL = 'https://icqkuhbhcennhhbbwqgo.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+  const READ_ROLES = ['WAREHOUSE', 'ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN'];
+  const WRITE_ROLES = ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN'];
+  const ADMIN_ROLES = ['ADMIN', 'SYSTEM_ADMIN'];
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  let db;
+  let profile;
+  let canWrite = false;
+  let catalog = [];
+  let recipients = [];
+  let mappings = [];
+  let activeBatches = [];
+  let parsedImport = null;
+  let latestClientRows = [];
+
+  const $ = id => document.getElementById(id);
+  const escapeHtml = value => String(value ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  const number = value => {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(String(value).replace(/,/g, '').trim());
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const fmt = (value, digits = 2) => value === null || value === undefined || Number.isNaN(Number(value))
+    ? '—'
+    : Number(value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: digits });
+  const money = value => value === null || value === undefined || Number.isNaN(Number(value))
+    ? '—'
+    : Number(value).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+  const percent = value => value === null || value === undefined || Number.isNaN(Number(value))
+    ? '—'
+    : Number(value).toLocaleString(undefined, { style: 'percent', maximumFractionDigits: 1 });
+
+  function showMessage(text, type = '') {
+    const el = $('pageMessage');
+    el.textContent = text;
+    el.className = `message ${type}`.trim();
+    el.hidden = false;
+    window.clearTimeout(showMessage.timer);
+    showMessage.timer = window.setTimeout(() => { el.hidden = true; }, type === 'error' ? 9000 : 5000);
+  }
+
+  function setBusy(button, busy, busyText = 'Working…') {
+    if (!button) return;
+    if (busy) {
+      button.dataset.originalText = button.textContent;
+      button.textContent = busyText;
+      button.disabled = true;
+    } else {
+      button.textContent = button.dataset.originalText || button.textContent;
+      button.disabled = false;
+    }
+  }
+
+  function todayValue() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  async function fetchAll(makeQuery, pageSize = 1000) {
+    const rows = [];
+    for (let start = 0; ; start += pageSize) {
+      const { data, error } = await makeQuery().range(start, start + pageSize - 1);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+    }
+    return rows;
+  }
+
+  function bindTabs() {
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.tab-button').forEach(item => item.classList.toggle('active', item === button));
+        document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.toggle('active', panel.dataset.panel === button.dataset.tab));
+      });
+    });
+  }
+
+  async function authenticate() {
+    if (!window.supabase?.createClient) throw new Error('The database library did not load.');
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { data: sessionData, error: sessionError } = await db.auth.getSession();
+    if (sessionError) throw sessionError;
+    const user = sessionData?.session?.user;
+    if (!user) {
+      window.location.href = 'index.html';
+      return false;
+    }
+    const { data, error } = await db.from('user_profiles').select('id, full_name, role, active').eq('id', user.id).maybeSingle();
+    if (error) throw error;
+    profile = data;
+    if (!profile?.active || !READ_ROLES.includes(profile.role)) {
+      $('accessDenied').hidden = false;
+      return false;
+    }
+    canWrite = WRITE_ROLES.includes(profile.role);
+    $('roleBadge').textContent = `${profile.full_name || user.email} · ${profile.role}`;
+    $('legacyChemsLink').hidden = !(profile.role === 'ACCOUNTING' || ADMIN_ROLES.includes(profile.role));
+    $('readOnlyBanner').hidden = canWrite;
+    $('chemApp').hidden = false;
+    applyRoleControls();
+    return true;
+  }
+
+  function applyRoleControls() {
+    document.querySelectorAll('.write-only-tab').forEach(el => { el.hidden = !canWrite; });
+    $('importWriteArea').hidden = !canWrite;
+    if (!canWrite) {
+      $('issuanceForm').querySelectorAll('input, select, textarea, button').forEach(el => { el.disabled = true; });
+    }
+  }
+
+  async function loadBaseData() {
+    const [catalogResult, recipientResult, mappingResult] = await Promise.all([
+      db.from('chem_catalog').select('*').eq('active', true).order('display_order'),
+      db.from('chem_recipients').select('*').order('recipient_type').order('display_name'),
+      db.from('chem_skimmer_mappings').select('*').eq('active', true)
+    ]);
+    for (const result of [catalogResult, recipientResult, mappingResult]) if (result.error) throw result.error;
+    catalog = catalogResult.data || [];
+    recipients = recipientResult.data || [];
+    mappings = mappingResult.data || [];
+    renderRecipientOptions();
+    renderIssuanceGrid();
+    renderRecipients();
+  }
+
+  function recipientTypeLabel(type) {
+    return ({ ROUTE_TECH: 'Route Technician', PGP: 'PGP', PROJECT_PM: 'Project Manager' })[type] || type;
+  }
+
+  function renderRecipientOptions() {
+    const select = $('recipientSelect');
+    const selected = select.value;
+    const groups = [
+      ['ROUTE_TECH', 'Route Technicians'],
+      ['PGP', 'PGP'],
+      ['PROJECT_PM', 'Project Managers']
+    ];
+    select.innerHTML = '<option value="">Select recipient</option>' + groups.map(([type, label]) => {
+      const options = recipients.filter(r => r.active && r.recipient_type === type)
+        .map(r => `<option value="${escapeHtml(r.id)}">${escapeHtml(r.display_name)}${r.route_code ? ` · ${escapeHtml(r.route_code)}` : ''}</option>`).join('');
+      return options ? `<optgroup label="${label}">${options}</optgroup>` : '';
+    }).join('');
+    if ([...select.options].some(o => o.value === selected)) select.value = selected;
+    updateRecipientSummary();
+  }
+
+  function updateRecipientSummary() {
+    const recipient = recipients.find(r => r.id === $('recipientSelect').value);
+    $('projectFields').hidden = recipient?.recipient_type !== 'PROJECT_PM';
+    if (!recipient) {
+      $('recipientSummary').innerHTML = '<span class="muted">Choose a recipient to see the reporting category.</span>';
+      return;
+    }
+    const compare = recipient.recipient_type === 'ROUTE_TECH'
+      ? 'Included in weekly Skimmer comparison'
+      : 'Excluded from route-tech Skimmer comparison';
+    $('recipientSummary').innerHTML = `<div><strong>${escapeHtml(recipientTypeLabel(recipient.recipient_type))} · ${escapeHtml(recipient.department)}</strong><span class="muted">${compare}</span></div>`;
+  }
+
+  function renderIssuanceGrid() {
+    $('issuanceChemicalRows').innerHTML = catalog.map(item => {
+      const comparison = item.compare_to_skimmer
+        ? `${item.skimmer_units_per_issue_unit ? `${fmt(item.skimmer_units_per_issue_unit, 4)} ${escapeHtml(item.skimmer_usage_unit)} per ${escapeHtml(item.issue_unit)}` : 'Conversion required'}${item.conversion_status === 'PENDING_CONFIRMATION' ? ' · Confirm' : ''}`
+        : 'Issuance only';
+      return `<tr>
+        <td><strong>${escapeHtml(item.chemical_name)}</strong></td>
+        <td><input class="chemical-quantity" data-chemical-id="${item.id}" type="number" min="0" step="0.001" inputmode="decimal" aria-label="${escapeHtml(item.chemical_name)} quantity"></td>
+        <td>${escapeHtml(item.issue_unit)}</td>
+        <td class="${item.conversion_status === 'PENDING_CONFIRMATION' ? 'conversion-pending' : ''}">${comparison}</td>
+      </tr>`;
+    }).join('');
+    if (!canWrite) document.querySelectorAll('.chemical-quantity').forEach(input => { input.disabled = true; });
+  }
+
+  function clearIssuanceForm() {
+    document.querySelectorAll('.chemical-quantity').forEach(input => { input.value = ''; });
+    $('projectReference').value = '';
+    $('projectClient').value = '';
+    $('issuanceNotes').value = '';
+  }
+
+  async function saveIssuance(event) {
+    event.preventDefault();
+    if (!canWrite) return;
+    const recipientId = $('recipientSelect').value;
+    if (!recipientId) return showMessage('Select a recipient.', 'error');
+    const lines = [...document.querySelectorAll('.chemical-quantity')]
+      .map(input => ({ chemical_id: input.dataset.chemicalId, quantity: number(input.value) }))
+      .filter(line => line.quantity && line.quantity > 0);
+    if (!lines.length) return showMessage('Enter at least one chemical quantity.', 'error');
+
+    const button = $('saveIssuanceButton');
+    setBusy(button, true, 'Saving…');
+    try {
+      const { error } = await db.rpc('chem_create_issuance', {
+        p_issue_date: $('issueDate').value,
+        p_recipient_id: recipientId,
+        p_project_reference: $('projectReference').value,
+        p_client_name: $('projectClient').value,
+        p_notes: $('issuanceNotes').value,
+        p_lines: lines
+      });
+      if (error) throw error;
+      clearIssuanceForm();
+      showMessage('Chemical issuance saved.', 'success');
+      await loadRecentIssuance();
+    } catch (error) {
+      showMessage(error.message || 'Unable to save chemical issuance.', 'error');
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
+  async function loadRecentIssuance() {
+    const { data, error } = await db.from('chem_issue_report_v').select('*').order('created_at', { ascending: false }).limit(250);
+    if (error) throw error;
+    $('recentIssuanceRows').innerHTML = (data || []).map(row => `<tr>
+      <td>${escapeHtml(row.issue_date)}</td>
+      <td><strong>${escapeHtml(row.recipient_name)}</strong>${row.route_code ? `<br><span class="muted">${escapeHtml(row.route_code)}</span>` : ''}</td>
+      <td>${escapeHtml(row.department)}</td>
+      <td>${escapeHtml(row.chemical_name)}</td>
+      <td class="numeric">${fmt(row.quantity, 3)} ${escapeHtml(row.issue_unit)}</td>
+      <td class="numeric">${money(row.issued_cost)}</td>
+      <td><span class="status-pill status-${String(row.status).toLowerCase()}">${escapeHtml(row.status)}</span></td>
+      <td>${canWrite && row.status === 'POSTED' ? `<button class="button button-danger void-issuance" type="button" data-id="${row.issuance_id}">Void</button>` : ''}</td>
+    </tr>`).join('') || '<tr><td colspan="8" class="muted">No issuance records yet.</td></tr>';
+  }
+
+  async function voidIssuance(id) {
+    const reason = window.prompt('Enter the reason this issuance should be voided:');
+    if (!reason?.trim()) return;
+    const { error } = await db.rpc('chem_void_issuance', { p_issuance_id: id, p_reason: reason.trim() });
+    if (error) throw error;
+    showMessage('Issuance voided. The audit record remains visible.', 'success');
+    await loadRecentIssuance();
+  }
+
+  function parseExcelDate(value) {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+    }
+    if (typeof value === 'number' && window.XLSX?.SSF) {
+      const parsed = window.XLSX.SSF.parse_date_code(value);
+      if (parsed) return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+    }
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+    }
+    return null;
+  }
+
+  async function fingerprintFile(arrayBuffer) {
+    if (window.crypto?.subtle) {
+      const digest = await window.crypto.subtle.digest('SHA-256', arrayBuffer);
+      return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    return null;
+  }
+
+  async function parseSkimmerFile(file) {
+    if (!window.XLSX) throw new Error('The Excel importer did not load.');
+    const buffer = await file.arrayBuffer();
+    const workbook = window.XLSX.read(buffer, { type: 'array', cellDates: true });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rawRows = window.XLSX.utils.sheet_to_json(sheet, { defval: null, raw: true });
+    if (!rawRows.length) throw new Error('The selected workbook contains no service-history rows.');
+
+    const required = ['Customer', 'Tech', 'Pool', 'Liquid Chlorine (OZ)', 'pH ↓ (OZ)', 'Salt (LB)', 'Tabs (EA)'];
+    const headers = Object.keys(rawRows[0]);
+    const missing = required.filter(header => !headers.includes(header));
+    if (missing.length) throw new Error(`This does not match the Skimmer Service History export. Missing: ${missing.join(', ')}`);
+
+    const rows = rawRows.map((raw, index) => {
+      const serviceDate = parseExcelDate(raw['Complete Time']) || parseExcelDate(raw['Start Time']);
+      const techName = String(raw.Tech ?? '').trim();
+      const codeMatch = techName.match(/\b(RTL?\d+)\b/i);
+      const usage = mappings.map(map => ({
+        source_column: map.source_column,
+        chemical_id: map.chemical_id,
+        source_unit: map.source_unit,
+        quantity: number(raw[map.source_column])
+      })).filter(item => item.quantity && item.quantity > 0);
+      return {
+        row_number: index + 2,
+        service_date: serviceDate,
+        customer_name: raw.Customer == null ? null : String(raw.Customer).trim(),
+        customer_code: raw['Customer Code'] == null ? null : String(raw['Customer Code']).trim(),
+        location_code: raw['Location Code'] == null ? null : String(raw['Location Code']).trim(),
+        address: raw.Address == null ? null : String(raw.Address).trim(),
+        city: raw.City == null ? null : String(raw.City).trim(),
+        state: raw.State == null ? null : String(raw.State).trim(),
+        zip: raw.Zip == null ? null : String(raw.Zip).trim(),
+        tech_name: techName,
+        tech_code: codeMatch ? codeMatch[1].toUpperCase() : null,
+        pool_name: raw.Pool == null ? null : String(raw.Pool).trim(),
+        gallons: number(raw.Gallons),
+        start_time: raw['Start Time'] == null ? null : String(raw['Start Time']),
+        complete_time: raw['Complete Time'] == null ? null : String(raw['Complete Time']),
+        rate: number(raw.Rate),
+        rate_type: raw['Rate Type'] == null ? null : String(raw['Rate Type']),
+        labor_cost: number(raw['Labor Cost']),
+        labor_cost_type: raw['Labor Cost Type'] == null ? null : String(raw['Labor Cost Type']),
+        usage
+      };
+    }).filter(row => row.service_date && row.tech_name && (row.customer_name || row.address));
+    if (!rows.length) throw new Error('No dated service rows could be read from the selected file.');
+    const dates = rows.map(row => row.service_date).sort();
+    return {
+      file,
+      fingerprint: await fingerprintFile(buffer),
+      rows,
+      weekStart: dates[0],
+      weekEnd: dates[dates.length - 1]
+    };
+  }
+
+  async function chooseImportFile(file) {
+    if (!file) return;
+    if (!/\.xlsx?$/i.test(file.name)) return showMessage('Choose an Excel .xlsx file exported from Skimmer.', 'error');
+    try {
+      parsedImport = await parseSkimmerFile(file);
+      $('importFileName').textContent = file.name;
+      $('importRowCount').textContent = parsedImport.rows.length.toLocaleString();
+      $('importWeekStart').value = parsedImport.weekStart;
+      $('importWeekEnd').value = parsedImport.weekEnd;
+      $('importPreview').hidden = false;
+      showMessage('Skimmer file validated and ready to import.', 'success');
+    } catch (error) {
+      parsedImport = null;
+      $('importPreview').hidden = true;
+      showMessage(error.message || 'Unable to read the Skimmer file.', 'error');
+    }
+  }
+
+  async function insertChunks(table, rows, size = 250, select = '') {
+    const returned = [];
+    for (let start = 0; start < rows.length; start += size) {
+      let query = db.from(table).insert(rows.slice(start, start + size));
+      if (select) query = query.select(select);
+      const { data, error } = await query;
+      if (error) throw error;
+      if (data) returned.push(...data);
+    }
+    return returned;
+  }
+
+  async function runSkimmerImport() {
+    if (!parsedImport || !canWrite) return;
+    const weekStart = $('importWeekStart').value;
+    const weekEnd = $('importWeekEnd').value;
+    if (!weekStart || !weekEnd || weekEnd < weekStart) return showMessage('Confirm the weekly start and end dates.', 'error');
+    const button = $('runImportButton');
+    setBusy(button, true, 'Importing…');
+    let batchId = null;
+    try {
+      const { data: batch, error: batchError } = await db.from('chem_skimmer_import_batches').insert({
+        week_start: weekStart,
+        week_end: weekEnd,
+        file_name: parsedImport.file.name,
+        file_fingerprint: parsedImport.fingerprint,
+        row_count: parsedImport.rows.length
+      }).select('id').single();
+      if (batchError) throw batchError;
+      batchId = batch.id;
+
+      const serviceRows = parsedImport.rows.map(({ usage, ...row }) => ({ ...row, batch_id: batchId }));
+      const inserted = await insertChunks('chem_skimmer_service_rows', serviceRows, 200, 'id,row_number');
+      const idByRow = new Map(inserted.map(row => [row.row_number, row.id]));
+      const usageLines = parsedImport.rows.flatMap(row => row.usage.map(item => ({
+        batch_id: batchId,
+        service_row_id: idByRow.get(row.row_number),
+        chemical_id: item.chemical_id,
+        source_column: item.source_column,
+        quantity: item.quantity,
+        source_unit: item.source_unit
+      })));
+      await insertChunks('chem_skimmer_usage_lines', usageLines, 300);
+      const { error: finalizeError } = await db.rpc('chem_finalize_skimmer_batch', { p_batch_id: batchId });
+      if (finalizeError) throw finalizeError;
+
+      parsedImport = null;
+      $('skimmerFile').value = '';
+      $('importPreview').hidden = true;
+      showMessage('Weekly Skimmer service history imported successfully.', 'success');
+      await loadImportHistory();
+    } catch (error) {
+      if (batchId) await db.from('chem_skimmer_import_batches').update({ status: 'FAILED', failure_message: String(error.message || error).slice(0, 500) }).eq('id', batchId);
+      showMessage(error.message || 'The Skimmer import failed.', 'error');
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
+  function weekLabel(batch) {
+    return `${batch.week_start} through ${batch.week_end}`;
+  }
+
+  async function loadImportHistory() {
+    const { data, error } = await db.from('chem_skimmer_import_batches').select('*').order('week_start', { ascending: false }).order('imported_at', { ascending: false }).limit(100);
+    if (error) throw error;
+    $('importHistoryRows').innerHTML = (data || []).map(row => `<tr>
+      <td>${escapeHtml(row.week_start)} – ${escapeHtml(row.week_end)}</td>
+      <td>${escapeHtml(row.file_name)}</td>
+      <td class="numeric">${fmt(row.row_count, 0)}</td>
+      <td><span class="status-pill status-${String(row.status).toLowerCase()}">${escapeHtml(row.status)}</span></td>
+      <td>${escapeHtml(new Date(row.imported_at).toLocaleString())}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="muted">No Skimmer imports yet.</td></tr>';
+    activeBatches = (data || []).filter(row => row.status === 'ACTIVE');
+    renderWeekOptions();
+  }
+
+  function renderWeekOptions() {
+    const options = activeBatches.map(batch => `<option value="${batch.id}" data-start="${batch.week_start}" data-end="${batch.week_end}">${escapeHtml(weekLabel(batch))}</option>`).join('');
+    for (const id of ['comparisonWeek', 'techWeek', 'clientWeek']) {
+      const select = $(id);
+      const selected = select.value;
+      select.innerHTML = options || '<option value="">No active weekly imports</option>';
+      if ([...select.options].some(o => o.value === selected)) select.value = selected;
+    }
+    const techOptions = recipients.filter(r => r.active && r.recipient_type === 'ROUTE_TECH')
+      .map(r => `<option value="${escapeHtml(r.route_code)}">${escapeHtml(r.display_name)} · ${escapeHtml(r.route_code)}</option>`).join('');
+    $('comparisonTech').innerHTML = '<option value="">All Route Techs</option>' + techOptions;
+  }
+
+  async function loadComparison() {
+    const option = $('comparisonWeek').selectedOptions[0];
+    const weekStart = option?.dataset.start;
+    if (!weekStart) return showMessage('Import a weekly Skimmer file first.', 'error');
+    let query = db.from('chem_weekly_variance_v').select('*').eq('week_start', weekStart).order('person_name').order('chemical_name');
+    if ($('comparisonTech').value) query = query.eq('route_code', $('comparisonTech').value);
+    const { data, error } = await query;
+    if (error) throw error;
+    $('comparisonRows').innerHTML = (data || []).map(row => {
+      const warning = row.issued_skimmer_equivalent !== null && row.used_quantity > row.issued_skimmer_equivalent;
+      return `<tr>
+        <td><strong>${escapeHtml(row.person_name || 'Unmatched Tech')}</strong><br><span class="muted">${escapeHtml(row.route_code || 'No route code')}</span></td>
+        <td>${escapeHtml(row.chemical_name)}</td>
+        <td class="numeric">${fmt(row.issued_quantity, 3)} ${escapeHtml(row.issue_unit || '')}</td>
+        <td class="numeric">${fmt(row.used_quantity, 3)} ${escapeHtml(row.usage_unit || '')}</td>
+        <td class="numeric ${warning ? 'variance-warning' : ''}">${fmt(row.estimated_remaining, 3)} ${escapeHtml(row.usage_unit || '')}</td>
+        <td class="numeric">${percent(row.used_percent_of_issued)}</td>
+        <td class="${row.conversion_status === 'PENDING_CONFIRMATION' ? 'conversion-pending' : ''}">${escapeHtml(row.conversion_status || 'No issuance conversion')}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="7" class="muted">No issued-versus-used data for this selection.</td></tr>';
+  }
+
+  function stopKey(row) {
+    return [row.tech_code || row.tech_name, row.customer_code || row.customer_name, row.location_code || row.address, row.service_date, row.complete_time || ''].join('|');
+  }
+
+  async function loadTechAnalysis() {
+    const batchId = $('techWeek').value;
+    if (!batchId) return showMessage('Import a weekly Skimmer file first.', 'error');
+    const [serviceRows, usageLines, reportRows] = await Promise.all([
+      fetchAll(() => db.from('chem_skimmer_service_rows').select('id,tech_name,tech_code,customer_name,customer_code,location_code,address,service_date,complete_time').eq('batch_id', batchId)),
+      fetchAll(() => db.from('chem_skimmer_usage_lines').select('service_row_id').eq('batch_id', batchId)),
+      fetchAll(() => db.from('chem_skimmer_usage_report_v').select('tech_name,tech_code,estimated_cost').eq('batch_id', batchId))
+    ]);
+    const usedRowIds = new Set(usageLines.map(row => row.service_row_id));
+    const stops = new Map();
+    for (const row of serviceRows) {
+      const key = stopKey(row);
+      if (!stops.has(key)) stops.set(key, { tech_code: row.tech_code, tech_name: row.tech_name, hasChemical: false });
+      if (usedRowIds.has(row.id)) stops.get(key).hasChemical = true;
+    }
+    const byTech = new Map();
+    for (const stop of stops.values()) {
+      const key = stop.tech_code || stop.tech_name;
+      if (!byTech.has(key)) byTech.set(key, { code: stop.tech_code, name: stop.tech_name, stops: 0, withChemical: 0, cost: 0 });
+      const item = byTech.get(key);
+      item.stops += 1;
+      if (stop.hasChemical) item.withChemical += 1;
+    }
+    for (const row of reportRows) {
+      const key = row.tech_code || row.tech_name;
+      if (!byTech.has(key)) byTech.set(key, { code: row.tech_code, name: row.tech_name, stops: 0, withChemical: 0, cost: 0 });
+      if (row.estimated_cost !== null) byTech.get(key).cost += Number(row.estimated_cost);
+    }
+    const rows = [...byTech.values()].sort((a, b) => a.name.localeCompare(b.name));
+    $('techRows').innerHTML = rows.map(row => `<tr>
+      <td><strong>${escapeHtml(row.name)}</strong><br><span class="muted">${escapeHtml(row.code || 'No route code')}</span></td>
+      <td class="numeric">${row.stops}</td>
+      <td class="numeric">${row.withChemical}</td>
+      <td class="numeric ${row.stops - row.withChemical > 0 ? 'variance-warning' : ''}">${row.stops - row.withChemical}</td>
+      <td class="numeric">${percent(row.stops ? row.withChemical / row.stops : null)}</td>
+      <td class="numeric">${money(row.cost)}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="muted">No route-tech activity for this week.</td></tr>';
+  }
+
+  async function loadClientAnalysis() {
+    const batchId = $('clientWeek').value;
+    if (!batchId) return showMessage('Import a weekly Skimmer file first.', 'error');
+    const reportRows = await fetchAll(() => db.from('chem_skimmer_usage_report_v').select('*').eq('batch_id', batchId));
+    const clients = new Map();
+    for (const row of reportRows) {
+      const key = [row.customer_code || row.customer_name, row.location_code || row.address].join('|');
+      if (!clients.has(key)) clients.set(key, {
+        name: row.customer_name || row.customer_code || 'Unnamed Client',
+        code: row.customer_code,
+        address: [row.address, row.city, row.state, row.zip].filter(Boolean).join(', '),
+        techs: new Set(), serviceRows: new Set(), gallons: 0, cost: 0, missingCost: false, chemicals: new Map()
+      });
+      const client = clients.get(key);
+      client.techs.add(row.tech_name);
+      if (!client.serviceRows.has(row.service_row_id)) {
+        client.serviceRows.add(row.service_row_id);
+        client.gallons += Number(row.gallons || 0);
+      }
+      if (row.estimated_cost === null) client.missingCost = true;
+      else client.cost += Number(row.estimated_cost);
+      const chemKey = `${row.chemical_name}|${row.source_unit}`;
+      client.chemicals.set(chemKey, (client.chemicals.get(chemKey) || 0) + Number(row.used_quantity || 0));
+    }
+    latestClientRows = [...clients.values()].sort((a, b) => b.cost - a.cost);
+    renderClientRows();
+  }
+
+  function renderClientRows() {
+    const search = $('clientSearch').value.trim().toLowerCase();
+    const rows = latestClientRows.filter(row => !search || [row.name, row.code, row.address, ...row.techs].join(' ').toLowerCase().includes(search));
+    $('clientRows').innerHTML = rows.map(row => {
+      const detail = [...row.chemicals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
+        .map(([key, qty]) => { const [name, unit] = key.split('|'); return `${escapeHtml(name)}: ${fmt(qty, 2)} ${escapeHtml(unit)}`; }).join('<br>');
+      const per10k = row.gallons > 0 ? row.cost / (row.gallons / 10000) : null;
+      return `<tr>
+        <td><strong>${escapeHtml(row.name)}</strong>${row.code ? `<br><span class="muted">${escapeHtml(row.code)}</span>` : ''}</td>
+        <td>${escapeHtml(row.address)}</td>
+        <td>${escapeHtml([...row.techs].join(', '))}</td>
+        <td class="numeric">${fmt(row.gallons, 0)}</td>
+        <td class="numeric">${money(row.cost)}${row.missingCost ? '<br><span class="conversion-pending">Partial</span>' : ''}</td>
+        <td class="numeric">${money(per10k)}</td>
+        <td>${detail}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="7" class="muted">No clients match this selection.</td></tr>';
+  }
+
+  async function loadMonthlyTotals() {
+    const year = Number($('monthlyYear').value);
+    const { data, error } = await db.from('chem_monthly_totals_v').select('*').eq('year', year);
+    if (error) throw error;
+    const byChemical = new Map();
+    for (const item of catalog) byChemical.set(item.id, { ...item, months: new Map() });
+    for (const row of data || []) {
+      if (!byChemical.has(row.chemical_id)) byChemical.set(row.chemical_id, { id: row.chemical_id, chemical_name: row.chemical_name, issue_unit: row.issue_unit, display_order: 999, months: new Map() });
+      byChemical.get(row.chemical_id).months.set(row.month, Number(row.quantity));
+    }
+    $('monthlyHead').innerHTML = `<tr><th>Chemical</th>${MONTHS.map(month => `<th>${month}</th>`).join('')}<th>YTD</th><th>Monthly Avg.</th></tr>`;
+    $('monthlyRows').innerHTML = [...byChemical.values()].sort((a, b) => a.display_order - b.display_order).map(item => {
+      const values = MONTHS.map((_, index) => item.months.get(index + 1));
+      const available = values.filter(value => value !== undefined);
+      const total = available.reduce((sum, value) => sum + value, 0);
+      const avg = available.length ? total / available.length : null;
+      return `<tr><td><strong>${escapeHtml(item.chemical_name)}</strong><br><span class="muted">${escapeHtml(item.issue_unit)}</span></td>${values.map(value => `<td class="numeric">${value === undefined ? '—' : fmt(value, 3)}</td>`).join('')}<td class="numeric"><strong>${fmt(total, 3)}</strong></td><td class="numeric">${fmt(avg, 3)}</td></tr>`;
+    }).join('');
+  }
+
+  function renderRecipients() {
+    $('recipientRows').innerHTML = recipients.map(row => `<tr>
+      <td><strong>${escapeHtml(row.display_name)}</strong></td>
+      <td>${escapeHtml(recipientTypeLabel(row.recipient_type))}</td>
+      <td>${escapeHtml(row.department)}</td>
+      <td>${escapeHtml(row.route_code || '—')}</td>
+      <td><span class="status-pill status-${row.active ? 'active' : 'inactive'}">${row.active ? 'ACTIVE' : 'INACTIVE'}</span></td>
+      <td>${canWrite && row.recipient_type !== 'ROUTE_TECH' ? `<button class="button button-ghost toggle-recipient" type="button" data-id="${row.id}" data-active="${row.active}">${row.active ? 'Deactivate' : 'Reactivate'}</button>` : ''}</td>
+    </tr>`).join('');
+  }
+
+  async function addRecipient(event) {
+    event.preventDefault();
+    if (!canWrite) return;
+    const type = $('newRecipientType').value;
+    const name = $('newRecipientName').value.trim();
+    if (!name) return;
+    const { error } = await db.from('chem_recipients').insert({
+      recipient_type: type,
+      display_name: name,
+      department: type === 'PGP' ? 'PGP' : 'PROJECTS',
+      active: true
+    });
+    if (error) throw error;
+    $('newRecipientName').value = '';
+    await loadBaseData();
+    showMessage('Recipient added.', 'success');
+  }
+
+  async function toggleRecipient(id, active) {
+    const { error } = await db.from('chem_recipients').update({ active: !active, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+    await loadBaseData();
+    showMessage(active ? 'Recipient deactivated.' : 'Recipient reactivated.', 'success');
+  }
+
+  function bindEvents() {
+    $('recipientSelect').addEventListener('change', updateRecipientSummary);
+    $('issuanceForm').addEventListener('submit', saveIssuance);
+    $('clearIssuanceButton').addEventListener('click', clearIssuanceForm);
+    $('refreshIssuanceButton').addEventListener('click', () => loadRecentIssuance().catch(error => showMessage(error.message, 'error')));
+    $('recentIssuanceRows').addEventListener('click', event => {
+      const button = event.target.closest('.void-issuance');
+      if (button) voidIssuance(button.dataset.id).catch(error => showMessage(error.message, 'error'));
+    });
+
+    const dropZone = $('dropZone');
+    dropZone.addEventListener('click', () => $('skimmerFile').click());
+    dropZone.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') $('skimmerFile').click(); });
+    dropZone.addEventListener('dragover', event => { event.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', event => { event.preventDefault(); dropZone.classList.remove('dragover'); chooseImportFile(event.dataTransfer.files[0]); });
+    $('skimmerFile').addEventListener('change', event => chooseImportFile(event.target.files[0]));
+    $('runImportButton').addEventListener('click', runSkimmerImport);
+    $('refreshImportsButton').addEventListener('click', () => loadImportHistory().catch(error => showMessage(error.message, 'error')));
+
+    $('loadComparisonButton').addEventListener('click', () => loadComparison().catch(error => showMessage(error.message, 'error')));
+    $('loadTechButton').addEventListener('click', () => loadTechAnalysis().catch(error => showMessage(error.message, 'error')));
+    $('loadClientButton').addEventListener('click', () => loadClientAnalysis().catch(error => showMessage(error.message, 'error')));
+    $('clientSearch').addEventListener('input', renderClientRows);
+    $('loadMonthlyButton').addEventListener('click', () => loadMonthlyTotals().catch(error => showMessage(error.message, 'error')));
+    $('recipientForm').addEventListener('submit', event => addRecipient(event).catch(error => showMessage(error.message, 'error')));
+    $('recipientRows').addEventListener('click', event => {
+      const button = event.target.closest('.toggle-recipient');
+      if (button) toggleRecipient(button.dataset.id, button.dataset.active === 'true').catch(error => showMessage(error.message, 'error'));
+    });
+  }
+
+  async function initialize() {
+    bindTabs();
+    $('issueDate').value = todayValue();
+    if (!(await authenticate())) return;
+    bindEvents();
+    await loadBaseData();
+    await Promise.all([loadRecentIssuance(), loadImportHistory(), loadMonthlyTotals()]);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => initialize().catch(error => {
+    $('accessDenied').hidden = false;
+    $('accessDenied').querySelector('p').textContent = error.message || 'Unable to open Chemical Tracking.';
+  }));
+  else initialize().catch(error => showMessage(error.message || 'Unable to open Chemical Tracking.', 'error'));
+})();
+
+  </script>
+</body>
+</html>
