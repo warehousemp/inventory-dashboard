@@ -1596,6 +1596,11 @@
               <div class="sub">Tommy, David, Ken, other tech revenue</div>
             </div>
             <div class="revenue-summary-card">
+              <div class="label">OTHER - Acid Washes / Treatments</div>
+              <div class="value" id="revenueSummaryOther">$0.00</div>
+              <div class="sub">Revenue outside repair-tech attribution</div>
+            </div>
+            <div class="revenue-summary-card">
               <div class="label">Leak Detection $</div>
               <div class="value" id="revenueSummaryLeakDetection">$0.00</div>
               <div class="sub">Leak detection revenue</div>
@@ -1636,7 +1641,7 @@
                   <option value="REPAIR_TECH_REVENUE">Repair Tech Revenue $</option>
                   <option value="LEAK_DETECTION">Leak Detection $</option>
                   <option value="ROUTE_SERVICE">Route Service $</option>
-                  <option value="OTHER">Other</option>
+                  <option value="OTHER">OTHER - Acid Washes / Treatments</option>
                 </select>
               </div>
               <div class="revenue-field">
@@ -1736,7 +1741,7 @@
                   <option value="REPAIR_TECH_REVENUE">Repair Tech Revenue $</option>
                   <option value="LEAK_DETECTION">Leak Detection $</option>
                   <option value="ROUTE_SERVICE">Route Service $</option>
-                  <option value="OTHER">Other</option>
+                  <option value="OTHER">OTHER - Acid Washes / Treatments</option>
                 </select>
               </div>
               <div class="revenue-field">
@@ -3413,6 +3418,14 @@ function renderRevenueSummary(row, goalRow, weeklyRow, startDate, endDate) {
   });
   setText('revenueSummaryProjectWork', formatCurrency(summary.total_project_work));
   setText('revenueSummaryRepairTech', formatCurrency(summary.total_repair_tech_revenue));
+  // The RPC's total_other is an Earned By total. This card is the OTHER entry-type
+  // category, so derive it from the complete, constrained set of revenue buckets.
+  const otherRevenue = Number(summary.total_revenue || 0)
+    - Number(summary.total_project_work || 0)
+    - Number(summary.total_repair_tech_revenue || 0)
+    - Number(summary.total_leak_detection || 0)
+    - Number(summary.total_route_service || 0);
+  setText('revenueSummaryOther', formatCurrency(otherRevenue));
   setText('revenueSummaryLeakDetection', formatCurrency(summary.total_leak_detection));
   setText('revenueSummaryRouteService', formatCurrency(summary.total_route_service));
   setText('revenueSummaryLastUpdated', summary.last_updated_at ? formatDateTime(summary.last_updated_at) : '—');
@@ -3636,6 +3649,9 @@ function renderRevenueEntries(rows) {
 
   rows.forEach(row => {
     const tr = document.createElement('tr');
+    const entryTypeLabel = row.entry_type === 'OTHER'
+      ? 'OTHER - Acid Washes / Treatments'
+      : (row.entry_type_label || row.entry_type || '—');
     const statusHtml = row.is_voided
       ? `<span class="badge red">Voided</span><span class="muted-small">${escapeHTML(row.void_reason || '')}</span>`
       : '<span class="badge green">Active</span>';
@@ -3648,7 +3664,7 @@ function renderRevenueEntries(rows) {
       <td><strong>${escapeHTML(formatShortDate(row.transaction_date))}</strong></td>
       <td>${escapeHTML(row.transaction_day || '')}</td>
       <td>${escapeHTML(row.entered_by || '—')}</td>
-      <td>${escapeHTML(row.entry_type_label || row.entry_type || '—')}</td>
+      <td>${escapeHTML(entryTypeLabel)}</td>
       <td>${escapeHTML(row.earned_by_label || row.earned_by || '—')}</td>
       <td>${formatCurrency(row.amount)}</td>
       <td>${formatCurrency(row.quoted_amount)}</td>
