@@ -50,8 +50,13 @@
     },
     {
       label: 'Warehouse',
-      roles: ['WAREHOUSE', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
+      roles: ['WAREHOUSE', 'ACCOUNTING', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
       links: [
+        {
+          label: 'Chemical Tracking',
+          href: 'chemical-tracking.html',
+          roles: ['WAREHOUSE', 'ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN']
+        },
         {
           label: 'Warehouse Operations',
           href: 'warehouse.html',
