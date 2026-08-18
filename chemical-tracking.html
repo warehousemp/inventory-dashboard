@@ -82,6 +82,7 @@ textarea { resize: vertical; }
 
 .table-scroll { overflow: auto; }
 .compact-scroll { max-height: 540px; border: 1px solid var(--line); border-radius: 9px; }
+.issuance-tables-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
 .issuance-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; }
 .standard-scroll { max-height: 520px; }
 .report-scroll { max-height: 650px; }
@@ -91,7 +92,12 @@ textarea { resize: vertical; }
 .data-table th { position: sticky; top: 0; z-index: 2; background: var(--navy); color: var(--white); font-size: .76rem; letter-spacing: .03em; text-transform: uppercase; }
 .data-table tbody tr:hover td { background: #f7fbfd; }
 .data-table td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
-.issuance-grid input { min-width: 140px; }
+.issuance-grid { table-layout: fixed; font-size: .82rem; }
+.issuance-grid .chem-col { width: 28%; }
+.issuance-grid .qty-col { width: 24%; }
+.issuance-grid .unit-col { width: 17%; }
+.issuance-grid .conversion-col { width: 31%; }
+.issuance-grid input { min-width: 0; }
 .issuance-grid th, .issuance-grid td { padding-top: 7px; padding-bottom: 7px; vertical-align: middle; }
 .issuance-grid input { padding-top: 7px; padding-bottom: 7px; }
 .status-pill { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-size: .75rem; font-weight: 800; }
@@ -134,6 +140,10 @@ textarea { resize: vertical; }
   .import-preview .button { grid-column: 1 / -1; }
   .recipient-form { align-items: stretch; flex-direction: column; }
   .recipient-form label { min-width: 0; }
+}
+
+@media (max-width: 1150px) {
+  .issuance-tables-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 560px) {
@@ -216,11 +226,21 @@ textarea { resize: vertical; }
           </label>
         </div>
 
-        <div class="issuance-table-wrap">
-          <table class="data-table issuance-grid">
-            <thead><tr><th>Chemical</th><th>Quantity Issued</th><th>Unit</th><th>Conversion for Skimmer Comparison</th></tr></thead>
-            <tbody id="issuanceChemicalRows"></tbody>
-          </table>
+        <div class="issuance-tables-grid">
+          <div class="issuance-table-wrap">
+            <table class="data-table issuance-grid">
+              <colgroup><col class="chem-col"><col class="qty-col"><col class="unit-col"><col class="conversion-col"></colgroup>
+              <thead><tr><th>Chemical</th><th>Quantity</th><th>Unit</th><th>Skimmer Conversion</th></tr></thead>
+              <tbody id="issuanceChemicalRowsLeft"></tbody>
+            </table>
+          </div>
+          <div class="issuance-table-wrap">
+            <table class="data-table issuance-grid">
+              <colgroup><col class="chem-col"><col class="qty-col"><col class="unit-col"><col class="conversion-col"></colgroup>
+              <thead><tr><th>Chemical</th><th>Quantity</th><th>Unit</th><th>Skimmer Conversion</th></tr></thead>
+              <tbody id="issuanceChemicalRowsRight"></tbody>
+            </table>
+          </div>
         </div>
 
         <label class="notes-field">
@@ -554,7 +574,7 @@ textarea { resize: vertical; }
   }
 
   function renderIssuanceGrid() {
-    $('issuanceChemicalRows').innerHTML = catalog.map(item => {
+    const renderRows = items => items.map(item => {
       const conversion = item.compare_to_skimmer
         ? `${item.skimmer_units_per_issue_unit ? `${fmt(item.skimmer_units_per_issue_unit, 4)} ${escapeHtml(item.skimmer_usage_unit)} per ${escapeHtml(item.issue_unit)}` : 'Conversion required'}${item.conversion_status === 'PENDING_CONFIRMATION' ? ' · Confirm' : ''}`
         : 'Issuance only';
@@ -565,6 +585,8 @@ textarea { resize: vertical; }
         <td class="${item.conversion_status === 'PENDING_CONFIRMATION' ? 'conversion-pending' : ''}">${conversion}</td>
       </tr>`;
     }).join('');
+    $('issuanceChemicalRowsLeft').innerHTML = renderRows(catalog.slice(0, 7));
+    $('issuanceChemicalRowsRight').innerHTML = renderRows(catalog.slice(7));
     if (!canWrite) document.querySelectorAll('.chemical-quantity').forEach(input => { input.disabled = true; });
   }
 
