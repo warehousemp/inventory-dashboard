@@ -82,6 +82,7 @@ textarea { resize: vertical; }
 
 .table-scroll { overflow: auto; }
 .compact-scroll { max-height: 540px; border: 1px solid var(--line); border-radius: 9px; }
+.issuance-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; }
 .standard-scroll { max-height: 520px; }
 .report-scroll { max-height: 650px; }
 .monthly-scroll { max-height: 680px; }
@@ -91,6 +92,8 @@ textarea { resize: vertical; }
 .data-table tbody tr:hover td { background: #f7fbfd; }
 .data-table td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
 .issuance-grid input { min-width: 140px; }
+.issuance-grid th, .issuance-grid td { padding-top: 7px; padding-bottom: 7px; vertical-align: middle; }
+.issuance-grid input { padding-top: 7px; padding-bottom: 7px; }
 .status-pill { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-size: .75rem; font-weight: 800; }
 .status-active, .status-posted { background: var(--success-soft); color: var(--success); }
 .status-pending, .status-draft { background: var(--warning-soft); color: var(--warning); }
@@ -204,18 +207,18 @@ textarea { resize: vertical; }
 
         <div id="projectFields" class="form-grid form-grid-2" hidden>
           <label>
-            <span>Project / Job Reference <small>(required)</small></span>
-            <input id="projectReference" type="text" maxlength="120" placeholder="Enter the job number or project name">
+            <span>Project / Job Reference <small>(required only for PGP and Projects)</small></span>
+            <input id="projectReference" type="text" maxlength="120" placeholder="Enter the job number or project name" disabled>
           </label>
           <label>
             <span>Client <small>(optional)</small></span>
-            <input id="projectClient" type="text" maxlength="160" placeholder="Client or property name">
+            <input id="projectClient" type="text" maxlength="160" placeholder="Client or property name" disabled>
           </label>
         </div>
 
-        <div class="table-scroll compact-scroll">
+        <div class="issuance-table-wrap">
           <table class="data-table issuance-grid">
-            <thead><tr><th>Chemical</th><th>Quantity Issued</th><th>Unit</th></tr></thead>
+            <thead><tr><th>Chemical</th><th>Quantity Issued</th><th>Unit</th><th>Conversion for Skimmer Comparison</th></tr></thead>
             <tbody id="issuanceChemicalRows"></tbody>
           </table>
         </div>
@@ -542,6 +545,8 @@ textarea { resize: vertical; }
     const requiresReference = ['PGP', 'PROJECT_PM'].includes(recipient?.recipient_type);
     $('projectFields').hidden = !requiresReference;
     $('projectReference').required = requiresReference;
+    $('projectReference').disabled = !requiresReference || !canWrite;
+    $('projectClient').disabled = !requiresReference || !canWrite;
     if (!requiresReference) {
       $('projectReference').value = '';
       $('projectClient').value = '';
@@ -550,10 +555,14 @@ textarea { resize: vertical; }
 
   function renderIssuanceGrid() {
     $('issuanceChemicalRows').innerHTML = catalog.map(item => {
+      const conversion = item.compare_to_skimmer
+        ? `${item.skimmer_units_per_issue_unit ? `${fmt(item.skimmer_units_per_issue_unit, 4)} ${escapeHtml(item.skimmer_usage_unit)} per ${escapeHtml(item.issue_unit)}` : 'Conversion required'}${item.conversion_status === 'PENDING_CONFIRMATION' ? ' · Confirm' : ''}`
+        : 'Issuance only';
       return `<tr>
         <td><strong>${escapeHtml(item.chemical_name)}</strong></td>
         <td><input class="chemical-quantity" data-chemical-id="${item.id}" type="number" min="0" step="0.001" inputmode="decimal" aria-label="${escapeHtml(item.chemical_name)} quantity"></td>
         <td>${escapeHtml(item.issue_unit)}</td>
+        <td class="${item.conversion_status === 'PENDING_CONFIRMATION' ? 'conversion-pending' : ''}">${conversion}</td>
       </tr>`;
     }).join('');
     if (!canWrite) document.querySelectorAll('.chemical-quantity').forEach(input => { input.disabled = true; });
