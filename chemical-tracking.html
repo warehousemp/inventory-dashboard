@@ -366,7 +366,7 @@ textarea { resize: vertical; }
 
     <section class="tab-panel" data-panel="monthly">
       <div class="section-heading">
-        <div><h2>Monthly / Year-to-Date Summary</h2><p>Company totals include Route Service, PGP, and Projects. January–July 2026 is carried forward from the legacy Chems2026 workbook.</p></div>
+        <div><h2>Monthly / Year-to-Date Summary</h2><p>Company totals include Route Service, PGP, Projects, and Other recipients. January–July 2026 is carried forward from the legacy Chems2026 workbook.</p></div>
       </div>
       <div class="card filter-bar">
         <label><span>Year</span><select id="monthlyYear"><option value="2026">2026</option></select></label>
@@ -382,11 +382,12 @@ textarea { resize: vertical; }
 
     <section class="tab-panel" data-panel="recipients">
       <div class="section-heading">
-        <div><h2>PGP and Project Recipients</h2><p>Route technicians come from the route-tech roster. Add or deactivate non-route recipients here.</p></div>
+        <div><h2>Chemical Recipients</h2><p>Add or deactivate route technicians, Service Department staff, project managers, PGP recipients, and occasional Other recipients.</p></div>
       </div>
       <form id="recipientForm" class="card recipient-form">
-        <label><span>Recipient Type</span><select id="newRecipientType"><option value="PROJECT_PM">Project Manager</option><option value="PGP">PGP</option></select></label>
+        <label><span>Recipient Type</span><select id="newRecipientType"><option value="ROUTE_TECH">Route Technician</option><option value="SERVICE">Service Department</option><option value="PROJECT_PM">Project Manager</option><option value="PGP">PGP</option><option value="OTHER">Other</option></select></label>
         <label class="grow"><span>Name</span><input id="newRecipientName" type="text" maxlength="120" required placeholder="Recipient name"></label>
+        <label id="newRecipientRouteCodeField"><span>Route Code</span><input id="newRecipientRouteCode" type="text" maxlength="30" required placeholder="Example: RT27"><small>Use the same code shown in Skimmer.</small></label>
         <button class="button button-primary" type="submit">Add Recipient</button>
       </form>
       <div class="card table-scroll standard-scroll">
@@ -542,7 +543,17 @@ textarea { resize: vertical; }
   }
 
   function recipientTypeLabel(type) {
-    return ({ ROUTE_TECH: 'Route Technician', PGP: 'PGP', PROJECT_PM: 'Project Manager' })[type] || type;
+    return ({
+      ROUTE_TECH: 'Route Technician',
+      SERVICE: 'Service Department',
+      PGP: 'PGP',
+      PROJECT_PM: 'Project Manager',
+      OTHER: 'Other'
+    })[type] || type;
+  }
+
+  function departmentLabel(department) {
+    return ({ ROUTE_SERVICE: 'Route Service', PGP: 'PGP', PROJECTS: 'Projects', OTHER: 'Other' })[department] || department;
   }
 
   function renderRecipientOptions() {
@@ -550,8 +561,10 @@ textarea { resize: vertical; }
     const selected = select.value;
     const groups = [
       ['ROUTE_TECH', 'Route Technicians'],
+      ['SERVICE', 'Service Department'],
       ['PGP', 'PGP'],
-      ['PROJECT_PM', 'Project Managers']
+      ['PROJECT_PM', 'Project Managers'],
+      ['OTHER', 'Other']
     ];
     select.innerHTML = '<option value="">Select recipient</option>' + groups.map(([type, label]) => {
       const options = recipients.filter(r => r.active && r.recipient_type === type)
@@ -573,6 +586,14 @@ textarea { resize: vertical; }
       $('projectReference').value = '';
       $('projectClient').value = '';
     }
+  }
+
+  function updateNewRecipientFields() {
+    const isRouteTech = $('newRecipientType').value === 'ROUTE_TECH';
+    $('newRecipientRouteCodeField').hidden = !isRouteTech;
+    $('newRecipientRouteCode').required = isRouteTech;
+    $('newRecipientRouteCode').disabled = !isRouteTech || !canWrite;
+    if (!isRouteTech) $('newRecipientRouteCode').value = '';
   }
 
   function renderIssuanceGrid() {
@@ -649,7 +670,7 @@ textarea { resize: vertical; }
     $('recentIssuanceRows').innerHTML = (data || []).map(row => `<tr>
       <td>${escapeHtml(row.issue_date)}</td>
       <td><strong>${escapeHtml(row.recipient_name)}</strong>${row.route_code ? `<br><span class="muted">${escapeHtml(row.route_code)}</span>` : ''}</td>
-      <td>${escapeHtml(row.department)}</td>
+      <td>${escapeHtml(departmentLabel(row.department))}</td>
       <td>${escapeHtml(row.chemical_name)}</td>
       <td class="numeric">${fmt(row.issued_unit_count, 0)} ${escapeHtml(row.issuing_unit)}</td>
       <td class="numeric">${fmt(row.quantity, 3)} ${escapeHtml(row.issue_unit)}</td>
@@ -992,10 +1013,10 @@ textarea { resize: vertical; }
     $('recipientRows').innerHTML = recipients.map(row => `<tr>
       <td><strong>${escapeHtml(row.display_name)}</strong></td>
       <td>${escapeHtml(recipientTypeLabel(row.recipient_type))}</td>
-      <td>${escapeHtml(row.department)}</td>
+      <td>${escapeHtml(departmentLabel(row.department))}</td>
       <td>${escapeHtml(row.route_code || '—')}</td>
       <td><span class="status-pill status-${row.active ? 'active' : 'inactive'}">${row.active ? 'ACTIVE' : 'INACTIVE'}</span></td>
-      <td>${canWrite && row.recipient_type !== 'ROUTE_TECH' ? `<button class="button button-ghost toggle-recipient" type="button" data-id="${row.id}" data-active="${row.active}">${row.active ? 'Deactivate' : 'Reactivate'}</button>` : ''}</td>
+      <td>${canWrite ? `<button class="button button-ghost toggle-recipient" type="button" data-id="${row.id}" data-active="${row.active}">${row.active ? 'Deactivate' : 'Reactivate'}</button>` : ''}</td>
     </tr>`).join('');
   }
 
@@ -1005,14 +1026,29 @@ textarea { resize: vertical; }
     const type = $('newRecipientType').value;
     const name = $('newRecipientName').value.trim();
     if (!name) return;
+    const routeCode = $('newRecipientRouteCode').value.trim().toUpperCase();
+    if (type === 'ROUTE_TECH' && !routeCode) {
+      $('newRecipientRouteCode').focus();
+      return showMessage('Enter the route code used in Skimmer.', 'error');
+    }
+    const departmentByType = {
+      ROUTE_TECH: 'ROUTE_SERVICE',
+      SERVICE: 'ROUTE_SERVICE',
+      PGP: 'PGP',
+      PROJECT_PM: 'PROJECTS',
+      OTHER: 'OTHER'
+    };
     const { error } = await db.from('chem_recipients').insert({
       recipient_type: type,
       display_name: name,
-      department: type === 'PGP' ? 'PGP' : 'PROJECTS',
+      department: departmentByType[type],
+      route_code: type === 'ROUTE_TECH' ? routeCode : null,
       active: true
     });
+    if (error?.code === '23505') return showMessage('That recipient or active route code is already on the list.', 'error');
     if (error) throw error;
     $('newRecipientName').value = '';
+    $('newRecipientRouteCode').value = '';
     await loadBaseData();
     showMessage('Recipient added.', 'success');
   }
@@ -1026,6 +1062,7 @@ textarea { resize: vertical; }
 
   function bindEvents() {
     $('recipientSelect').addEventListener('change', updateRecipientFields);
+    $('newRecipientType').addEventListener('change', updateNewRecipientFields);
     $('issuanceForm').addEventListener('submit', saveIssuance);
     $('clearIssuanceButton').addEventListener('click', clearIssuanceForm);
     $('refreshIssuanceButton').addEventListener('click', () => loadRecentIssuance().catch(error => showMessage(error.message, 'error')));
@@ -1054,6 +1091,7 @@ textarea { resize: vertical; }
       const button = event.target.closest('.toggle-recipient');
       if (button) toggleRecipient(button.dataset.id, button.dataset.active === 'true').catch(error => showMessage(error.message, 'error'));
     });
+    updateNewRecipientFields();
   }
 
   async function initialize() {
