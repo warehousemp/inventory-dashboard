@@ -67,6 +67,8 @@ h3 { margin: 0 0 5px; font-size: 1.1rem; }
 .form-grid { display: grid; gap: 16px; margin-bottom: 18px; }
 .form-grid-3 { grid-template-columns: minmax(160px, .7fr) minmax(240px, 1.2fr) minmax(240px, 1fr); }
 .form-grid-2 { grid-template-columns: 1fr 1fr; }
+.issuance-header-grid { grid-template-columns: 220px minmax(280px, 1fr); max-width: 850px; }
+#projectFields { max-width: 850px; }
 label { display: grid; align-content: start; gap: 6px; color: #344957; font-size: .86rem; font-weight: 700; }
 label small { color: var(--muted); font-weight: 500; }
 input, select, textarea { width: 100%; border: 1px solid #b8c9d4; border-radius: 7px; background: var(--white); padding: 10px 11px; color: var(--ink); }
@@ -124,7 +126,7 @@ textarea { resize: vertical; }
   .chem-app { width: min(100% - 20px, 1480px); margin-top: 18px; }
   .page-header { display: grid; }
   .header-actions { justify-content: flex-start; }
-  .form-grid-3, .form-grid-2 { grid-template-columns: 1fr; }
+  .form-grid-3, .form-grid-2, .issuance-header-grid { grid-template-columns: 1fr; }
   .import-preview { grid-template-columns: 1fr 1fr; }
   .import-preview .button { grid-column: 1 / -1; }
   .recipient-form { align-items: stretch; flex-direction: column; }
@@ -187,7 +189,7 @@ textarea { resize: vertical; }
       </div>
 
       <form id="issuanceForm" class="card form-card">
-        <div class="form-grid form-grid-3">
+        <div class="form-grid issuance-header-grid">
           <label>
             <span>Issue Date</span>
             <input id="issueDate" type="date" required>
@@ -198,25 +200,22 @@ textarea { resize: vertical; }
               <option value="">Select recipient</option>
             </select>
           </label>
-          <div class="recipient-summary" id="recipientSummary">
-            <span class="muted">Choose a recipient to see the reporting category.</span>
-          </div>
         </div>
 
         <div id="projectFields" class="form-grid form-grid-2" hidden>
           <label>
-            <span>Project / Job Reference <small>(recommended)</small></span>
-            <input id="projectReference" type="text" maxlength="120" placeholder="Job number or project name">
+            <span>Project / Job Reference <small>(required)</small></span>
+            <input id="projectReference" type="text" maxlength="120" placeholder="Enter the job number or project name">
           </label>
           <label>
-            <span>Client</span>
+            <span>Client <small>(optional)</small></span>
             <input id="projectClient" type="text" maxlength="160" placeholder="Client or property name">
           </label>
         </div>
 
         <div class="table-scroll compact-scroll">
           <table class="data-table issuance-grid">
-            <thead><tr><th>Chemical</th><th>Quantity Issued</th><th>Warehouse Unit</th><th>Skimmer Comparison</th></tr></thead>
+            <thead><tr><th>Chemical</th><th>Quantity Issued</th><th>Unit</th></tr></thead>
             <tbody id="issuanceChemicalRows"></tbody>
           </table>
         </div>
@@ -535,32 +534,26 @@ textarea { resize: vertical; }
       return options ? `<optgroup label="${label}">${options}</optgroup>` : '';
     }).join('');
     if ([...select.options].some(o => o.value === selected)) select.value = selected;
-    updateRecipientSummary();
+    updateRecipientFields();
   }
 
-  function updateRecipientSummary() {
+  function updateRecipientFields() {
     const recipient = recipients.find(r => r.id === $('recipientSelect').value);
-    $('projectFields').hidden = recipient?.recipient_type !== 'PROJECT_PM';
-    if (!recipient) {
-      $('recipientSummary').innerHTML = '<span class="muted">Choose a recipient to see the reporting category.</span>';
-      return;
+    const requiresReference = ['PGP', 'PROJECT_PM'].includes(recipient?.recipient_type);
+    $('projectFields').hidden = !requiresReference;
+    $('projectReference').required = requiresReference;
+    if (!requiresReference) {
+      $('projectReference').value = '';
+      $('projectClient').value = '';
     }
-    const compare = recipient.recipient_type === 'ROUTE_TECH'
-      ? 'Included in weekly Skimmer comparison'
-      : 'Excluded from route-tech Skimmer comparison';
-    $('recipientSummary').innerHTML = `<div><strong>${escapeHtml(recipientTypeLabel(recipient.recipient_type))} · ${escapeHtml(recipient.department)}</strong><span class="muted">${compare}</span></div>`;
   }
 
   function renderIssuanceGrid() {
     $('issuanceChemicalRows').innerHTML = catalog.map(item => {
-      const comparison = item.compare_to_skimmer
-        ? `${item.skimmer_units_per_issue_unit ? `${fmt(item.skimmer_units_per_issue_unit, 4)} ${escapeHtml(item.skimmer_usage_unit)} per ${escapeHtml(item.issue_unit)}` : 'Conversion required'}${item.conversion_status === 'PENDING_CONFIRMATION' ? ' · Confirm' : ''}`
-        : 'Issuance only';
       return `<tr>
         <td><strong>${escapeHtml(item.chemical_name)}</strong></td>
         <td><input class="chemical-quantity" data-chemical-id="${item.id}" type="number" min="0" step="0.001" inputmode="decimal" aria-label="${escapeHtml(item.chemical_name)} quantity"></td>
         <td>${escapeHtml(item.issue_unit)}</td>
-        <td class="${item.conversion_status === 'PENDING_CONFIRMATION' ? 'conversion-pending' : ''}">${comparison}</td>
       </tr>`;
     }).join('');
     if (!canWrite) document.querySelectorAll('.chemical-quantity').forEach(input => { input.disabled = true; });
@@ -578,6 +571,12 @@ textarea { resize: vertical; }
     if (!canWrite) return;
     const recipientId = $('recipientSelect').value;
     if (!recipientId) return showMessage('Select a recipient.', 'error');
+    const recipient = recipients.find(r => r.id === recipientId);
+    const requiresReference = ['PGP', 'PROJECT_PM'].includes(recipient?.recipient_type);
+    if (requiresReference && !$('projectReference').value.trim()) {
+      $('projectReference').focus();
+      return showMessage('A Project / Job Reference is required for PGP and Projects.', 'error');
+    }
     const lines = [...document.querySelectorAll('.chemical-quantity')]
       .map(input => ({ chemical_id: input.dataset.chemicalId, quantity: number(input.value) }))
       .filter(line => line.quantity && line.quantity > 0);
@@ -986,7 +985,7 @@ textarea { resize: vertical; }
   }
 
   function bindEvents() {
-    $('recipientSelect').addEventListener('change', updateRecipientSummary);
+    $('recipientSelect').addEventListener('change', updateRecipientFields);
     $('issuanceForm').addEventListener('submit', saveIssuance);
     $('clearIssuanceButton').addEventListener('click', clearIssuanceForm);
     $('refreshIssuanceButton').addEventListener('click', () => loadRecentIssuance().catch(error => showMessage(error.message, 'error')));
