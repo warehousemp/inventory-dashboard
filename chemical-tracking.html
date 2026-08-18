@@ -93,13 +93,16 @@ textarea { resize: vertical; }
 .data-table tbody tr:hover td { background: #f7fbfd; }
 .data-table td.numeric { text-align: right; font-variant-numeric: tabular-nums; }
 .issuance-grid { table-layout: fixed; font-size: .82rem; }
-.issuance-grid .chem-col { width: 28%; }
-.issuance-grid .qty-col { width: 24%; }
-.issuance-grid .unit-col { width: 17%; }
-.issuance-grid .conversion-col { width: 31%; }
+.issuance-grid .chem-col { width: 21%; }
+.issuance-grid .qty-col { width: 13%; }
+.issuance-grid .issuing-col { width: 20%; }
+.issuance-grid .purchase-col { width: 19%; }
+.issuance-grid .conversion-col { width: 27%; }
 .issuance-grid input { min-width: 0; }
 .issuance-grid th, .issuance-grid td { padding-top: 7px; padding-bottom: 7px; vertical-align: middle; }
 .issuance-grid input { padding-top: 7px; padding-bottom: 7px; }
+.conversion-detail { display: block; color: var(--muted); font-size: .7rem; font-weight: 600; line-height: 1.25; }
+.conversion-detail + .conversion-detail { margin-top: 3px; }
 .status-pill { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-size: .75rem; font-weight: 800; }
 .status-active, .status-posted { background: var(--success-soft); color: var(--success); }
 .status-pending, .status-draft { background: var(--warning-soft); color: var(--warning); }
@@ -197,7 +200,7 @@ textarea { resize: vertical; }
       <div class="section-heading">
         <div>
           <h2>Daily Chemical Issuance</h2>
-          <p>Record chemicals issued to route technicians, Edgar under PGP, or Project Managers.</p>
+          <p>Enter the number of issuing units. The database automatically calculates the Chem2026 total, purchased quantity, cost, and Skimmer comparison.</p>
         </div>
       </div>
 
@@ -229,15 +232,15 @@ textarea { resize: vertical; }
         <div class="issuance-tables-grid">
           <div class="issuance-table-wrap">
             <table class="data-table issuance-grid">
-              <colgroup><col class="chem-col"><col class="qty-col"><col class="unit-col"><col class="conversion-col"></colgroup>
-              <thead><tr><th>Chemical</th><th>Quantity</th><th>Unit</th><th>Skimmer Conversion</th></tr></thead>
+              <colgroup><col class="chem-col"><col class="qty-col"><col class="issuing-col"><col class="purchase-col"><col class="conversion-col"></colgroup>
+              <thead><tr><th>Chemical</th><th>Qty.</th><th>Issuing Unit</th><th>Purchased Unit</th><th>Conversions</th></tr></thead>
               <tbody id="issuanceChemicalRowsLeft"></tbody>
             </table>
           </div>
           <div class="issuance-table-wrap">
             <table class="data-table issuance-grid">
-              <colgroup><col class="chem-col"><col class="qty-col"><col class="unit-col"><col class="conversion-col"></colgroup>
-              <thead><tr><th>Chemical</th><th>Quantity</th><th>Unit</th><th>Skimmer Conversion</th></tr></thead>
+              <colgroup><col class="chem-col"><col class="qty-col"><col class="issuing-col"><col class="purchase-col"><col class="conversion-col"></colgroup>
+              <thead><tr><th>Chemical</th><th>Qty.</th><th>Issuing Unit</th><th>Purchased Unit</th><th>Conversions</th></tr></thead>
               <tbody id="issuanceChemicalRowsRight"></tbody>
             </table>
           </div>
@@ -260,7 +263,7 @@ textarea { resize: vertical; }
       </div>
       <div class="card table-scroll standard-scroll">
         <table class="data-table">
-          <thead><tr><th>Date</th><th>Recipient</th><th>Department</th><th>Chemical</th><th>Quantity</th><th>Cost</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Date</th><th>Recipient</th><th>Department</th><th>Chemical</th><th>Issued</th><th>Chem2026 Total</th><th>Cost</th><th>Status</th><th></th></tr></thead>
           <tbody id="recentIssuanceRows"></tbody>
         </table>
       </div>
@@ -414,7 +417,6 @@ textarea { resize: vertical; }
   const WRITE_ROLES = ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN'];
   const ADMIN_ROLES = ['ADMIN', 'SYSTEM_ADMIN'];
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
   let db;
   let profile;
   let canWrite = false;
@@ -575,14 +577,20 @@ textarea { resize: vertical; }
 
   function renderIssuanceGrid() {
     const renderRows = items => items.map(item => {
-      const conversion = item.compare_to_skimmer
-        ? `${item.skimmer_units_per_issue_unit ? `${fmt(item.skimmer_units_per_issue_unit, 4)} ${escapeHtml(item.skimmer_usage_unit)} per ${escapeHtml(item.issue_unit)}` : 'Conversion required'}${item.conversion_status === 'PENDING_CONFIRMATION' ? ' · Confirm' : ''}`
+      const chem2026Conversion = `${fmt(item.chem2026_units_per_issuing_unit, 4)} ${escapeHtml(item.issue_unit)} per issued unit`;
+      const skimmerPerIssuedUnit = Number(item.chem2026_units_per_issuing_unit) * Number(item.skimmer_units_per_issue_unit);
+      const skimmerConversion = item.compare_to_skimmer
+        ? `${item.skimmer_units_per_issue_unit ? `${fmt(skimmerPerIssuedUnit, 4)} ${escapeHtml(item.skimmer_usage_unit)} per issued unit` : 'Conversion required'}${item.conversion_status === 'PENDING_CONFIRMATION' ? ' · Confirm' : ''}`
         : 'Issuance only';
       return `<tr>
         <td><strong>${escapeHtml(item.chemical_name)}</strong></td>
-        <td><input class="chemical-quantity" data-chemical-id="${item.id}" type="number" min="0" step="0.001" inputmode="decimal" aria-label="${escapeHtml(item.chemical_name)} quantity"></td>
-        <td>${escapeHtml(item.issue_unit)}</td>
-        <td class="${item.conversion_status === 'PENDING_CONFIRMATION' ? 'conversion-pending' : ''}">${conversion}</td>
+        <td><input class="chemical-quantity" data-chemical-id="${item.id}" type="number" min="1" step="1" inputmode="numeric" aria-label="${escapeHtml(item.chemical_name)} number of issuing units"></td>
+        <td>${escapeHtml(item.issuing_unit)}</td>
+        <td>${escapeHtml(item.purchased_unit)}</td>
+        <td class="${item.conversion_status === 'PENDING_CONFIRMATION' ? 'conversion-pending' : ''}">
+          <span class="conversion-detail"><strong>Chem2026:</strong> ${chem2026Conversion}</span>
+          <span class="conversion-detail"><strong>Skimmer:</strong> ${skimmerConversion}</span>
+        </td>
       </tr>`;
     }).join('');
     $('issuanceChemicalRowsLeft').innerHTML = renderRows(catalog.slice(0, 7));
@@ -643,11 +651,12 @@ textarea { resize: vertical; }
       <td><strong>${escapeHtml(row.recipient_name)}</strong>${row.route_code ? `<br><span class="muted">${escapeHtml(row.route_code)}</span>` : ''}</td>
       <td>${escapeHtml(row.department)}</td>
       <td>${escapeHtml(row.chemical_name)}</td>
+      <td class="numeric">${fmt(row.issued_unit_count, 0)} ${escapeHtml(row.issuing_unit)}</td>
       <td class="numeric">${fmt(row.quantity, 3)} ${escapeHtml(row.issue_unit)}</td>
       <td class="numeric">${money(row.issued_cost)}</td>
       <td><span class="status-pill status-${String(row.status).toLowerCase()}">${escapeHtml(row.status)}</span></td>
       <td>${canWrite && row.status === 'POSTED' ? `<button class="button button-danger void-issuance" type="button" data-id="${row.issuance_id}">Void</button>` : ''}</td>
-    </tr>`).join('') || '<tr><td colspan="8" class="muted">No issuance records yet.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="9" class="muted">No issuance records yet.</td></tr>';
   }
 
   async function voidIssuance(id) {
