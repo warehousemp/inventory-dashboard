@@ -827,7 +827,7 @@
             <div class="section-header screen-detail-header">
               <div>
                 <h2>Opportunity Detail</h2>
-                <div class="section-note">All quote statuses remain visible so the team can evaluate total activity and conversion.</div>
+                <div class="section-note">Use the filters below to control both the on-screen results and printed opportunity-detail reports.</div>
               </div>
               <div class="detail-print-toolbar">
                 <div class="print-actions">
@@ -1133,7 +1133,12 @@
       document.getElementById('resetParticipantBtn').addEventListener('click', resetParticipantForm);
 
       ['statusFilter', 'participantFilter'].forEach(id => {
-        document.getElementById(id).addEventListener('change', renderQuoteTable);
+        document.getElementById(id).addEventListener('change', event => {
+          if (id === 'participantFilter' && event.target.value) {
+            document.getElementById('detailPrintParticipant').value = event.target.value;
+          }
+          renderQuoteTable();
+        });
       });
       document.getElementById('searchFilter').addEventListener('input', renderQuoteTable);
 
@@ -1347,12 +1352,14 @@
       `).join('');
     }
 
-    function renderQuoteTable() {
+    function getFilteredQuotes(options = {}) {
       const status = document.getElementById('statusFilter').value;
-      const participantId = document.getElementById('participantFilter').value;
+      const participantId = options.participantId !== undefined
+        ? options.participantId
+        : document.getElementById('participantFilter').value;
       const search = document.getElementById('searchFilter').value.trim().toLowerCase();
 
-      const filtered = state.quotes.filter(item => {
+      return state.quotes.filter(item => {
         if (status && item.quote_status !== status) return false;
         if (participantId && item.participant_id !== participantId) return false;
         if (search) {
@@ -1368,6 +1375,26 @@
         }
         return true;
       });
+    }
+
+    function getActiveFilterDescription(options = {}) {
+      const status = document.getElementById('statusFilter').value;
+      const participantId = options.participantId !== undefined
+        ? options.participantId
+        : document.getElementById('participantFilter').value;
+      const search = document.getElementById('searchFilter').value.trim();
+      const participant = state.participants.find(item => item.id === participantId) || null;
+      const filters = [];
+
+      filters.push(`Status: ${status ? `${status.charAt(0)}${status.slice(1).toLowerCase()}` : 'All statuses'}`);
+      filters.push(`Participant: ${participant ? `${participant.participant_code} · ${participant.participant_name}` : 'All participants'}`);
+      if (search) filters.push(`Search: “${search}”`);
+
+      return filters.join(' · ');
+    }
+
+    function renderQuoteTable() {
+      const filtered = getFilteredQuotes();
 
       document.getElementById('resultCount').textContent = `${filtered.length} record${filtered.length === 1 ? '' : 's'}`;
       const body = document.getElementById('quoteTableBody');
@@ -1461,7 +1488,10 @@
       }
 
       let reportName = 'Combined Opportunity Detail Report';
-      let reportQuotes = [...state.quotes];
+      const filterOptions = scope === 'individual'
+        ? { participantId: selectedParticipant.id }
+        : {};
+      let reportQuotes = getFilteredQuotes(filterOptions);
 
       if (scope === 'route-tech') {
         reportName = 'Route Tech Opportunity Detail Report';
@@ -1471,7 +1501,6 @@
         reportQuotes = reportQuotes.filter(item => item.participant_type === 'RTL');
       } else if (scope === 'individual') {
         reportName = `${selectedParticipant.participant_name} Opportunity Detail Report`;
-        reportQuotes = reportQuotes.filter(item => item.participant_id === selectedParticipant.id);
       }
 
       reportQuotes.sort((left, right) => {
@@ -1488,7 +1517,7 @@
       const quarterLabel = `FY${quarter.fiscal_year} ${quarter.fiscal_quarter} · ${formatDate(quarter.quarter_start_date)} through ${formatDate(quarter.quarter_end_date)}`;
 
       document.getElementById('detailPrintReportTitle').textContent = `Route Sales Opportunities — ${reportName}`;
-      document.getElementById('detailPrintReportRange').textContent = `${quarterLabel} · All opportunity statuses`;
+      document.getElementById('detailPrintReportRange').textContent = `${quarterLabel} · ${getActiveFilterDescription(filterOptions)}`;
       document.getElementById('detailPrintReportTimestamp').textContent = `Printed ${formatDateTime(new Date().toISOString())}`;
       document.title = `RSO ${reportName} - FY${quarter.fiscal_year} ${quarter.fiscal_quarter}`;
       document.body.classList.add('rso-print', 'rso-detail-print');
