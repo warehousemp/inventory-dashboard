@@ -322,6 +322,10 @@
       grid-template-columns: repeat(5, minmax(190px, 1fr));
     }
 
+    .metric-grid.six {
+      grid-template-columns: repeat(6, minmax(175px, 1fr));
+    }
+
     .metric-card {
       min-width: 0;
       min-height: 142px;
@@ -537,14 +541,16 @@
 
     @media (max-width: 1380px) {
       .metric-grid,
-      .metric-grid.five {
+      .metric-grid.five,
+      .metric-grid.six {
         grid-template-columns: repeat(3, minmax(210px, 1fr));
       }
     }
 
     @media (max-width: 1060px) {
       .metric-grid,
-      .metric-grid.five {
+      .metric-grid.five,
+      .metric-grid.six {
         grid-template-columns: repeat(2, minmax(210px, 1fr));
       }
 
@@ -575,6 +581,7 @@
 
       .metric-grid,
       .metric-grid.five,
+      .metric-grid.six,
       .filter-panel {
         grid-template-columns: 1fr;
       }
@@ -602,7 +609,7 @@
     <header class="header-bar">
       <div>
         <div class="header-title">Molinari Pools – Service Manager Dashboard</div>
-        <div class="header-subtitle">Service production, route operations, inventory, and PPV payroll overview</div>
+        <div class="header-subtitle">Service production, Route Sales Opportunities, route operations, inventory, and PPV payroll overview</div>
       </div>
       <div class="header-actions">
         <button id="refreshDashboardButton" class="header-button" type="button" onclick="refreshDashboard()">REFRESH DASHBOARD</button>
@@ -693,6 +700,64 @@
             <div class="metric-label">Leak Detection</div>
             <div class="metric-value" id="leakDetectionValue">$0.00</div>
             <div class="metric-sub" id="revenueLastUpdatedSub">Last transaction: —</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="rsoDashboardSection">
+        <div class="section-heading">
+          <div>
+            <h2 class="section-title">Route Sales Opportunities</h2>
+            <p class="section-description">Quarterly pre-authorization tracking for Route Tech and Route Tech Leader opportunities. This data is not payroll.</p>
+          </div>
+          <a class="section-link hidden" id="rsoTrackingLink" href="rso-tracking.html">Open RSO Tracking →</a>
+        </div>
+
+        <div class="filter-panel" style="grid-template-columns:minmax(320px,1fr) auto;">
+          <div class="filter-field">
+            <label for="rsoQuarterSelect">Tracking Quarter</label>
+            <select id="rsoQuarterSelect" onchange="renderSelectedRsoSummary()">
+              <option value="">Loading tracking quarters...</option>
+            </select>
+          </div>
+          <button class="primary-button" id="refreshRsoButton" type="button" onclick="loadRsoQuarterSummary()">REFRESH RSO DATA</button>
+        </div>
+
+        <div class="metric-grid six">
+          <article class="metric-card">
+            <div class="metric-label">Total Generated</div>
+            <div class="metric-value" id="rsoTotalGenerated">$0.00</div>
+            <div class="metric-sub" id="rsoTotalGeneratedSub">0 opportunities</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Approved</div>
+            <div class="metric-value" id="rsoApprovedValue">$0.00</div>
+            <div class="metric-sub" id="rsoApprovedSub">0 · $0.00 tracking commission</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Sent Pipeline</div>
+            <div class="metric-value" id="rsoSentValue">$0.00</div>
+            <div class="metric-sub" id="rsoSentSub">0 · $0.00 potential commission</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Rejected</div>
+            <div class="metric-value" id="rsoRejectedValue">$0.00</div>
+            <div class="metric-sub" id="rsoRejectedSub">0 opportunities</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Expired</div>
+            <div class="metric-value" id="rsoExpiredValue">$0.00</div>
+            <div class="metric-sub" id="rsoExpiredSub">0 opportunities</div>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-label">Approval Rate</div>
+            <div class="metric-value" id="rsoApprovalRate">0.0%</div>
+            <div class="metric-sub">Approved opportunities ÷ total generated</div>
           </article>
         </div>
       </section>
@@ -873,6 +938,7 @@
               <tbody>
                 <tr><td>Assessments</td><td>client_mechanical_assessment_tracking_view</td></tr>
                 <tr><td>Revenue</td><td>Revenue summary and goal RPCs</td></tr>
+                <tr><td>Route Sales Opportunities</td><td>get_rso_service_manager_quarterly_summary</td></tr>
                 <tr><td>Inventory</td><td>inventory_fifo_vs_current_valuation_view</td></tr>
                 <tr><td>Serialized Value</td><td>inventory_part_lookup_view</td></tr>
                 <tr><td>UAG</td><td>uag_bulk_batch_summary_all_view</td></tr>
@@ -904,10 +970,12 @@ const SERIALIZED_VALUATION_VIEW = 'inventory_part_lookup_view';
 const UAG_SUMMARY_VIEW = 'uag_bulk_batch_summary_all_view';
 const PPV_PAY_PERIODS_TABLE = 'ppv_pay_periods';
 const PPV_SUMMARY_VIEW = 'ppv_live_pay_period_summary_view';
+const RSO_SUMMARY_RPC = 'get_rso_service_manager_quarterly_summary';
 
 let currentProfile = null;
 let currentSession = null;
 let currentPayPeriods = [];
+let currentRsoQuarters = [];
 
 const dashboardAttention = {
   assessmentPending: 0,
@@ -991,6 +1059,10 @@ async function enforceDashboardAccess() {
   }
 
   currentProfile = profile;
+  document.getElementById('rsoTrackingLink')?.classList.toggle(
+    'hidden',
+    !['ADMIN', 'SYSTEM_ADMIN'].includes(profile.role)
+  );
   showDashboardContent();
   return true;
 }
@@ -1028,6 +1100,7 @@ async function refreshDashboard() {
   const results = await Promise.allSettled([
     loadSelectedRevenuePeriod(),
     loadMechanicalAssessmentSummary(),
+    loadRsoQuarterSummary(),
     loadInventorySummary(),
     loadUagSummary(),
     loadPayPeriodsAndSummary()
@@ -1329,6 +1402,108 @@ function setRevenueUnavailable(message) {
   setText('revenueGoalSub', message || 'Revenue source unavailable');
   setText('quotedGoalSub', message || 'Goal source unavailable');
   setText('revenueLastUpdatedSub', 'Unable to load revenue data');
+}
+
+async function loadRsoQuarterSummary() {
+  const button = document.getElementById('refreshRsoButton');
+  const select = document.getElementById('rsoQuarterSelect');
+  const previousSelection = select?.value || '';
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'REFRESHING...';
+  }
+
+  try {
+    const { data, error } = await client.rpc(RSO_SUMMARY_RPC);
+
+    if (error) throw error;
+
+    currentRsoQuarters = Array.isArray(data) ? data : [];
+
+    if (!currentRsoQuarters.length) {
+      setRsoUnavailable('No tracking quarters are available.');
+      return;
+    }
+
+    if (select) {
+      select.replaceChildren();
+
+      currentRsoQuarters.forEach(row => {
+        const key = getRsoQuarterKey(row);
+        const label = `FY${row.fiscal_year} ${row.fiscal_quarter} · ${formatDate(row.quarter_start_date)}–${formatDate(row.quarter_end_date)} · ${row.tracking_status}`;
+        select.add(new Option(label, key));
+      });
+
+      const selectedRow = currentRsoQuarters.find(row => getRsoQuarterKey(row) === previousSelection)
+        || currentRsoQuarters.find(row => row.tracking_status === 'OPEN')
+        || currentRsoQuarters[0];
+
+      select.value = getRsoQuarterKey(selectedRow);
+    }
+
+    renderSelectedRsoSummary();
+  } catch (error) {
+    console.error('Unable to load Route Sales Opportunities summary:', error);
+    setRsoUnavailable(error?.message || 'Route Sales Opportunities summary is unavailable.');
+    throw error;
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'REFRESH RSO DATA';
+    }
+  }
+}
+
+function renderSelectedRsoSummary() {
+  const selectedKey = document.getElementById('rsoQuarterSelect')?.value || '';
+  const row = currentRsoQuarters.find(item => getRsoQuarterKey(item) === selectedKey)
+    || currentRsoQuarters.find(item => item.tracking_status === 'OPEN')
+    || currentRsoQuarters[0];
+
+  if (!row) {
+    setRsoUnavailable('No tracking quarter is selected.');
+    return;
+  }
+
+  const totalCount = numberValue(row.total_opportunities);
+  const approvedCount = numberValue(row.approved_count);
+  const sentCount = numberValue(row.sent_count);
+  const rejectedCount = numberValue(row.rejected_count);
+  const expiredCount = numberValue(row.expired_count);
+
+  setText('rsoTotalGenerated', formatCurrency(row.total_generated));
+  setText('rsoTotalGeneratedSub', `${formatNumber(totalCount)} ${totalCount === 1 ? 'opportunity' : 'opportunities'}`);
+  setText('rsoApprovedValue', formatCurrency(row.approved_value));
+  setText('rsoApprovedSub', `${formatNumber(approvedCount)} · ${formatCurrency(row.approved_commission)} tracking commission`);
+  setText('rsoSentValue', formatCurrency(row.sent_value));
+  setText('rsoSentSub', `${formatNumber(sentCount)} · ${formatCurrency(row.sent_pipeline_commission)} potential commission`);
+  setText('rsoRejectedValue', formatCurrency(row.rejected_value));
+  setText('rsoRejectedSub', `${formatNumber(rejectedCount)} ${rejectedCount === 1 ? 'opportunity' : 'opportunities'}`);
+  setText('rsoExpiredValue', formatCurrency(row.expired_value));
+  setText('rsoExpiredSub', `${formatNumber(expiredCount)} ${expiredCount === 1 ? 'opportunity' : 'opportunities'}`);
+  setText('rsoApprovalRate', `${(numberValue(row.approval_rate) * 100).toFixed(1)}%`);
+}
+
+function getRsoQuarterKey(row) {
+  return `${row?.fiscal_year || ''}-${row?.fiscal_quarter || ''}-${row?.quarter_start_date || ''}`;
+}
+
+function setRsoUnavailable(message) {
+  currentRsoQuarters = [];
+  const select = document.getElementById('rsoQuarterSelect');
+
+  if (select) {
+    select.replaceChildren(new Option('RSO summary unavailable', ''));
+  }
+
+  ['rsoTotalGenerated', 'rsoApprovedValue', 'rsoSentValue', 'rsoRejectedValue', 'rsoExpiredValue', 'rsoApprovalRate']
+    .forEach(id => setText(id, 'Unavailable'));
+  setText('rsoTotalGeneratedSub', message || 'Unable to load Route Sales Opportunities.');
+  setText('rsoApprovedSub', 'Read-only pre-authorization tracking');
+  setText('rsoSentSub', 'Read-only pre-authorization tracking');
+  setText('rsoRejectedSub', 'Read-only pre-authorization tracking');
+  setText('rsoExpiredSub', 'Read-only pre-authorization tracking');
 }
 
 async function loadMechanicalAssessmentSummary() {
