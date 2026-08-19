@@ -294,6 +294,29 @@
       flex-wrap: wrap;
     }
 
+    .detail-print-toolbar {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .individual-print-controls {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .individual-print-controls select {
+      width: 245px;
+      min-height: 34px;
+      margin: 0;
+      padding: 6px 9px;
+      font-size: 12px;
+    }
+
     .print-only { display: none; }
 
     .table-wrap {
@@ -513,9 +536,15 @@
       body.rso-print .header-bar,
       body.rso-print #accessGate,
       body.rso-print .preauth-banner,
-      body.rso-print #pageContent > .card:not(#quarterlySummaryCard),
-      body.rso-print .screen-summary-header,
       body.rso-print .print-actions {
+        display: none !important;
+      }
+
+      body.rso-print.rso-summary-print #pageContent > .card:not(#quarterlySummaryCard),
+      body.rso-print.rso-summary-print .screen-summary-header,
+      body.rso-print.rso-detail-print #pageContent > .card:not(#opportunityDetailCard),
+      body.rso-print.rso-detail-print .screen-detail-header,
+      body.rso-print.rso-detail-print .screen-detail-content {
         display: none !important;
       }
 
@@ -526,12 +555,17 @@
       }
 
       body.rso-print #pageContent,
-      body.rso-print #quarterlySummaryCard,
       body.rso-print .print-only {
         display: block !important;
       }
 
-      body.rso-print #quarterlySummaryCard {
+      body.rso-print.rso-summary-print #quarterlySummaryCard,
+      body.rso-print.rso-detail-print #opportunityDetailCard {
+        display: block !important;
+      }
+
+      body.rso-print #quarterlySummaryCard,
+      body.rso-print #opportunityDetailCard {
         margin: 0;
         padding: 0;
         border: 0;
@@ -610,6 +644,45 @@
       }
 
       body.rso-print .muted { color: #475467; }
+
+      body.rso-print .detail-print-metrics {
+        display: grid !important;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 0;
+        margin: 0 0 14px;
+        border: 1px solid #94a3b8;
+      }
+
+      body.rso-print .detail-print-metric {
+        padding: 7px 8px;
+        border-right: 1px solid #cbd5e1;
+      }
+
+      body.rso-print .detail-print-metric:last-child { border-right: 0; }
+
+      body.rso-print .detail-print-metric-label {
+        color: #475467;
+        font-size: 8px;
+        font-weight: 700;
+        letter-spacing: 0.25px;
+        text-transform: uppercase;
+      }
+
+      body.rso-print .detail-print-metric-value {
+        color: #0b3c5d;
+        font-size: 13px;
+        font-weight: 800;
+        margin-top: 3px;
+      }
+
+      body.rso-print .participant-group-row td {
+        background: #dce8f0 !important;
+        color: #0b3c5d !important;
+        font-size: 10px;
+        font-weight: 800;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
     }
 
     @media (max-width: 1180px) {
@@ -629,6 +702,9 @@
       .toolbar-right { width: 100%; }
       .toolbar-right .btn { flex: 1; }
       .result-count { padding-bottom: 0; }
+      .detail-print-toolbar,
+      .individual-print-controls { align-items: stretch; width: 100%; }
+      .individual-print-controls select { width: 100%; }
     }
   </style>
 </head>
@@ -747,15 +823,28 @@
             </div>
           </section>
 
-          <section class="card">
-            <div class="section-header">
+          <section id="opportunityDetailCard" class="card">
+            <div class="section-header screen-detail-header">
               <div>
                 <h2>Opportunity Detail</h2>
                 <div class="section-note">All quote statuses remain visible so the team can evaluate total activity and conversion.</div>
               </div>
+              <div class="detail-print-toolbar">
+                <div class="print-actions">
+                  <button id="printRouteTechDetailsBtn" class="btn btn-secondary btn-small" type="button">Print Route Tech Details</button>
+                  <button id="printRouteLeaderDetailsBtn" class="btn btn-secondary btn-small" type="button">Print Route Tech Leader Details</button>
+                  <button id="printCombinedDetailsBtn" class="btn btn-primary btn-small" type="button">Print Combined Details</button>
+                </div>
+                <div class="individual-print-controls">
+                  <select id="detailPrintParticipant" aria-label="Select individual participant for detail report">
+                    <option value="">Select individual Route Tech or Leader</option>
+                  </select>
+                  <button id="printIndividualDetailsBtn" class="btn btn-secondary btn-small" type="button">Print Individual Details</button>
+                </div>
+              </div>
             </div>
 
-            <div class="filters-grid">
+            <div class="filters-grid screen-detail-content">
               <div>
                 <label for="statusFilter">Status</label>
                 <select id="statusFilter">
@@ -778,7 +867,35 @@
               <div id="resultCount" class="result-count">0 records</div>
             </div>
 
-            <div class="table-wrap">
+            <div id="detailPrintReport" class="print-only">
+              <div class="print-report-header">
+                <h1 id="detailPrintReportTitle">Route Sales Opportunities — Opportunity Detail Report</h1>
+                <p id="detailPrintReportRange"></p>
+                <p>Pre-Authorization Tracking — Not Approved for Payroll</p>
+                <p id="detailPrintReportTimestamp"></p>
+              </div>
+              <div id="detailPrintMetrics" class="detail-print-metrics"></div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Quote</th>
+                      <th>Date</th>
+                      <th>Participant</th>
+                      <th>Customer</th>
+                      <th>Status</th>
+                      <th class="number">Quote Total</th>
+                      <th class="number">Commission if Approved</th>
+                      <th>Expires</th>
+                      <th>Work Order</th>
+                    </tr>
+                  </thead>
+                  <tbody id="detailPrintTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="table-wrap screen-detail-content">
               <table class="quote-table">
                 <thead>
                   <tr>
@@ -1007,6 +1124,10 @@
       document.getElementById('printRouteTechBtn').addEventListener('click', () => printSummaryReport('route-tech'));
       document.getElementById('printRouteLeaderBtn').addEventListener('click', () => printSummaryReport('route-leader'));
       document.getElementById('printCombinedBtn').addEventListener('click', () => printSummaryReport('combined'));
+      document.getElementById('printRouteTechDetailsBtn').addEventListener('click', () => printDetailReport('route-tech'));
+      document.getElementById('printRouteLeaderDetailsBtn').addEventListener('click', () => printDetailReport('route-leader'));
+      document.getElementById('printCombinedDetailsBtn').addEventListener('click', () => printDetailReport('combined'));
+      document.getElementById('printIndividualDetailsBtn').addEventListener('click', () => printDetailReport('individual'));
       document.getElementById('quoteForm').addEventListener('submit', saveQuote);
       document.getElementById('participantForm').addEventListener('submit', saveParticipant);
       document.getElementById('resetParticipantBtn').addEventListener('click', resetParticipantForm);
@@ -1161,12 +1282,17 @@
 
     function renderParticipantOptions() {
       const active = state.participants.filter(item => item.active);
-      const options = active.map(item => `
+      const activeOptions = active.map(item => `
         <option value="${escapeHtml(item.id)}">${escapeHtml(item.participant_code)} · ${escapeHtml(item.participant_name)} (${escapeHtml(item.participant_type)})</option>
       `).join('');
 
-      document.getElementById('quoteParticipant').innerHTML = `<option value="">Select participant</option>${options}`;
-      document.getElementById('participantFilter').innerHTML = `<option value="">All participants</option>${options}`;
+      const allOptions = state.participants.map(item => `
+        <option value="${escapeHtml(item.id)}">${escapeHtml(item.participant_code)} · ${escapeHtml(item.participant_name)} (${escapeHtml(item.participant_type)})${item.active ? '' : ' · Inactive'}</option>
+      `).join('');
+
+      document.getElementById('quoteParticipant').innerHTML = `<option value="">Select participant</option>${activeOptions}`;
+      document.getElementById('participantFilter').innerHTML = `<option value="">All participants</option>${allOptions}`;
+      document.getElementById('detailPrintParticipant').innerHTML = `<option value="">Select individual Route Tech or Leader</option>${allOptions}`;
     }
 
     function renderMetrics() {
@@ -1307,15 +1433,123 @@
       document.getElementById('printReportTimestamp').textContent = `Printed ${formatDateTime(new Date().toISOString())}`;
       document.title = `RSO ${reportName} - FY${quarter.fiscal_year} ${quarter.fiscal_quarter}`;
       document.body.classList.remove('print-route-tech', 'print-route-leader', 'print-combined');
-      document.body.classList.add('rso-print', bodyClass);
+      document.body.classList.add('rso-print', 'rso-summary-print', bodyClass);
 
       const cleanup = () => {
-        document.body.classList.remove('rso-print', 'print-route-tech', 'print-route-leader', 'print-combined');
+        document.body.classList.remove('rso-print', 'rso-summary-print', 'print-route-tech', 'print-route-leader', 'print-combined');
         document.title = originalTitle;
       };
 
       window.addEventListener('afterprint', cleanup, { once: true });
       window.print();
+    }
+
+    function printDetailReport(scope) {
+      const quarter = state.selectedQuarter;
+      if (!quarter) {
+        window.alert('Select a tracking quarter before printing a report.');
+        return;
+      }
+
+      const selectedParticipantId = document.getElementById('detailPrintParticipant').value;
+      const selectedParticipant = state.participants.find(item => item.id === selectedParticipantId) || null;
+
+      if (scope === 'individual' && !selectedParticipant) {
+        window.alert('Select an individual Route Tech or Route Tech Leader before printing.');
+        document.getElementById('detailPrintParticipant').focus();
+        return;
+      }
+
+      let reportName = 'Combined Opportunity Detail Report';
+      let reportQuotes = [...state.quotes];
+
+      if (scope === 'route-tech') {
+        reportName = 'Route Tech Opportunity Detail Report';
+        reportQuotes = reportQuotes.filter(item => item.participant_type === 'RT');
+      } else if (scope === 'route-leader') {
+        reportName = 'Route Tech Leader Opportunity Detail Report';
+        reportQuotes = reportQuotes.filter(item => item.participant_type === 'RTL');
+      } else if (scope === 'individual') {
+        reportName = `${selectedParticipant.participant_name} Opportunity Detail Report`;
+        reportQuotes = reportQuotes.filter(item => item.participant_id === selectedParticipant.id);
+      }
+
+      reportQuotes.sort((left, right) => {
+        const participantCompare = String(left.participant_code || '').localeCompare(String(right.participant_code || ''), undefined, { numeric: true });
+        if (participantCompare !== 0) return participantCompare;
+        const dateCompare = String(right.quote_date || '').localeCompare(String(left.quote_date || ''));
+        if (dateCompare !== 0) return dateCompare;
+        return String(right.quote_number || '').localeCompare(String(left.quote_number || ''), undefined, { numeric: true });
+      });
+
+      renderDetailPrintReport(reportQuotes);
+
+      const originalTitle = document.title;
+      const quarterLabel = `FY${quarter.fiscal_year} ${quarter.fiscal_quarter} · ${formatDate(quarter.quarter_start_date)} through ${formatDate(quarter.quarter_end_date)}`;
+
+      document.getElementById('detailPrintReportTitle').textContent = `Route Sales Opportunities — ${reportName}`;
+      document.getElementById('detailPrintReportRange').textContent = `${quarterLabel} · All opportunity statuses`;
+      document.getElementById('detailPrintReportTimestamp').textContent = `Printed ${formatDateTime(new Date().toISOString())}`;
+      document.title = `RSO ${reportName} - FY${quarter.fiscal_year} ${quarter.fiscal_quarter}`;
+      document.body.classList.add('rso-print', 'rso-detail-print');
+
+      const cleanup = () => {
+        document.body.classList.remove('rso-print', 'rso-detail-print');
+        document.title = originalTitle;
+      };
+
+      window.addEventListener('afterprint', cleanup, { once: true });
+      window.print();
+    }
+
+    function renderDetailPrintReport(quotes) {
+      const approved = quotes.filter(item => item.quote_status === 'APPROVED');
+      const sent = quotes.filter(item => item.quote_status === 'SENT');
+      const rejected = quotes.filter(item => item.quote_status === 'REJECTED');
+      const expired = quotes.filter(item => item.quote_status === 'EXPIRED');
+
+      const metrics = [
+        { label: 'Opportunities', value: formatInteger(quotes.length) },
+        { label: 'Total Generated', value: formatMoney(sum(quotes, item => item.quote_total)) },
+        { label: 'Approved', value: `${approved.length} · ${formatMoney(sum(approved, item => item.quote_total))}` },
+        { label: 'Sent', value: `${sent.length} · ${formatMoney(sum(sent, item => item.quote_total))}` },
+        { label: 'Rejected / Expired', value: `${rejected.length + expired.length} · ${formatMoney(sum([...rejected, ...expired], item => item.quote_total))}` },
+        { label: 'Approved Commission', value: formatMoney(sum(approved, item => item.approved_commission_value)) }
+      ];
+
+      document.getElementById('detailPrintMetrics').innerHTML = metrics.map(metric => `
+        <div class="detail-print-metric">
+          <div class="detail-print-metric-label">${escapeHtml(metric.label)}</div>
+          <div class="detail-print-metric-value">${escapeHtml(metric.value)}</div>
+        </div>
+      `).join('');
+
+      const body = document.getElementById('detailPrintTableBody');
+      if (!quotes.length) {
+        body.innerHTML = '<tr><td colspan="9" class="empty-state">No Route Sales Opportunities were recorded for this report.</td></tr>';
+        return;
+      }
+
+      let previousParticipantId = null;
+      body.innerHTML = quotes.map(item => {
+        const participantHeader = item.participant_id !== previousParticipantId
+          ? `<tr class="participant-group-row"><td colspan="9">${escapeHtml(item.participant_code)} · ${escapeHtml(item.participant_name)} · ${item.participant_type === 'RTL' ? 'Route Tech Leader' : 'Route Tech'}</td></tr>`
+          : '';
+        previousParticipantId = item.participant_id;
+
+        return `${participantHeader}
+          <tr>
+            <td class="strong">#${escapeHtml(item.quote_number)}</td>
+            <td>${formatDate(item.quote_date)}</td>
+            <td>${escapeHtml(item.participant_code)}<br><span class="muted">${escapeHtml(item.participant_name)}</span></td>
+            <td><span class="strong">${escapeHtml(item.customer_name)}</span>${item.service_address ? `<br><span class="muted">${escapeHtml(item.service_address)}</span>` : ''}</td>
+            <td>${escapeHtml(item.quote_status)}${item.status_date ? `<br><span class="muted">${formatDate(item.status_date)}</span>` : ''}</td>
+            <td class="number strong">${formatMoney(item.quote_total)}</td>
+            <td class="number">${formatMoney(item.commission_value_if_approved)}</td>
+            <td>${formatDate(item.expiration_date)}</td>
+            <td>${escapeHtml(item.work_order_summary || '—')}</td>
+          </tr>`;
+      }).join('');
     }
 
     function openQuoteModal(record = null) {
