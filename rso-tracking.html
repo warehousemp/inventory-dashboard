@@ -278,9 +278,23 @@
 
     .summary-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 18px;
     }
+
+    .summary-section + .summary-section {
+      margin-top: 4px;
+    }
+
+    .print-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .print-only { display: none; }
 
     .table-wrap {
       width: 100%;
@@ -483,6 +497,121 @@
 
     .history-time { color: var(--muted); font-size: 12px; margin-top: 6px; }
 
+    @media print {
+      @page {
+        size: landscape;
+        margin: 0.42in;
+      }
+
+      body.rso-print {
+        background: white;
+        color: #111827;
+        overflow: visible;
+      }
+
+      body.rso-print #sharedNavigation,
+      body.rso-print .header-bar,
+      body.rso-print #accessGate,
+      body.rso-print .preauth-banner,
+      body.rso-print #pageContent > .card:not(#quarterlySummaryCard),
+      body.rso-print .screen-summary-header,
+      body.rso-print .print-actions {
+        display: none !important;
+      }
+
+      body.rso-print .page-wrapper {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      body.rso-print #pageContent,
+      body.rso-print #quarterlySummaryCard,
+      body.rso-print .print-only {
+        display: block !important;
+      }
+
+      body.rso-print #quarterlySummaryCard {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      body.rso-print.print-route-tech .route-leader-report,
+      body.rso-print.print-route-leader .route-tech-report {
+        display: none !important;
+      }
+
+      body.rso-print .print-report-header {
+        border-bottom: 2px solid var(--header);
+        margin-bottom: 14px;
+        padding-bottom: 10px;
+      }
+
+      body.rso-print .print-report-header h1 {
+        margin: 0 0 5px;
+        color: var(--header);
+        font-size: 22px;
+      }
+
+      body.rso-print .print-report-header p {
+        margin: 2px 0;
+        color: #475467;
+        font-size: 11px;
+      }
+
+      body.rso-print .summary-grid {
+        display: block;
+      }
+
+      body.rso-print .summary-section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        margin: 0 0 18px;
+      }
+
+      body.rso-print .summary-section h3 {
+        margin: 0 0 7px;
+        font-size: 15px;
+      }
+
+      body.rso-print .table-wrap {
+        overflow: visible;
+        border-color: #94a3b8;
+        border-radius: 0;
+      }
+
+      body.rso-print table {
+        min-width: 0;
+        table-layout: auto;
+      }
+
+      body.rso-print th,
+      body.rso-print td {
+        padding: 6px 7px;
+        border-color: #cbd5e1;
+        font-size: 10px;
+      }
+
+      body.rso-print th {
+        position: static;
+        background: #e8f0f5 !important;
+        color: #1f2937 !important;
+        font-size: 9px;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+
+      body.rso-print tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      body.rso-print .muted { color: #475467; }
+    }
+
     @media (max-width: 1180px) {
       .metrics-grid { grid-template-columns: repeat(3, minmax(150px, 1fr)); }
       .summary-grid { grid-template-columns: 1fr; }
@@ -550,17 +679,31 @@
             <div id="metricsGrid" class="metrics-grid"></div>
           </section>
 
-          <section class="card">
-            <div class="section-header">
+          <section id="quarterlySummaryCard" class="card">
+            <div class="section-header screen-summary-header">
               <div>
                 <h2>Quarterly Summary</h2>
                 <div id="summaryRange" class="section-note"></div>
               </div>
-              <div class="section-note">The Approved Commission column is tracking only.</div>
+              <div>
+                <div class="section-note" style="text-align:right; margin-bottom:8px;">The Approved Commission column is tracking only.</div>
+                <div class="print-actions">
+                  <button id="printRouteTechBtn" class="btn btn-secondary btn-small" type="button">Print Route Tech Report</button>
+                  <button id="printRouteLeaderBtn" class="btn btn-secondary btn-small" type="button">Print Route Tech Leader Report</button>
+                  <button id="printCombinedBtn" class="btn btn-primary btn-small" type="button">Print Combined Report</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="print-only print-report-header">
+              <h1 id="printReportTitle">Route Sales Opportunities Report</h1>
+              <p id="printReportRange"></p>
+              <p>Pre-Authorization Tracking — Not Approved for Payroll</p>
+              <p id="printReportTimestamp"></p>
             </div>
 
             <div class="summary-grid">
-              <div>
+              <div class="summary-section route-tech-report">
                 <h3>Route Techs</h3>
                 <div class="table-wrap">
                   <table>
@@ -581,7 +724,7 @@
                 </div>
               </div>
 
-              <div>
+              <div class="summary-section route-leader-report">
                 <h3>Route Tech Leaders</h3>
                 <div class="table-wrap">
                   <table>
@@ -861,6 +1004,9 @@
 
       document.getElementById('addQuoteBtn').addEventListener('click', () => openQuoteModal());
       document.getElementById('participantsBtn').addEventListener('click', openParticipantsModal);
+      document.getElementById('printRouteTechBtn').addEventListener('click', () => printSummaryReport('route-tech'));
+      document.getElementById('printRouteLeaderBtn').addEventListener('click', () => printSummaryReport('route-leader'));
+      document.getElementById('printCombinedBtn').addEventListener('click', () => printSummaryReport('combined'));
       document.getElementById('quoteForm').addEventListener('submit', saveQuote);
       document.getElementById('participantForm').addEventListener('submit', saveParticipant);
       document.getElementById('resetParticipantBtn').addEventListener('click', resetParticipantForm);
@@ -1131,6 +1277,45 @@
       document.getElementById('summaryRange').textContent = quarter
         ? `FY${quarter.fiscal_year} ${quarter.fiscal_quarter} · ${formatDate(quarter.quarter_start_date)} through ${formatDate(quarter.quarter_end_date)} · ${quarter.tracking_status}`
         : 'No tracking quarter selected.';
+    }
+
+    function printSummaryReport(scope) {
+      const quarter = state.selectedQuarter;
+      if (!quarter) {
+        window.alert('Select a tracking quarter before printing a report.');
+        return;
+      }
+
+      const reportNames = {
+        'route-tech': 'Route Tech Report',
+        'route-leader': 'Route Tech Leader Report',
+        'combined': 'Combined Route Tech and Route Tech Leader Report'
+      };
+
+      const bodyClass = scope === 'route-tech'
+        ? 'print-route-tech'
+        : scope === 'route-leader'
+          ? 'print-route-leader'
+          : 'print-combined';
+
+      const originalTitle = document.title;
+      const reportName = reportNames[scope] || reportNames.combined;
+      const quarterLabel = `FY${quarter.fiscal_year} ${quarter.fiscal_quarter} · ${formatDate(quarter.quarter_start_date)} through ${formatDate(quarter.quarter_end_date)}`;
+
+      document.getElementById('printReportTitle').textContent = `Route Sales Opportunities — ${reportName}`;
+      document.getElementById('printReportRange').textContent = quarterLabel;
+      document.getElementById('printReportTimestamp').textContent = `Printed ${formatDateTime(new Date().toISOString())}`;
+      document.title = `RSO ${reportName} - FY${quarter.fiscal_year} ${quarter.fiscal_quarter}`;
+      document.body.classList.remove('print-route-tech', 'print-route-leader', 'print-combined');
+      document.body.classList.add('rso-print', bodyClass);
+
+      const cleanup = () => {
+        document.body.classList.remove('rso-print', 'print-route-tech', 'print-route-leader', 'print-combined');
+        document.title = originalTitle;
+      };
+
+      window.addEventListener('afterprint', cleanup, { once: true });
+      window.print();
     }
 
     function openQuoteModal(record = null) {
