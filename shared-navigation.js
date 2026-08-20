@@ -1,594 +1,703 @@
-(() => {
-  'use strict';
-
-  const SUPABASE_URL = 'https://icqkuhbhcennhhbbwqgo.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
-  const ALL_ACTIVE_ROLES = [
-    'ADMIN', 'WAREHOUSE', 'ACCOUNTING', 'SERVICE', 'READ_ONLY',
-    'SALES', 'TECHS', 'SYSTEM_ADMIN', 'PROJECTS'
-  ];
-
-  const navigation = [
-    {
-      label: 'Admin',
-      roles: ['ADMIN', 'SYSTEM_ADMIN'],
-      links: [
-        {
-          label: 'System / Admin Tools',
-          href: 'users.html',
-          roles: ['ADMIN', 'SYSTEM_ADMIN']
-        }
-      ]
-    },
-    {
-      label: 'Accounting',
-      roles: ALL_ACTIVE_ROLES,
-      links: [
-        {
-          label: 'Accounting Warehouse',
-          href: 'accounting.html',
-          roles: ['ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Client Changes',
-          href: 'client-changes.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Tracker',
-          href: 'ppv-tracker.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Safeguard Tracking',
-          href: 'ppv-safeguard-tracking.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Admin',
-          href: 'ppv-admin.html',
-          roles: ['ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Payroll Review',
-          href: 'ppv-payroll-review.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Company Calendar',
-          href: 'company-calendar.html',
-          roles: ALL_ACTIVE_ROLES
-        }
-      ]
-    },
-    {
-      label: 'Projects',
-      roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
-      links: [
-        {
-          label: 'Projects Command Center',
-          href: 'projects-command.html',
-          roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
-        }
-      ]
-    },
-    {
-      label: 'Service',
-      roles: [
-        'SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'SALES', 'TECHS',
-        'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'
-      ],
-      links: [
-        {
-          label: 'Service Parts Lookup',
-          href: 'service.html'
-        },
-        {
-          label: 'Client Services Dashboard',
-          href: 'client-services.html',
-          roles: [
-            'SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
-            'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'
-          ]
-        },
-        {
-          label: 'Service Map',
-          href: 'service-map.html'
-        },
-        {
-          label: 'Service Manager Dashboard',
-          href: 'service-manager-dashboard.html',
-          roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'RSO Tracking',
-          href: 'rso-tracking.html',
-          roles: ['ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Inspection Requests',
-          href: 'inspection-requests-office.html',
-          roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Client Marketing Sync',
-          href: 'client-marketing-sync.html',
-          roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Service Department Admin',
-          href: 'service-department-admin.html',
-          roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        }
-      ]
-    },
-    {
-      label: 'Warehouse',
-      roles: [
-        'WAREHOUSE', 'ACCOUNTING', 'PROJECTS',
-        'ADMIN', 'SYSTEM_ADMIN'
-      ],
-      links: [
-        {
-          label: 'Chemical Tracking',
-          href: 'chemical-tracking.html',
-          roles: ['WAREHOUSE', 'ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Warehouse Operations',
-          href: 'warehouse.html',
-          roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Warehouse Management',
-          href: 'warehouse-management.html',
-          roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Warehouse Reports',
-          href: 'warehouse-reports.html',
-          roles: ['WAREHOUSE', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Warehouse Admin',
-          href: 'admin.html',
-          roles: ['ADMIN', 'SYSTEM_ADMIN']
-        }
-      ]
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Molinari Pools - Route Assignment Validation</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <link rel="stylesheet" href="shared-navigation.css">
+  <style>
+    :root {
+      --navy:#173f67; --navy-dark:#0d2b49; --blue:#1f6fa9; --blue-soft:#eaf4fb;
+      --green:#157347; --green-soft:#e8f6ee; --amber:#9a6700; --amber-soft:#fff4ce;
+      --red:#b42318; --red-soft:#feeceb; --gray-50:#f8fafc; --gray-100:#eef2f6;
+      --gray-200:#d8e0e8; --gray-500:#667085; --gray-700:#344054; --text:#172b3a;
+      --white:#fff; --shadow:0 8px 24px rgba(13,43,73,.08);
     }
-  ];
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--text); background:#f3f6f9; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    button,select,input { font:inherit; }
+    button { cursor:pointer; }
+    .hidden { display:none !important; }
+    .page-wrapper { width:min(1500px,calc(100% - 32px)); margin:24px auto 56px; }
+    .page-header { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:18px; }
+    .eyebrow { color:var(--blue); font-weight:800; letter-spacing:.08em; text-transform:uppercase; font-size:.76rem; }
+    h1 { margin:4px 0 6px; color:var(--navy-dark); font-size:clamp(1.65rem,3vw,2.35rem); }
+    .subtitle { margin:0; color:var(--gray-500); max-width:900px; line-height:1.5; }
+    .header-actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .primary-btn,.secondary-btn {
+      border-radius:8px; padding:10px 15px; font-weight:750; border:1px solid transparent;
+      transition:transform .1s ease,box-shadow .1s ease;
+    }
+    .primary-btn { color:var(--white); background:var(--navy); }
+    .secondary-btn { color:var(--navy); background:var(--white); border-color:var(--gray-200); }
+    button:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 5px 12px rgba(13,43,73,.11); }
+    button:disabled { cursor:not-allowed; opacity:.55; }
+    .panel { background:var(--white); border:1px solid var(--gray-200); border-radius:12px; box-shadow:var(--shadow); margin-bottom:16px; overflow:hidden; }
+    .panel-header { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:14px 17px; border-bottom:1px solid var(--gray-200); }
+    .panel-header h2 { margin:0; color:var(--navy-dark); font-size:1.05rem; }
+    .panel-body { padding:17px; }
+    .instructions-layout { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr); gap:18px; align-items:stretch; }
+    .instruction-list { margin:0; padding-left:24px; display:grid; gap:8px; color:var(--gray-700); line-height:1.45; }
+    .instruction-list strong { color:var(--navy-dark); }
+    .drop-zone {
+      min-height:250px; border:2px dashed #82b5d5; border-radius:12px; background:var(--blue-soft);
+      display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;
+      padding:24px; transition:border-color .15s ease,background .15s ease,transform .15s ease;
+    }
+    .drop-zone.dragover { border-color:var(--navy); background:#dceef9; transform:translateY(-2px); }
+    .drop-icon { width:58px; height:58px; display:grid; place-items:center; border-radius:50%; background:var(--white); color:var(--navy); font-size:1.7rem; box-shadow:var(--shadow); margin-bottom:12px; }
+    .drop-title { color:var(--navy-dark); font-weight:850; font-size:1.05rem; }
+    .drop-note { color:var(--gray-500); margin:6px 0 15px; max-width:420px; line-height:1.4; font-size:.86rem; }
+    .viewer-box { min-height:250px; border:1px solid var(--gray-200); border-radius:12px; background:var(--gray-50); display:grid; place-items:center; text-align:center; padding:24px; color:var(--gray-700); }
+    .viewer-box strong { color:var(--navy-dark); display:block; margin-bottom:5px; }
+    .status-bar { min-height:44px; display:flex; align-items:center; gap:10px; border-radius:8px; padding:10px 13px; background:var(--gray-50); border:1px solid var(--gray-200); color:var(--gray-700); }
+    .status-bar.success { background:var(--green-soft); border-color:#a7d9bc; color:var(--green); }
+    .status-bar.error { background:var(--red-soft); border-color:#f2b8b5; color:var(--red); }
+    .status-bar.working { background:var(--blue-soft); border-color:#b8d9ee; color:#174b70; }
+    .progress-track { height:7px; background:#d4e7f3; border-radius:999px; overflow:hidden; margin-top:10px; }
+    .progress-fill { height:100%; width:0; background:var(--blue); transition:width .2s ease; }
+    .metric-grid { display:grid; grid-template-columns:repeat(4,minmax(170px,1fr)); gap:12px; margin-bottom:16px; }
+    .metric-card { background:var(--white); border:1px solid var(--gray-200); border-radius:12px; box-shadow:var(--shadow); padding:15px 17px; }
+    .metric-label { color:var(--gray-500); font-weight:700; font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; }
+    .metric-value { color:var(--navy-dark); font-size:1.65rem; font-weight:850; margin-top:5px; }
+    .metric-note { color:var(--gray-500); font-size:.77rem; margin-top:2px; }
+    .snapshot-picker { display:flex; align-items:center; gap:8px; flex-wrap:wrap; color:var(--gray-700); font-size:.82rem; }
+    .snapshot-picker select { min-width:235px; border:1px solid #cbd5df; border-radius:7px; padding:8px 9px; color:var(--text); background:var(--white); }
+    .source-strip { display:flex; gap:18px; flex-wrap:wrap; color:var(--gray-500); font-size:.8rem; }
+    .source-strip strong { color:var(--gray-700); }
+    .alert-list { display:grid; gap:9px; }
+    .alert-item { border-radius:9px; padding:11px 13px; line-height:1.4; font-size:.87rem; border:1px solid transparent; }
+    .alert-danger { background:var(--red-soft); border-color:#f2b8b5; color:var(--red); }
+    .alert-warning { background:var(--amber-soft); border-color:#ead28c; color:#7a5300; }
+    .alert-success { background:var(--green-soft); border-color:#a7d9bc; color:var(--green); }
+    .table-wrap { overflow:auto; max-height:68vh; }
+    table { width:100%; border-collapse:separate; border-spacing:0; min-width:1080px; }
+    thead th { position:sticky; top:0; z-index:2; background:var(--navy); color:var(--white); padding:10px 9px; text-align:left; font-size:.75rem; letter-spacing:.02em; white-space:nowrap; }
+    tbody td,tfoot td { padding:10px 9px; border-bottom:1px solid var(--gray-100); vertical-align:middle; font-size:.84rem; }
+    tbody tr:hover { background:var(--gray-50); }
+    tbody tr.inactive-row { background:#fff8f7; }
+    tfoot td { position:sticky; bottom:0; background:var(--gray-50); color:var(--navy-dark); font-weight:850; border-top:2px solid var(--gray-200); }
+    .number-cell { text-align:center; font-variant-numeric:tabular-nums; }
+    .total-cell { text-align:center; color:var(--navy-dark); font-weight:850; font-variant-numeric:tabular-nums; }
+    .muted { color:var(--gray-500); }
+    .chip { display:inline-flex; align-items:center; border-radius:999px; padding:4px 8px; font-size:.72rem; font-weight:800; white-space:nowrap; }
+    .chip-balanced { color:var(--green); background:var(--green-soft); }
+    .chip-watch { color:#7a5300; background:var(--amber-soft); }
+    .chip-adjust { color:var(--red); background:var(--red-soft); }
+    .chip-support { color:#175c87; background:var(--blue-soft); }
+    .chip-inactive { color:var(--red); background:var(--red-soft); }
+    .chip-active { color:var(--green); background:var(--green-soft); }
+    .empty-state { text-align:center; padding:38px 20px !important; color:var(--gray-500); }
+    .access-layout { width:min(680px,calc(100% - 32px)); margin:70px auto; background:var(--white); border:1px solid var(--gray-200); border-radius:14px; padding:28px; box-shadow:var(--shadow); }
+    .access-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+    @media (max-width:1000px) {
+      .instructions-layout { grid-template-columns:1fr; }
+      .metric-grid { grid-template-columns:repeat(2,1fr); }
+      .page-header { flex-direction:column; }
+    }
+    @media (max-width:620px) {
+      .page-wrapper { width:min(100% - 18px,1500px); margin-top:14px; }
+      .metric-grid { grid-template-columns:1fr; }
+      .panel-header { align-items:flex-start; flex-direction:column; }
+      .snapshot-picker,.snapshot-picker select { width:100%; }
+    }
+    @media print {
+      #sharedNavigation,.no-print,.instructions-panel { display:none !important; }
+      body { background:white; }
+      .page-wrapper { width:100%; margin:0; }
+      .panel,.metric-card { box-shadow:none; }
+      .table-wrap { overflow:visible; max-height:none; }
+      table { min-width:0; font-size:8pt; }
+      thead th,tfoot td { position:static; }
+    }
+  </style>
+</head>
+<body>
+  <div id="sharedNavigation"></div>
 
-  let navClient = null;
-  let currentProfile = null;
+  <section id="accessGate" class="access-layout hidden">
+    <div class="eyebrow">Restricted Page</div>
+    <h1>Route Assignment Validation</h1>
+    <p id="accessMessage">Sign in with an authorized Molinari Pools account to continue.</p>
+    <div class="access-actions">
+      <button class="primary-btn" onclick="window.location.href='login.html'">Sign In</button>
+      <button class="secondary-btn" onclick="window.location.href='index.html'">Main Menu</button>
+      <button class="secondary-btn" id="logoutButton">Sign Out</button>
+    </div>
+  </section>
 
-  function currentPageName() {
-    return (
-      window.location.pathname.split('/').pop() || 'index.html'
-    ).toLowerCase();
-  }
+  <main id="pageContent" class="page-wrapper hidden">
+    <header class="page-header">
+      <div>
+        <div class="eyebrow">Service Operations</div>
+        <h1>Route Assignment Validation</h1>
+        <p class="subtitle">A read-only weekly route-balancing report populated from the Skimmer Route Assignments PDF. There is no manual route-count entry or editing on this page.</p>
+      </div>
+      <div class="header-actions no-print">
+        <button class="secondary-btn" id="refreshButton">Refresh</button>
+        <button class="secondary-btn" onclick="window.print()">Print Report</button>
+      </div>
+    </header>
 
-  function isAllowed(roles, role) {
-    return !roles || roles.length === 0 || roles.includes(role);
-  }
+    <section class="panel instructions-panel">
+      <div class="panel-header"><h2>How to Get the Route Assignments PDF</h2><span class="muted">Skimmer workflow</span></div>
+      <div class="panel-body instructions-layout">
+        <ol class="instruction-list">
+          <li>In <strong>Skimmer</strong>, open <strong>Routes</strong>.</li>
+          <li>Select <strong>Route Assignments</strong>.</li>
+          <li>Open <strong>More Options</strong>.</li>
+          <li>Change the date to <strong>next week Friday</strong>.</li>
+          <li>Click the <strong>Print</strong> button in the upper-right corner above the map.</li>
+          <li>Choose <strong>Print to PDF</strong> and save the PDF on your Desktop. Include the Friday date in the filename when possible, such as <strong>2026_0828 Route Assignments.pdf</strong>.</li>
+          <li>Drag and drop the saved PDF into the box on this page.</li>
+        </ol>
 
-  function escapeHtml(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
-  function renderShell(container) {
-    container.innerHTML = `
-      <div class="shared-nav-topline">
-        <a
-          class="shared-nav-brand"
-          href="index.html"
-          aria-label="Molinari Pools main menu"
-        >
-          <span class="shared-nav-brand-mark">MP</span>
-          <span>MOLINARI POOLS</span>
-        </a>
-
-        <div class="shared-nav-account">
-          <span id="sharedNavUser" class="shared-nav-user">
-            Loading menu...
-          </span>
-
-          <button
-            id="sharedNavLogout"
-            class="shared-nav-logout"
-            type="button"
-          >
-            Logout
-          </button>
-
-          <button
-            id="sharedNavMobileToggle"
-            class="shared-nav-mobile-toggle"
-            type="button"
-            aria-label="Open menu"
-            aria-expanded="false"
-          >
-            ☰
-          </button>
+        <div id="importArea">
+          <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Upload Route Assignments PDF">
+            <div class="drop-icon" aria-hidden="true">⇩</div>
+            <div class="drop-title">Drag and drop the PDF here</div>
+            <div class="drop-note">The page reads the Skimmer PDF, validates the route roster, and automatically populates the read-only report below.</div>
+            <button class="primary-btn" id="choosePdfButton" type="button">Choose PDF</button>
+            <input id="pdfInput" type="file" accept="application/pdf,.pdf" class="hidden">
+          </div>
+          <div id="viewerOnlyBox" class="viewer-box hidden">
+            <div><strong>View-only access</strong>The PDF upload is available to Service management and system administrators. You can view and print every saved weekly report.</div>
+          </div>
         </div>
       </div>
+      <div class="panel-body no-print" style="padding-top:0;">
+        <div id="statusBar" class="status-bar">Ready for a Skimmer Route Assignments PDF.</div>
+        <div id="progressTrack" class="progress-track hidden"><div id="progressFill" class="progress-fill"></div></div>
+      </div>
+    </section>
 
-      <nav
-        id="sharedNavMenubar"
-        class="shared-nav-menubar"
-        aria-label="Company systems navigation"
-      ></nav>
-    `;
-  }
+    <section class="metric-grid">
+      <article class="metric-card"><div class="metric-label">Effective Friday</div><div class="metric-value" id="effectiveDateMetric">-</div><div class="metric-note" id="effectiveDateNote">No report loaded</div></article>
+      <article class="metric-card"><div class="metric-label">Assigned Pools</div><div class="metric-value" id="assignedPoolsMetric">0</div><div class="metric-note">All PDF assignments</div></article>
+      <article class="metric-card"><div class="metric-label">Balancing Routes</div><div class="metric-value" id="routeCountMetric">0</div><div class="metric-note" id="routeAverageNote">Average 0.0 pools</div></article>
+      <article class="metric-card"><div class="metric-label">Validation Alerts</div><div class="metric-value" id="alertCountMetric">0</div><div class="metric-note">Roster and weekday checks</div></article>
+    </section>
 
-  function renderMenu(role) {
-    const menubar = document.getElementById('sharedNavMenubar');
-    if (!menubar) return;
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Validation Results</h2>
+        <div class="snapshot-picker no-print">
+          <label for="snapshotSelect">Saved Friday:</label>
+          <select id="snapshotSelect" aria-label="Choose a saved Route Assignment report"></select>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="validationAlerts" class="alert-list"><div class="alert-item alert-success">No validation report is loaded yet.</div></div>
+      </div>
+    </section>
 
-    const currentPage = currentPageName();
-    const homeActive =
-      currentPage === '' || currentPage === 'index.html';
+    <section class="panel">
+      <div class="panel-header"><h2>Weekly Route Balance</h2><span id="roleModeLabel" class="muted"></span></div>
+      <div class="panel-body source-strip">
+        <span><strong>Source PDF:</strong> <span id="sourceFileLabel">-</span></span>
+        <span><strong>PDF pages:</strong> <span id="sourcePagesLabel">-</span></span>
+        <span><strong>Parsed weekday rows:</strong> <span id="parsedRowsLabel">-</span></span>
+        <span><strong>Imported:</strong> <span id="importedAtLabel">-</span></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Assignment</th><th>Route Tech / Leader</th><th>Roster</th>
+              <th class="number-cell">Mon</th><th class="number-cell">Tue</th><th class="number-cell">Wed</th>
+              <th class="number-cell">Thu</th><th class="number-cell">Fri</th><th class="number-cell">Weekly</th>
+              <th class="number-cell">Target</th><th class="number-cell">Over / Under</th><th>Balance</th>
+            </tr>
+          </thead>
+          <tbody id="balanceTableBody"></tbody>
+          <tfoot id="balanceTableFoot"></tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
 
-    const visibleSections = navigation
-      .filter(section => isAllowed(section.roles, role))
-      .map(section => ({
-        ...section,
-        links: section.links.filter(link =>
-          isAllowed(link.roles, role)
-        )
-      }))
-      .filter(section => section.links.length > 0);
+  <script src="shared-navigation.js"></script>
+  <script>
+    'use strict';
 
-    const sectionHtml = visibleSections
-      .map((section, sectionIndex) => {
-        const hasActivePage = section.links.some(
-          link => link.href.toLowerCase() === currentPage
-        );
+    const SUPABASE_URL = 'https://icqkuhbhcennhhbbwqgo.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const VIEW_ROLES = ['SYSTEM_ADMIN','ADMIN','ACCOUNTING','SERVICE'];
+    const IMPORT_ROLES = ['SYSTEM_ADMIN','ADMIN','SERVICE'];
+    const WEEKDAYS = ['monday','tuesday','wednesday','thursday','friday'];
+    const WEEKDAY_LABELS = { monday:'Monday', tuesday:'Tuesday', wednesday:'Wednesday', thursday:'Thursday', friday:'Friday' };
 
-        const links = section.links
-          .map(link => {
-            const active =
-              link.href.toLowerCase() === currentPage;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
-            return `
-              <a
-                class="shared-nav-link${active ? ' active' : ''}"
-                href="${escapeHtml(link.href)}"
-                ${active ? 'aria-current="page"' : ''}
-              >
-                ${escapeHtml(link.label)}
-              </a>
-            `;
-          })
-          .join('');
+    let currentProfile = null;
+    let canImport = false;
+    let roster = [];
+    let snapshots = [];
+    let currentSnapshot = null;
+    let currentLines = [];
 
-        return `
-          <div
-            class="shared-nav-item"
-            data-nav-section="${sectionIndex}"
-          >
-            <button
-              class="shared-nav-trigger${
-                hasActivePage ? ' active-section' : ''
-              }"
-              type="button"
-              aria-expanded="false"
-            >
-              <span>${escapeHtml(section.label)}</span>
-              <span class="shared-nav-caret">▼</span>
-            </button>
+    const $ = id => document.getElementById(id);
 
-            <div class="shared-nav-dropdown">
-              ${links}
-            </div>
-          </div>
-        `;
-      })
-      .join('');
-
-    menubar.innerHTML = `
-      <a
-        class="shared-nav-home${homeActive ? ' active' : ''}"
-        href="index.html"
-        ${homeActive ? 'aria-current="page"' : ''}
-      >
-        Main Menu
-      </a>
-
-      ${sectionHtml}
-    `;
-
-    bindMenuInteractions();
-  }
-
-  function closeAllDropdowns(exceptItem = null) {
-    document
-      .querySelectorAll('.shared-nav-item.open')
-      .forEach(item => {
-        if (item !== exceptItem) {
-          item.classList.remove('open');
-
-          const trigger = item.querySelector(
-            '.shared-nav-trigger'
-          );
-
-          if (trigger) {
-            trigger.setAttribute(
-              'aria-expanded',
-              'false'
-            );
-          }
-        }
-      });
-  }
-
-  function bindMenuInteractions() {
-    document
-      .querySelectorAll('.shared-nav-trigger')
-      .forEach(trigger => {
-        trigger.addEventListener('click', event => {
-          event.stopPropagation();
-
-          const item = trigger.closest(
-            '.shared-nav-item'
-          );
-
-          const willOpen =
-            !item.classList.contains('open');
-
-          closeAllDropdowns(item);
-          item.classList.toggle('open', willOpen);
-
-          trigger.setAttribute(
-            'aria-expanded',
-            String(willOpen)
-          );
-        });
-
-        trigger.addEventListener('keydown', event => {
-          if (event.key === 'ArrowDown') {
-            event.preventDefault();
-
-            const item = trigger.closest(
-              '.shared-nav-item'
-            );
-
-            closeAllDropdowns(item);
-            item.classList.add('open');
-
-            trigger.setAttribute(
-              'aria-expanded',
-              'true'
-            );
-
-            const firstLink = item.querySelector(
-              '.shared-nav-link'
-            );
-
-            if (firstLink) firstLink.focus();
-          }
-        });
-      });
-
-    document
-      .querySelectorAll('.shared-nav-dropdown')
-      .forEach(dropdown => {
-        dropdown.addEventListener('keydown', event => {
-          if (event.key === 'Escape') {
-            const item = dropdown.closest(
-              '.shared-nav-item'
-            );
-
-            item.classList.remove('open');
-
-            const trigger = item.querySelector(
-              '.shared-nav-trigger'
-            );
-
-            trigger.setAttribute(
-              'aria-expanded',
-              'false'
-            );
-
-            trigger.focus();
-          }
-        });
-      });
-  }
-
-  async function loadProfile() {
-    if (
-      !window.supabase ||
-      !window.supabase.createClient
-    ) {
-      throw new Error(
-        'Supabase library is not available.'
-      );
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
 
-    navClient = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_KEY
-    );
-
-    const {
-      data: sessionData,
-      error: sessionError
-    } = await navClient.auth.getSession();
-
-    if (sessionError) throw sessionError;
-
-    const session = sessionData?.session;
-
-    if (!session?.user) {
-      return {
-        session: null,
-        profile: null
-      };
+    function showAccessGate(message) {
+      $('accessMessage').textContent = message;
+      $('accessGate').classList.remove('hidden');
+      $('pageContent').classList.add('hidden');
     }
 
-    const {
-      data: profile,
-      error: profileError
-    } = await navClient
-      .from('user_profiles')
-      .select('id, full_name, role, active')
-      .eq('id', session.user.id)
-      .maybeSingle();
-
-    if (profileError) throw profileError;
-
-    return {
-      session,
-      profile
-    };
-  }
-
-  async function logout() {
-    if (typeof window.appLogout === 'function') {
-      await window.appLogout();
-      return;
+    function showPage() {
+      $('accessGate').classList.add('hidden');
+      $('pageContent').classList.remove('hidden');
     }
 
-    if (navClient) {
-      await navClient.auth.signOut();
-    }
-
-    window.location.href = 'index.html';
-  }
-
-  async function initializeSharedNavigation() {
-    const container = document.getElementById(
-      'sharedNavigation'
-    );
-
-    if (!container) return;
-
-    document.body.classList.add(
-      'has-shared-navigation'
-    );
-
-    renderShell(container);
-
-    document.addEventListener(
-      'click',
-      () => closeAllDropdowns()
-    );
-
-    document.addEventListener(
-      'keydown',
-      event => {
-        if (event.key === 'Escape') {
-          closeAllDropdowns();
-        }
+    function setStatus(message, type = '', progress = null) {
+      const bar = $('statusBar');
+      bar.textContent = message;
+      bar.className = `status-bar${type ? ` ${type}` : ''}`;
+      if (progress == null) {
+        $('progressTrack').classList.add('hidden');
+        $('progressFill').style.width = '0%';
+      } else {
+        $('progressTrack').classList.remove('hidden');
+        $('progressFill').style.width = `${Math.max(0,Math.min(100,progress))}%`;
       }
-    );
+    }
 
-    const mobileToggle = document.getElementById(
-      'sharedNavMobileToggle'
-    );
+    function formatDate(value) {
+      if (!value) return '-';
+      const [year,month,day] = String(value).slice(0,10).split('-').map(Number);
+      if (!year || !month || !day) return value;
+      return new Date(year,month-1,day).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    }
 
-    const menubar = document.getElementById(
-      'sharedNavMenubar'
-    );
+    function formatDateTime(value) {
+      if (!value) return '-';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+    }
 
-    mobileToggle.addEventListener(
-      'click',
-      event => {
-        event.stopPropagation();
+    function naturalCodeSort(a,b) {
+      const codeA = a.source_assignment_code || a.ppv_route_techs?.rt_code || '';
+      const codeB = b.source_assignment_code || b.ppv_route_techs?.rt_code || '';
+      return codeA.localeCompare(codeB,undefined,{numeric:true,sensitivity:'base'});
+    }
 
-        const open = menubar.classList.toggle(
-          'mobile-open'
-        );
+    function normalizedName(value) {
+      return String(value || '').trim().replace(/\s+/g,' ').toLowerCase();
+    }
 
-        mobileToggle.setAttribute(
-          'aria-expanded',
-          String(open)
-        );
+    function isScoredRoute(line) {
+      const rowType = line.ppv_route_techs?.row_type;
+      return rowType === 'RT' || Number(line.weekly_total || 0) >= 40;
+    }
 
-        mobileToggle.setAttribute(
-          'aria-label',
-          open ? 'Close menu' : 'Open menu'
-        );
+    function routeBalanceLabel(line) {
+      if (!isScoredRoute(line)) return {label:'RTL Coverage',className:'chip-support'};
+      const difference = Number(line.over_under_target || 0);
+      const absolute = Math.abs(difference);
+      if (absolute <= 2) return {label:'Balanced',className:'chip-balanced'};
+      if (absolute <= 5) return {label:'Watch',className:'chip-watch'};
+      return {label:'Adjust',className:'chip-adjust'};
+    }
+
+    async function initializePage() {
+      try {
+        const {data:sessionData,error:sessionError} = await client.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!sessionData?.session?.user) {
+          showAccessGate('Sign in with an authorized Molinari Pools account to continue.');
+          return;
+        }
+
+        const {data:profile,error:profileError} = await client.from('user_profiles')
+          .select('id,full_name,role,active').eq('id',sessionData.session.user.id).maybeSingle();
+        if (profileError) throw profileError;
+        if (!profile?.active || !VIEW_ROLES.includes(profile.role)) {
+          showAccessGate('Your account does not have access to Route Assignment Validation.');
+          return;
+        }
+
+        currentProfile = profile;
+        canImport = IMPORT_ROLES.includes(profile.role);
+        $('dropZone').classList.toggle('hidden',!canImport);
+        $('viewerOnlyBox').classList.toggle('hidden',canImport);
+        $('roleModeLabel').textContent = canImport ? 'PDF import access' : 'View-only access';
+        showPage();
+
+        await loadRoster();
+        await loadSnapshots();
+      } catch (error) {
+        console.error(error);
+        showAccessGate(error.message || 'Unable to load Route Assignment Validation.');
       }
-    );
+    }
 
-    document
-      .getElementById('sharedNavLogout')
-      .addEventListener('click', logout);
+    async function loadRoster() {
+      const {data,error} = await client.from('ppv_route_techs')
+        .select('id,rt_code,route_tech_name,row_type,active,ppv_eligible,base_weekly_visits,start_date,end_date')
+        .order('rt_code');
+      if (error) throw error;
+      roster = data || [];
+    }
 
-    try {
-      const {
-        session,
-        profile
-      } = await loadProfile();
+    async function loadSnapshots(preferredId = null) {
+      const {data,error} = await client.from('ppv_route_balance_snapshots')
+        .select('id,effective_date,snapshot_name,status,notes,source_file_name,source_page_count,parsed_assignment_count,imported_at,created_at,updated_at')
+        .neq('status','VOIDED')
+        .order('effective_date',{ascending:false})
+        .order('updated_at',{ascending:false});
+      if (error) throw error;
+      snapshots = data || [];
 
-      currentProfile = profile;
-
-      const userLabel = document.getElementById(
-        'sharedNavUser'
-      );
-
-      if (
-        !session ||
-        !profile ||
-        profile.active !== true
-      ) {
-        userLabel.textContent = 'Not signed in';
-
-        document.getElementById(
-          'sharedNavLogout'
-        ).textContent = 'Login';
-
-        document.getElementById(
-          'sharedNavLogout'
-        ).onclick = () => {
-          window.location.href = 'index.html';
-        };
-
-        renderMenu(null);
+      const select = $('snapshotSelect');
+      if (!snapshots.length) {
+        select.innerHTML = '<option value="">No saved reports</option>';
+        currentSnapshot = null;
+        currentLines = [];
+        renderReport();
+        setStatus('No Route Assignment PDF has been imported yet.');
         return;
       }
 
-      userLabel.textContent =
-        `${profile.full_name || session.user.email}` +
-        ` · ${profile.role}`;
+      select.innerHTML = snapshots.map(snapshot =>
+        `<option value="${escapeHtml(snapshot.id)}">${escapeHtml(formatDate(snapshot.effective_date))} - ${escapeHtml(snapshot.source_file_name || snapshot.snapshot_name)}</option>`
+      ).join('');
 
-      renderMenu(profile.role);
-    } catch (error) {
-      const userLabel = document.getElementById(
-        'sharedNavUser'
-      );
+      const chosenId = preferredId && snapshots.some(snapshot => snapshot.id === preferredId)
+        ? preferredId
+        : snapshots[0].id;
+      select.value = chosenId;
+      await loadSnapshot(chosenId);
+    }
 
-      if (userLabel) {
-        userLabel.textContent =
-          'Menu access check failed';
+    async function loadSnapshot(snapshotId) {
+      currentSnapshot = snapshots.find(snapshot => snapshot.id === snapshotId) || null;
+      if (!currentSnapshot) {
+        currentLines = [];
+        renderReport();
+        return;
       }
 
-      renderMenu(null);
-
-      console.error(
-        'Shared navigation initialization failed:',
-        error
-      );
+      const {data,error} = await client.from('ppv_route_balance_lines')
+        .select(`id,route_balance_snapshot_id,monday_visits,tuesday_visits,wednesday_visits,thursday_visits,friday_visits,weekly_total,target_weekly_visits,over_under_target,notes,source_assignment_code,source_route_tech_name,source_assignment_rows,ppv_route_techs!ppv_route_balance_lines_route_tech_id_fkey(id,rt_code,route_tech_name,row_type,active,ppv_eligible,base_weekly_visits,start_date,end_date)`)
+        .eq('route_balance_snapshot_id',snapshotId);
+      if (error) throw error;
+      currentLines = (data || []).sort(naturalCodeSort);
+      renderReport();
+      setStatus(`Loaded the Route Assignment report for ${formatDate(currentSnapshot.effective_date)}.`, 'success');
     }
-  }
 
-  window.MolinariSharedNavigation = {
-    initialize: initializeSharedNavigation,
-    getProfile: () => currentProfile
-  };
+    function buildValidationAlerts() {
+      if (!currentSnapshot) return [];
+      const alerts = [];
+      const importedCodes = new Set(currentLines.map(line => String(line.source_assignment_code || '').toUpperCase()));
 
-  if (document.readyState === 'loading') {
-    document.addEventListener(
-      'DOMContentLoaded',
-      initializeSharedNavigation
-    );
-  } else {
-    initializeSharedNavigation();
-  }
-})();
+      currentLines.forEach(line => {
+        const tech = line.ppv_route_techs || {};
+        const label = `${line.source_assignment_code || tech.rt_code || 'Unknown'} - ${line.source_route_tech_name || tech.route_tech_name || 'Unknown'}`;
+        if (tech.active === false) {
+          alerts.push({type:'danger',message:`Inactive roster assignment: ${label}${tech.end_date ? ` was deactivated effective ${formatDate(tech.end_date)}` : ' is deactivated'}, but still appears in this Skimmer PDF.`});
+        }
+        if (normalizedName(line.source_route_tech_name) !== normalizedName(tech.route_tech_name)) {
+          alerts.push({type:'warning',message:`Roster-name mismatch for ${line.source_assignment_code}: the PDF shows “${line.source_route_tech_name}” while the roster shows “${tech.route_tech_name}”.`});
+        }
+        if (isScoredRoute(line)) {
+          const missingDays = WEEKDAYS.filter(day => Number(line[`${day}_visits`] || 0) === 0);
+          if (missingDays.length) {
+            alerts.push({type:'warning',message:`Missing weekday assignment for ${label}: ${missingDays.map(day => WEEKDAY_LABELS[day]).join(', ')}.`});
+          }
+        }
+      });
+
+      roster.filter(tech => tech.active && tech.row_type === 'RT' && tech.ppv_eligible)
+        .filter(tech => !importedCodes.has(String(tech.rt_code).toUpperCase()))
+        .forEach(tech => alerts.push({type:'warning',message:`Active route tech missing from the PDF: ${tech.rt_code} - ${tech.route_tech_name}. Confirm whether this person should have a route assignment.`}));
+
+      return alerts;
+    }
+
+    function renderReport() {
+      if (!currentSnapshot) {
+        $('effectiveDateMetric').textContent = '-';
+        $('effectiveDateNote').textContent = 'No report loaded';
+        $('assignedPoolsMetric').textContent = '0';
+        $('routeCountMetric').textContent = '0';
+        $('routeAverageNote').textContent = 'Average 0.0 pools';
+        $('alertCountMetric').textContent = '0';
+        $('sourceFileLabel').textContent = '-';
+        $('sourcePagesLabel').textContent = '-';
+        $('parsedRowsLabel').textContent = '-';
+        $('importedAtLabel').textContent = '-';
+        $('validationAlerts').innerHTML = '<div class="alert-item alert-success">No validation report is loaded yet.</div>';
+        $('balanceTableBody').innerHTML = '<tr><td class="empty-state" colspan="12">Import a Skimmer Route Assignments PDF to populate this read-only report.</td></tr>';
+        $('balanceTableFoot').innerHTML = '';
+        return;
+      }
+
+      const totals = WEEKDAYS.reduce((result,day) => {
+        result[day] = currentLines.reduce((sum,line) => sum + Number(line[`${day}_visits`] || 0),0);
+        return result;
+      },{});
+      const assignedPools = currentLines.reduce((sum,line) => sum + Number(line.weekly_total || 0),0);
+      const scoredRoutes = currentLines.filter(isScoredRoute);
+      const average = scoredRoutes.length
+        ? scoredRoutes.reduce((sum,line) => sum + Number(line.weekly_total || 0),0) / scoredRoutes.length
+        : 0;
+      const alerts = buildValidationAlerts();
+
+      $('effectiveDateMetric').textContent = formatDate(currentSnapshot.effective_date);
+      $('effectiveDateNote').textContent = 'Skimmer date selected';
+      $('assignedPoolsMetric').textContent = assignedPools.toLocaleString();
+      $('routeCountMetric').textContent = scoredRoutes.length.toLocaleString();
+      $('routeAverageNote').textContent = `Average ${average.toFixed(1)} pools`;
+      $('alertCountMetric').textContent = alerts.length.toLocaleString();
+      $('sourceFileLabel').textContent = currentSnapshot.source_file_name || '-';
+      $('sourcePagesLabel').textContent = currentSnapshot.source_page_count ?? '-';
+      $('parsedRowsLabel').textContent = currentSnapshot.parsed_assignment_count ?? '-';
+      $('importedAtLabel').textContent = formatDateTime(currentSnapshot.imported_at || currentSnapshot.updated_at);
+
+      $('validationAlerts').innerHTML = alerts.length
+        ? alerts.map(alert => `<div class="alert-item ${alert.type === 'danger' ? 'alert-danger' : 'alert-warning'}">${escapeHtml(alert.message)}</div>`).join('')
+        : '<div class="alert-item alert-success">All imported route assignments match the active roster and include the expected weekdays.</div>';
+
+      $('balanceTableBody').innerHTML = currentLines.length
+        ? currentLines.map(line => {
+            const tech = line.ppv_route_techs || {};
+            const balance = routeBalanceLabel(line);
+            const difference = Number(line.over_under_target || 0);
+            const targetDisplay = isScoredRoute(line) ? Number(line.target_weekly_visits || 0) : '-';
+            const differenceDisplay = isScoredRoute(line) ? `${difference > 0 ? '+' : ''}${difference}` : '-';
+            return `
+              <tr class="${tech.active === false ? 'inactive-row' : ''}">
+                <td><strong>${escapeHtml(line.source_assignment_code || tech.rt_code || '-')}</strong><div class="muted">${escapeHtml(tech.row_type || '')}</div></td>
+                <td><strong>${escapeHtml(line.source_route_tech_name || tech.route_tech_name || '-')}</strong>${line.source_assignment_rows ? `<div class="muted">${line.source_assignment_rows} PDF weekday rows</div>` : ''}</td>
+                <td><span class="chip ${tech.active === false ? 'chip-inactive' : 'chip-active'}">${tech.active === false ? 'Inactive' : 'Active'}</span></td>
+                <td class="number-cell">${Number(line.monday_visits || 0)}</td>
+                <td class="number-cell">${Number(line.tuesday_visits || 0)}</td>
+                <td class="number-cell">${Number(line.wednesday_visits || 0)}</td>
+                <td class="number-cell">${Number(line.thursday_visits || 0)}</td>
+                <td class="number-cell">${Number(line.friday_visits || 0)}</td>
+                <td class="total-cell">${Number(line.weekly_total || 0)}</td>
+                <td class="number-cell">${targetDisplay}</td>
+                <td class="number-cell">${differenceDisplay}</td>
+                <td><span class="chip ${balance.className}">${balance.label}</span></td>
+              </tr>`;
+          }).join('')
+        : '<tr><td class="empty-state" colspan="12">No balance lines were saved for this report.</td></tr>';
+
+      $('balanceTableFoot').innerHTML = currentLines.length ? `
+        <tr>
+          <td colspan="3">All PDF Assignments</td>
+          <td class="number-cell">${totals.monday}</td><td class="number-cell">${totals.tuesday}</td>
+          <td class="number-cell">${totals.wednesday}</td><td class="number-cell">${totals.thursday}</td>
+          <td class="number-cell">${totals.friday}</td><td class="total-cell">${assignedPools}</td>
+          <td colspan="3"></td>
+        </tr>` : '';
+    }
+
+    function parseEffectiveFriday(fileName) {
+      const match = String(fileName || '').match(/(20\d{2})[_-]?([01]\d)[_-]?([0-3]\d)/);
+      if (match) {
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const date = new Date(year,month-1,day);
+        if (date.getFullYear() === year && date.getMonth() === month-1 && date.getDate() === day) {
+          return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        }
+      }
+
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      const daysUntilNextMonday = ((8 - dayOfWeek) % 7) || 7;
+      const nextWeekFriday = new Date(today.getFullYear(),today.getMonth(),today.getDate() + daysUntilNextMonday + 4);
+      return `${nextWeekFriday.getFullYear()}-${String(nextWeekFriday.getMonth()+1).padStart(2,'0')}-${String(nextWeekFriday.getDate()).padStart(2,'0')}`;
+    }
+
+    function normalizeAssignmentCode(value) {
+      return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    }
+
+    function parseAssignmentText(text) {
+      const lines = String(text || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+      const headerPattern = /^(RTL?\s*\d+)\s*[-–—]\s*(.+?)\s+(Monday|Tuesday|Wednesday|Thursday|Friday)\s*$/i;
+      const countPattern = /^(\d+)\s+pool(?:s)?\b/i;
+      const aggregated = new Map();
+      let parsedAssignmentCount = 0;
+
+      for (let index = 0; index < lines.length; index += 1) {
+        const header = lines[index].match(headerPattern);
+        if (!header) continue;
+
+        let poolCount = null;
+        for (let lookAhead = index + 1; lookAhead < Math.min(lines.length,index + 4); lookAhead += 1) {
+          const countMatch = lines[lookAhead].match(countPattern);
+          if (countMatch) {
+            poolCount = Number(countMatch[1]);
+            index = lookAhead;
+            break;
+          }
+          if (headerPattern.test(lines[lookAhead])) break;
+        }
+        if (!Number.isInteger(poolCount) || poolCount < 0) continue;
+
+        const assignmentCode = normalizeAssignmentCode(header[1]);
+        const routeTechName = header[2].trim().replace(/\s+/g,' ');
+        const weekday = header[3].toLowerCase();
+        if (!aggregated.has(assignmentCode)) {
+          aggregated.set(assignmentCode,{
+            assignment_code:assignmentCode,
+            route_tech_name:routeTechName,
+            monday_visits:0,tuesday_visits:0,wednesday_visits:0,thursday_visits:0,friday_visits:0,
+            source_assignment_rows:0
+          });
+        }
+        const record = aggregated.get(assignmentCode);
+        record.route_tech_name = routeTechName;
+        record[`${weekday}_visits`] = poolCount;
+        record.source_assignment_rows += 1;
+        parsedAssignmentCount += 1;
+      }
+
+      return {rows:Array.from(aggregated.values()),parsedAssignmentCount};
+    }
+
+    async function ocrPdf(file) {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const pdf = await pdfjsLib.getDocument({data:bytes}).promise;
+      const textByPage = [];
+      const worker = await Tesseract.createWorker('eng',1,{
+        logger: message => {
+          if (message.status === 'recognizing text') {
+            const pageProgress = Number(message.progress || 0);
+            const base = (textByPage.length / pdf.numPages) * 85;
+            const increment = (pageProgress / pdf.numPages) * 85;
+            setStatus(`Reading PDF page ${textByPage.length + 1} of ${pdf.numPages}...`,'working',Math.round(5 + base + increment));
+          }
+        }
+      });
+
+      try {
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          setStatus(`Preparing PDF page ${pageNumber} of ${pdf.numPages}...`,'working',Math.round(5 + ((pageNumber - 1) / pdf.numPages) * 85));
+          const page = await pdf.getPage(pageNumber);
+          const viewport = page.getViewport({scale:2});
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          const context = canvas.getContext('2d',{willReadFrequently:true});
+          await page.render({canvasContext:context,viewport}).promise;
+          const result = await worker.recognize(canvas);
+          textByPage.push(result.data.text || '');
+          page.cleanup();
+        }
+      } finally {
+        await worker.terminate();
+      }
+
+      return {text:textByPage.join('\n'),pageCount:pdf.numPages};
+    }
+
+    function validateParsedRows(parsed) {
+      if (!parsed.rows.length || parsed.parsedAssignmentCount < 5) {
+        throw new Error('The PDF did not contain recognizable Skimmer Route Assignment rows. Confirm that you printed the Route Assignments page shown in the instructions.');
+      }
+
+      const knownCodes = new Set(roster.map(tech => String(tech.rt_code).toUpperCase()));
+      const unknownCodes = parsed.rows.map(row => row.assignment_code).filter(code => !knownCodes.has(code));
+      if (unknownCodes.length) {
+        throw new Error(`These PDF assignment codes are not in the route roster: ${unknownCodes.join(', ')}. Update the route roster before importing this PDF.`);
+      }
+
+      const weekdayTotals = WEEKDAYS.map(day => parsed.rows.reduce((sum,row) => sum + Number(row[`${day}_visits`] || 0),0));
+      if (weekdayTotals.some(total => total === 0)) {
+        throw new Error('At least one weekday was not recognized in the PDF. No report was saved. Please print the full Monday-Friday Route Assignments report and try again.');
+      }
+    }
+
+    async function handlePdf(file) {
+      if (!canImport) return;
+      if (!file || (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf')) {
+        setStatus('Only a PDF from Skimmer Route Assignments can be uploaded.','error');
+        return;
+      }
+
+      try {
+        setStatus(`Opening ${file.name}...`,'working',2);
+        const ocr = await ocrPdf(file);
+        setStatus('Validating the extracted route assignments...','working',92);
+        const parsed = parseAssignmentText(ocr.text);
+        validateParsedRows(parsed);
+        const effectiveDate = parseEffectiveFriday(file.name);
+
+        setStatus('Saving the read-only weekly report...','working',96);
+        const {data,error} = await client.rpc('import_route_assignment_validation_pdf',{
+          p_effective_date:effectiveDate,
+          p_source_file_name:file.name,
+          p_source_page_count:ocr.pageCount,
+          p_rows:parsed.rows
+        });
+        if (error) throw error;
+        if (!data?.success) throw new Error('The PDF was read, but the weekly report could not be saved.');
+
+        await loadRoster();
+        await loadSnapshots(data.snapshot_id);
+        setStatus(`Imported ${parsed.parsedAssignmentCount} weekday assignments from ${file.name}. The report is now view-only.`, 'success');
+      } catch (error) {
+        console.error(error);
+        setStatus(error.message || 'Unable to import this Route Assignments PDF.','error');
+      } finally {
+        $('pdfInput').value = '';
+      }
+    }
+
+    function bindEvents() {
+      $('refreshButton').addEventListener('click',async () => {
+        try {
+          setStatus('Refreshing saved reports...','working',20);
+          await loadRoster();
+          await loadSnapshots(currentSnapshot?.id || null);
+        } catch (error) {
+          setStatus(error.message || 'Unable to refresh the report.','error');
+        }
+      });
+      $('snapshotSelect').addEventListener('change',async event => {
+        try { await loadSnapshot(event.target.value); }
+        catch (error) { setStatus(error.message || 'Unable to load that saved Friday.','error'); }
+      });
+      $('logoutButton').addEventListener('click',async () => { await client.auth.signOut(); window.location.href='login.html'; });
+      $('choosePdfButton').addEventListener('click',() => $('pdfInput').click());
+      $('pdfInput').addEventListener('change',event => handlePdf(event.target.files?.[0]));
+
+      const dropZone = $('dropZone');
+      ['dragenter','dragover'].forEach(eventName => dropZone.addEventListener(eventName,event => {
+        event.preventDefault();
+        if (canImport) dropZone.classList.add('dragover');
+      }));
+      ['dragleave','drop'].forEach(eventName => dropZone.addEventListener(eventName,event => {
+        event.preventDefault();
+        dropZone.classList.remove('dragover');
+      }));
+      dropZone.addEventListener('drop',event => handlePdf(event.dataTransfer?.files?.[0]));
+      dropZone.addEventListener('keydown',event => {
+        if ((event.key === 'Enter' || event.key === ' ') && canImport) {
+          event.preventDefault();
+          $('pdfInput').click();
+        }
+      });
+    }
+
+    bindEvents();
+    initializePage();
+  </script>
+</body>
+</html>
