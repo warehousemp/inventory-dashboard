@@ -46,6 +46,11 @@
       roles: ALL_ACTIVE_ROLES,
       links: [
         {
+          label: 'Data Import Center',
+          href: 'data-import-center.html',
+          roles: ['ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
           label: 'Company Calendar',
           href: 'company-calendar.html',
           roles: ALL_ACTIVE_ROLES
