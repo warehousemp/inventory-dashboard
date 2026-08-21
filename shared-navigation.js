@@ -117,6 +117,11 @@
           roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
+          label: 'Route Time Validation',
+          href: 'route-time-validation.html',
+          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
           label: 'PPV Safeguard Tracking',
           href: 'ppv-safeguard-tracking.html',
           roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
