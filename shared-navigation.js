@@ -10,6 +10,38 @@
 
   const navigation = [
     {
+      label: 'Accounting',
+      roles: ['ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN'],
+      links: [
+        {
+          label: 'Accounting Warehouse',
+          href: 'accounting.html',
+          roles: ['ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN']
+        }
+      ]
+    },
+    {
+      label: 'Accounting PPV',
+      roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'],
+      links: [
+        {
+          label: 'PPV Tracker',
+          href: 'ppv-tracker.html',
+          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'PPV Payroll Review',
+          href: 'ppv-payroll-review.html',
+          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'PPV Admin',
+          href: 'ppv-admin.html',
+          roles: ['ADMIN', 'SYSTEM_ADMIN']
+        }
+      ]
+    },
+    {
       label: 'Company Tools',
       roles: ALL_ACTIVE_ROLES,
       links: [
@@ -29,7 +61,7 @@
       ]
     },
     {
-      label: 'Service - CSC',
+      label: 'Service CSC',
       roles: [
         'SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
         'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'
@@ -57,16 +89,11 @@
           label: 'Client Marketing Sync',
           href: 'client-marketing-sync.html',
           roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Safeguard Tracking',
-          href: 'ppv-safeguard-tracking.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
     {
-      label: 'Service - Route',
+      label: 'Service Route',
       roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'],
       links: [
         {
@@ -80,52 +107,14 @@
           roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
+          label: 'PPV Safeguard Tracking',
+          href: 'ppv-safeguard-tracking.html',
+          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
           label: 'RSO Tracking',
           href: 'rso-tracking.html',
           roles: ['ADMIN', 'SYSTEM_ADMIN']
-        }
-      ]
-    },
-    {
-      label: 'Accounting',
-      roles: ['ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN'],
-      links: [
-        {
-          label: 'Accounting Warehouse',
-          href: 'accounting.html',
-          roles: ['ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN']
-        }
-      ]
-    },
-    {
-      label: 'Accounting - PPV',
-      roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'],
-      links: [
-        {
-          label: 'PPV Tracker',
-          href: 'ppv-tracker.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Payroll Review',
-          href: 'ppv-payroll-review.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Admin',
-          href: 'ppv-admin.html',
-          roles: ['ADMIN', 'SYSTEM_ADMIN']
-        }
-      ]
-    },
-    {
-      label: 'Projects',
-      roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
-      links: [
-        {
-          label: 'Projects Command Center',
-          href: 'projects-command.html',
-          roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
@@ -155,6 +144,23 @@
           label: 'Warehouse Reports',
           href: 'warehouse-reports.html',
           roles: ['WAREHOUSE', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
+        }
+      ]
+    },
+    {
+      label: 'Sales',
+      roles: ['SALES', 'ADMIN', 'SYSTEM_ADMIN'],
+      showWhenEmpty: true,
+      links: []
+    },
+    {
+      label: 'Projects',
+      roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
+      links: [
+        {
+          label: 'Projects Command Center',
+          href: 'projects-command.html',
+          roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
@@ -264,7 +270,9 @@
           isAllowed(link.roles, role)
         )
       }))
-      .filter(section => section.links.length > 0);
+      .filter(section =>
+        section.links.length > 0 || section.showWhenEmpty === true
+      );
 
     const sectionHtml = visibleSections
       .map((section, sectionIndex) => {
@@ -272,22 +280,32 @@
           link => link.href.toLowerCase() === currentPage
         );
 
-        const links = section.links
-          .map(link => {
-            const active =
-              link.href.toLowerCase() === currentPage;
+        const links = section.links.length > 0
+          ? section.links
+              .map(link => {
+                const active =
+                  link.href.toLowerCase() === currentPage;
 
-            return `
-              <a
-                class="shared-nav-link${active ? ' active' : ''}"
-                href="${escapeHtml(link.href)}"
-                ${active ? 'aria-current="page"' : ''}
+                return `
+                  <a
+                    class="shared-nav-link${active ? ' active' : ''}"
+                    href="${escapeHtml(link.href)}"
+                    ${active ? 'aria-current="page"' : ''}
+                  >
+                    ${escapeHtml(link.label)}
+                  </a>
+                `;
+              })
+              .join('')
+          : `
+              <span
+                class="shared-nav-link"
+                aria-disabled="true"
+                style="cursor: default; opacity: 0.65;"
               >
-                ${escapeHtml(link.label)}
-              </a>
+                Future sales tools will appear here.
+              </span>
             `;
-          })
-          .join('');
 
         return `
           <div
