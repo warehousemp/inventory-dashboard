@@ -10,79 +10,31 @@
 
   const navigation = [
     {
-      label: 'Admin',
-      roles: ['ADMIN', 'SYSTEM_ADMIN'],
-      links: [
-        {
-          label: 'System / Admin Tools',
-          href: 'users.html',
-          roles: ['ADMIN', 'SYSTEM_ADMIN']
-        }
-      ]
-    },
-    {
-      label: 'Accounting',
+      label: 'Company Tools',
       roles: ALL_ACTIVE_ROLES,
       links: [
-        {
-          label: 'Accounting Warehouse',
-          href: 'accounting.html',
-          roles: ['ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Client Changes',
-          href: 'client-changes.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Tracker',
-          href: 'ppv-tracker.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Safeguard Tracking',
-          href: 'ppv-safeguard-tracking.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Admin',
-          href: 'ppv-admin.html',
-          roles: ['ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Payroll Review',
-          href: 'ppv-payroll-review.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
         {
           label: 'Company Calendar',
           href: 'company-calendar.html',
           roles: ALL_ACTIVE_ROLES
-        }
-      ]
-    },
-    {
-      label: 'Projects',
-      roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
-      links: [
-        {
-          label: 'Projects Command Center',
-          href: 'projects-command.html',
-          roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
-        }
-      ]
-    },
-    {
-      label: 'Service',
-      roles: [
-        'SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'SALES', 'TECHS',
-        'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'
-      ],
-      links: [
+        },
         {
           label: 'Service Parts Lookup',
           href: 'service.html'
         },
+        {
+          label: 'Service Map',
+          href: 'service-map.html'
+        }
+      ]
+    },
+    {
+      label: 'Service - CSC',
+      roles: [
+        'SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
+        'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'
+      ],
+      links: [
         {
           label: 'Client Services Dashboard',
           href: 'client-services.html',
@@ -92,28 +44,9 @@
           ]
         },
         {
-          label: 'Service Map',
-          href: 'service-map.html'
-        },
-        {
-          label: 'Service Manager Dashboard',
-          href: 'service-manager-dashboard.html',
-          roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Route Assignment Validation',
-          href: 'route-assignment-validation.html',
+          label: 'Client Changes',
+          href: 'client-changes.html',
           roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Route Time Validation',
-          href: 'route-time-validation.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'RSO Tracking',
-          href: 'rso-tracking.html',
-          roles: ['ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'Inspection Requests',
@@ -126,9 +59,73 @@
           roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
-          label: 'Service Department Admin',
-          href: 'service-department-admin.html',
+          label: 'PPV Safeguard Tracking',
+          href: 'ppv-safeguard-tracking.html',
+          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+        }
+      ]
+    },
+    {
+      label: 'Service - Route',
+      roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'],
+      links: [
+        {
+          label: 'Service Manager Dashboard',
+          href: 'service-manager-dashboard.html',
           roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'Route Assignment Validation',
+          href: 'route-assignment-validation.html',
+          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'RSO Tracking',
+          href: 'rso-tracking.html',
+          roles: ['ADMIN', 'SYSTEM_ADMIN']
+        }
+      ]
+    },
+    {
+      label: 'Accounting',
+      roles: ['ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN'],
+      links: [
+        {
+          label: 'Accounting Warehouse',
+          href: 'accounting.html',
+          roles: ['ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN']
+        }
+      ]
+    },
+    {
+      label: 'Accounting - PPV',
+      roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'],
+      links: [
+        {
+          label: 'PPV Tracker',
+          href: 'ppv-tracker.html',
+          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'PPV Payroll Review',
+          href: 'ppv-payroll-review.html',
+          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'PPV Admin',
+          href: 'ppv-admin.html',
+          roles: ['ADMIN', 'SYSTEM_ADMIN']
+        }
+      ]
+    },
+    {
+      label: 'Projects',
+      roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
+      links: [
+        {
+          label: 'Projects Command Center',
+          href: 'projects-command.html',
+          roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
@@ -158,6 +155,22 @@
           label: 'Warehouse Reports',
           href: 'warehouse-reports.html',
           roles: ['WAREHOUSE', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
+        }
+      ]
+    },
+    {
+      label: 'Admin',
+      roles: ['ADMIN', 'SYSTEM_ADMIN'],
+      links: [
+        {
+          label: 'System / Admin Tools',
+          href: 'users.html',
+          roles: ['ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'Service Department Admin',
+          href: 'service-department-admin.html',
+          roles: ['ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'Warehouse Admin',
