@@ -81,6 +81,11 @@
           roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
+          label: 'CSC Service Labor Guide',
+          href: 'csc-service-labor-guide.html',
+          roles: ['ACCOUNTING', 'SERVICE', 'READ_ONLY', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
           label: 'Inspection Requests',
           href: 'inspection-requests-office.html',
           roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
