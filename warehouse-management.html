@@ -8770,11 +8770,15 @@ async function loadCycleCountCompliance() {
   if (complianceBody) complianceBody.innerHTML = '<tr><td colspan="8">Loading 30-day cycle count compliance...</td></tr>';
   if (historyBody) historyBody.innerHTML = '<tr><td colspan="9">Loading completed cycle count history...</td></tr>';
 
-  const [categoryResponse, postedResponse] = await Promise.all([
+  const [categoryResponse, locationResponse, postedResponse] = await Promise.all([
     client
       .from('inventory_active_cycle_count_categories')
       .select('category_name')
       .order('category_name', { ascending: true }),
+    client
+      .from('inventory_active_cycle_count_locations')
+      .select('id, location_name, active')
+      .order('location_name', { ascending: true }),
     client
       .from('inventory_cycle_count_session_summary')
       .select('*')
@@ -8782,7 +8786,7 @@ async function loadCycleCountCompliance() {
       .order('posted_at', { ascending: false })
   ]);
 
-  if (categoryResponse.error || postedResponse.error) {
+  if (categoryResponse.error || locationResponse.error || postedResponse.error) {
     cycleCountComplianceData = [];
     completedCycleCountHistoryData = [];
     renderCycleCountComplianceSummary();
@@ -8790,7 +8794,11 @@ async function loadCycleCountCompliance() {
     populateCompletedCycleCountMonthFilter();
     renderCompletedCycleCountHistory();
 
-    const errorMessages = [categoryResponse.error?.message, postedResponse.error?.message].filter(Boolean);
+    const errorMessages = [
+      categoryResponse.error?.message,
+      locationResponse.error?.message,
+      postedResponse.error?.message
+    ].filter(Boolean);
     const message = `Unable to load cycle count compliance: ${errorMessages.join(' | ')}`;
 
     if (complianceStatus) complianceStatus.textContent = message;
@@ -8804,16 +8812,9 @@ async function loadCycleCountCompliance() {
       .filter(Boolean)
   )];
 
-  let countLocations = sortWholeLocationCountLocations(
-    (inventoryLocationData || []).filter(location => location.active === true && isAllowedWholeLocationCountLocation(location))
+  const countLocations = sortWholeLocationCountLocations(
+    (locationResponse.data || []).filter(location => location.active === true && isAllowedWholeLocationCountLocation(location))
   );
-
-  if (countLocations.length === 0) {
-    countLocations = WHOLE_LOCATION_COUNT_LOCATION_NAMES.map(locationName => ({
-      location_name: locationName,
-      active: true
-    }));
-  }
 
   const postedRows = (postedResponse.data || [])
     .filter(row => getPostedCycleCountDate(row))
@@ -9599,8 +9600,27 @@ async function loadCycleCountLocationDropdowns() {
     inventoryLocationData = data || [];
   }
 
+  const { data: eligibleLocationData, error: eligibleLocationError } = await client
+    .from('inventory_active_cycle_count_locations')
+    .select('id, location_name, active')
+    .order('location_name', { ascending: true });
+
+  if (eligibleLocationError) {
+    locationSelect.innerHTML = '<option value="">Location load error</option>';
+    document.getElementById('cycleCountSheetReport').textContent = eligibleLocationError.message;
+    return;
+  }
+
+  const eligibleLocationIds = new Set(
+    (eligibleLocationData || []).map(location => String(location.id))
+  );
+
   const countLocations = sortWholeLocationCountLocations(
-    inventoryLocationData.filter(location => location.active === true && isAllowedWholeLocationCountLocation(location))
+    inventoryLocationData.filter(location =>
+      location.active === true &&
+      eligibleLocationIds.has(String(location.id)) &&
+      isAllowedWholeLocationCountLocation(location)
+    )
   );
 
   locationSelect.innerHTML = '<option value="">Select location...</option>';
