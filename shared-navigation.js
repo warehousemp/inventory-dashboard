@@ -106,6 +106,11 @@
           roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
+          label: 'Route Time Validation',
+          href: 'route-time-validation.html',
+          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
           label: 'RSO Tracking',
           href: 'rso-tracking.html',
           roles: ['ADMIN', 'SYSTEM_ADMIN']
