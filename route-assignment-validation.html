@@ -436,6 +436,8 @@
     }
 
     async function loadRouteRevenue(snapshotId) {
+      const {error:rateRefreshError} = await client.rpc('refresh_route_assignment_service_history_rates');
+      if (rateRefreshError) throw rateRefreshError;
       const [techResponse,leaderResponse] = await Promise.all([
         client.from('route_assignment_revenue_by_tech_view').select('*').eq('snapshot_id',snapshotId).order('route_code'),
         client.from('route_assignment_revenue_by_leader_view').select('*').eq('snapshot_id',snapshotId).order('route_tech_leader_code')
@@ -459,7 +461,7 @@
       $('monthlyRevenueMetric').textContent = formatCurrency(techTotals.monthly);
       $('annualRevenueMetric').textContent = formatCurrency(techTotals.annual);
       const source = currentTechRevenue[0];
-      $('revenueWeekMetricNote').textContent = source ? `Customer rates updated ${formatDate(source.service_week_end)}` : 'No matching Customers import';
+      $('revenueWeekMetricNote').textContent = source ? `Service History rates through ${formatDate(source.service_week_end)}` : 'No matching Service History import';
       $('missingRevenueMetricNote').textContent = `${techTotals.missing} location${techTotals.missing===1?'':'s'} missing revenue`;
       $('routeRevenueTechBody').innerHTML = currentTechRevenue.length ? currentTechRevenue.map(r => `<tr>
         <td><button class="expand-btn no-print" type="button" id="expand-${escapeHtml(r.route_code)}" aria-expanded="false" onclick="toggleRouteDetail('${escapeHtml(r.route_code)}')">+</button><strong>${escapeHtml(r.route_code)} - ${escapeHtml(r.route_tech_name)}</strong></td><td>${escapeHtml(r.route_tech_leader_code||'-')} - ${escapeHtml(r.route_tech_leader_name||'Unassigned')}</td>
@@ -641,43 +643,116 @@
       const headerPattern = /^(RTL?\s*\d+)\s*[-–—]\s*(.+?)\s+(Monday|Tuesday|Wednesday|Thursday|Friday)\s*$/i;
       const countPattern = /^(\d+)\s+pool(?:s)?\b/i;
       const aggregated = new Map();
+      const clients = [];
       let parsedAssignmentCount = 0;
+      let currentSection = null;
+      let currentPageNumber = null;
+
+      const weekdayNumber = day => WEEKDAYS.indexOf(day) + 1;
+      const cleanDate = value => {
+        const match = String(value || '').match(/(\d{1,2})\/(\d{1,2})\/(20\d{2})/);
+        return match ? `${match[3]}-${match[1].padStart(2,'0')}-${match[2].padStart(2,'0')}` : null;
+      };
+
+      const parseClientBlock = (stopNumber,nameText,block) => {
+        const customerNumberMatch = nameText.match(/\((\d+)\)\s*[^\d]*$/);
+        const customerName = nameText.replace(/\s*\(\d+\)\s*[^\d]*$/,'').trim();
+        const frequencyPattern = /\s+(Weekly|Biweekly|Every\s+\d+\s+Weeks?|Twice\s+(?:a|per)\s+Week)\s*$/i;
+        let addressIndex = block.findIndex(value => frequencyPattern.test(value));
+        if (addressIndex < 0) addressIndex = 0;
+        const addressSource = block[addressIndex] || '';
+        const frequencyMatch = addressSource.match(frequencyPattern);
+        const serviceAddress = addressSource.replace(frequencyPattern,'').trim();
+        const remainder = block.slice(addressIndex + 1);
+        const scheduleIndex = remainder.findIndex(value => /\d{1,2}\/\d{1,2}\/20\d{2}\s*-\s*(?:no end|\d{1,2}\/\d{1,2}\/20\d{2})/i.test(value));
+        const cityStateZip = (scheduleIndex >= 0 ? remainder.slice(0,scheduleIndex + 1) : remainder)
+          .join(' ').replace(/\s*\d{1,2}\/\d{1,2}\/20\d{2}\s*-.*$/i,'').trim();
+        const scheduleText = scheduleIndex >= 0 ? remainder[scheduleIndex] : remainder.join(' ');
+        const scheduleMatch = String(scheduleText || '').match(/(\d{1,2}\/\d{1,2}\/20\d{2})\s*-\s*(no end|\d{1,2}\/\d{1,2}\/20\d{2})/i);
+
+        if (!customerName || !serviceAddress) return null;
+        return {
+          route_code:currentSection.assignmentCode,
+          route_tech_name:currentSection.routeTechName,
+          service_day_number:weekdayNumber(currentSection.weekday),
+          service_day_name:WEEKDAY_LABELS[currentSection.weekday],
+          stop_number:stopNumber,
+          customer_name:customerName,
+          skimmer_customer_number:customerNumberMatch?.[1] || null,
+          service_address:serviceAddress,
+          city_state_zip:cityStateZip || null,
+          service_frequency:frequencyMatch?.[1] || null,
+          service_start_date:cleanDate(scheduleMatch?.[1]),
+          service_end_date:/no end/i.test(scheduleMatch?.[2] || '') ? null : cleanDate(scheduleMatch?.[2]),
+          source_page_number:currentPageNumber
+        };
+      };
 
       for (let index = 0; index < lines.length; index += 1) {
+        const pageMarker = lines[index].match(/^\[\[PAGE:(\d+)\]\]$/);
+        if (pageMarker) {
+          currentPageNumber = Number(pageMarker[1]);
+          continue;
+        }
+
         const header = lines[index].match(headerPattern);
-        if (!header) continue;
-
-        let poolCount = null;
-        for (let lookAhead = index + 1; lookAhead < Math.min(lines.length,index + 4); lookAhead += 1) {
-          const countMatch = lines[lookAhead].match(countPattern);
-          if (countMatch) {
-            poolCount = Number(countMatch[1]);
-            index = lookAhead;
-            break;
+        if (header) {
+          let poolCount = null;
+          for (let lookAhead = index + 1; lookAhead < Math.min(lines.length,index + 4); lookAhead += 1) {
+            const countMatch = lines[lookAhead].match(countPattern);
+            if (countMatch) {
+              poolCount = Number(countMatch[1]);
+              index = lookAhead;
+              break;
+            }
+            if (headerPattern.test(lines[lookAhead])) break;
           }
-          if (headerPattern.test(lines[lookAhead])) break;
-        }
-        if (!Number.isInteger(poolCount) || poolCount < 0) continue;
+          if (!Number.isInteger(poolCount) || poolCount < 0) continue;
 
-        const assignmentCode = normalizeAssignmentCode(header[1]);
-        const routeTechName = header[2].trim().replace(/\s+/g,' ');
-        const weekday = header[3].toLowerCase();
-        if (!aggregated.has(assignmentCode)) {
-          aggregated.set(assignmentCode,{
-            assignment_code:assignmentCode,
-            route_tech_name:routeTechName,
-            monday_visits:0,tuesday_visits:0,wednesday_visits:0,thursday_visits:0,friday_visits:0,
-            source_assignment_rows:0
-          });
+          const assignmentCode = normalizeAssignmentCode(header[1]);
+          const routeTechName = header[2].trim().replace(/\s+/g,' ');
+          const weekday = header[3].toLowerCase();
+          currentSection = {assignmentCode,routeTechName,weekday,poolCount,nextStop:1};
+          if (!aggregated.has(assignmentCode)) {
+            aggregated.set(assignmentCode,{
+              assignment_code:assignmentCode,
+              route_tech_name:routeTechName,
+              monday_visits:0,tuesday_visits:0,wednesday_visits:0,thursday_visits:0,friday_visits:0,
+              source_assignment_rows:0
+            });
+          }
+          const record = aggregated.get(assignmentCode);
+          record.route_tech_name = routeTechName;
+          record[`${weekday}_visits`] = poolCount;
+          record.source_assignment_rows += 1;
+          parsedAssignmentCount += 1;
+          continue;
         }
-        const record = aggregated.get(assignmentCode);
-        record.route_tech_name = routeTechName;
-        record[`${weekday}_visits`] = poolCount;
-        record.source_assignment_rows += 1;
-        parsedAssignmentCount += 1;
+
+        if (!currentSection || currentSection.nextStop > currentSection.poolCount) continue;
+        const frequencyLinePattern = /\s+(Weekly|Biweekly|Every\s+\d+\s+Weeks?|Twice\s+(?:a|per)\s+Week)\s*$/i;
+        if (!frequencyLinePattern.test(lines[index + 1] || '')) continue;
+        const customerText = lines[index]
+          .replace(/^(?:\d{1,3}|[OQIl])?[\s.)~-]+/i,'')
+          .trim();
+        if (!customerText) continue;
+
+        const block = [lines[index + 1]];
+        let lookAhead = index + 1;
+        lookAhead += 1;
+        while (lookAhead < lines.length && block.length < 4) {
+          if (/^\[\[PAGE:\d+\]\]$/.test(lines[lookAhead]) || headerPattern.test(lines[lookAhead])) break;
+          if (frequencyLinePattern.test(lines[lookAhead + 1] || '')) break;
+          block.push(lines[lookAhead]);
+          lookAhead += 1;
+        }
+        const clientRow = parseClientBlock(currentSection.nextStop,customerText,block);
+        if (clientRow) clients.push(clientRow);
+        currentSection.nextStop += 1;
+        index = lookAhead - 1;
       }
 
-      return {rows:Array.from(aggregated.values()),parsedAssignmentCount};
+      return {rows:Array.from(aggregated.values()),clients,parsedAssignmentCount};
     }
 
     async function ocrPdf(file) {
@@ -706,7 +781,7 @@
           const context = canvas.getContext('2d',{willReadFrequently:true});
           await page.render({canvasContext:context,viewport}).promise;
           const result = await worker.recognize(canvas);
-          textByPage.push(result.data.text || '');
+          textByPage.push(`[[PAGE:${pageNumber}]]\n${result.data.text || ''}`);
           page.cleanup();
         }
       } finally {
@@ -730,6 +805,11 @@
       const weekdayTotals = WEEKDAYS.map(day => parsed.rows.reduce((sum,row) => sum + Number(row[`${day}_visits`] || 0),0));
       if (weekdayTotals.some(total => total === 0)) {
         throw new Error('At least one weekday was not recognized in the PDF. No report was saved. Please print the full Monday-Friday Route Assignments report and try again.');
+      }
+
+      const expectedClientRows = parsed.rows.reduce((sum,row) => sum + WEEKDAYS.reduce((daySum,day) => daySum + Number(row[`${day}_visits`] || 0),0),0);
+      if (parsed.clients.length !== expectedClientRows) {
+        throw new Error(`The PDF lists ${expectedClientRows} assigned stops, but ${parsed.clients.length} client details were recognized. No report was saved so the route list cannot be incomplete.`);
       }
     }
 
@@ -758,9 +838,18 @@
         if (error) throw error;
         if (!data?.success) throw new Error('The PDF was read, but the weekly report could not be saved.');
 
+        const {data:detailData,error:detailError} = await client.rpc('import_route_assignment_client_details',{
+          p_snapshot_id:data.snapshot_id,
+          p_clients:parsed.clients
+        });
+        if (detailError) throw detailError;
+        if (!detailData?.success || Number(detailData.client_rows || 0) !== parsed.clients.length) {
+          throw new Error('The weekly totals were saved, but the complete client assignment list was not. Re-import the PDF.');
+        }
+
         await loadRoster();
         await loadSnapshots(data.snapshot_id);
-        setStatus(`Imported ${parsed.parsedAssignmentCount} weekday assignments from ${file.name}. The report is now view-only.`, 'success');
+        setStatus(`Imported ${parsed.parsedAssignmentCount} weekday assignments and ${parsed.clients.length} client stops from ${file.name}. The report is now view-only.`, 'success');
       } catch (error) {
         console.error(error);
         setStatus(error.message || 'Unable to import this Route Assignments PDF.','error');
