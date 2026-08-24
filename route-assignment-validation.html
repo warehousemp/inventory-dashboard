@@ -191,12 +191,12 @@
       <article class="metric-card"><div class="metric-label">Assigned Pools</div><div class="metric-value" id="assignedPoolsMetric">0</div><div class="metric-note">All PDF assignments</div></article>
       <article class="metric-card"><div class="metric-label">Balancing Routes</div><div class="metric-value" id="routeCountMetric">0</div><div class="metric-note" id="routeAverageNote">Average 0.0 pools</div></article>
       <article class="metric-card"><div class="metric-label">Validation Alerts</div><div class="metric-value" id="alertCountMetric">0</div><div class="metric-note">Roster and weekday checks</div></article>
-      <article class="metric-card"><div class="metric-label">Monthly Route Revenue</div><div class="metric-value" id="monthlyRevenueMetric">$0</div><div class="metric-note" id="revenueWeekMetricNote">Latest Skimmer Customers import</div></article>
+      <article class="metric-card"><div class="metric-label">Monthly Route Revenue</div><div class="metric-value" id="monthlyRevenueMetric">$0</div><div class="metric-note" id="revenueWeekMetricNote">Latest Service History import</div></article>
       <article class="metric-card"><div class="metric-label">Annualized Route Revenue</div><div class="metric-value" id="annualRevenueMetric">$0</div><div class="metric-note" id="missingRevenueMetricNote">0 locations missing revenue</div></article>
     </section>
 
     <section class="panel">
-      <div class="panel-header"><h2>Assigned Route Revenue by Route Tech</h2><span class="muted">Current route assignments × Customers master rates</span></div>
+      <div class="panel-header"><h2>Assigned Route Revenue by Route Tech</h2><span class="muted">Route Assignments PDF × Service History rates × Annual Filter tags</span></div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Route Tech</th><th>Route Tech Leader</th><th class="number-cell">PDF Stops</th><th class="number-cell">Client Locations</th><th class="number-cell">Current Assignments</th><th class="number-cell">Monthly Revenue</th><th class="number-cell">Annualized Revenue</th><th class="number-cell">Missing Revenue</th></tr></thead>
@@ -499,9 +499,14 @@
     function renderRouteDetailDays(rows) {
       const days = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
       if (!rows.length) return '<div class="alert-item alert-warning">No client assignments were found for this route.</div>';
-      return `<div class="alert-item alert-warning" style="margin-top:12px;">Weekday client lists are inferred from the latest four weeks of completed route history and cross-referenced to the Customers master. The PDF remains the authoritative weekday stop total.</div><div class="weekday-detail-grid">${days.map((day,index) => {
+      return `<div class="alert-item alert-success" style="margin-top:12px;">Weekday client lists come directly from the imported Route Assignments PDF. Rates come from Service History; approved $0 accounts are verified using Annual Filter Planning customer tags.</div><div class="weekday-detail-grid">${days.map((day,index) => {
         const dayRows = rows.filter(r => Number(r.service_day_number)===index+1);
-        return `<section class="weekday-card"><h3><span>${day}</span><span>${dayRows.length} client${dayRows.length===1?'':'s'}</span></h3><table><thead><tr><th>Client / Address</th><th>Monthly</th></tr></thead><tbody>${dayRows.length ? dayRows.map(r => `<tr><td><div class="detail-client">${escapeHtml(r.customer_name)}</div><div class="detail-address">${escapeHtml(r.service_location)}</div>${r.match_status!=='MATCHED'?`<div class="detail-warning">${escapeHtml(r.match_status)}</div>`:''}</td><td>${formatCurrency(r.monthly_rate)}</td></tr>`).join('') : '<tr><td colspan="2" class="muted">No assigned clients</td></tr>'}</tbody></table></section>`;
+        return `<section class="weekday-card"><h3><span>${day}</span><span>${dayRows.length} client${dayRows.length===1?'':'s'}</span></h3><table><thead><tr><th>Client / Address</th><th>Monthly</th></tr></thead><tbody>${dayRows.length ? dayRows.map(r => {
+          const status = String(r.match_status || '');
+          const needsAttention = status !== 'MATCHED' && !status.startsWith('VALID $0') && status !== 'INTERNAL - EXCLUDED';
+          const statusClass = needsAttention ? 'detail-warning' : 'muted';
+          return `<tr><td><div class="detail-client">${escapeHtml(r.customer_name)}</div><div class="detail-address">${escapeHtml(r.service_location)}</div>${status !== 'MATCHED' ? `<div class="${statusClass}">${escapeHtml(status)}</div>` : ''}</td><td>${formatCurrency(r.monthly_rate)}</td></tr>`;
+        }).join('') : '<tr><td colspan="2" class="muted">No assigned clients</td></tr>'}</tbody></table></section>`;
       }).join('')}</div>`;
     }
 
