@@ -90,6 +90,18 @@
     .chip-support { color:#175c87; background:var(--blue-soft); }
     .chip-inactive { color:var(--red); background:var(--red-soft); }
     .chip-active { color:var(--green); background:var(--green-soft); }
+    .expand-btn { width:25px; height:25px; margin-right:8px; border:1px solid #9bb6ca; border-radius:6px; background:#fff; color:var(--navy); font-weight:900; line-height:1; }
+    .route-detail-row:hover { background:#fff; }
+    .route-detail-cell { padding:0 14px 15px !important; background:#f7fafc; }
+    .weekday-detail-grid { display:grid; grid-template-columns:repeat(5,minmax(240px,1fr)); gap:10px; padding-top:12px; overflow-x:auto; }
+    .weekday-card { border:1px solid var(--gray-200); border-radius:9px; background:#fff; overflow:hidden; min-width:240px; }
+    .weekday-card h3 { margin:0; padding:9px 10px; background:var(--blue-soft); color:var(--navy-dark); font-size:.86rem; display:flex; justify-content:space-between; }
+    .weekday-card table { min-width:0; }
+    .weekday-card th { position:static; background:#edf3f7; color:var(--gray-700); font-size:.68rem; padding:7px; }
+    .weekday-card td { font-size:.72rem; padding:7px; }
+    .detail-client { font-weight:800; color:var(--navy-dark); }
+    .detail-address { color:var(--gray-500); margin-top:2px; }
+    .detail-warning { color:var(--red); font-weight:800; }
     .empty-state { text-align:center; padding:38px 20px !important; color:var(--gray-500); }
     .access-layout { width:min(680px,calc(100% - 32px)); margin:70px auto; background:var(--white); border:1px solid var(--gray-200); border-radius:14px; padding:28px; box-shadow:var(--shadow); }
     .access-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
@@ -450,11 +462,45 @@
       $('revenueWeekMetricNote').textContent = source ? `Customer rates updated ${formatDate(source.service_week_end)}` : 'No matching Customers import';
       $('missingRevenueMetricNote').textContent = `${techTotals.missing} location${techTotals.missing===1?'':'s'} missing revenue`;
       $('routeRevenueTechBody').innerHTML = currentTechRevenue.length ? currentTechRevenue.map(r => `<tr>
-        <td><strong>${escapeHtml(r.route_code)} - ${escapeHtml(r.route_tech_name)}</strong></td><td>${escapeHtml(r.route_tech_leader_code||'-')} - ${escapeHtml(r.route_tech_leader_name||'Unassigned')}</td>
+        <td><button class="expand-btn no-print" type="button" id="expand-${escapeHtml(r.route_code)}" aria-expanded="false" onclick="toggleRouteDetail('${escapeHtml(r.route_code)}')">+</button><strong>${escapeHtml(r.route_code)} - ${escapeHtml(r.route_tech_name)}</strong></td><td>${escapeHtml(r.route_tech_leader_code||'-')} - ${escapeHtml(r.route_tech_leader_name||'Unassigned')}</td>
         <td class="number-cell">${Number(r.assigned_stops_pdf||0)}</td><td class="number-cell">${Number(r.assigned_client_locations||0)}</td><td class="number-cell">${Number(r.service_history_weekly_stops||0)}</td>
-        <td class="number-cell">${formatCurrency(r.monthly_route_revenue)}</td><td class="total-cell">${formatCurrency(r.annualized_route_revenue)}</td><td class="number-cell">${Number(r.missing_revenue_locations||0)}</td></tr>`).join('') : '<tr><td class="empty-state" colspan="8">No matching Route Tech revenue was found.</td></tr>';
+        <td class="number-cell">${formatCurrency(r.monthly_route_revenue)}</td><td class="total-cell">${formatCurrency(r.annualized_route_revenue)}</td><td class="number-cell">${Number(r.missing_revenue_locations||0)}</td></tr>
+        <tr id="detail-${escapeHtml(r.route_code)}" class="route-detail-row hidden"><td colspan="8" class="route-detail-cell"><div id="detail-content-${escapeHtml(r.route_code)}">Loading route details...</div></td></tr>`).join('') : '<tr><td class="empty-state" colspan="8">No matching Route Tech revenue was found.</td></tr>';
       $('routeRevenueTechFoot').innerHTML = currentTechRevenue.length ? `<tr><td colspan="2">All Assigned Routes</td><td class="number-cell">${techTotals.stops}</td><td class="number-cell">${techTotals.locations}</td><td class="number-cell">${techTotals.history}</td><td class="number-cell">${formatCurrency(techTotals.monthly)}</td><td class="total-cell">${formatCurrency(techTotals.annual)}</td><td class="number-cell">${techTotals.missing}</td></tr>` : '';
       $('routeRevenueLeaderBody').innerHTML = currentLeaderRevenue.length ? currentLeaderRevenue.map(r => `<tr><td><strong>${escapeHtml(r.route_tech_leader_code||'-')} - ${escapeHtml(r.route_tech_leader_name||'Unassigned')}</strong></td><td class="number-cell">${Number(r.route_tech_count||0)}</td><td class="number-cell">${Number(r.assigned_stops_pdf||0)}</td><td class="number-cell">${Number(r.assigned_client_locations||0)}</td><td class="number-cell">${Number(r.service_history_weekly_stops||0)}</td><td class="number-cell">${formatCurrency(r.monthly_team_revenue)}</td><td class="total-cell">${formatCurrency(r.annualized_team_revenue)}</td><td class="number-cell">${Number(r.missing_revenue_locations||0)}</td></tr>`).join('') : '<tr><td class="empty-state" colspan="8">No matching leader revenue was found.</td></tr>';
+    }
+
+    const routeDetailCache = new Map();
+
+    async function toggleRouteDetail(routeCode) {
+      const row = $(`detail-${routeCode}`);
+      const button = $(`expand-${routeCode}`);
+      if (!row || !button) return;
+      const opening = row.classList.contains('hidden');
+      row.classList.toggle('hidden',!opening);
+      button.textContent = opening ? '−' : '+';
+      button.setAttribute('aria-expanded',String(opening));
+      if (!opening || routeDetailCache.has(`${currentSnapshot?.id}:${routeCode}`)) return;
+      const content = $(`detail-content-${routeCode}`);
+      content.textContent = 'Loading client assignments...';
+      try {
+        const {data,error} = await client.rpc('get_route_assignment_revenue_detail',{p_snapshot_id:currentSnapshot.id,p_route_code:routeCode});
+        if (error) throw error;
+        const rows = data || [];
+        routeDetailCache.set(`${currentSnapshot.id}:${routeCode}`,rows);
+        content.innerHTML = renderRouteDetailDays(rows);
+      } catch(error) {
+        content.innerHTML = `<div class="alert-item alert-danger">${escapeHtml(error.message||'Unable to load route details.')}</div>`;
+      }
+    }
+
+    function renderRouteDetailDays(rows) {
+      const days = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+      if (!rows.length) return '<div class="alert-item alert-warning">No client assignments were found for this route.</div>';
+      return `<div class="alert-item alert-warning" style="margin-top:12px;">Weekday client lists are inferred from the latest four weeks of completed route history and cross-referenced to the Customers master. The PDF remains the authoritative weekday stop total.</div><div class="weekday-detail-grid">${days.map((day,index) => {
+        const dayRows = rows.filter(r => Number(r.service_day_number)===index+1);
+        return `<section class="weekday-card"><h3><span>${day}</span><span>${dayRows.length} client${dayRows.length===1?'':'s'}</span></h3><table><thead><tr><th>Client / Address</th><th>Monthly</th></tr></thead><tbody>${dayRows.length ? dayRows.map(r => `<tr><td><div class="detail-client">${escapeHtml(r.customer_name)}</div><div class="detail-address">${escapeHtml(r.service_location)}</div>${r.match_status!=='MATCHED'?`<div class="detail-warning">${escapeHtml(r.match_status)}</div>`:''}</td><td>${formatCurrency(r.monthly_rate)}</td></tr>`).join('') : '<tr><td colspan="2" class="muted">No assigned clients</td></tr>'}</tbody></table></section>`;
+      }).join('')}</div>`;
     }
 
     function buildValidationAlerts() {
