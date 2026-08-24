@@ -59,7 +59,7 @@
     .status-bar.working { background:var(--blue-soft); border-color:#b8d9ee; color:#174b70; }
     .progress-track { height:7px; background:#d4e7f3; border-radius:999px; overflow:hidden; margin-top:10px; }
     .progress-fill { height:100%; width:0; background:var(--blue); transition:width .2s ease; }
-    .metric-grid { display:grid; grid-template-columns:repeat(4,minmax(170px,1fr)); gap:12px; margin-bottom:16px; }
+    .metric-grid { display:grid; grid-template-columns:repeat(6,minmax(170px,1fr)); gap:12px; margin-bottom:16px; }
     .metric-card { background:var(--white); border:1px solid var(--gray-200); border-radius:12px; box-shadow:var(--shadow); padding:15px 17px; }
     .metric-label { color:var(--gray-500); font-weight:700; font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; }
     .metric-value { color:var(--navy-dark); font-size:1.65rem; font-weight:850; margin-top:5px; }
@@ -179,6 +179,30 @@
       <article class="metric-card"><div class="metric-label">Assigned Pools</div><div class="metric-value" id="assignedPoolsMetric">0</div><div class="metric-note">All PDF assignments</div></article>
       <article class="metric-card"><div class="metric-label">Balancing Routes</div><div class="metric-value" id="routeCountMetric">0</div><div class="metric-note" id="routeAverageNote">Average 0.0 pools</div></article>
       <article class="metric-card"><div class="metric-label">Validation Alerts</div><div class="metric-value" id="alertCountMetric">0</div><div class="metric-note">Roster and weekday checks</div></article>
+      <article class="metric-card"><div class="metric-label">Monthly Route Revenue</div><div class="metric-value" id="monthlyRevenueMetric">$0</div><div class="metric-note" id="revenueWeekMetricNote">Latest Skimmer service history</div></article>
+      <article class="metric-card"><div class="metric-label">Annualized Route Revenue</div><div class="metric-value" id="annualRevenueMetric">$0</div><div class="metric-note" id="missingRevenueMetricNote">0 locations missing revenue</div></article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h2>Assigned Route Revenue by Route Tech</h2><span class="muted">Monthly client rate × 12</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Route Tech</th><th>Route Tech Leader</th><th class="number-cell">PDF Stops</th><th class="number-cell">Client Locations</th><th class="number-cell">History Stops</th><th class="number-cell">Monthly Revenue</th><th class="number-cell">Annualized Revenue</th><th class="number-cell">Missing Revenue</th></tr></thead>
+          <tbody id="routeRevenueTechBody"><tr><td class="empty-state" colspan="8">No route revenue report loaded.</td></tr></tbody>
+          <tfoot id="routeRevenueTechFoot"></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h2>Assigned Route Revenue by Route Tech Leader</h2><span class="muted">Leader routes plus assigned Route Tech routes</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Route Tech Leader</th><th class="number-cell">Route Techs</th><th class="number-cell">PDF Stops</th><th class="number-cell">Client Locations</th><th class="number-cell">History Stops</th><th class="number-cell">Monthly Revenue</th><th class="number-cell">Annualized Revenue</th><th class="number-cell">Missing Revenue</th></tr></thead>
+          <tbody id="routeRevenueLeaderBody"><tr><td class="empty-state" colspan="8">No leader revenue report loaded.</td></tr></tbody>
+          <tfoot id="routeRevenueLeaderFoot"></tfoot>
+        </table>
+      </div>
     </section>
 
     <section class="panel">
@@ -239,6 +263,8 @@
     let snapshots = [];
     let currentSnapshot = null;
     let currentLines = [];
+    let currentTechRevenue = [];
+    let currentLeaderRevenue = [];
 
     const $ = id => document.getElementById(id);
 
@@ -392,8 +418,43 @@
         .eq('route_balance_snapshot_id',snapshotId);
       if (error) throw error;
       currentLines = (data || []).sort(naturalCodeSort);
+      await loadRouteRevenue(snapshotId);
       renderReport();
       setStatus(`Loaded the Route Assignment report for ${formatDate(currentSnapshot.effective_date)}.`, 'success');
+    }
+
+    async function loadRouteRevenue(snapshotId) {
+      const [techResponse,leaderResponse] = await Promise.all([
+        client.from('route_assignment_revenue_by_tech_view').select('*').eq('snapshot_id',snapshotId).order('route_code'),
+        client.from('route_assignment_revenue_by_leader_view').select('*').eq('snapshot_id',snapshotId).order('route_tech_leader_code')
+      ]);
+      if (techResponse.error) throw techResponse.error;
+      if (leaderResponse.error) throw leaderResponse.error;
+      currentTechRevenue = techResponse.data || [];
+      currentLeaderRevenue = leaderResponse.data || [];
+    }
+
+    function formatCurrency(value) {
+      return Number(value || 0).toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+    }
+
+    function renderRouteRevenue() {
+      const techTotals = currentTechRevenue.reduce((a,r) => ({
+        stops:a.stops+Number(r.assigned_stops_pdf||0), locations:a.locations+Number(r.assigned_client_locations||0),
+        history:a.history+Number(r.service_history_weekly_stops||0), monthly:a.monthly+Number(r.monthly_route_revenue||0),
+        annual:a.annual+Number(r.annualized_route_revenue||0), missing:a.missing+Number(r.missing_revenue_locations||0)
+      }),{stops:0,locations:0,history:0,monthly:0,annual:0,missing:0});
+      $('monthlyRevenueMetric').textContent = formatCurrency(techTotals.monthly);
+      $('annualRevenueMetric').textContent = formatCurrency(techTotals.annual);
+      const source = currentTechRevenue[0];
+      $('revenueWeekMetricNote').textContent = source ? `Skimmer ${formatDate(source.service_week_start)} – ${formatDate(source.service_week_end)}` : 'No matching Skimmer history';
+      $('missingRevenueMetricNote').textContent = `${techTotals.missing} location${techTotals.missing===1?'':'s'} missing revenue`;
+      $('routeRevenueTechBody').innerHTML = currentTechRevenue.length ? currentTechRevenue.map(r => `<tr>
+        <td><strong>${escapeHtml(r.route_code)} - ${escapeHtml(r.route_tech_name)}</strong></td><td>${escapeHtml(r.route_tech_leader_code||'-')} - ${escapeHtml(r.route_tech_leader_name||'Unassigned')}</td>
+        <td class="number-cell">${Number(r.assigned_stops_pdf||0)}</td><td class="number-cell">${Number(r.assigned_client_locations||0)}</td><td class="number-cell">${Number(r.service_history_weekly_stops||0)}</td>
+        <td class="number-cell">${formatCurrency(r.monthly_route_revenue)}</td><td class="total-cell">${formatCurrency(r.annualized_route_revenue)}</td><td class="number-cell">${Number(r.missing_revenue_locations||0)}</td></tr>`).join('') : '<tr><td class="empty-state" colspan="8">No matching Route Tech revenue was found.</td></tr>';
+      $('routeRevenueTechFoot').innerHTML = currentTechRevenue.length ? `<tr><td colspan="2">All Assigned Routes</td><td class="number-cell">${techTotals.stops}</td><td class="number-cell">${techTotals.locations}</td><td class="number-cell">${techTotals.history}</td><td class="number-cell">${formatCurrency(techTotals.monthly)}</td><td class="total-cell">${formatCurrency(techTotals.annual)}</td><td class="number-cell">${techTotals.missing}</td></tr>` : '';
+      $('routeRevenueLeaderBody').innerHTML = currentLeaderRevenue.length ? currentLeaderRevenue.map(r => `<tr><td><strong>${escapeHtml(r.route_tech_leader_code||'-')} - ${escapeHtml(r.route_tech_leader_name||'Unassigned')}</strong></td><td class="number-cell">${Number(r.route_tech_count||0)}</td><td class="number-cell">${Number(r.assigned_stops_pdf||0)}</td><td class="number-cell">${Number(r.assigned_client_locations||0)}</td><td class="number-cell">${Number(r.service_history_weekly_stops||0)}</td><td class="number-cell">${formatCurrency(r.monthly_team_revenue)}</td><td class="total-cell">${formatCurrency(r.annualized_team_revenue)}</td><td class="number-cell">${Number(r.missing_revenue_locations||0)}</td></tr>`).join('') : '<tr><td class="empty-state" colspan="8">No matching leader revenue was found.</td></tr>';
     }
 
     function buildValidationAlerts() {
@@ -440,6 +501,7 @@
         $('validationAlerts').innerHTML = '<div class="alert-item alert-success">No validation report is loaded yet.</div>';
         $('balanceTableBody').innerHTML = '<tr><td class="empty-state" colspan="12">Import a Skimmer Route Assignments PDF to populate this read-only report.</td></tr>';
         $('balanceTableFoot').innerHTML = '';
+        currentTechRevenue = []; currentLeaderRevenue = []; renderRouteRevenue();
         return;
       }
 
@@ -502,6 +564,7 @@
           <td class="number-cell">${totals.friday}</td><td class="total-cell">${assignedPools}</td>
           <td colspan="3"></td>
         </tr>` : '';
+      renderRouteRevenue();
     }
 
     function parseEffectiveFriday(fileName) {
