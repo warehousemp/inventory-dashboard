@@ -5,7 +5,7 @@
   const SUPABASE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
   const ALL_ACTIVE_ROLES = [
     'ADMIN', 'WAREHOUSE', 'ACCOUNTING', 'SERVICE', 'READ_ONLY',
-    'SALES', 'TECHS', 'SYSTEM_ADMIN', 'PROJECTS'
+    'SALES', 'TECHS', 'SYSTEM_ADMIN', 'PROJECTS', 'SERVICE_MANAGER'
   ];
 
   const navigation = [
@@ -22,17 +22,17 @@
     },
     {
       label: 'Accounting PPV',
-      roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'],
+      roles: ['ACCOUNTING', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN'],
       links: [
         {
           label: 'PPV Tracker',
           href: 'ppv-tracker.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: ['ACCOUNTING', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'PPV Payroll Review',
           href: 'ppv-payroll-review.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: ['ACCOUNTING', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'PPV Admin',
@@ -68,7 +68,7 @@
     {
       label: 'Service CSC',
       roles: [
-        'SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
+        'SERVICE', 'SERVICE_MANAGER', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
         'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'
       ],
       links: [
@@ -76,55 +76,70 @@
           label: 'Client Services Dashboard',
           href: 'client-services.html',
           roles: [
-            'SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
+            'SERVICE', 'SERVICE_MANAGER', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
             'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'
           ]
         },
         {
           label: 'Client Changes',
           href: 'client-changes.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'CSC Service Labor Guide',
           href: 'csc-service-labor-guide.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'READ_ONLY', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: [
+            'ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER',
+            'READ_ONLY', 'ADMIN', 'SYSTEM_ADMIN'
+          ]
         },
         {
           label: 'Inspection Requests',
           href: 'inspection-requests-office.html',
-          roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'Client Marketing Sync',
           href: 'client-marketing-sync.html',
-          roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
     {
       label: 'Service Route',
-      roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN'],
+      roles: [
+        'ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER',
+        'ADMIN', 'SYSTEM_ADMIN'
+      ],
       links: [
         {
           label: 'Service Manager Dashboard',
           href: 'service-manager-dashboard.html',
-          roles: ['SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'Route Assignment Validation',
           href: 'route-assignment-validation.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: [
+            'ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER',
+            'ADMIN', 'SYSTEM_ADMIN'
+          ]
         },
         {
           label: 'Route Time Validation',
           href: 'route-time-validation.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: [
+            'ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER',
+            'ADMIN', 'SYSTEM_ADMIN'
+          ]
         },
         {
           label: 'PPV Safeguard Tracking',
           href: 'ppv-safeguard-tracking.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: [
+            'ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER',
+            'ADMIN', 'SYSTEM_ADMIN'
+          ]
         },
         {
           label: 'RSO Tracking',
@@ -181,7 +196,7 @@
     },
     {
       label: 'Admin',
-      roles: ['ADMIN', 'SYSTEM_ADMIN'],
+      roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN'],
       links: [
         {
           label: 'System / Admin Tools',
@@ -191,7 +206,7 @@
         {
           label: 'Service Department Admin',
           href: 'service-department-admin.html',
-          roles: ['ADMIN', 'SYSTEM_ADMIN']
+          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'Warehouse Admin',
