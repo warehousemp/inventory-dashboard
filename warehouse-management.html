@@ -513,8 +513,8 @@
     }
 
     .shelf-location-input {
-      width: 92px;
-      min-width: 92px;
+      width: 180px;
+      min-width: 180px;
       margin-bottom: 0;
       font-size: 13px;
       padding: 9px;
@@ -1126,8 +1126,8 @@
     .needs-shelf-location-table td:nth-child(10) { width: 130px; }
 
     .needs-shelf-location-select {
-      width: 130px;
-      min-width: 130px;
+      width: 190px;
+      min-width: 190px;
       margin-bottom: 0;
       padding: 8px;
       font-size: 13px;
@@ -1185,7 +1185,39 @@
     }
 
     .current-shelf-change-select {
-      max-width: 260px;
+      max-width: 360px;
+    }
+
+    .shelf-location-setup-grid {
+      display: grid;
+      grid-template-columns: minmax(240px, 0.8fr) minmax(320px, 1.6fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin: 12px 0 14px;
+    }
+
+    .shelf-location-setup-grid input {
+      margin-bottom: 0;
+      text-transform: uppercase;
+    }
+
+    .shelf-location-setup-grid button {
+      margin: 0;
+      white-space: nowrap;
+    }
+
+    .shelf-location-setup-table {
+      min-width: 760px;
+    }
+
+    .shelf-location-setup-table th:nth-child(1),
+    .shelf-location-setup-table td:nth-child(1) { width: 250px; }
+    .shelf-location-setup-table th:nth-child(2),
+    .shelf-location-setup-table td:nth-child(2) { width: 120px; }
+    .shelf-location-setup-table th:nth-child(3),
+    .shelf-location-setup-table td:nth-child(3) {
+      white-space: normal;
+      word-break: break-word;
     }
 
     @media (max-width: 900px) {
@@ -1194,6 +1226,10 @@
       }
 
       .current-shelf-details-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .shelf-location-setup-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -3109,6 +3145,43 @@
 <div class="card wide-card">
 <h2>Part Cleanup Queues</h2>
 <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
+<h3>Add Shelf Location</h3>
+<div class="warning-note">
+      Add a named storage area for products kept under the Main Warehouse inventory location, including areas elsewhere in the building outside the locked gated warehouse.
+      This creates a Shelf Location only; it does not create a separate inventory location or change any stock quantity.
+    </div>
+<div class="shelf-location-setup-grid">
+<div>
+<label for="newWarehouseShelfCode">Shelf Location Name:</label>
+<input autocomplete="off" id="newWarehouseShelfCode" maxlength="40" oninput="formatNewShelfLocationInput()" placeholder="Example: OUTSIDE STORAGE"/>
+</div>
+<div>
+<label for="newWarehouseShelfNotes">Description / Notes:</label>
+<input autocomplete="off" id="newWarehouseShelfNotes" maxlength="250" placeholder="Optional: Describe where this storage area is located."/>
+</div>
+<button class="save-btn" id="addWarehouseShelfLocationButton" onclick="addMainWarehouseShelfLocation()" type="button">ADD SHELF LOCATION</button>
+</div>
+<div class="help-text">
+      Names are saved in uppercase and may contain letters, numbers, spaces, hyphens, slashes, ampersands, periods, underscores, and parentheses. Maximum 40 characters.
+    </div>
+<pre class="workflow-output" id="addWarehouseShelfLocationResult">New Shelf Location status will appear here...</pre>
+<div class="count-table-wrapper">
+<table class="shelf-location-setup-table">
+<thead>
+<tr>
+<th>Active Shelf Location</th>
+<th>Sort Order</th>
+<th>Description / Notes</th>
+</tr>
+</thead>
+<tbody id="warehouseShelfLocationSetupTableBody">
+<tr>
+<td colspan="3">Loading active Shelf Locations...</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section-divider"></div>
 <h3>Needs Shelf Location</h3>
 <div class="warning-note">
       This report shows active Main Warehouse parts with quantity on hand greater than zero and no assigned Shelf Location.
@@ -7432,7 +7505,119 @@ async function loadMainWarehouseShelfLocations() {
   }
 
   populateNewPartShelfLocationDropdown();
+  renderWarehouseShelfLocationSetupTable();
   console.log('Main Warehouse Shelf Locations loaded:', mainWarehouseShelfLocationData.length);
+}
+
+function normalizeShelfLocationCode(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+}
+
+function formatNewShelfLocationInput() {
+  const input = document.getElementById('newWarehouseShelfCode');
+
+  if (!input) {
+    return;
+  }
+
+  const cursorPosition = input.selectionStart;
+  input.value = input.value.toUpperCase();
+
+  if (cursorPosition !== null) {
+    input.setSelectionRange(cursorPosition, cursorPosition);
+  }
+}
+
+function renderWarehouseShelfLocationSetupTable() {
+  const tableBody = document.getElementById('warehouseShelfLocationSetupTableBody');
+
+  if (!tableBody) {
+    return;
+  }
+
+  if (!mainWarehouseShelfLocationData || mainWarehouseShelfLocationData.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="3">No active Shelf Locations found.</td></tr>';
+    return;
+  }
+
+  tableBody.innerHTML = mainWarehouseShelfLocationData.map(row => `
+    <tr>
+      <td><span class="shelf-location-pill">${escapeHTML(getShelfLocationCode(row))}</span></td>
+      <td>${escapeHTML(row.sort_order ?? '')}</td>
+      <td>${escapeHTML(row.notes || '')}</td>
+    </tr>
+  `).join('');
+}
+
+async function addMainWarehouseShelfLocation() {
+  const codeInput = document.getElementById('newWarehouseShelfCode');
+  const notesInput = document.getElementById('newWarehouseShelfNotes');
+  const addButton = document.getElementById('addWarehouseShelfLocationButton');
+  const resultBox = document.getElementById('addWarehouseShelfLocationResult');
+  const shelfCode = normalizeShelfLocationCode(codeInput?.value || '');
+  const notes = String(notesInput?.value || '').trim();
+  const allowedShelfPattern = /^[A-Z0-9][A-Z0-9 &/()._-]*$/;
+
+  if (!shelfCode) {
+    if (resultBox) resultBox.textContent = 'Enter a Shelf Location Name before saving.';
+    codeInput?.focus();
+    return;
+  }
+
+  if (shelfCode.length > 40 || !allowedShelfPattern.test(shelfCode)) {
+    if (resultBox) {
+      resultBox.textContent =
+        'Shelf Location Name must be 1–40 characters and use only letters, numbers, spaces, hyphens, slashes, ampersands, periods, underscores, or parentheses.';
+    }
+    codeInput?.focus();
+    return;
+  }
+
+  if (addButton) addButton.disabled = true;
+  if (resultBox) resultBox.textContent = `Adding Main Warehouse Shelf Location ${shelfCode}...`;
+
+  try {
+    const { data, error } = await client.rpc('add_main_warehouse_shelf_location', {
+      p_shelf_code: shelfCode,
+      p_notes: notes || null
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const result = Array.isArray(data) && data.length > 0 ? data[0] : null;
+
+    await loadMainWarehouseShelfLocations();
+
+    if (needsShelfLocationReportData && needsShelfLocationReportData.length > 0) {
+      await loadNeedsShelfLocationReport();
+    }
+
+    if (codeInput) codeInput.value = '';
+    if (notesInput) notesInput.value = '';
+
+    if (resultBox) {
+      const action = result?.action_result === 'REACTIVATED_SHELF_LOCATION'
+        ? 'Shelf Location reactivated successfully.'
+        : result?.action_result === 'ALREADY_ACTIVE'
+          ? 'That Shelf Location already exists and is active.'
+          : 'Shelf Location added successfully.';
+
+      resultBox.textContent =
+        `${action}\n\n` +
+        `Parent Inventory Location: Main Warehouse\n` +
+        `Shelf Location: ${result?.shelf_code || shelfCode}\n` +
+        `Sort Order: ${result?.sort_order ?? ''}`;
+    }
+  } catch (error) {
+    if (resultBox) resultBox.textContent = `Shelf Location was not added: ${error.message}`;
+  } finally {
+    if (addButton) addButton.disabled = false;
+  }
 }
 
 function populateNewPartShelfLocationDropdown() {
