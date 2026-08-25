@@ -1,1 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>On-Call Schedule - Molinari Pools</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="google" content="notranslate">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="shared-navigation.css">
+  <meta name="theme-color" content="#0b3c5d">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
 
+    :root {
+      --nav: #062f4f;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --success: #16794a;
+      --warning: #9a4f00;
+      --danger: #b42318;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+    }
+
+    .hidden { display: none !important; }
+
+    .page-shell {
+      width: min(1500px, calc(100% - 32px));
+      margin: 24px auto 42px;
+    }
+
+    .page-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(15, 42, 61, 0.08);
+      padding: 22px;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .page-header h1 {
+      margin: 0 0 6px;
+      color: var(--header);
+      font-size: 27px;
+    }
+
+    .page-header p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .header-actions,
+    .filter-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button {
+      border: 0;
+      border-radius: 9px;
+      padding: 11px 15px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.65;
+    }
+
+    .primary-btn {
+      background: var(--header);
+      color: #ffffff;
+    }
+
+    .accent-btn {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    .secondary-btn {
+      background: #e8eef3;
+      color: var(--header);
+    }
+
+    .status-note,
+    .message {
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .status-note {
+      border: 1px solid #a7e3c0;
+      background: #effcf4;
+      color: #14532d;
+    }
+
+    .message:empty { display: none; }
+    .message.info { border: 1px solid #9fd8df; background: #eefafa; color: #0b5360; }
+    .message.success { border: 1px solid #a7e3c0; background: #effcf4; color: #14532d; }
+    .message.error { border: 1px solid #f3aaa3; background: #fff1f0; color: #8f1d16; }
+
+    .filters {
+      display: grid;
+      grid-template-columns: minmax(180px, 0.8fr) minmax(180px, 0.8fr) minmax(180px, 0.8fr) auto;
+      gap: 12px;
+      align-items: end;
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      background: #f8fafc;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--header);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    select,
+    input {
+      width: 100%;
+      min-height: 42px;
+      margin: 0;
+      padding: 9px 11px;
+      border: 1px solid #c8d5df;
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+    }
+
+    select:focus,
+    input:focus {
+      outline: 3px solid rgba(26, 163, 176, 0.14);
+      border-color: var(--accent);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .summary-card {
+      min-width: 0;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #ffffff;
+    }
+
+    .summary-card .label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .summary-card .value {
+      margin-top: 6px;
+      color: var(--header);
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.15;
+      word-break: break-word;
+    }
+
+    .summary-card .sub {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .table-wrap {
+      width: 100%;
+      max-height: 720px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1080px;
+      border-collapse: collapse;
+      table-layout: fixed;
+      background: #ffffff;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #e4ebf0;
+      padding: 10px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 12px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #f1f5f8;
+      color: var(--header);
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    tbody tr:hover td { background: #f8fbfd; }
+    .current-weekend td { background: #eaf7ff !important; }
+    .holiday-weekend td { box-shadow: inset 4px 0 0 #f2b544; }
+    .past-weekend td { color: #667085; }
+
+    .date-primary {
+      display: block;
+      color: var(--header);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .date-secondary,
+    .muted-small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .holiday-badge,
+    .quarter-badge,
+    .unassigned-badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .holiday-badge {
+      margin: 2px 4px 2px 0;
+      background: #fff4cf;
+      color: #784600;
+      border: 1px solid #f2cf69;
+    }
+
+    .quarter-badge {
+      background: #e8f2f7;
+      color: var(--header);
+    }
+
+    .unassigned-badge {
+      background: #fff0ef;
+      color: var(--danger);
+      border: 1px solid #f5bbb5;
+    }
+
+    .save-row-btn {
+      width: 100%;
+      min-width: 90px;
+      background: var(--accent);
+      color: #ffffff;
+      padding: 9px 11px;
+    }
+
+    .result-note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .access-card {
+      width: min(650px, calc(100% - 32px));
+      margin: 50px auto;
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      background: #ffffff;
+      text-align: center;
+    }
+
+    #printSchedule { display: none; }
+
+    @media (max-width: 980px) {
+      .filters { grid-template-columns: 1fr 1fr; }
+      .summary-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+    }
+
+    @media (max-width: 640px) {
+      .page-shell { width: min(100% - 18px, 1500px); margin-top: 12px; }
+      .page-card { padding: 14px; }
+      .filters,
+      .summary-grid { grid-template-columns: 1fr; }
+    }
+
+    @page {
+      size: letter landscape;
+      margin: 0.22in;
+    }
+
+    @media print {
+      html,
+      body {
+        width: 11in;
+        height: 8.5in;
+        margin: 0;
+        padding: 0;
+        background: #ffffff !important;
+        color: #111827;
+        overflow: hidden;
+      }
+
+      #sharedNavigation,
+      #accessGate,
+      #pageContent {
+        display: none !important;
+      }
+
+      #printSchedule {
+        display: block !important;
+        width: 10.56in;
+        height: 8.06in;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+      }
+
+      .print-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 12px;
+        padding-bottom: 5px;
+        margin-bottom: 6px;
+        border-bottom: 2px solid #0b3c5d;
+      }
+
+      .print-header h1 {
+        margin: 0;
+        color: #0b3c5d;
+        font-size: 16px;
+      }
+
+      .print-header div {
+        font-size: 8px;
+        font-weight: 700;
+      }
+
+      .print-quarter-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+        align-items: start;
+      }
+
+      .print-quarter-grid.single {
+        grid-template-columns: 1fr;
+      }
+
+      .print-quarter {
+        break-inside: avoid;
+        border: 1px solid #9aa9b5;
+      }
+
+      .print-quarter h2 {
+        margin: 0;
+        padding: 3px 5px;
+        background: #e8f2f7;
+        color: #0b3c5d;
+        font-size: 9px;
+      }
+
+      .print-quarter table {
+        min-width: 0;
+        table-layout: fixed;
+      }
+
+      .print-quarter th,
+      .print-quarter td {
+        position: static;
+        padding: 2px 4px;
+        border: 1px solid #c8d0d7;
+        font-size: 7px;
+        line-height: 1.05;
+      }
+
+      .print-quarter th {
+        background: #f3f5f7 !important;
+        color: #111827;
+      }
+
+      .print-holiday {
+        background: #fff4cf !important;
+      }
+
+      .print-unassigned {
+        color: #a61b13;
+        font-weight: 800;
+      }
+
+      .print-footer {
+        margin-top: 5px;
+        font-size: 7px;
+        color: #475569;
+        text-align: right;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="sharedNavigation"></div>
+
+  <section id="accessGate" class="access-card">
+    <h2>On-Call Schedule</h2>
+    <div id="accessMessage" class="status-note">Checking access...</div>
+    <a href="login.html">Go to Login</a>
+  </section>
+
+  <main id="pageContent" class="page-shell hidden">
+    <section class="page-card">
+      <header class="page-header">
+        <div>
+          <h1>On-Call Schedule</h1>
+          <p>Weekends are generated automatically. Company holidays are loaded from the Company Calendar.</p>
+        </div>
+        <div class="header-actions">
+          <button class="secondary-btn" id="refreshButton" type="button" onclick="loadSchedule(true)">Refresh</button>
+          <button class="primary-btn" type="button" onclick="printSchedule()">Print One-Page Schedule</button>
+        </div>
+      </header>
+
+      <div class="status-note">
+        There is no Add Weekend form. Select a fiscal year and Q1–Q4 view, assign the covering technician where needed, and print the selected schedule on one landscape sheet.
+      </div>
+
+      <div id="pageMessage" class="message"></div>
+
+      <section class="filters" aria-label="On-call schedule filters">
+        <div>
+          <label for="fiscalYearFilter">Fiscal Year</label>
+          <select id="fiscalYearFilter" onchange="handlePeriodChange()"></select>
+        </div>
+        <div>
+          <label for="quarterFilter">Schedule View</label>
+          <select id="quarterFilter" onchange="applyFilters()">
+            <option value="FULL_YEAR">Full Fiscal Year</option>
+            <option value="Q1">Q1 — July to September</option>
+            <option value="Q2">Q2 — October to December</option>
+            <option value="Q3">Q3 — January to March</option>
+            <option value="Q4">Q4 — April to June</option>
+          </select>
+        </div>
+        <div>
+          <label for="techFilter">Technician</label>
+          <select id="techFilter" onchange="applyFilters()">
+            <option value="">All Technicians</option>
+            <option value="UNASSIGNED">Unassigned Only</option>
+            <option value="Devin">Devin</option>
+            <option value="Cristian">Cristian</option>
+            <option value="Victor">Victor</option>
+            <option value="Tommy">Tommy</option>
+            <option value="David">David</option>
+          </select>
+        </div>
+        <div class="filter-actions">
+          <button class="accent-btn" type="button" onclick="applyFilters()">Apply View</button>
+          <button class="secondary-btn" type="button" onclick="resetFilters()">Current Quarter</button>
+        </div>
+      </section>
+
+      <section class="summary-grid" aria-label="On-call schedule summary">
+        <div class="summary-card">
+          <div class="label">Selected Period</div>
+          <div class="value" id="summaryPeriod">—</div>
+          <div class="sub" id="summaryDates">—</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Weekends</div>
+          <div class="value" id="summaryWeekends">0</div>
+          <div class="sub">Automatically generated</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Assigned</div>
+          <div class="value" id="summaryAssigned">0</div>
+          <div class="sub">Technician selected</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Unassigned</div>
+          <div class="value" id="summaryUnassigned">0</div>
+          <div class="sub">Needs assignment</div>
+        </div>
+        <div class="summary-card">
+          <div class="label">Holiday Weekends</div>
+          <div class="value" id="summaryHolidays">0</div>
+          <div class="sub">From Company Calendar</div>
+        </div>
+      </section>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 75px;">Quarter</th>
+              <th style="width: 205px;">Weekend</th>
+              <th style="width: 230px;">Company Holiday</th>
+              <th style="width: 175px;">On-Call Technician</th>
+              <th>Notes</th>
+              <th style="width: 165px;">Last Updated</th>
+              <th style="width: 105px;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="scheduleTableBody">
+            <tr><td colspan="7">Schedule will load here.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="result-note" id="resultNote">0 weekends shown.</div>
+    </section>
+  </main>
+
+  <section id="printSchedule" aria-hidden="true"></section>
+
+  <script src="shared-navigation.js"></script>
+  <script>
+    const SUPABASE_URL = 'https://icqkuhbhcennhhbbwqgo.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+    const ON_CALL_TABLE = 'client_services_on_call_schedule';
+    const HOLIDAY_TABLE = 'project_company_calendar';
+    const ALLOWED_ROLES = ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN'];
+    const TECHS_BEFORE_DAVID = ['Devin', 'Cristian', 'Victor', 'Tommy'];
+    const TECHS_AFTER_DAVID = ['Devin', 'Cristian', 'Victor', 'Tommy', 'David'];
+    const DAVID_ELIGIBLE_START = '2026-10-01';
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentSession = null;
+    let currentProfile = null;
+    let sourceAssignments = [];
+    let companyHolidays = [];
+    let generatedWeekends = [];
+    let filteredWeekends = [];
+
+    window.addEventListener('load', initializePage);
+
+    async function initializePage() {
+      populateFiscalYearFilter();
+      setCurrentQuarterFilter();
+
+      const hasAccess = await enforceAccess();
+      if (!hasAccess) return;
+
+      await loadSchedule(false);
+    }
+
+    async function enforceAccess() {
+      const sessionResponse = await client.auth.getSession();
+      const session = sessionResponse.data && sessionResponse.data.session;
+
+      if (sessionResponse.error || !session || !session.user) {
+        showAccessMessage('You must be logged in to view the On-Call Schedule.');
+        return false;
+      }
+
+      const profileResponse = await client
+        .from('user_profiles')
+        .select('id, full_name, role, active')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profileResponse.error || !profileResponse.data || profileResponse.data.active !== true) {
+        showAccessMessage('Your active user profile could not be verified.');
+        return false;
+      }
+
+      if (!ALLOWED_ROLES.includes(profileResponse.data.role)) {
+        showAccessMessage('On-Call Schedule access requires SERVICE, SERVICE_MANAGER, ADMIN, or SYSTEM_ADMIN.');
+        return false;
+      }
+
+      currentSession = session;
+      currentProfile = profileResponse.data;
+      document.getElementById('accessGate').classList.add('hidden');
+      document.getElementById('pageContent').classList.remove('hidden');
+      return true;
+    }
+
+    function showAccessMessage(message) {
+      const element = document.getElementById('accessMessage');
+      if (element) element.textContent = message;
+    }
+
+    function getLocalToday() {
+      const now = new Date();
+      return formatDateISO(now);
+    }
+
+    function parseDateISO(value) {
+      const parts = String(value || '').slice(0, 10).split('-').map(Number);
+      if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+      return new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0, 0);
+    }
+
+    function formatDateISO(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return year + '-' + month + '-' + day;
+    }
+
+    function addDaysISO(value, days) {
+      const date = parseDateISO(value);
+      date.setDate(date.getDate() + days);
+      return formatDateISO(date);
+    }
+
+    function compareDates(a, b) {
+      return String(a || '').localeCompare(String(b || ''));
+    }
+
+    function formatDate(value, includeDay) {
+      const date = parseDateISO(value);
+      if (!date) return '—';
+      return date.toLocaleDateString('en-US', includeDay === false
+        ? { month: 'short', day: 'numeric', year: 'numeric' }
+        : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatDateTime(value) {
+      if (!value) return '—';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return '—';
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
+    function getFiscalYearForDate(date) {
+      return date.getMonth() >= 6 ? date.getFullYear() + 1 : date.getFullYear();
+    }
+
+    function getFiscalYearRange(fiscalYear) {
+      return {
+        start: String(fiscalYear - 1) + '-07-01',
+        end: String(fiscalYear) + '-06-30'
+      };
+    }
+
+    function getQuarterRanges(fiscalYear) {
+      const startYear = fiscalYear - 1;
+      return {
+        Q1: { start: String(startYear) + '-07-01', end: String(startYear) + '-09-30', label: 'Q1 — July to September' },
+        Q2: { start: String(startYear) + '-10-01', end: String(startYear) + '-12-31', label: 'Q2 — October to December' },
+        Q3: { start: String(fiscalYear) + '-01-01', end: String(fiscalYear) + '-03-31', label: 'Q3 — January to March' },
+        Q4: { start: String(fiscalYear) + '-04-01', end: String(fiscalYear) + '-06-30', label: 'Q4 — April to June' }
+      };
+    }
+
+    function getQuarterForDate(value, fiscalYear) {
+      const ranges = getQuarterRanges(fiscalYear);
+      return Object.keys(ranges).find(function(key) {
+        return compareDates(value, ranges[key].start) >= 0 && compareDates(value, ranges[key].end) <= 0;
+      }) || 'Q4';
+    }
+
+    function getCurrentFiscalQuarter() {
+      const today = new Date();
+      const month = today.getMonth() + 1;
+      if (month >= 7 && month <= 9) return 'Q1';
+      if (month >= 10) return 'Q2';
+      if (month <= 3) return 'Q3';
+      return 'Q4';
+    }
+
+    function populateFiscalYearFilter() {
+      const select = document.getElementById('fiscalYearFilter');
+      const currentFiscalYear = getFiscalYearForDate(new Date());
+      const years = [];
+
+      for (let year = currentFiscalYear - 2; year <= currentFiscalYear + 2; year += 1) {
+        years.push(year);
+      }
+
+      select.innerHTML = years.map(function(year) {
+        return '<option value="' + year + '">FY' + year + '</option>';
+      }).join('');
+      select.value = String(currentFiscalYear);
+    }
+
+    function setCurrentQuarterFilter() {
+      document.getElementById('quarterFilter').value = getCurrentFiscalQuarter();
+    }
+
+    function getSelectedFiscalYear() {
+      return Number(document.getElementById('fiscalYearFilter').value || getFiscalYearForDate(new Date()));
+    }
+
+    async function handlePeriodChange() {
+      await loadSchedule(true);
+    }
+
+    async function loadSchedule(showMessage) {
+      const refreshButton = document.getElementById('refreshButton');
+      const fiscalYear = getSelectedFiscalYear();
+      const range = getFiscalYearRange(fiscalYear);
+
+      if (refreshButton) {
+        refreshButton.disabled = true;
+        refreshButton.textContent = 'Refreshing...';
+      }
+      setMessage('info', 'Loading automatically generated weekends, assignments, and company holidays...');
+
+      const assignmentRequest = client
+        .from(ON_CALL_TABLE)
+        .select('*')
+        .eq('active', true)
+        .lte('weekend_start_date', addDaysISO(range.end, 7))
+        .gte('weekend_end_date', addDaysISO(range.start, -7))
+        .order('weekend_start_date', { ascending: true });
+
+      const holidayRequest = client
+        .from(HOLIDAY_TABLE)
+        .select('calendar_date, calendar_name, description')
+        .eq('active', true)
+        .eq('day_type', 'HOLIDAY')
+        .gte('calendar_date', addDaysISO(range.start, -7))
+        .lte('calendar_date', addDaysISO(range.end, 7))
+        .order('calendar_date', { ascending: true });
+
+      const responses = await Promise.all([assignmentRequest, holidayRequest]);
+      const assignmentResponse = responses[0];
+      const holidayResponse = responses[1];
+
+      if (refreshButton) {
+        refreshButton.disabled = false;
+        refreshButton.textContent = 'Refresh';
+      }
+
+      if (assignmentResponse.error) {
+        setMessage('error', 'Unable to load on-call assignments: ' + assignmentResponse.error.message);
+        return;
+      }
+
+      if (holidayResponse.error) {
+        setMessage('error', 'Unable to load company holidays: ' + holidayResponse.error.message);
+        return;
+      }
+
+      sourceAssignments = Array.isArray(assignmentResponse.data) ? assignmentResponse.data : [];
+      companyHolidays = Array.isArray(holidayResponse.data) ? holidayResponse.data : [];
+      generatedWeekends = generateFiscalYearWeekends(fiscalYear);
+      applyFilters();
+
+      if (showMessage) {
+        setMessage('success', 'On-call schedule refreshed from the database and Company Calendar.');
+      } else {
+        setMessage('', '');
+      }
+    }
+
+    function generateFiscalYearWeekends(fiscalYear) {
+      const range = getFiscalYearRange(fiscalYear);
+      const firstDate = parseDateISO(range.start);
+      const daysToSaturday = (6 - firstDate.getDay() + 7) % 7;
+      firstDate.setDate(firstDate.getDate() + daysToSaturday);
+      const weekends = [];
+      const today = getLocalToday();
+
+      while (formatDateISO(firstDate) <= range.end) {
+        const saturday = formatDateISO(firstDate);
+        const sunday = addDaysISO(saturday, 1);
+        const sourceRow = findAssignmentForWeekend(saturday, sunday);
+        const holidays = findHolidaysForWeekend(saturday);
+
+        weekends.push({
+          key: saturday,
+          fiscalYear: fiscalYear,
+          quarter: getQuarterForDate(saturday, fiscalYear),
+          saturday: saturday,
+          sunday: sunday,
+          holidays: holidays,
+          sourceRowId: sourceRow ? sourceRow.id : null,
+          sourceStartDate: sourceRow ? sourceRow.weekend_start_date : null,
+          sourceEndDate: sourceRow ? sourceRow.weekend_end_date : null,
+          techName: sourceRow ? String(sourceRow.tech_name || '').trim() : '',
+          notes: sourceRow ? String(sourceRow.notes || '') : '',
+          updatedAt: sourceRow ? sourceRow.updated_at : null,
+          updatedBy: sourceRow ? sourceRow.updated_by : null,
+          isPast: compareDates(sunday, today) < 0,
+          isCurrent: compareDates(saturday, today) <= 0 && compareDates(sunday, today) >= 0
+        });
+
+        firstDate.setDate(firstDate.getDate() + 7);
+      }
+
+      return weekends;
+    }
+
+    function findAssignmentForWeekend(saturday, sunday) {
+      return sourceAssignments.find(function(row) {
+        const start = String(row.weekend_start_date || '').slice(0, 10);
+        const end = String(row.weekend_end_date || row.weekend_start_date || '').slice(0, 10);
+        return start <= sunday && end >= saturday;
+      }) || null;
+    }
+
+    function findHolidaysForWeekend(saturday) {
+      return companyHolidays.filter(function(row) {
+        const date = String(row.calendar_date || '').slice(0, 10);
+        return getHolidayWeekendSaturday(date) === saturday;
+      });
+    }
+
+    function getHolidayWeekendSaturday(value) {
+      const date = parseDateISO(value);
+      if (!date) return '';
+
+      const day = date.getDay();
+      const offsetToSaturday = day === 0
+        ? -1
+        : day <= 2
+          ? -(day + 1)
+          : 6 - day;
+
+      date.setDate(date.getDate() + offsetToSaturday);
+      return formatDateISO(date);
+    }
+
+    function applyFilters() {
+      const quarter = document.getElementById('quarterFilter').value || 'FULL_YEAR';
+      const tech = document.getElementById('techFilter').value || '';
+
+      filteredWeekends = generatedWeekends.filter(function(row) {
+        if (quarter !== 'FULL_YEAR' && row.quarter !== quarter) return false;
+        if (tech === 'UNASSIGNED' && row.techName) return false;
+        if (tech && tech !== 'UNASSIGNED' && row.techName !== tech) return false;
+        return true;
+      });
+
+      renderScreenSchedule();
+      renderSummary();
+      renderPrintSchedule();
+    }
+
+    function resetFilters() {
+      document.getElementById('fiscalYearFilter').value = String(getFiscalYearForDate(new Date()));
+      document.getElementById('quarterFilter').value = getCurrentFiscalQuarter();
+      document.getElementById('techFilter').value = '';
+      loadSchedule(false);
+    }
+
+    function renderSummary() {
+      const fiscalYear = getSelectedFiscalYear();
+      const quarter = document.getElementById('quarterFilter').value || 'FULL_YEAR';
+      const ranges = getQuarterRanges(fiscalYear);
+      const selectedRange = quarter === 'FULL_YEAR' ? getFiscalYearRange(fiscalYear) : ranges[quarter];
+      const assigned = filteredWeekends.filter(function(row) { return Boolean(row.techName); }).length;
+      const holidayCount = filteredWeekends.filter(function(row) { return row.holidays.length > 0; }).length;
+
+      setText('summaryPeriod', 'FY' + fiscalYear + (quarter === 'FULL_YEAR' ? '' : ' ' + quarter));
+      setText('summaryDates', formatDate(selectedRange.start, false) + ' – ' + formatDate(selectedRange.end, false));
+      setText('summaryWeekends', String(filteredWeekends.length));
+      setText('summaryAssigned', String(assigned));
+      setText('summaryUnassigned', String(filteredWeekends.length - assigned));
+      setText('summaryHolidays', String(holidayCount));
+    }
+
+    function renderScreenSchedule() {
+      const tbody = document.getElementById('scheduleTableBody');
+      tbody.innerHTML = '';
+
+      if (!filteredWeekends.length) {
+        tbody.innerHTML = '<tr><td colspan="7">No weekends match the selected filters.</td></tr>';
+        setText('resultNote', '0 weekends shown.');
+        return;
+      }
+
+      filteredWeekends.forEach(function(row) {
+        const tr = document.createElement('tr');
+        if (row.isPast) tr.classList.add('past-weekend');
+        if (row.isCurrent) tr.classList.add('current-weekend');
+        if (row.holidays.length) tr.classList.add('holiday-weekend');
+
+        const holidayHtml = row.holidays.length
+          ? row.holidays.map(function(holiday) {
+              return '<span class="holiday-badge">' +
+                escapeHtml(formatDate(holiday.calendar_date, false) + ' — ' + holiday.calendar_name) +
+                '</span>';
+            }).join('')
+          : '—';
+
+        const lastUpdated = row.updatedAt
+          ? '<strong>' + escapeHtml(formatDateTime(row.updatedAt)) + '</strong>' +
+            '<span class="muted-small">By: ' + escapeHtml(row.updatedBy || '—') + '</span>'
+          : '<span class="muted-small">Not saved yet</span>';
+
+        tr.innerHTML =
+          '<td><span class="quarter-badge">' + escapeHtml(row.quarter) + '</span></td>' +
+          '<td><span class="date-primary">' + escapeHtml(formatDate(row.saturday, true)) + '</span>' +
+          '<span class="date-secondary">through ' + escapeHtml(formatDate(row.sunday, true)) + '</span></td>' +
+          '<td>' + holidayHtml + '</td>' +
+          '<td><select id="tech_' + escapeHtml(row.key) + '">' + renderTechOptions(row) + '</select></td>' +
+          '<td><input id="notes_' + escapeHtml(row.key) + '" type="text" maxlength="250" value="' +
+            escapeHtml(row.notes) + '" placeholder="Optional notes"></td>' +
+          '<td>' + lastUpdated + '</td>' +
+          '<td><button class="save-row-btn" id="save_' + escapeHtml(row.key) +
+            '" type="button" onclick="saveWeekendAssignment(\'' + escapeHtml(row.key) + '\')">Save</button></td>';
+
+        tbody.appendChild(tr);
+      });
+
+      setText('resultNote', filteredWeekends.length + ' weekend' + (filteredWeekends.length === 1 ? '' : 's') + ' shown.');
+    }
+
+    function renderTechOptions(row) {
+      const eligibleTechs = compareDates(row.saturday, DAVID_ELIGIBLE_START) >= 0
+        ? TECHS_AFTER_DAVID.slice()
+        : TECHS_BEFORE_DAVID.slice();
+
+      if (row.techName && !eligibleTechs.includes(row.techName)) {
+        eligibleTechs.push(row.techName);
+      }
+
+      return [''].concat(eligibleTechs).map(function(tech) {
+        const selected = tech === row.techName ? ' selected' : '';
+        return '<option value="' + escapeHtml(tech) + '"' + selected + '>' +
+          escapeHtml(tech || 'Unassigned') + '</option>';
+      }).join('');
+    }
+
+    async function saveWeekendAssignment(weekendKey) {
+      const row = generatedWeekends.find(function(item) { return item.key === weekendKey; });
+      if (!row) {
+        setMessage('error', 'The selected weekend could not be found.');
+        return;
+      }
+
+      const techName = String(document.getElementById('tech_' + weekendKey).value || '').trim();
+      const notes = String(document.getElementById('notes_' + weekendKey).value || '').trim() || null;
+      const saveButton = document.getElementById('save_' + weekendKey);
+
+      if (techName === 'David' && compareDates(row.saturday, DAVID_ELIGIBLE_START) < 0) {
+        setMessage('error', 'David cannot be assigned before October 2026.');
+        return;
+      }
+
+      saveButton.disabled = true;
+      saveButton.textContent = 'Saving...';
+
+      const updatedBy = currentProfile.full_name || currentSession.user.email || 'On-Call Schedule';
+      let response;
+
+      if (row.sourceRowId) {
+        response = await client
+          .from(ON_CALL_TABLE)
+          .update({
+            tech_name: techName || null,
+            notes: notes,
+            updated_by: updatedBy
+          })
+          .eq('id', row.sourceRowId);
+      } else {
+        response = await client
+          .from(ON_CALL_TABLE)
+          .upsert({
+            weekend_start_date: row.saturday,
+            weekend_end_date: row.sunday,
+            holiday_label: null,
+            tech_name: techName || null,
+            notes: notes,
+            active: true,
+            created_by: updatedBy,
+            updated_by: updatedBy
+          }, { onConflict: 'weekend_start_date' });
+      }
+
+      saveButton.disabled = false;
+      saveButton.textContent = 'Save';
+
+      if (response.error) {
+        setMessage('error', 'Unable to save the on-call assignment: ' + response.error.message);
+        return;
+      }
+
+      setMessage('success', 'On-call assignment saved for ' + formatDate(row.saturday, true) + '.');
+      await loadSchedule(false);
+    }
+
+    function renderPrintSchedule() {
+      const container = document.getElementById('printSchedule');
+      const fiscalYear = getSelectedFiscalYear();
+      const quarterFilter = document.getElementById('quarterFilter').value || 'FULL_YEAR';
+      const techFilter = document.getElementById('techFilter');
+      const techLabel = techFilter.value ? techFilter.selectedOptions[0].textContent : 'All Technicians';
+      const quarters = quarterFilter === 'FULL_YEAR' ? ['Q1', 'Q2', 'Q3', 'Q4'] : [quarterFilter];
+      const periodLabel = 'FY' + fiscalYear + (quarterFilter === 'FULL_YEAR' ? ' Full Fiscal Year' : ' ' + quarterFilter);
+
+      const quarterHtml = quarters.map(function(quarter) {
+        const rows = filteredWeekends.filter(function(row) { return row.quarter === quarter; });
+        const body = rows.length
+          ? rows.map(function(row) {
+              const holidayText = row.holidays.map(function(holiday) {
+                return formatDate(holiday.calendar_date, false) + ' ' + holiday.calendar_name;
+              }).join('; ');
+              const rowClass = row.holidays.length ? ' class="print-holiday"' : '';
+              const techClass = row.techName ? '' : ' class="print-unassigned"';
+              return '<tr' + rowClass + '>' +
+                '<td>' + escapeHtml(formatDate(row.saturday, false) + '–' + formatDate(row.sunday, false)) + '</td>' +
+                '<td' + techClass + '>' + escapeHtml(row.techName || 'UNASSIGNED') + '</td>' +
+                '<td>' + escapeHtml(holidayText || '') + '</td>' +
+                '<td>' + escapeHtml(row.notes || '') + '</td>' +
+                '</tr>';
+            }).join('')
+          : '<tr><td colspan="4">No weekends match the selected filters.</td></tr>';
+
+        return '<section class="print-quarter"><h2>' + quarter + ' — ' +
+          escapeHtml(getQuarterRanges(fiscalYear)[quarter].label.replace(/^Q[1-4] — /, '')) +
+          '</h2><table><thead><tr><th style="width:28%">Weekend</th><th style="width:18%">On Call</th>' +
+          '<th style="width:29%">Company Holiday</th><th>Notes</th></tr></thead><tbody>' +
+          body + '</tbody></table></section>';
+      }).join('');
+
+      container.innerHTML =
+        '<div class="print-header"><h1>Molinari Pools On-Call Schedule</h1>' +
+        '<div>' + escapeHtml(periodLabel) + ' · ' + escapeHtml(techLabel) + '</div></div>' +
+        '<div class="print-quarter-grid' + (quarterFilter === 'FULL_YEAR' ? '' : ' single') + '">' + quarterHtml + '</div>' +
+        '<div class="print-footer">Weekends generated automatically · Holidays from Company Calendar · Printed ' +
+        escapeHtml(new Date().toLocaleString('en-US')) + '</div>';
+    }
+
+    function printSchedule() {
+      renderPrintSchedule();
+      window.print();
+    }
+
+    function setMessage(type, message) {
+      const element = document.getElementById('pageMessage');
+      element.className = 'message' + (type ? ' ' + type : '');
+      element.textContent = message || '';
+    }
+
+    function setText(id, value) {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    async function appLogout() {
+      await client.auth.signOut();
+      window.location.href = 'login.html';
+    }
+  </script>
+</body>
+</html>
