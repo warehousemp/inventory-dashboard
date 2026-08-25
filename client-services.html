@@ -548,6 +548,43 @@
       margin-bottom: 12px;
     }
 
+    .revenue-filter-total-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin: 14px 0 4px;
+      padding: 16px 18px;
+      border: 2px solid #99d7dc;
+      border-radius: 12px;
+      background: #eefafa;
+    }
+
+    .revenue-filter-total-label {
+      display: block;
+      margin-bottom: 4px;
+      color: #0b3c5d;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .revenue-filter-total-value {
+      color: #0b3c5d;
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .revenue-filter-total-context {
+      color: #334e68;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: right;
+    }
+
     .revenue-table-wrap {
       width: 100%;
       max-width: 100%;
@@ -1885,6 +1922,13 @@
 
             <div class="revenue-filter-actions">
               <button class="secondary-btn" type="button" onclick="clearRevenueTransactionFilters()">Clear Table Filters</button>
+            </div>
+            <div class="revenue-filter-total-card" id="revenueFilteredTotalCard" aria-live="polite">
+              <div>
+                <span class="revenue-filter-total-label">Filtered Amount Total</span>
+                <div class="revenue-filter-total-value" id="revenueFilteredAmountTotal">$0.00</div>
+              </div>
+              <div class="revenue-filter-total-context" id="revenueFilteredAmountContext">All Earned By • 0 active transactions</div>
             </div>
             <div class="revenue-table-wrap">
               <table class="revenue-table">
@@ -3872,6 +3916,7 @@ function renderRevenueEntries(rows) {
 
   tbody.innerHTML = '';
   if (count) count.textContent = `${rows.length} revenue transaction${rows.length === 1 ? '' : 's'} shown.`;
+  updateRevenueFilteredAmountTotal(rows);
 
   if (!rows.length) {
     tbody.innerHTML = '<tr><td colspan="12">No revenue transactions match the current filters.</td></tr>';
@@ -3910,6 +3955,34 @@ function renderRevenueEntries(rows) {
     `;
     tbody.appendChild(tr);
   });
+}
+
+function updateRevenueFilteredAmountTotal(rows) {
+  const totalElement = document.getElementById('revenueFilteredAmountTotal');
+  const contextElement = document.getElementById('revenueFilteredAmountContext');
+  const earnedByFilter = document.getElementById('revenueEarnedByFilter');
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const activeRows = safeRows.filter(row => row.is_voided !== true);
+  const totalAmount = activeRows.reduce((total, row) => {
+    const amount = Number(row.amount);
+    return total + (Number.isFinite(amount) ? amount : 0);
+  }, 0);
+  const earnedByLabel = earnedByFilter?.value
+    ? String(earnedByFilter.selectedOptions?.[0]?.textContent || earnedByFilter.value).trim()
+    : 'All Earned By';
+  const excludedVoidedCount = safeRows.length - activeRows.length;
+
+  if (totalElement) {
+    totalElement.textContent = formatCurrency(totalAmount);
+  }
+
+  if (contextElement) {
+    contextElement.textContent =
+      `${earnedByLabel} • ${activeRows.length.toLocaleString()} active transaction${activeRows.length === 1 ? '' : 's'}` +
+      (excludedVoidedCount > 0
+        ? ` • ${excludedVoidedCount.toLocaleString()} voided excluded`
+        : '');
+  }
 }
 
 function clearRevenueTransactionForm() {
