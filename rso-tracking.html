@@ -16,6 +16,7 @@
   <meta name="theme-color" content="#0b3c5d">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
 
   <style>
     :root {
@@ -487,7 +488,7 @@
       line-height: 1.4;
     }
 
-    .message-box.show { display: block; }
+    .message-box.show { display: block; white-space: pre-line; }
     .message-box.success { background: var(--success-bg); color: var(--success); }
     .message-box.danger { background: var(--danger-bg); color: var(--danger); }
 
@@ -519,6 +520,63 @@
     }
 
     .history-time { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+    .drop-zone {
+      border: 2px dashed #94a3b8;
+      border-radius: 12px;
+      padding: 26px 18px;
+      text-align: center;
+      background: #f8fafc;
+      color: var(--muted);
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      background: #ecfeff;
+    }
+
+    .drop-zone strong { color: var(--header); }
+    .drop-zone input { display: none; }
+
+    .import-file-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .import-file-chip {
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: #e8f0f5;
+      color: var(--header);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .import-progress {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: pre-line;
+    }
+
+    .import-preview-wrap { margin-top: 14px; }
+    .import-preview-table { min-width: 1150px; }
+    .import-preview-table input,
+    .import-preview-table select {
+      min-height: 34px;
+      padding: 6px 7px;
+      font-size: 12px;
+    }
+
+    .import-preview-table .cell-date { width: 130px; }
+    .import-preview-table .cell-number { width: 90px; }
+    .import-preview-table .cell-money { width: 105px; }
+    .import-preview-table .cell-customer { min-width: 190px; }
+    .import-preview-table .cell-address { min-width: 210px; }
 
     @media print {
       @page {
@@ -748,6 +806,7 @@
               </div>
               <div class="toolbar-right">
                 <button id="participantsBtn" class="btn btn-secondary" type="button">Manage Participants</button>
+                <button id="importQuotesBtn" class="btn btn-primary" type="button">Import Skimmer Reports</button>
                 <button id="addQuoteBtn" class="btn btn-accent" type="button">Add Route Sales Opportunity</button>
               </div>
             </div>
@@ -920,6 +979,77 @@
     </main>
   </div>
 
+  <div id="importModalBackdrop" class="modal-backdrop" role="presentation">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="importModalTitle">
+      <div class="modal-header">
+        <div>
+          <h2 id="importModalTitle">Import Skimmer Quote Reports</h2>
+          <div class="section-note">Drop one or more Skimmer Quotes screenshots. The page reads every visible quote, previews the results, and updates existing quote numbers without creating duplicates.</div>
+        </div>
+        <button class="close-btn" type="button" data-close-modal="importModalBackdrop" aria-label="Close">×</button>
+      </div>
+
+      <div id="importMessage" class="message-box"></div>
+
+      <div class="form-grid">
+        <div class="full">
+          <label for="rsoScreenshotFiles">Skimmer Quote Screenshots</label>
+          <div id="rsoDropZone" class="drop-zone" tabindex="0" role="button">
+            <input id="rsoScreenshotFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple>
+            <strong>Drop screenshots here</strong><br>
+            or click to choose PNG, JPG, or WebP files
+          </div>
+          <div id="importFileList" class="import-file-list"></div>
+        </div>
+        <div>
+          <label for="importSnapshotDate">Report As-Of Date</label>
+          <input id="importSnapshotDate" type="date" required>
+        </div>
+        <div>
+          <label for="importDefaultParticipant">Participant Override</label>
+          <select id="importDefaultParticipant">
+            <option value="">Auto-detect from each screenshot</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="importProgress" class="import-progress"></div>
+
+      <div id="importPreviewWrap" class="import-preview-wrap" hidden>
+        <div class="section-header">
+          <div>
+            <h3 style="margin:0">Import Preview</h3>
+            <div id="importPreviewSummary" class="section-note"></div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="import-preview-table">
+            <thead>
+              <tr>
+                <th>Participant</th>
+                <th>Quote</th>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Service Address</th>
+                <th class="number">Total</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="importPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="clearImportBtn" class="btn btn-secondary" type="button">Clear</button>
+        <button id="previewImportBtn" class="btn btn-accent" type="button">Read & Preview Reports</button>
+        <button id="confirmImportBtn" class="btn btn-primary" type="button" disabled>Confirm RSO Import</button>
+      </div>
+    </section>
+  </div>
+
   <div id="quoteModalBackdrop" class="modal-backdrop" role="presentation">
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="quoteModalTitle">
       <div class="modal-header">
@@ -1090,7 +1220,10 @@
       participants: [],
       summary: [],
       quotes: [],
-      selectedQuarter: null
+      selectedQuarter: null,
+      importFiles: [],
+      importRows: [],
+      ocrWorker: null
     };
 
     document.addEventListener('DOMContentLoaded', initializePage);
@@ -1121,6 +1254,7 @@
 
       document.getElementById('addQuoteBtn').addEventListener('click', () => openQuoteModal());
       document.getElementById('participantsBtn').addEventListener('click', openParticipantsModal);
+      document.getElementById('importQuotesBtn').addEventListener('click', openImportModal);
       document.getElementById('printRouteTechBtn').addEventListener('click', () => printSummaryReport('route-tech'));
       document.getElementById('printRouteLeaderBtn').addEventListener('click', () => printSummaryReport('route-leader'));
       document.getElementById('printCombinedBtn').addEventListener('click', () => printSummaryReport('combined'));
@@ -1131,6 +1265,29 @@
       document.getElementById('quoteForm').addEventListener('submit', saveQuote);
       document.getElementById('participantForm').addEventListener('submit', saveParticipant);
       document.getElementById('resetParticipantBtn').addEventListener('click', resetParticipantForm);
+      document.getElementById('previewImportBtn').addEventListener('click', previewRsoImport);
+      document.getElementById('confirmImportBtn').addEventListener('click', confirmRsoImport);
+      document.getElementById('clearImportBtn').addEventListener('click', resetRsoImport);
+
+      const screenshotInput = document.getElementById('rsoScreenshotFiles');
+      const dropZone = document.getElementById('rsoDropZone');
+      screenshotInput.addEventListener('change', event => setImportFiles(event.target.files));
+      dropZone.addEventListener('click', () => screenshotInput.click());
+      dropZone.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          screenshotInput.click();
+        }
+      });
+      ['dragenter', 'dragover'].forEach(type => dropZone.addEventListener(type, event => {
+        event.preventDefault();
+        dropZone.classList.add('dragover');
+      }));
+      ['dragleave', 'drop'].forEach(type => dropZone.addEventListener(type, event => {
+        event.preventDefault();
+        dropZone.classList.remove('dragover');
+      }));
+      dropZone.addEventListener('drop', event => setImportFiles(event.dataTransfer.files));
 
       ['statusFilter', 'participantFilter'].forEach(id => {
         document.getElementById(id).addEventListener('change', event => {
@@ -1298,6 +1455,7 @@
       document.getElementById('quoteParticipant').innerHTML = `<option value="">Select participant</option>${activeOptions}`;
       document.getElementById('participantFilter').innerHTML = `<option value="">All participants</option>${allOptions}`;
       document.getElementById('detailPrintParticipant').innerHTML = `<option value="">Select individual Route Tech or Leader</option>${allOptions}`;
+      document.getElementById('importDefaultParticipant').innerHTML = `<option value="">Auto-detect from each screenshot</option>${activeOptions}`;
     }
 
     function renderMetrics() {
@@ -1581,6 +1739,418 @@
       }).join('');
     }
 
+    function openImportModal() {
+      if (!state.importFiles.length && !state.importRows.length) resetRsoImport();
+      clearMessage('importMessage');
+      openModal('importModalBackdrop');
+    }
+
+    function resetRsoImport() {
+      state.importFiles = [];
+      state.importRows = [];
+      document.getElementById('rsoScreenshotFiles').value = '';
+      document.getElementById('importSnapshotDate').value = todayIso();
+      document.getElementById('importDefaultParticipant').value = '';
+      document.getElementById('importFileList').innerHTML = '';
+      document.getElementById('importProgress').textContent = '';
+      document.getElementById('importPreviewWrap').hidden = true;
+      document.getElementById('importPreviewBody').innerHTML = '';
+      document.getElementById('confirmImportBtn').disabled = true;
+      clearMessage('importMessage');
+    }
+
+    function setImportFiles(fileList) {
+      const files = Array.from(fileList || []).filter(file => /^image\/(png|jpeg|webp)$/i.test(file.type));
+      state.importFiles = files;
+      state.importRows = [];
+      document.getElementById('importPreviewWrap').hidden = true;
+      document.getElementById('confirmImportBtn').disabled = true;
+      document.getElementById('importFileList').innerHTML = files.map(file =>
+        `<span class="import-file-chip">${escapeHtml(file.name)}</span>`
+      ).join('');
+      document.getElementById('importProgress').textContent = files.length
+        ? `${files.length} screenshot${files.length === 1 ? '' : 's'} ready to read.`
+        : 'Choose at least one PNG, JPG, or WebP screenshot.';
+    }
+
+    async function previewRsoImport() {
+      clearMessage('importMessage');
+      if (!state.importFiles.length) {
+        showMessage('importMessage', 'Drop at least one Skimmer Quotes screenshot before previewing.', 'danger');
+        return;
+      }
+
+      const previewButton = document.getElementById('previewImportBtn');
+      const confirmButton = document.getElementById('confirmImportBtn');
+      previewButton.disabled = true;
+      confirmButton.disabled = true;
+      state.importRows = [];
+
+      try {
+        const worker = await getOcrWorker();
+        const parsedRows = [];
+        for (let index = 0; index < state.importFiles.length; index += 1) {
+          const file = state.importFiles[index];
+          setImportProgress(`Reading ${file.name} (${index + 1} of ${state.importFiles.length})...`);
+          const rows = await parseSkimmerQuoteScreenshot(file, worker);
+          parsedRows.push(...rows);
+        }
+
+        const deduplicated = new Map();
+        parsedRows.forEach(row => deduplicated.set(row.quote_number, row));
+        state.importRows = Array.from(deduplicated.values()).sort((left, right) =>
+          String(right.quote_date).localeCompare(String(left.quote_date)) ||
+          String(right.quote_number).localeCompare(String(left.quote_number), undefined, { numeric: true })
+        );
+
+        renderImportPreview();
+        const validationErrors = validateImportRows();
+        setImportProgress(`Read ${state.importRows.length} quote${state.importRows.length === 1 ? '' : 's'} from ${state.importFiles.length} screenshot${state.importFiles.length === 1 ? '' : 's'}. Review the preview, then confirm the import.`);
+        if (validationErrors.length) {
+          showMessage('importMessage', validationErrors.join('\n'), 'danger');
+        }
+        confirmButton.disabled = validationErrors.length > 0;
+      } catch (error) {
+        console.error('Unable to preview RSO screenshot import:', error);
+        showMessage('importMessage', friendlyError(error), 'danger');
+        setImportProgress('The screenshots were not imported.');
+      } finally {
+        previewButton.disabled = false;
+      }
+    }
+
+    async function getOcrWorker() {
+      if (state.ocrWorker) return state.ocrWorker;
+      if (!window.Tesseract) throw new Error('The screenshot reader did not load. Refresh the page and try again.');
+
+      setImportProgress('Loading the screenshot reader...');
+      const worker = await Tesseract.createWorker({
+        logger: message => {
+          if (message.status === 'recognizing text') {
+            setImportProgress(`Reading screenshot text... ${Math.round((message.progress || 0) * 100)}%`);
+          }
+        }
+      });
+      await worker.loadLanguage('eng');
+      await worker.initialize('eng');
+      state.ocrWorker = worker;
+      return worker;
+    }
+
+    async function parseSkimmerQuoteScreenshot(file, worker) {
+      const image = await loadImageFile(file);
+      const cropTop = Math.min(150, Math.max(105, Math.round(image.height * 0.16)));
+      const cropHeight = Math.max(80, image.height - cropTop - 38);
+
+      await worker.setParameters({
+        tessedit_pageseg_mode: '11',
+        tessedit_char_whitelist: ''
+      });
+      const fullCanvas = cropImageToCanvas(image, 0, 0, image.width, image.height, 2);
+      const fullResult = await worker.recognize(fullCanvas);
+      const words = (fullResult.data.words || []).map(word => ({
+        text: String(word.text || '').trim(),
+        x: ((word.bbox.x0 + word.bbox.x1) / 2) / 2,
+        y: ((word.bbox.y0 + word.bbox.y1) / 2) / 2
+      })).filter(word => word.text);
+
+      const dateData = await recognizeCrop(worker, image, 0.02, 0.11, cropTop, cropHeight, '0123456789/', '6');
+      const quoteData = await recognizeCrop(worker, image, 0.12, 0.19, cropTop, cropHeight, '0123456789', '6');
+      const totalData = await recognizeCrop(worker, image, 0.435, 0.49, cropTop, cropHeight, '$0123456789,.', '6');
+      const expirationData = await recognizeCrop(worker, image, 0.49, 0.56, cropTop, cropHeight, '0123456789/', '6');
+
+      const dates = extractMdyDates(dateData.data.text).map(mdyToIso);
+      const quoteEntries = extractQuoteEntries(quoteData.data.words || [], cropTop, 3);
+      const totals = extractMoneyValues(totalData.data.text);
+      const expirations = extractMdyDates(expirationData.data.text).map(mdyToIso);
+
+      if (!dates.length || dates.length !== quoteEntries.length || totals.length !== quoteEntries.length || expirations.length !== quoteEntries.length) {
+        throw new Error(`${file.name}: the screenshot reader found ${quoteEntries.length} quote numbers, ${dates.length} dates, ${totals.length} totals, and ${expirations.length} expiration dates. Use a full-screen Skimmer Quotes screenshot with every table column visible.`);
+      }
+
+      const overrideId = document.getElementById('importDefaultParticipant').value;
+      const override = state.participants.find(item => item.id === overrideId) || null;
+      const participant = override || detectScreenshotParticipant(`${fullResult.data.text || ''} ${file.name}`);
+      const centers = quoteEntries.map(entry => entry.y).sort((a, b) => a - b);
+
+      return quoteEntries.map((entry, index) => {
+        const center = centers[index];
+        const top = index === 0 ? cropTop : (centers[index - 1] + center) / 2;
+        const bottom = index === centers.length - 1 ? image.height - 35 : (center + centers[index + 1]) / 2;
+        const customerLines = extractCellLines(words, top, bottom, image.width * 0.20, image.width * 0.42);
+        const customerName = customerLines.find(line => /[A-Za-z]{2}/.test(line) && !/^\d/.test(line)) || '';
+        const serviceAddress = customerLines.find(line => /^\d/.test(line)) || '';
+        const statusText = extractCellLines(words, top, bottom, image.width * 0.575, image.width * 0.72).join(' ');
+        const invoiceText = extractCellLines(words, top, bottom, image.width * 0.72, image.width * 0.81).join(' ');
+        const workOrderText = extractCellLines(words, top, bottom, image.width * 0.81, image.width * 0.94).join(' ');
+        const statusDates = extractMdyDates(statusText);
+
+        return {
+          participant_code: participant?.participant_code || '',
+          quote_number: entry.quote_number,
+          quote_date: dates[index],
+          customer_name: cleanOcrText(customerName),
+          service_address: cleanOcrText(serviceAddress),
+          quote_total: totals[index].toFixed(2),
+          expiration_date: expirations[index],
+          quote_status: detectQuoteStatus(statusText),
+          status_date: statusDates.length ? mdyToIso(statusDates[statusDates.length - 1]) : null,
+          invoice_total: extractMoneyValues(invoiceText)[0]?.toFixed(2) || null,
+          work_order_summary: /finished/i.test(workOrderText) ? '1 of 1 Finished' : null,
+          notes: `Imported from ${file.name}`
+        };
+      });
+    }
+
+    async function recognizeCrop(worker, image, startRatio, endRatio, top, height, whitelist, pageSegmentationMode) {
+      const left = Math.round(image.width * startRatio);
+      const width = Math.max(20, Math.round(image.width * (endRatio - startRatio)));
+      const canvas = cropImageToCanvas(image, left, top, width, height, 3);
+      await worker.setParameters({
+        tessedit_pageseg_mode: pageSegmentationMode,
+        tessedit_char_whitelist: whitelist
+      });
+      return worker.recognize(canvas);
+    }
+
+    function cropImageToCanvas(image, left, top, width, height, scale) {
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(width * scale));
+      canvas.height = Math.max(1, Math.round(height * scale));
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      context.drawImage(image, left, top, width, height, 0, 0, canvas.width, canvas.height);
+      return canvas;
+    }
+
+    function loadImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        const url = URL.createObjectURL(file);
+        image.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(image);
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error(`${file.name}: the image could not be opened.`));
+        };
+        image.src = url;
+      });
+    }
+
+    function extractQuoteEntries(words, cropTop, scale) {
+      return words.map(word => {
+        const digits = String(word.text || '').replace(/\D/g, '');
+        return {
+          quote_number: normalizeQuoteDigits(digits),
+          y: cropTop + ((word.bbox.y0 + word.bbox.y1) / 2) / scale
+        };
+      }).filter(entry => /^\d{3,6}$/.test(entry.quote_number)).sort((left, right) => left.y - right.y);
+    }
+
+    function normalizeQuoteDigits(value) {
+      let digits = String(value || '').replace(/\D/g, '');
+      if (digits.length >= 5 && /[09][23]$/.test(digits)) digits = digits.slice(0, -2);
+      else if (digits.length >= 4 && /[23]$/.test(digits)) digits = digits.slice(0, -1);
+      return digits;
+    }
+
+    function extractMdyDates(value) {
+      return String(value || '').match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/g) || [];
+    }
+
+    function mdyToIso(value) {
+      const [month, day, year] = String(value).split('/').map(Number);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return '';
+      return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    function extractMoneyValues(value) {
+      const matches = String(value || '').match(/\$?\d[\d,]*\.\d{2}/g) || [];
+      return matches.map(item => Number(item.replace(/[$,]/g, ''))).filter(Number.isFinite);
+    }
+
+    function extractCellLines(words, top, bottom, left, right) {
+      const selected = words.filter(word => word.y >= top && word.y < bottom && word.x >= left && word.x < right);
+      selected.sort((a, b) => a.y - b.y || a.x - b.x);
+      const lines = [];
+      selected.forEach(word => {
+        let line = lines.find(item => Math.abs(item.y - word.y) <= 8);
+        if (!line) {
+          line = { y: word.y, words: [] };
+          lines.push(line);
+        }
+        line.words.push(word);
+      });
+      return lines.sort((a, b) => a.y - b.y).map(line =>
+        line.words.sort((a, b) => a.x - b.x).map(word => word.text).join(' ').trim()
+      ).filter(line => /[A-Za-z0-9]/.test(line));
+    }
+
+    function detectScreenshotParticipant(text) {
+      const normalized = normalizeSearchText(text);
+      const active = state.participants.filter(item => item.active);
+      return active.find(item => normalized.includes(normalizeSearchText(item.participant_code))) ||
+        active.find(item => {
+          const words = normalizeSearchText(item.participant_name).split(' ').filter(word => word.length > 2);
+          return words.length && words.every(word => normalized.includes(word));
+        }) || null;
+    }
+
+    function detectQuoteStatus(value) {
+      const tokens = normalizeSearchText(value).split(' ').filter(Boolean);
+      const statuses = ['APPROVED', 'SENT', 'REJECTED', 'EXPIRED', 'DRAFT'];
+      for (const status of statuses) {
+        const target = status.toLowerCase();
+        if (tokens.some(token => token === target || levenshteinDistance(token, target) <= 2)) return status;
+      }
+      return '';
+    }
+
+    function levenshteinDistance(left, right) {
+      const rows = Array.from({ length: left.length + 1 }, (_, index) => [index]);
+      for (let column = 0; column <= right.length; column += 1) rows[0][column] = column;
+      for (let row = 1; row <= left.length; row += 1) {
+        for (let column = 1; column <= right.length; column += 1) {
+          rows[row][column] = Math.min(
+            rows[row - 1][column] + 1,
+            rows[row][column - 1] + 1,
+            rows[row - 1][column - 1] + (left[row - 1] === right[column - 1] ? 0 : 1)
+          );
+        }
+      }
+      return rows[left.length][right.length];
+    }
+
+    function cleanOcrText(value) {
+      return String(value || '')
+        .replace(/[|©®]+/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function normalizeSearchText(value) {
+      return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function renderImportPreview() {
+      const body = document.getElementById('importPreviewBody');
+      const participantOptions = state.participants.filter(item => item.active).map(item =>
+        `<option value="${escapeHtml(item.participant_code)}">${escapeHtml(item.participant_code)} · ${escapeHtml(item.participant_name)}</option>`
+      ).join('');
+      const statusOptions = ['APPROVED', 'SENT', 'REJECTED', 'EXPIRED', 'DRAFT'];
+
+      body.innerHTML = state.importRows.map((row, index) => `
+        <tr>
+          <td><select data-import-index="${index}" data-import-field="participant_code"><option value="">Select</option>${participantOptions.replace(`value="${escapeHtml(row.participant_code)}"`, `value="${escapeHtml(row.participant_code)}" selected`)}</select></td>
+          <td><input class="cell-number" data-import-index="${index}" data-import-field="quote_number" value="${escapeHtml(row.quote_number)}"></td>
+          <td><input class="cell-date" type="date" data-import-index="${index}" data-import-field="quote_date" value="${escapeHtml(row.quote_date)}"></td>
+          <td><input class="cell-customer" data-import-index="${index}" data-import-field="customer_name" value="${escapeHtml(row.customer_name)}"></td>
+          <td><input class="cell-address" data-import-index="${index}" data-import-field="service_address" value="${escapeHtml(row.service_address)}"></td>
+          <td><input class="cell-money" type="number" min="0" step="0.01" data-import-index="${index}" data-import-field="quote_total" value="${escapeHtml(row.quote_total)}"></td>
+          <td><input class="cell-date" type="date" data-import-index="${index}" data-import-field="expiration_date" value="${escapeHtml(row.expiration_date)}"></td>
+          <td><select data-import-index="${index}" data-import-field="quote_status">${statusOptions.map(status => `<option value="${status}" ${status === row.quote_status ? 'selected' : ''}>${status}</option>`).join('')}</select></td>
+          <td><button class="btn btn-danger btn-small" type="button" onclick="removeImportRow(${index})">Remove</button></td>
+        </tr>
+      `).join('');
+
+      body.querySelectorAll('[data-import-field]').forEach(element => {
+        element.addEventListener('change', event => {
+          const index = Number(event.target.dataset.importIndex);
+          const field = event.target.dataset.importField;
+          if (state.importRows[index]) state.importRows[index][field] = event.target.value;
+          const errors = validateImportRows();
+          document.getElementById('confirmImportBtn').disabled = errors.length > 0;
+          if (errors.length) showMessage('importMessage', errors.join('\n'), 'danger');
+          else clearMessage('importMessage');
+        });
+      });
+
+      document.getElementById('importPreviewSummary').textContent = `${state.importRows.length} recognized quote${state.importRows.length === 1 ? '' : 's'} · existing quote numbers will be updated, not duplicated.`;
+      document.getElementById('importPreviewWrap').hidden = false;
+    }
+
+    window.removeImportRow = function removeImportRow(index) {
+      state.importRows.splice(index, 1);
+      renderImportPreview();
+      const errors = validateImportRows();
+      document.getElementById('confirmImportBtn').disabled = errors.length > 0;
+    };
+
+    function validateImportRows() {
+      const errors = [];
+      if (!state.importRows.length) errors.push('No quote rows are ready to import.');
+      const duplicates = state.importRows.map(row => row.quote_number).filter((value, index, values) => value && values.indexOf(value) !== index);
+      if (duplicates.length) errors.push(`Duplicate quote numbers in preview: ${Array.from(new Set(duplicates)).join(', ')}`);
+      state.importRows.forEach((row, index) => {
+        const label = row.quote_number ? `Quote #${row.quote_number}` : `Row ${index + 1}`;
+        if (!row.participant_code) errors.push(`${label}: participant was not recognized.`);
+        if (!/^\d{3,6}$/.test(row.quote_number || '')) errors.push(`${label}: quote number is invalid.`);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(row.quote_date || '')) errors.push(`${label}: quote date is invalid.`);
+        if (!String(row.customer_name || '').trim()) errors.push(`${label}: customer name was not recognized.`);
+        if (!Number.isFinite(Number(row.quote_total)) || Number(row.quote_total) < 0) errors.push(`${label}: quote total is invalid.`);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(row.expiration_date || '')) errors.push(`${label}: expiration date is invalid.`);
+        if (!['APPROVED', 'SENT', 'REJECTED', 'EXPIRED', 'DRAFT'].includes(row.quote_status)) errors.push(`${label}: status was not recognized.`);
+      });
+      return errors.slice(0, 8);
+    }
+
+    async function confirmRsoImport() {
+      clearMessage('importMessage');
+      const errors = validateImportRows();
+      if (errors.length) {
+        showMessage('importMessage', errors.join('\n'), 'danger');
+        return;
+      }
+
+      const snapshotDate = document.getElementById('importSnapshotDate').value;
+      if (!snapshotDate) {
+        showMessage('importMessage', 'Choose the report as-of date.', 'danger');
+        return;
+      }
+
+      const confirmButton = document.getElementById('confirmImportBtn');
+      confirmButton.disabled = true;
+      setImportProgress('Saving the RSO import...');
+
+      try {
+        const normalizedRows = [...state.importRows].sort((left, right) => String(left.quote_number).localeCompare(String(right.quote_number), undefined, { numeric: true }));
+        const importHash = await sha256Hex(JSON.stringify(normalizedRows));
+        const { data, error } = await client.rpc('import_rso_quote_batch', {
+          p_import_key: `rso-screenshot-${snapshotDate}-${importHash.slice(0, 20)}`,
+          p_source_file_name: state.importFiles.map(file => file.name).join(', '),
+          p_snapshot_as_of_date: snapshotDate,
+          p_rows: normalizedRows
+        });
+        if (error) throw error;
+
+        const result = data || {};
+        showMessage('importMessage', `RSO import completed: ${formatInteger(result.inserted_record_count)} new and ${formatInteger(result.updated_record_count)} updated.`, 'success');
+        setImportProgress(`${formatInteger(result.source_record_count)} quote rows saved. Existing Skimmer quote numbers were updated without duplication.`);
+        await loadQuarterData();
+      } catch (error) {
+        console.error('Unable to confirm RSO import:', error);
+        showMessage('importMessage', friendlyError(error), 'danger');
+        confirmButton.disabled = false;
+        setImportProgress('The RSO import was not saved.');
+      }
+    }
+
+    async function sha256Hex(value) {
+      const bytes = new TextEncoder().encode(value);
+      const digest = await crypto.subtle.digest('SHA-256', bytes);
+      return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    function setImportProgress(message) {
+      document.getElementById('importProgress').textContent = message;
+    }
+
     function openQuoteModal(record = null) {
       clearMessage('quoteFormMessage');
       document.getElementById('quoteForm').reset();
@@ -1794,7 +2364,7 @@
     }
 
     function setBusy(busy) {
-      ['refreshBtn', 'addQuoteBtn', 'participantsBtn', 'quarterSelect'].forEach(id => {
+      ['refreshBtn', 'addQuoteBtn', 'importQuotesBtn', 'participantsBtn', 'quarterSelect'].forEach(id => {
         const element = document.getElementById(id);
         if (element) element.disabled = busy;
       });
