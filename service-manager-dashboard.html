@@ -799,6 +799,27 @@
         </div>
       </section>
 
+      <section class="section" id="routeRevenueDashboardSection">
+        <div class="section-heading">
+          <div>
+            <h2 class="section-title">Assigned Route Revenue</h2>
+            <p class="section-description" id="routeRevenueDescription">Annualized value of current Route Assignments PDF clients using Service History rates; approved $0 accounts are verified by Annual Filter Planning tags.</p>
+          </div>
+          <a class="section-link" href="route-assignment-validation.html">Open Route Assignment Validation →</a>
+        </div>
+        <div class="metric-grid five">
+          <article class="metric-card"><div class="metric-label">Monthly Route Revenue</div><div class="metric-value" id="routeMonthlyRevenue">$0.00</div><div class="metric-sub" id="routeRevenueSourceWeek">No report loaded</div></article>
+          <article class="metric-card"><div class="metric-label">Annualized Route Revenue</div><div class="metric-value" id="routeAnnualRevenue">$0.00</div><div class="metric-sub">Unique assigned client/location monthly rates × 12</div></article>
+          <article class="metric-card"><div class="metric-label">Assigned Stops</div><div class="metric-value" id="routeAssignedStops">0</div><div class="metric-sub">Latest Route Assignments PDF</div></article>
+          <article class="metric-card"><div class="metric-label">Assigned Client Locations</div><div class="metric-value" id="routeAssignedLocations">0</div><div class="metric-sub">Unique customer/location records</div></article>
+          <article class="metric-card"><div class="metric-label">Missing Revenue</div><div class="metric-value" id="routeMissingRevenue">0</div><div class="metric-sub">Zero or missing rates, excluding approved $0 customer tags</div></article>
+        </div>
+        <div class="split-layout" style="margin-top:14px;">
+          <div class="panel"><h3>Route Tech Route Value</h3><p class="panel-subtitle">Current assignment value ranked by annualized revenue.</p><div style="overflow:auto;"><table class="source-table"><thead><tr><th>Route Tech</th><th>Leader</th><th>Stops</th><th>Monthly</th><th>Annualized</th></tr></thead><tbody id="dashboardRouteTechRevenueBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div></div>
+          <div class="panel"><h3>Route Tech Leader Value</h3><p class="panel-subtitle">Leader route plus assigned Route Tech routes.</p><div style="overflow:auto;"><table class="source-table"><thead><tr><th>Leader</th><th>RTs</th><th>Stops</th><th>Annualized</th></tr></thead><tbody id="dashboardRouteLeaderRevenueBody"><tr><td colspan="4">Loading...</td></tr></tbody></table></div></div>
+        </div>
+      </section>
+
       <section class="section">
         <div class="section-heading">
           <div>
@@ -939,6 +960,7 @@
                 <tr><td>Assessments</td><td>client_mechanical_assessment_tracking_view</td></tr>
                 <tr><td>Revenue</td><td>Revenue summary and goal RPCs</td></tr>
                 <tr><td>Route Sales Opportunities</td><td>get_rso_service_manager_quarterly_summary</td></tr>
+                <tr><td>Assigned Route Revenue</td><td>route_assignment_revenue_by_tech_view and route_assignment_revenue_by_leader_view</td></tr>
                 <tr><td>Inventory</td><td>inventory_fifo_vs_current_valuation_view</td></tr>
                 <tr><td>Serialized Value</td><td>inventory_part_lookup_view</td></tr>
                 <tr><td>UAG</td><td>uag_bulk_batch_summary_all_view</td></tr>
@@ -971,6 +993,8 @@ const UAG_SUMMARY_VIEW = 'uag_bulk_batch_summary_all_view';
 const PPV_PAY_PERIODS_TABLE = 'ppv_pay_periods';
 const PPV_SUMMARY_VIEW = 'ppv_live_pay_period_summary_view';
 const RSO_SUMMARY_RPC = 'get_rso_service_manager_quarterly_summary';
+const ROUTE_REVENUE_TECH_VIEW = 'route_assignment_revenue_by_tech_view';
+const ROUTE_REVENUE_LEADER_VIEW = 'route_assignment_revenue_by_leader_view';
 
 let currentProfile = null;
 let currentSession = null;
@@ -1100,6 +1124,7 @@ async function refreshDashboard() {
   const results = await Promise.allSettled([
     loadSelectedRevenuePeriod(),
     loadMechanicalAssessmentSummary(),
+    loadRouteRevenueSummary(),
     loadRsoQuarterSummary(),
     loadInventorySummary(),
     loadUagSummary(),
@@ -1581,6 +1606,46 @@ function assessmentNeedsReview(row) {
   return !String(customer || '').trim()
     || !String(assignedTech || '').trim()
     || ['MULTIPLE_TECHS', 'NO_CUSTOMER_MATCH', 'NEEDS_REVIEW'].includes(matchStatus);
+}
+
+async function loadRouteRevenueSummary() {
+  try {
+    const { error: rateRefreshError } = await client.rpc('refresh_route_assignment_service_history_rates');
+    if (rateRefreshError) throw rateRefreshError;
+    const { data: snapshots, error: snapshotError } = await client.from('ppv_route_balance_snapshots')
+      .select('id,effective_date').neq('status','VOIDED').order('effective_date',{ascending:false}).order('updated_at',{ascending:false}).limit(1);
+    if (snapshotError) throw snapshotError;
+    const snapshot = snapshots?.[0];
+    if (!snapshot) throw new Error('No Route Assignment report has been imported.');
+    const [techResponse,leaderResponse] = await Promise.all([
+      client.from(ROUTE_REVENUE_TECH_VIEW).select('*').eq('snapshot_id',snapshot.id).order('annualized_route_revenue',{ascending:false}),
+      client.from(ROUTE_REVENUE_LEADER_VIEW).select('*').eq('snapshot_id',snapshot.id).order('route_tech_leader_code')
+    ]);
+    if (techResponse.error) throw techResponse.error;
+    if (leaderResponse.error) throw leaderResponse.error;
+    const techRows = techResponse.data || [];
+    const leaderRows = leaderResponse.data || [];
+    const totals = techRows.reduce((a,r)=>({monthly:a.monthly+numberValue(r.monthly_route_revenue),annual:a.annual+numberValue(r.annualized_route_revenue),stops:a.stops+numberValue(r.assigned_stops_pdf),locations:a.locations+numberValue(r.assigned_client_locations),missing:a.missing+numberValue(r.missing_revenue_locations)}),{monthly:0,annual:0,stops:0,locations:0,missing:0});
+    setText('routeMonthlyRevenue',formatCurrency(totals.monthly));
+    setText('routeAnnualRevenue',formatCurrency(totals.annual));
+    setText('routeAssignedStops',formatNumber(totals.stops));
+    setText('routeAssignedLocations',formatNumber(totals.locations));
+    setText('routeMissingRevenue',formatNumber(totals.missing));
+    const source=techRows[0];
+    setText('routeRevenueSourceWeek',source?`Route Friday ${formatDate(snapshot.effective_date)} | Service History rates through ${formatDate(source.service_week_end)}`:`Route Friday ${formatDate(snapshot.effective_date)}`);
+    document.getElementById('dashboardRouteTechRevenueBody').innerHTML=techRows.length?techRows.map(r=>`<tr><td><strong>${escapeDashboardHtml(r.route_code)} - ${escapeDashboardHtml(r.route_tech_name)}</strong></td><td>${escapeDashboardHtml(r.route_tech_leader_code||'-')} - ${escapeDashboardHtml(r.route_tech_leader_name||'Unassigned')}</td><td>${formatNumber(r.assigned_stops_pdf)}</td><td>${formatCurrency(r.monthly_route_revenue)}</td><td><strong>${formatCurrency(r.annualized_route_revenue)}</strong></td></tr>`).join(''):'<tr><td colspan="5">No route revenue data found.</td></tr>';
+    document.getElementById('dashboardRouteLeaderRevenueBody').innerHTML=leaderRows.length?leaderRows.map(r=>`<tr><td><strong>${escapeDashboardHtml(r.route_tech_leader_code||'-')} - ${escapeDashboardHtml(r.route_tech_leader_name||'Unassigned')}</strong></td><td>${formatNumber(r.route_tech_count)}</td><td>${formatNumber(r.assigned_stops_pdf)}</td><td><strong>${formatCurrency(r.annualized_team_revenue)}</strong></td></tr>`).join(''):'<tr><td colspan="4">No leader revenue data found.</td></tr>';
+  } catch(error) {
+    ['routeMonthlyRevenue','routeAnnualRevenue','routeAssignedStops','routeAssignedLocations','routeMissingRevenue'].forEach(id=>setText(id,'Unavailable'));
+    setText('routeRevenueSourceWeek',error.message||'Route revenue source unavailable');
+    document.getElementById('dashboardRouteTechRevenueBody').innerHTML='<tr><td colspan="5">Route revenue unavailable.</td></tr>';
+    document.getElementById('dashboardRouteLeaderRevenueBody').innerHTML='<tr><td colspan="4">Route revenue unavailable.</td></tr>';
+    throw error;
+  }
+}
+
+function escapeDashboardHtml(value) {
+  return String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
 
 async function loadInventorySummary() {
