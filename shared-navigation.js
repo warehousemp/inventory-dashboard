@@ -68,16 +68,16 @@
     {
       label: 'Service CSC',
       roles: [
-        'SERVICE', 'SERVICE_MANAGER', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
-        'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'
+        'SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
+        'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN', 'SERVICE_MANAGER'
       ],
       links: [
         {
           label: 'Client Services Dashboard',
           href: 'client-services.html',
           roles: [
-            'SERVICE', 'SERVICE_MANAGER', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
-            'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'
+            'SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
+            'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN', 'SERVICE_MANAGER'
           ]
         },
         {
@@ -88,10 +88,7 @@
         {
           label: 'CSC Service Labor Guide',
           href: 'csc-service-labor-guide.html',
-          roles: [
-            'ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER',
-            'READ_ONLY', 'ADMIN', 'SYSTEM_ADMIN'
-          ]
+          roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'READ_ONLY', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'Inspection Requests',
@@ -106,11 +103,19 @@
       ]
     },
     {
+      label: 'Service Repair',
+      roles: ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN'],
+      links: [
+        {
+          label: 'On-Call Schedule',
+          href: 'on-call-schedule.html',
+          roles: ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+        }
+      ]
+    },
+    {
       label: 'Service Route',
-      roles: [
-        'ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER',
-        'ADMIN', 'SYSTEM_ADMIN'
-      ],
+      roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN'],
       links: [
         {
           label: 'Service Manager Dashboard',
@@ -120,26 +125,17 @@
         {
           label: 'Route Assignment Validation',
           href: 'route-assignment-validation.html',
-          roles: [
-            'ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER',
-            'ADMIN', 'SYSTEM_ADMIN'
-          ]
+          roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'Route Time Validation',
           href: 'route-time-validation.html',
-          roles: [
-            'ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER',
-            'ADMIN', 'SYSTEM_ADMIN'
-          ]
+          roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'PPV Safeguard Tracking',
           href: 'ppv-safeguard-tracking.html',
-          roles: [
-            'ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER',
-            'ADMIN', 'SYSTEM_ADMIN'
-          ]
+          roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'RSO Tracking',
@@ -196,7 +192,7 @@
     },
     {
       label: 'Admin',
-      roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN'],
+      roles: ['ADMIN', 'SYSTEM_ADMIN'],
       links: [
         {
           label: 'System / Admin Tools',
@@ -206,7 +202,7 @@
         {
           label: 'Service Department Admin',
           href: 'service-department-admin.html',
-          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: ['ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'Warehouse Admin',
