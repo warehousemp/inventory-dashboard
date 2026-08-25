@@ -2575,7 +2575,7 @@
       <button class="refresh-btn" onclick="loadAnnualFilterPlanning(true)">REFRESH FILTER DATA</button>
 
       <div class="status-note">
-        The current Tech Details route population controls which clients belong in the annual filter program. The Skimmer Customers file supplies the filter-system tags from the TagList column.
+        The current Tech Details route population controls which clients belong in the annual filter program. The Skimmer Customers file supplies filter-system tags, current monthly rates, and rate types.
       </div>
 
       <div class="filter-planning-grid">
@@ -2590,7 +2590,7 @@
 
           <label>Customers File:</label>
           <input id="filterCustomersFile" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
-          <div class="help-text">Required columns: FullName, TagList, Status, and LocationAddress.</div>
+          <div class="help-text">Required columns: FullName, TagList, Status, LocationAddress, Rate, and RateType.</div>
           <div class="button-row">
             <button class="report-btn" onclick="previewClientFilterImport()">PREVIEW FILTER IMPORT</button>
             <button id="confirmFilterImportButton" class="save-btn" onclick="confirmClientFilterImport()" disabled>CONFIRM FILTER IMPORT</button>
@@ -4360,7 +4360,7 @@ async function readSkimmerCustomersFile(file) {
     throw new Error('The selected file contains no customer rows.');
   }
 
-  const requiredHeaders = ['FullName', 'TagList', 'Status', 'LocationAddress'];
+  const requiredHeaders = ['FullName', 'TagList', 'Status', 'LocationAddress', 'Rate', 'RateType'];
   const availableHeaders = Object.keys(rawRows[0] || {});
   const missingHeaders = requiredHeaders.filter(header => !availableHeaders.includes(header));
 
@@ -4368,13 +4368,20 @@ async function readSkimmerCustomersFile(file) {
     throw new Error('Missing required column(s): ' + missingHeaders.join(', '));
   }
 
-  return rawRows.map((row, index) => ({
-    source_row_number: String(index + 2),
-    client_name: String(row.FullName || '').trim(),
-    service_location: String(row.LocationAddress || '').trim(),
-    client_status: String(row.Status || '').trim(),
-    raw_tag_list: String(row.TagList || '').trim()
-  }));
+  return rawRows.map((row, index) => {
+    const rateText = String(row.Rate ?? '').replace(/[$,]/g, '').trim();
+    const monthlyRate = rateText === '' ? null : Number(rateText);
+
+    return {
+      source_row_number: String(index + 2),
+      client_name: String(row.FullName || '').trim(),
+      service_location: String(row.LocationAddress || '').trim(),
+      client_status: String(row.Status || '').trim(),
+      raw_tag_list: String(row.TagList || '').trim(),
+      monthly_rate: Number.isFinite(monthlyRate) ? monthlyRate : null,
+      rate_type: String(row.RateType || '').trim()
+    };
+  });
 }
 
 async function previewClientFilterImport() {
