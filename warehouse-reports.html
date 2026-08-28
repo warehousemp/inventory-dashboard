@@ -1312,9 +1312,35 @@
     }
 
     .reorder-order-section-heading {
+      margin: 0;
+      color: #0b3c5d;
+    }
+
+    .reorder-order-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
       margin-top: 28px;
       margin-bottom: 8px;
-      color: #0b3c5d;
+    }
+
+    .reorder-print-btn {
+      width: auto;
+      margin: 0;
+      padding: 9px 14px;
+      border: 1px solid #0b3c5d;
+      border-radius: 8px;
+      background: #0b3c5d;
+      color: white;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .reorder-print-btn:hover {
+      background: #082f49;
     }
 
     .reorder-dashboard-table {
@@ -1627,6 +1653,15 @@
       .reorder-planning-summary-grid,
       .reorder-planning-controls {
         grid-template-columns: 1fr;
+      }
+
+      .reorder-order-section-header {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .reorder-print-btn {
+        width: 100%;
       }
     }
 
@@ -2794,7 +2829,12 @@
         Loading reorder dashboard...
       </div>
 
-      <h3 class="reorder-order-section-heading">Standard Parts Reorder</h3>
+      <div class="reorder-order-section-header">
+        <h3 class="reorder-order-section-heading">Standard Parts Reorder</h3>
+        <button class="reorder-print-btn" type="button" onclick="printReorderOrderReport('STANDARD')">
+          PRINT STANDARD ORDER REPORT
+        </button>
+      </div>
       <div id="standardReorderSummary" class="session-id-box">
         Loading standard reorder list...
       </div>
@@ -2818,7 +2858,12 @@
         </table>
       </div>
 
-      <h3 class="reorder-order-section-heading">UAG Bulk Order</h3>
+      <div class="reorder-order-section-header">
+        <h3 class="reorder-order-section-heading">UAG Bulk Order</h3>
+        <button class="reorder-print-btn" type="button" onclick="printReorderOrderReport('UAG')">
+          PRINT UAG BULK ORDER REPORT
+        </button>
+      </div>
       <div id="uagReorderSummary" class="session-id-box">
         Loading UAG bulk-order list...
       </div>
@@ -5069,6 +5114,256 @@ function renderReorderDashboardRows(tableBody, rows, emptyMessage) {
 
     tableBody.appendChild(tr);
   });
+}
+
+function getReorderRowsForSection(section) {
+  const requestedSection = String(section || '').trim().toUpperCase();
+
+  return reorderDashboardData.filter(row => {
+    const source = String(getFirstValue(row, ['preferred_vendor', 'recommended_source', 'vendor_name']) || '').trim().toUpperCase();
+    const isUag = row.has_uag_bulk_history === true || source === 'UAG';
+    return requestedSection === 'UAG' ? isUag : !isUag;
+  });
+}
+
+function printReorderOrderReport(section) {
+  const requestedSection = String(section || '').trim().toUpperCase();
+  const isUagReport = requestedSection === 'UAG';
+  const rows = getReorderRowsForSection(isUagReport ? 'UAG' : 'STANDARD');
+
+  if (rows.length === 0) {
+    window.alert(isUagReport
+      ? 'There are no UAG bulk-order items to print.'
+      : 'There are no standard parts to print.');
+    return;
+  }
+
+  const reportTitle = isUagReport ? 'UAG Bulk Order Report' : 'Standard Parts Order Report';
+  const usageHeading = isUagReport ? 'Usage (4 Months)' : 'Usage (1.5 Months)';
+  const purchasingRule = isUagReport
+    ? 'Four months of demonstrated usage; consolidated UAG purchase every three months.'
+    : 'One and one-half months of demonstrated usage; reviewed for purchase monthly.';
+  const totalRecommendedQty = rows.reduce((total, row) =>
+    total + Number(getFirstValue(row, ['reorder_qty', 'qty_to_order', 'quantity_to_order']) || 0), 0);
+  const generatedAt = new Date().toLocaleString();
+
+  const reportRows = rows.map(row => {
+    const partNumber = getFirstValue(row, ['part_number', 'item_number']) || '';
+    const description = getFirstValue(row, ['description', 'part_description', 'item_description']) || '';
+    const purchasingSource = getFirstValue(row, ['preferred_vendor', 'recommended_source', 'vendor_name']) || 'Needs Review';
+    const qtyOnHand = Number(getFirstValue(row, ['qty_on_hand', 'quantity_on_hand', 'on_hand_qty']) || 0);
+    const recommendedReorder = Number(getFirstValue(row, ['reorder_qty', 'qty_to_order', 'quantity_to_order']) || 0);
+    let reorderSetpoint = getFirstValue(row, [
+      'reorder_setpoint',
+      'reorder_point',
+      'minimum_quantity',
+      'min_quantity',
+      'min_stock'
+    ]);
+
+    if (reorderSetpoint === null || reorderSetpoint === undefined || reorderSetpoint === '') {
+      reorderSetpoint = qtyOnHand + recommendedReorder;
+    }
+
+    const usageTarget = getFirstValue(row, ['usage_target', 'recommended_stock_target']) ?? reorderSetpoint;
+
+    return `
+      <tr>
+        <td class="part-number">${escapeHTML(partNumber)}</td>
+        <td class="description">${escapeHTML(description)}</td>
+        <td class="source">${escapeHTML(purchasingSource)}</td>
+        <td class="number">${formatNumber(qtyOnHand)}</td>
+        <td class="number">${formatNumber(usageTarget)}</td>
+        <td class="number">${formatNumber(reorderSetpoint)}</td>
+        <td class="number recommended">${formatNumber(recommendedReorder)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const printWindow = window.open('', '_blank', 'width=1200,height=800');
+
+  if (!printWindow) {
+    window.alert('The print report was blocked by the browser. Allow pop-ups for this page and try again.');
+    return;
+  }
+
+  const reportHtml = `<!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHTML(reportTitle)}</title>
+        <style>
+          @page { size: letter landscape; margin: 0.42in; }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            color: #172033;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9pt;
+          }
+          .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #0b3c5d;
+          }
+          .company-name {
+            margin: 0 0 4px;
+            color: #0b3c5d;
+            font-size: 12pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          }
+          h1 {
+            margin: 0;
+            color: #04233c;
+            font-size: 19pt;
+          }
+          .generated {
+            min-width: 245px;
+            text-align: right;
+            color: #475569;
+            line-height: 1.5;
+          }
+          .rule {
+            margin: 10px 0;
+            padding: 8px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #f8fafc;
+            color: #334155;
+          }
+          .summary {
+            display: flex;
+            gap: 12px;
+            margin: 10px 0 12px;
+          }
+          .summary-box {
+            min-width: 170px;
+            padding: 8px 12px;
+            border: 1px solid #94a3b8;
+            border-radius: 6px;
+          }
+          .summary-label {
+            display: block;
+            color: #64748b;
+            font-size: 7.5pt;
+            font-weight: 700;
+            text-transform: uppercase;
+          }
+          .summary-value {
+            display: block;
+            margin-top: 2px;
+            color: #0b3c5d;
+            font-size: 14pt;
+            font-weight: 900;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+          }
+          thead { display: table-header-group; }
+          tr { break-inside: avoid; }
+          th {
+            padding: 7px 6px;
+            border: 1px solid #7f9db3;
+            background: #dff5e6;
+            color: #04233c;
+            font-size: 8pt;
+            line-height: 1.15;
+            text-align: left;
+          }
+          td {
+            padding: 6px;
+            border: 1px solid #cbd5e1;
+            vertical-align: top;
+            line-height: 1.25;
+          }
+          tbody tr:nth-child(even) td { background: #f8fafc; }
+          th:nth-child(1), td:nth-child(1) { width: 12%; }
+          th:nth-child(2), td:nth-child(2) { width: 31%; }
+          th:nth-child(3), td:nth-child(3) { width: 12%; text-align: center; }
+          th:nth-child(4), td:nth-child(4) { width: 10%; text-align: center; }
+          th:nth-child(5), td:nth-child(5) { width: 12%; text-align: center; }
+          th:nth-child(6), td:nth-child(6) { width: 11%; text-align: center; }
+          th:nth-child(7), td:nth-child(7) { width: 12%; text-align: center; }
+          .part-number { font-weight: 800; }
+          .source { font-weight: 700; }
+          .number { font-weight: 700; }
+          .recommended { color: #991b1b; font-weight: 900; }
+          .order-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin-top: 14px;
+            color: #334155;
+          }
+          .detail-line {
+            padding-top: 14px;
+            border-bottom: 1px solid #64748b;
+          }
+          .footer {
+            margin-top: 10px;
+            color: #64748b;
+            font-size: 7.5pt;
+            text-align: right;
+          }
+        </style>
+      </head>
+      <body>
+        <header class="report-header">
+          <div>
+            <div class="company-name">Molinari Pools</div>
+            <h1>${escapeHTML(reportTitle)}</h1>
+          </div>
+          <div class="generated">
+            <strong>Generated:</strong> ${escapeHTML(generatedAt)}<br>
+            <strong>Inventory Location:</strong> Main Warehouse
+          </div>
+        </header>
+        <div class="rule"><strong>Purchasing Rule:</strong> ${escapeHTML(purchasingRule)}</div>
+        <div class="summary">
+          <div class="summary-box">
+            <span class="summary-label">Items to Order</span>
+            <span class="summary-value">${formatNumber(rows.length)}</span>
+          </div>
+          <div class="summary-box">
+            <span class="summary-label">Recommended Units</span>
+            <span class="summary-value">${formatNumber(totalRecommendedQty)}</span>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Part #</th>
+              <th>Description</th>
+              <th>Purchasing Source</th>
+              <th>Qty On Hand</th>
+              <th>${escapeHTML(usageHeading)}</th>
+              <th>Reorder Setpoint</th>
+              <th>Recommended Reorder</th>
+            </tr>
+          </thead>
+          <tbody>${reportRows}</tbody>
+        </table>
+        <div class="order-details">
+          <div class="detail-line">PO / Order Number:</div>
+          <div class="detail-line">Ordered By:</div>
+          <div class="detail-line">Order Date:</div>
+        </div>
+        <div class="footer">Generated from the Molinari Pools Warehouse Reorder Dashboard</div>
+      </body>
+    </html>`;
+
+  printWindow.document.open();
+  printWindow.document.write(reportHtml);
+  printWindow.document.close();
+  printWindow.focus();
+  window.setTimeout(() => printWindow.print(), 350);
 }
 
 function updateReorderDashboardSummary(errorMessage = '') {
