@@ -442,6 +442,7 @@
                 <tr>
                   <th>Part #</th>
                   <th>Description</th>
+                  <th>Category</th>
                   <th>Purchasing Source</th>
                   <th>Qty On Hand</th>
                   <th>Usage (1.5 Months)</th>
@@ -452,7 +453,7 @@
                 </tr>
               </thead>
               <tbody id="standardOrderTableBody">
-                <tr><td colspan="9">Loading Standard Parts Order...</td></tr>
+                <tr><td colspan="10">Loading Standard Parts Order...</td></tr>
               </tbody>
             </table>
           </div>
@@ -678,11 +679,27 @@
     }
 
     function getProgramRows(program) {
-      return orderRows.filter(row =>
+      const rows = orderRows.filter(row =>
         program === 'UAG_BULK'
           ? row.is_uag_bulk_order === true
           : row.is_uag_bulk_order !== true
       );
+
+      if (program !== 'STANDARD') return rows;
+
+      return [...rows].sort((a, b) => {
+        const categoryA = String(a.category || '').trim();
+        const categoryB = String(b.category || '').trim();
+
+        // Keep uncategorized parts after named categories.
+        if (!categoryA && categoryB) return 1;
+        if (categoryA && !categoryB) return -1;
+
+        const categoryCompare = categoryA.localeCompare(categoryB, undefined, { sensitivity: 'base' });
+        if (categoryCompare !== 0) return categoryCompare;
+
+        return String(a.part_number || '').localeCompare(String(b.part_number || ''), undefined, { sensitivity: 'base' });
+      });
     }
 
     function summarizeOrderRows(rows) {
@@ -704,8 +721,8 @@
       const uagSummary = summarizeOrderRows(uagRows);
 
       renderSummaryCards(standardSummary, uagSummary);
-      renderOrderTable('standardOrderTableBody', standardRows, 'No Standard parts currently need ordering.');
-      renderOrderTable('uagOrderTableBody', uagRows, 'No UAG Bulk parts currently need ordering.');
+      renderOrderTable('standardOrderTableBody', standardRows, 'No Standard parts currently need ordering.', true);
+      renderOrderTable('uagOrderTableBody', uagRows, 'No UAG Bulk parts currently need ordering.', false);
       renderSectionTotal('standardOrderTotal', 'Standard Parts Order Total Amount', standardSummary);
       renderSectionTotal('uagOrderTotal', 'UAG BULK ORDER Total Amount', uagSummary);
     }
@@ -754,22 +771,27 @@
           : ' | All costs available');
     }
 
-    function renderOrderTable(tableBodyId, rows, emptyMessage) {
+    function renderOrderTable(tableBodyId, rows, emptyMessage, showCategory = false) {
       const tableBody = document.getElementById(tableBodyId);
       if (!tableBody) return;
 
       if (!rows.length) {
-        tableBody.innerHTML = `<tr><td colspan="9">${escapeHTML(emptyMessage)}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="${showCategory ? 10 : 9}">${escapeHTML(emptyMessage)}</td></tr>`;
         return;
       }
 
       tableBody.innerHTML = rows.map(row => {
         const costMissing = row.last_purchased_unit_cost === null || row.last_purchased_unit_cost === undefined;
         const source = row.purchasing_source || 'Needs Review';
+        const categoryCell = showCategory
+          ? `<td>${escapeHTML(row.category || 'Uncategorized')}</td>`
+          : '';
+
         return `
           <tr>
             <td class="part-number">${escapeHTML(row.part_number || '')}</td>
             <td>${escapeHTML(row.description || '')}</td>
+            ${categoryCell}
             <td class="${String(source).toUpperCase() === 'UAG' ? 'source-uag' : ''}">${escapeHTML(source)}</td>
             <td>${formatNumber(row.qty_on_hand)}</td>
             <td>${formatNumber(row.usage_target)}</td>
@@ -809,9 +831,11 @@
 
       const lines = rows.map(row => {
         const costMissing = row.last_purchased_unit_cost === null || row.last_purchased_unit_cost === undefined;
+        const categoryCell = isUagBulk ? '' : `<td>${escapeHTML(row.category || 'Uncategorized')}</td>`;
         return `<tr>
           <td>${escapeHTML(row.part_number || '')}</td>
           <td>${escapeHTML(row.description || '')}</td>
+          ${categoryCell}
           <td>${escapeHTML(row.purchasing_source || 'Needs Review')}</td>
           <td class="number">${formatNumber(row.qty_on_hand)}</td>
           <td class="number">${formatNumber(row.usage_target)}</td>
@@ -837,9 +861,8 @@
   table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px}
   th,td{border:1px solid #7c8793;padding:5px;vertical-align:middle}
   th{background:#d1fae5;text-align:left}
-  th:nth-child(1){width:9%}th:nth-child(2){width:25%}th:nth-child(3){width:10%}
-  th:nth-child(4),th:nth-child(5),th:nth-child(6),th:nth-child(7){width:9%}
-  th:nth-child(8),th:nth-child(9){width:10%}
+  th:nth-child(1){width:8%}
+  th:nth-child(2){width:22%}
   .number{text-align:center}.strong{font-weight:900}
   @page{size:landscape;margin:.35in}
 </style></head><body>
@@ -853,7 +876,7 @@
     Items: ${formatNumber(summary.items)} | Recommended Units: ${formatNumber(summary.quantity)}${summary.missingCost ? ` | Cost unavailable for ${formatNumber(summary.missingCost)} part(s)` : ''}
   </div>
   <table><thead><tr>
-    <th>Part #</th><th>Description</th><th>Purchasing Source</th><th>Qty On Hand</th>
+    <th>Part #</th><th>Description</th>${isUagBulk ? '' : '<th>Category</th>'}<th>Purchasing Source</th><th>Qty On Hand</th>
     <th>${escapeHTML(usageHeading)}</th><th>Reorder Setpoint</th><th>Recommended Reorder</th>
     <th>Last Purchased Unit Cost</th><th>Total Reorder $</th>
   </tr></thead><tbody>${lines}</tbody></table>
