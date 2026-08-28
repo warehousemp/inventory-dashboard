@@ -168,7 +168,7 @@
         },
         {
           label: 'Purchasing',
-          href: 'Purchasing.html',
+          href: 'purchasing.html',
           roles: ['WAREHOUSE', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
