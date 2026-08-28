@@ -33,11 +33,6 @@
           label: 'PPV Payroll Review',
           href: 'ppv-payroll-review.html',
           roles: ['ACCOUNTING', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Admin',
-          href: 'ppv-admin.html',
-          roles: ['ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
@@ -197,6 +192,11 @@
         {
           label: 'System / Admin Tools',
           href: 'users.html',
+          roles: ['ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'PPV Admin',
+          href: 'ppv-admin.html',
           roles: ['ADMIN', 'SYSTEM_ADMIN']
         },
         {
