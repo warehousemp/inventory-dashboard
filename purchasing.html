@@ -318,7 +318,7 @@
     }
 
     .planning-table {
-      min-width: 2440px;
+      min-width: 2580px;
     }
 
     .planning-table th,
@@ -328,16 +328,16 @@
 
     .planning-table th:nth-child(3),
     .planning-table td:nth-child(3),
-    .planning-table th:nth-child(5),
-    .planning-table td:nth-child(5),
-    .planning-table th:nth-child(17),
-    .planning-table td:nth-child(17) {
+    .planning-table th:nth-child(6),
+    .planning-table td:nth-child(6),
+    .planning-table th:nth-child(18),
+    .planning-table td:nth-child(18) {
       min-width: 260px;
       white-space: normal;
     }
 
-    .planning-table th:nth-child(n+7):nth-child(-n+16),
-    .planning-table td:nth-child(n+7):nth-child(-n+16) {
+    .planning-table th:nth-child(n+8):nth-child(-n+17),
+    .planning-table td:nth-child(n+8):nth-child(-n+17) {
       text-align: center;
     }
 
@@ -535,6 +535,7 @@
                 <th><input id="planningSelectAll" type="checkbox" aria-label="Select all visible eligible parts" onchange="toggleAllVisiblePlanningRows(this.checked)"></th>
                 <th>Part #</th>
                 <th>Description</th>
+                <th>Category</th>
                 <th>Source</th>
                 <th>Purchase Program</th>
                 <th>Buy Cycle</th>
@@ -553,7 +554,7 @@
               </tr>
             </thead>
             <tbody id="planningTableBody">
-              <tr><td colspan="18">Loading purchase-target planning...</td></tr>
+              <tr><td colspan="19">Loading purchase-target planning...</td></tr>
             </tbody>
           </table>
         </div>
@@ -888,18 +889,18 @@
 
     async function loadPlanningRows() {
       const tableBody = document.getElementById('planningTableBody');
-      if (tableBody) tableBody.innerHTML = '<tr><td colspan="18">Loading purchase-target planning...</td></tr>';
+      if (tableBody) tableBody.innerHTML = '<tr><td colspan="19">Loading purchase-target planning...</td></tr>';
 
       const { data, error } = await client
         .from('inventory_purchase_planning_view')
         .select('*')
-        .order('net_usage_qty_4m', { ascending: false })
+        .order('category', { ascending: true })
         .order('part_number', { ascending: true });
 
       if (error) {
         planningRows = [];
         filteredPlanningRows = [];
-        if (tableBody) tableBody.innerHTML = `<tr><td colspan="18">${escapeHTML(error.message)}</td></tr>`;
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="19">${escapeHTML(error.message)}</td></tr>`;
         updatePlanningSummary();
         return;
       }
@@ -959,13 +960,28 @@
       const status = document.getElementById('planningStatusFilter')?.value || 'ALL';
 
       filteredPlanningRows = planningRows.filter(row => {
-        const searchable = `${row.part_number || ''} ${row.description || ''}`.toUpperCase();
+        const searchable = `${row.part_number || ''} ${row.description || ''} ${row.category || ''}`.toUpperCase();
         if (search && !searchable.includes(search)) return false;
         if (program !== 'ALL' && row.purchase_program !== program) return false;
         if (status === 'NEEDS_UPDATE' && !['TARGET UPDATE NEEDED', 'DORMANT — CLEAR TARGET', 'DO NOT STOCK — CLEAR TARGET'].includes(row.target_status)) return false;
         if (status === 'CURRENT' && row.target_status !== 'CURRENT') return false;
         if (status === 'NO_USAGE' && row.should_auto_order === true) return false;
         return true;
+      }).sort((a, b) => {
+        const categoryA = String(a.category || '').trim();
+        const categoryB = String(b.category || '').trim();
+
+        if (!categoryA && categoryB) return 1;
+        if (categoryA && !categoryB) return -1;
+
+        const categoryCompare = categoryA.localeCompare(categoryB, undefined, { sensitivity: 'base' });
+        if (categoryCompare !== 0) return categoryCompare;
+
+        return String(a.part_number || '').localeCompare(
+          String(b.part_number || ''),
+          undefined,
+          { sensitivity: 'base' }
+        );
       });
 
       renderPlanningTable();
@@ -977,7 +993,7 @@
       const tableBody = document.getElementById('planningTableBody');
       if (!tableBody) return;
       if (!filteredPlanningRows.length) {
-        tableBody.innerHTML = '<tr><td colspan="18">No parts match the selected planning filters.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="19">No parts match the selected planning filters.</td></tr>';
         return;
       }
 
@@ -992,6 +1008,7 @@
           <td><input type="checkbox" aria-label="Select ${escapeHTML(row.part_number || 'part')}" ${eligible ? '' : 'disabled'} ${selected ? 'checked' : ''} onchange="togglePlanningSelection('${escapeHTML(id)}', this.checked)"></td>
           <td class="part-number">${escapeHTML(row.part_number || '')}</td>
           <td>${escapeHTML(row.description || '')}</td>
+          <td>${escapeHTML(row.category || 'Uncategorized')}</td>
           <td class="${String(row.recommended_source || '').toUpperCase() === 'UAG' ? 'source-uag' : ''}">${escapeHTML(row.recommended_source || 'Needs Review')}</td>
           <td>
             <select class="program-select" data-current-program="${program}" ${canManagePurchasing() ? '' : 'disabled'} onchange="changePurchaseProgram('${escapeHTML(id)}', '${escapeHTML(row.part_number || '')}', this)">
