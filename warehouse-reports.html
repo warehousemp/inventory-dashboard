@@ -1311,9 +1311,15 @@
       background: white;
     }
 
+    .reorder-order-section-heading {
+      margin-top: 28px;
+      margin-bottom: 8px;
+      color: #0b3c5d;
+    }
+
     .reorder-dashboard-table {
       table-layout: fixed;
-      min-width: 1250px;
+      min-width: 1395px;
       width: 100%;
       border-collapse: collapse;
       background: white;
@@ -1371,7 +1377,9 @@
     .reorder-dashboard-table th:nth-child(5),
     .reorder-dashboard-table td:nth-child(5),
     .reorder-dashboard-table th:nth-child(6),
-    .reorder-dashboard-table td:nth-child(6) {
+    .reorder-dashboard-table td:nth-child(6),
+    .reorder-dashboard-table th:nth-child(7),
+    .reorder-dashboard-table td:nth-child(7) {
       width: 145px;
       text-align: right;
       white-space: nowrap;
@@ -2706,7 +2714,7 @@
       <button class="refresh-btn" onclick="refreshPage()">REFRESH PAGE</button>
 
       <div class="status-note reorder-dashboard-note">
-        The current order list remains based on saved reorder points. Initial reorder-point planning below uses net issuance from the most recent four-month window and compares UAG bulk-purchase history against actual usage. UAG items are not rounded to a pack size.
+        Purchase quantities use current Main Warehouse inventory and saved stock targets. Standard items target 1.5 months of demonstrated usage and are reviewed monthly. UAG items target 4 months of demonstrated usage and are purchased every 3 months. Items with no net issues during the rolling four-month window are not automatically ordered.
       </div>
 
       <h3>Current Items to Order</h3>
@@ -2730,6 +2738,11 @@
         Loading reorder dashboard...
       </div>
 
+      <h3 class="reorder-order-section-heading">Standard Parts Reorder</h3>
+      <div id="standardReorderSummary" class="session-id-box">
+        Loading standard reorder list...
+      </div>
+
       <div class="reorder-dashboard-wrapper">
         <table class="reorder-dashboard-table">
           <thead>
@@ -2738,21 +2751,46 @@
               <th>Description</th>
               <th>Purchasing Source</th>
               <th>Qty On Hand</th>
+              <th>Usage (1.5 Months)</th>
               <th>Reorder Setpoint</th>
-              <th>Qty to Order</th>
+              <th>Recommended Reorder</th>
             </tr>
           </thead>
-          <tbody id="reorderDashboardTableBody">
-            <tr class="reorder-empty-row"><td colspan="6">Loading reorder dashboard...</td></tr>
+          <tbody id="standardReorderTableBody">
+            <tr class="reorder-empty-row"><td colspan="7">Loading standard reorder list...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="reorder-order-section-heading">UAG Bulk Order</h3>
+      <div id="uagReorderSummary" class="session-id-box">
+        Loading UAG bulk-order list...
+      </div>
+
+      <div class="reorder-dashboard-wrapper">
+        <table class="reorder-dashboard-table">
+          <thead>
+            <tr>
+              <th>Part #</th>
+              <th>Description</th>
+              <th>Purchasing Source</th>
+              <th>Qty On Hand</th>
+              <th>Usage (4 Months)</th>
+              <th>Reorder Setpoint</th>
+              <th>Recommended Reorder</th>
+            </tr>
+          </thead>
+          <tbody id="uagReorderTableBody">
+            <tr class="reorder-empty-row"><td colspan="7">Loading UAG bulk-order list...</td></tr>
           </tbody>
         </table>
       </div>
 
       <section class="reorder-planning-section" aria-labelledby="reorderPlanningHeading">
-        <h3 id="reorderPlanningHeading">Initial Reorder Point Planning</h3>
+        <h3 id="reorderPlanningHeading">Usage-Based Purchase Target Planning</h3>
 
         <div class="status-note reorder-dashboard-note">
-          <strong>Calculation:</strong> Recommended Reorder Point = net quantity issued during the four-month window, rounded up to a whole unit. Net usage subtracts issue reversals. Purchasing source comes from receipt history; any item previously purchased in a UAG bulk batch is identified as UAG and compared against UAG quantity purchased. Existing positive reorder points are preserved and are never overwritten by the initial setup action.
+          <strong>Calculation:</strong> Monthly usage = net issues during the available rolling four-month history divided by the actual months of history. Standard stock target = 1.5 months of usage. UAG stock target = 4 months of usage on a 3-month buying cycle. Net usage subtracts issue reversals. A part with no net issues receives a zero target and is excluded from automatic purchasing.
         </div>
 
         <div id="reorderPlanningHistoryNote" class="session-id-box">
@@ -2765,7 +2803,7 @@
             <div class="summary-value">0</div>
           </div>
           <div class="reorder-dashboard-summary-card">
-            <div class="summary-label">Need Initial Point</div>
+            <div class="summary-label">Targets Needing Sync</div>
             <div class="summary-value">0</div>
           </div>
           <div class="reorder-dashboard-summary-card">
@@ -2773,7 +2811,7 @@
             <div class="summary-value">0</div>
           </div>
           <div class="reorder-dashboard-summary-card">
-            <div class="summary-label">Source Needs Review</div>
+            <div class="summary-label">No Usage — Do Not Order</div>
             <div class="summary-value">0</div>
           </div>
         </div>
@@ -2795,23 +2833,22 @@
           </div>
 
           <div class="reorder-planning-control">
-            <label for="reorderPlanningStatusFilter">Setup Status</label>
+            <label for="reorderPlanningStatusFilter">Target Status</label>
             <select id="reorderPlanningStatusFilter" onchange="applyReorderPlanningFilters()">
               <option value="ALL">All Statuses</option>
-              <option value="NEEDS_INITIAL">Needs Initial Reorder Point</option>
-              <option value="EXISTING_REVIEW">Existing Point — Review</option>
+              <option value="NEEDS_UPDATE">Target Update Needed</option>
               <option value="CURRENT">Current</option>
-              <option value="NO_USAGE">No Four-Month Usage</option>
+              <option value="NO_USAGE">No Usage — Do Not Order</option>
             </select>
           </div>
 
-          <button id="applySelectedReorderPointsButton" class="reorder-planning-action" type="button" onclick="applySelectedInitialReorderPoints()" disabled>
-            APPLY SELECTED INITIAL POINTS
+          <button id="applySelectedReorderPointsButton" class="reorder-planning-action" type="button" onclick="syncSelectedPurchaseTargets()" disabled>
+            SYNC SELECTED STOCK TARGETS
           </button>
         </div>
 
         <div id="reorderPlanningActionStatus" class="session-id-box">
-          Select one or more rows marked “Needs Initial Reorder Point” to apply the recommendation.
+          Select one or more rows marked “Target Update Needed” to synchronize the saved stock target.
         </div>
 
         <div class="reorder-dashboard-wrapper">
@@ -2822,18 +2859,18 @@
                 <th>Part #</th>
                 <th>Description</th>
                 <th>Source</th>
-                <th>Source Basis</th>
-                <th>Total Received<br>4 Months</th>
-                <th>UAG Purchased<br>4 Months</th>
+                <th>Buy Cycle</th>
+                <th>Target<br>Coverage</th>
+                <th>Purchased<br>4 Months</th>
                 <th>Issued<br>4 Months</th>
                 <th>Issue<br>Reversals</th>
                 <th>Net Usage<br>4 Months</th>
                 <th>Average<br>Per Month</th>
                 <th>Main Warehouse<br>On Hand</th>
-                <th>Current<br>Reorder Point</th>
-                <th>Recommended<br>Reorder Point</th>
-                <th>Suggested<br>Qty to Order</th>
-                <th>UAG Purchase<br>vs. Usage</th>
+                <th>Current<br>Stock Target</th>
+                <th>Recommended<br>Stock Target</th>
+                <th>Recommended<br>Qty to Buy</th>
+                <th>Purchasing Rule</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -4361,7 +4398,7 @@ async function exportUagBulkBatchCSV() {
 
 
 
-function canManageInitialReorderPoints() {
+function canManagePurchaseTargets() {
   return ['SYSTEM_ADMIN', 'ADMIN', 'WAREHOUSE'].includes(currentWarehouseProfile?.role);
 }
 
@@ -4386,7 +4423,7 @@ async function loadReorderPlanning() {
   }
 
   const { data, error } = await client
-    .from('inventory_reorder_planning_view')
+    .from('inventory_purchase_planning_view')
     .select('*')
     .order('net_usage_qty_4m', { ascending: false })
     .order('part_number', { ascending: true });
@@ -4414,8 +4451,7 @@ async function loadReorderPlanning() {
   for (const selectedPartId of [...selectedReorderPlanningPartIds]) {
     const stillEligible = reorderPlanningData.some(row =>
       String(row.part_id) === selectedPartId &&
-      Number(row.current_reorder_point || 0) <= 0 &&
-      Number(row.recommended_reorder_point || 0) > 0
+      Number(row.current_reorder_point || 0) !== Number(row.recommended_stock_target || 0)
     );
 
     if (!stillEligible) {
@@ -4428,9 +4464,9 @@ async function loadReorderPlanning() {
   applyReorderPlanningFilters();
 
   if (actionStatus) {
-    actionStatus.textContent = canManageInitialReorderPoints()
-      ? 'Select one or more rows marked “Needs Initial Reorder Point” to apply the recommendation.'
-      : 'View only: SYSTEM_ADMIN, ADMIN, or WAREHOUSE access is required to apply reorder points.';
+    actionStatus.textContent = canManagePurchaseTargets()
+      ? 'Select one or more rows marked “Target Update Needed” to synchronize the saved stock target.'
+      : 'View only: SYSTEM_ADMIN, ADMIN, or WAREHOUSE access is required to synchronize stock targets.';
   }
 }
 
@@ -4441,9 +4477,11 @@ function updateReorderPlanningSummaryCards() {
     return;
   }
 
-  const needsInitial = reorderPlanningData.filter(row => row.review_status === 'NEEDS INITIAL REORDER POINT').length;
+  const needsSync = reorderPlanningData.filter(row =>
+    row.target_status === 'TARGET UPDATE NEEDED' || row.target_status === 'DORMANT — CLEAR TARGET'
+  ).length;
   const uagItems = reorderPlanningData.filter(row => row.has_uag_bulk_history === true).length;
-  const sourceNeedsReview = reorderPlanningData.filter(row => !row.recommended_source).length;
+  const noUsage = reorderPlanningData.filter(row => row.should_auto_order !== true).length;
 
   cards.innerHTML = `
     <div class="reorder-dashboard-summary-card">
@@ -4451,16 +4489,16 @@ function updateReorderPlanningSummaryCards() {
       <div class="summary-value">${formatNumber(reorderPlanningData.length)}</div>
     </div>
     <div class="reorder-dashboard-summary-card">
-      <div class="summary-label">Need Initial Point</div>
-      <div class="summary-value">${formatNumber(needsInitial)}</div>
+      <div class="summary-label">Targets Needing Sync</div>
+      <div class="summary-value">${formatNumber(needsSync)}</div>
     </div>
     <div class="reorder-dashboard-summary-card">
       <div class="summary-label">UAG Items</div>
       <div class="summary-value">${formatNumber(uagItems)}</div>
     </div>
     <div class="reorder-dashboard-summary-card">
-      <div class="summary-label">Source Needs Review</div>
-      <div class="summary-value">${formatNumber(sourceNeedsReview)}</div>
+      <div class="summary-label">No Usage — Do Not Order</div>
+      <div class="summary-value">${formatNumber(noUsage)}</div>
     </div>
   `;
 }
@@ -4481,10 +4519,12 @@ function updateReorderPlanningHistoryNote() {
   const requestedStart = formatDateOnly(sample.history_start_date);
   const availableStart = formatDateOnly(sample.available_history_start);
   const historyEnd = formatDateOnly(sample.history_end_date);
+  const effectiveMonths = Number(sample.effective_history_months || 0).toFixed(2);
 
   historyNote.textContent =
     `Requested four-month window: ${requestedStart} through ${historyEnd}.\n` +
     `Available inventory issuance history begins: ${availableStart}.\n` +
+    `Monthly usage currently uses ${effectiveMonths} months of available history.\n` +
     'The window advances automatically each day.';
 }
 
@@ -4512,19 +4552,15 @@ function applyReorderPlanningFilters() {
       return false;
     }
 
-    if (statusFilter === 'NEEDS_INITIAL' && row.review_status !== 'NEEDS INITIAL REORDER POINT') {
+    if (statusFilter === 'NEEDS_UPDATE' && !['TARGET UPDATE NEEDED', 'DORMANT — CLEAR TARGET'].includes(row.target_status)) {
       return false;
     }
 
-    if (statusFilter === 'EXISTING_REVIEW' && row.review_status !== 'EXISTING REORDER POINT — REVIEW') {
+    if (statusFilter === 'CURRENT' && row.target_status !== 'CURRENT') {
       return false;
     }
 
-    if (statusFilter === 'CURRENT' && row.review_status !== 'CURRENT') {
-      return false;
-    }
-
-    if (statusFilter === 'NO_USAGE' && !String(row.review_status || '').includes('NO FOUR-MONTH USAGE')) {
+    if (statusFilter === 'NO_USAGE' && row.should_auto_order === true) {
       return false;
     }
 
@@ -4537,7 +4573,7 @@ function applyReorderPlanningFilters() {
 }
 
 function getReorderPlanningStatusClass(status) {
-  if (status === 'NEEDS INITIAL REORDER POINT') {
+  if (status === 'TARGET UPDATE NEEDED') {
     return 'reorder-status-needs';
   }
 
@@ -4545,7 +4581,7 @@ function getReorderPlanningStatusClass(status) {
     return 'reorder-status-current';
   }
 
-  if (status === 'EXISTING REORDER POINT — REVIEW') {
+  if (status === 'DORMANT — CLEAR TARGET') {
     return 'reorder-status-review';
   }
 
@@ -4569,18 +4605,14 @@ function renderReorderPlanningTable() {
   reorderPlanningFilteredData.forEach(row => {
     const partId = String(row.part_id || '');
     const currentPoint = Number(row.current_reorder_point || 0);
-    const recommendedPoint = Number(row.recommended_reorder_point || 0);
-    const eligible = canManageInitialReorderPoints() && currentPoint <= 0 && recommendedPoint > 0;
+    const recommendedPoint = Number(row.recommended_stock_target || 0);
+    const eligible = canManagePurchaseTargets() && currentPoint !== recommendedPoint;
     const isSelected = selectedReorderPlanningPartIds.has(partId);
     const source = row.recommended_source || 'Needs Review';
     const sourceClass = row.has_uag_bulk_history === true
       ? 'reorder-source-uag'
       : (!row.recommended_source ? 'reorder-source-review' : '');
-    const uagVariance = Number(row.uag_purchase_usage_variance || 0);
-    const uagVarianceClass = uagVariance < 0
-      ? 'reorder-variance-negative'
-      : (uagVariance > 0 ? 'reorder-variance-positive' : '');
-    const status = row.review_status || '';
+    const status = row.target_status || '';
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -4595,18 +4627,18 @@ function renderReorderPlanningTable() {
       <td>${escapeHTML(row.part_number || '')}</td>
       <td>${escapeHTML(row.description || '')}</td>
       <td class="${sourceClass}">${escapeHTML(source)}</td>
-      <td>${escapeHTML(row.source_basis || '')}</td>
+      <td>${escapeHTML(row.purchase_cadence || '')}</td>
+      <td>${formatNumber(row.target_coverage_months)} months</td>
       <td>${formatNumber(row.total_purchased_qty_4m)}</td>
-      <td>${row.has_uag_bulk_history === true ? formatNumber(row.uag_purchased_qty_4m) : '—'}</td>
       <td>${formatNumber(row.issued_qty_4m)}</td>
       <td>${formatNumber(row.reversal_qty_4m)}</td>
       <td><strong>${formatNumber(row.net_usage_qty_4m)}</strong></td>
-      <td>${formatNumber(row.average_monthly_usage)}</td>
+      <td>${formatNumber(row.source_adjusted_average_monthly_usage)}</td>
       <td>${formatNumber(row.main_warehouse_qty_on_hand)}</td>
       <td>${formatNumber(currentPoint)}</td>
       <td><strong>${formatNumber(recommendedPoint)}</strong></td>
-      <td class="${Number(row.suggested_order_qty || 0) > 0 ? 'reorder-qty-needed' : ''}">${formatNumber(row.suggested_order_qty)}</td>
-      <td class="${row.has_uag_bulk_history === true ? uagVarianceClass : ''}">${row.has_uag_bulk_history === true ? formatNumber(uagVariance) : '—'}</td>
+      <td class="${Number(row.recommended_purchase_qty || 0) > 0 ? 'reorder-qty-needed' : ''}">${formatNumber(row.recommended_purchase_qty)}</td>
+      <td>${escapeHTML(row.purchasing_rule || '')}</td>
       <td><span class="reorder-status-badge ${getReorderPlanningStatusClass(status)}">${escapeHTML(status)}</span></td>
     `;
 
@@ -4628,8 +4660,7 @@ function toggleReorderPlanningSelection(partId, checked) {
 function toggleAllVisibleReorderPlanningRows(checked) {
   reorderPlanningFilteredData.forEach(row => {
     const eligible =
-      Number(row.current_reorder_point || 0) <= 0 &&
-      Number(row.recommended_reorder_point || 0) > 0;
+      Number(row.current_reorder_point || 0) !== Number(row.recommended_stock_target || 0);
 
     if (!eligible) {
       return;
@@ -4657,15 +4688,14 @@ function syncReorderPlanningSelectAllCheckbox() {
   }
 
   const eligibleRows = reorderPlanningFilteredData.filter(row =>
-    Number(row.current_reorder_point || 0) <= 0 &&
-    Number(row.recommended_reorder_point || 0) > 0
+    Number(row.current_reorder_point || 0) !== Number(row.recommended_stock_target || 0)
   );
 
   const selectedVisibleCount = eligibleRows.filter(row =>
     selectedReorderPlanningPartIds.has(String(row.part_id))
   ).length;
 
-  selectAll.disabled = !canManageInitialReorderPoints() || eligibleRows.length === 0;
+  selectAll.disabled = !canManagePurchaseTargets() || eligibleRows.length === 0;
   selectAll.checked = eligibleRows.length > 0 && selectedVisibleCount === eligibleRows.length;
   selectAll.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < eligibleRows.length;
 }
@@ -4679,21 +4709,20 @@ function updateReorderPlanningApplyButton() {
 
   const eligibleSelectedCount = reorderPlanningData.filter(row =>
     selectedReorderPlanningPartIds.has(String(row.part_id)) &&
-    Number(row.current_reorder_point || 0) <= 0 &&
-    Number(row.recommended_reorder_point || 0) > 0
+    Number(row.current_reorder_point || 0) !== Number(row.recommended_stock_target || 0)
   ).length;
 
-  button.disabled = !canManageInitialReorderPoints() || eligibleSelectedCount === 0;
+  button.disabled = !canManagePurchaseTargets() || eligibleSelectedCount === 0;
   button.textContent = eligibleSelectedCount > 0
-    ? `APPLY ${formatNumber(eligibleSelectedCount)} SELECTED INITIAL POINT${eligibleSelectedCount === 1 ? '' : 'S'}`
-    : 'APPLY SELECTED INITIAL POINTS';
+    ? `SYNC ${formatNumber(eligibleSelectedCount)} SELECTED STOCK TARGET${eligibleSelectedCount === 1 ? '' : 'S'}`
+    : 'SYNC SELECTED STOCK TARGETS';
 }
 
-async function applySelectedInitialReorderPoints() {
+async function syncSelectedPurchaseTargets() {
   const actionStatus = document.getElementById('reorderPlanningActionStatus');
   const button = document.getElementById('applySelectedReorderPointsButton');
 
-  if (!canManageInitialReorderPoints()) {
+  if (!canManagePurchaseTargets()) {
     if (actionStatus) {
       actionStatus.textContent = 'SYSTEM_ADMIN, ADMIN, or WAREHOUSE access is required.';
     }
@@ -4703,8 +4732,7 @@ async function applySelectedInitialReorderPoints() {
   const partIds = reorderPlanningData
     .filter(row =>
       selectedReorderPlanningPartIds.has(String(row.part_id)) &&
-      Number(row.current_reorder_point || 0) <= 0 &&
-      Number(row.recommended_reorder_point || 0) > 0
+      Number(row.current_reorder_point || 0) !== Number(row.recommended_stock_target || 0)
     )
     .map(row => row.part_id);
 
@@ -4716,8 +4744,8 @@ async function applySelectedInitialReorderPoints() {
   }
 
   const confirmed = window.confirm(
-    `Apply initial reorder points to ${partIds.length} selected part${partIds.length === 1 ? '' : 's'}?\n\n` +
-    'Existing positive reorder points will be preserved. When the preferred source is blank, the identified purchasing source will also be saved.'
+    `Synchronize stock targets for ${partIds.length} selected part${partIds.length === 1 ? '' : 's'}?\n\n` +
+    'Standard items will use 1.5 months of demonstrated usage. UAG items will use 4 months. Items with no four-month net usage will be set to zero so they are not automatically ordered.'
   );
 
   if (!confirmed) {
@@ -4730,17 +4758,17 @@ async function applySelectedInitialReorderPoints() {
   }
 
   if (actionStatus) {
-    actionStatus.textContent = 'Applying selected initial reorder points...';
+    actionStatus.textContent = 'Synchronizing selected stock targets...';
   }
 
-  const { data, error } = await client.rpc('apply_initial_inventory_reorder_points', {
+  const { data, error } = await client.rpc('sync_inventory_purchase_targets', {
     p_part_ids: partIds,
-    p_reason: 'Initial reorder point based on four-month net issuance, with UAG purchase quantities compared against actual usage.'
+    p_reason: 'Source-based purchasing target: standard items use 1.5 months of demonstrated usage, UAG items use 4 months on a 3-month buy cycle, and items with no four-month net usage use a zero target.'
   });
 
   if (error) {
     if (actionStatus) {
-      actionStatus.textContent = `Unable to apply reorder points: ${error.message}`;
+      actionStatus.textContent = `Unable to synchronize stock targets: ${error.message}`;
     }
     updateReorderPlanningApplyButton();
     return;
@@ -4755,21 +4783,26 @@ async function applySelectedInitialReorderPoints() {
 
   if (actionStatus) {
     actionStatus.textContent =
-      `Initial reorder points applied: ${formatNumber(updatedCount)}.` +
-      (skippedCount > 0 ? ` Skipped because no longer eligible or already set: ${formatNumber(skippedCount)}.` : '');
+      `Stock targets synchronized: ${formatNumber(updatedCount)}.` +
+      (skippedCount > 0 ? ` Skipped because already current or no longer available: ${formatNumber(skippedCount)}.` : '');
   }
 }
 
 async function loadCurrentReorder() {
   const summary = document.getElementById('reorderDashboardSummary');
-  const tableBody = document.getElementById('reorderDashboardTableBody');
+  const standardTableBody = document.getElementById('standardReorderTableBody');
+  const uagTableBody = document.getElementById('uagReorderTableBody');
 
   if (summary) {
     summary.textContent = 'Loading reorder dashboard...';
   }
 
-  if (tableBody) {
-    tableBody.innerHTML = '<tr class="reorder-empty-row"><td colspan="6">Loading reorder dashboard...</td></tr>';
+  if (standardTableBody) {
+    standardTableBody.innerHTML = '<tr class="reorder-empty-row"><td colspan="7">Loading standard reorder list...</td></tr>';
+  }
+
+  if (uagTableBody) {
+    uagTableBody.innerHTML = '<tr class="reorder-empty-row"><td colspan="7">Loading UAG bulk-order list...</td></tr>';
   }
 
   const { data, error } = await client
@@ -4812,6 +4845,7 @@ async function enrichReorderDashboardData(rows) {
 
   const partMapById = {};
   const partMapByNumber = {};
+  const planningMapByNumber = {};
 
   async function fetchPartsByIds(ids) {
     const chunkSize = 200;
@@ -4855,40 +4889,91 @@ async function enrichReorderDashboardData(rows) {
     }
   }
 
+  async function fetchPlanningByNumbers(numbers) {
+    const chunkSize = 200;
+
+    for (let i = 0; i < numbers.length; i += chunkSize) {
+      const chunk = numbers.slice(i, i + chunkSize);
+      const { data, error } = await client
+        .from('inventory_purchase_planning_view')
+        .select('part_id, part_number, has_uag_bulk_history, recommended_source, target_coverage_months, recommended_stock_target, purchase_cadence, purchasing_rule, source_adjusted_average_monthly_usage')
+        .in('part_number', chunk);
+
+      if (error) {
+        throw error;
+      }
+
+      (data || []).forEach(plan => {
+        planningMapByNumber[String(plan.part_number || '').toUpperCase()] = plan;
+      });
+    }
+  }
+
   if (partIds.length > 0) {
     await fetchPartsByIds(partIds);
   }
 
   if (partNumbers.length > 0) {
-    await fetchPartsByNumbers(partNumbers);
+    await Promise.all([
+      fetchPartsByNumbers(partNumbers),
+      fetchPlanningByNumbers(partNumbers)
+    ]);
   }
 
   return rows.map(row => {
     const rowPartId = row.part_id ? String(row.part_id) : '';
     const rowPartNumber = String(getFirstValue(row, ['part_number', 'item_number']) || '').toUpperCase();
     const matchingPart = partMapById[rowPartId] || partMapByNumber[rowPartNumber] || {};
+    const matchingPlan = planningMapByNumber[rowPartNumber] || {};
 
     return {
       ...row,
       part_number: getFirstValue(row, ['part_number', 'item_number']) || matchingPart.part_number || '',
       description: getFirstValue(row, ['description', 'part_description', 'item_description']) || matchingPart.description || '',
-      preferred_vendor: getFirstValue(row, ['preferred_vendor', 'recommended_source', 'vendor_name']) || matchingPart.preferred_vendor || '',
-      reorder_point: getFirstValue(row, ['reorder_point', 'reorder_setpoint', 'minimum_quantity', 'min_quantity', 'min_stock']) ?? matchingPart.reorder_point
+      preferred_vendor: matchingPlan.recommended_source || getFirstValue(row, ['preferred_vendor', 'recommended_source', 'vendor_name']) || matchingPart.preferred_vendor || '',
+      reorder_point: getFirstValue(row, ['reorder_point', 'reorder_setpoint', 'minimum_quantity', 'min_quantity', 'min_stock']) ?? matchingPart.reorder_point,
+      has_uag_bulk_history: matchingPlan.has_uag_bulk_history === true,
+      usage_target: matchingPlan.recommended_stock_target,
+      target_coverage_months: matchingPlan.target_coverage_months,
+      purchase_cadence: matchingPlan.purchase_cadence,
+      purchasing_rule: matchingPlan.purchasing_rule,
+      average_monthly_usage: matchingPlan.source_adjusted_average_monthly_usage
     };
   });
 }
 
 function renderReorderDashboardTable(rows) {
-  const tableBody = document.getElementById('reorderDashboardTableBody');
+  const standardTableBody = document.getElementById('standardReorderTableBody');
+  const uagTableBody = document.getElementById('uagReorderTableBody');
 
-  if (!tableBody) {
+  if (!standardTableBody || !uagTableBody) {
     return;
   }
 
+  const allRows = Array.isArray(rows) ? rows : [];
+  const uagRows = allRows.filter(row => {
+    const source = String(getFirstValue(row, ['preferred_vendor', 'recommended_source', 'vendor_name']) || '').trim().toUpperCase();
+    return row.has_uag_bulk_history === true || source === 'UAG';
+  });
+  const standardRows = allRows.filter(row => !uagRows.includes(row));
+
+  renderReorderDashboardRows(
+    standardTableBody,
+    standardRows,
+    'No standard parts currently need reordering.'
+  );
+  renderReorderDashboardRows(
+    uagTableBody,
+    uagRows,
+    'No UAG bulk-order items currently need reordering.'
+  );
+}
+
+function renderReorderDashboardRows(tableBody, rows, emptyMessage) {
   tableBody.innerHTML = '';
 
   if (!rows || rows.length === 0) {
-    tableBody.innerHTML = '<tr class="reorder-empty-row"><td colspan="6">No items need reordering.</td></tr>';
+    tableBody.innerHTML = `<tr class="reorder-empty-row"><td colspan="7">${escapeHTML(emptyMessage)}</td></tr>`;
     return;
   }
 
@@ -4911,6 +4996,8 @@ function renderReorderDashboardTable(rows) {
       reorderSetpoint = qtyOnHand + qtyToOrder;
     }
 
+    const usageTarget = getFirstValue(row, ['usage_target', 'recommended_stock_target']) ?? reorderSetpoint;
+
     const tr = document.createElement('tr');
     const qtyOnHandClass = qtyOnHand < 0 ? 'reorder-on-hand-negative' : '';
 
@@ -4919,6 +5006,7 @@ function renderReorderDashboardTable(rows) {
       <td>${escapeHTML(description)}</td>
       <td class="${purchasingSource === 'UAG' ? 'reorder-source-uag' : (purchasingSource === 'Needs Review' ? 'reorder-source-review' : '')}">${escapeHTML(purchasingSource)}</td>
       <td class="${qtyOnHandClass}">${formatNumber(qtyOnHand)}</td>
+      <td>${formatNumber(usageTarget)}</td>
       <td>${formatNumber(reorderSetpoint)}</td>
       <td class="reorder-qty-needed">${formatNumber(qtyToOrder)}</td>
     `;
@@ -4930,10 +5018,20 @@ function renderReorderDashboardTable(rows) {
 function updateReorderDashboardSummary(errorMessage = '') {
   const summary = document.getElementById('reorderDashboardSummary');
   const cards = document.getElementById('reorderDashboardSummaryCards');
+  const standardSummary = document.getElementById('standardReorderSummary');
+  const uagSummary = document.getElementById('uagReorderSummary');
 
   if (errorMessage) {
     if (summary) {
       summary.textContent = errorMessage;
+    }
+
+    if (standardSummary) {
+      standardSummary.textContent = errorMessage;
+    }
+
+    if (uagSummary) {
+      uagSummary.textContent = errorMessage;
     }
 
     if (cards) {
@@ -4959,6 +5057,23 @@ function updateReorderDashboardSummary(errorMessage = '') {
   const itemCount = reorderDashboardData.length;
   let totalQtyToOrder = 0;
   let highestPriorityQty = 0;
+  const uagRows = reorderDashboardData.filter(row => {
+    const source = String(getFirstValue(row, ['preferred_vendor', 'recommended_source', 'vendor_name']) || '').trim().toUpperCase();
+    return row.has_uag_bulk_history === true || source === 'UAG';
+  });
+  const standardRows = reorderDashboardData.filter(row => !uagRows.includes(row));
+
+  function summarizeRows(rows) {
+    return rows.reduce((totals, row) => {
+      const qty = Number(getFirstValue(row, ['reorder_qty', 'qty_to_order', 'quantity_to_order']) || 0);
+      totals.quantity += qty;
+      totals.highest = Math.max(totals.highest, qty);
+      return totals;
+    }, { quantity: 0, highest: 0 });
+  }
+
+  const standardTotals = summarizeRows(standardRows);
+  const uagTotals = summarizeRows(uagRows);
 
   reorderDashboardData.forEach(row => {
     const qtyToOrder = Number(getFirstValue(row, ['reorder_qty', 'qty_to_order', 'quantity_to_order']) || 0);
@@ -4988,6 +5103,20 @@ function updateReorderDashboardSummary(errorMessage = '') {
 
   if (!summary) {
     return;
+  }
+
+  if (standardSummary) {
+    standardSummary.textContent =
+      `Standard Parts Needing Order: ${formatNumber(standardRows.length)}\n` +
+      `Recommended Standard Qty: ${formatNumber(standardTotals.quantity)}\n` +
+      'Usage Coverage: 1.5 months; reviewed monthly.';
+  }
+
+  if (uagSummary) {
+    uagSummary.textContent =
+      `UAG Items Needing Order: ${formatNumber(uagRows.length)}\n` +
+      `Recommended UAG Bulk Qty: ${formatNumber(uagTotals.quantity)}\n` +
+      'Usage Coverage: 4 months; consolidated every 3 months.';
   }
 
   if (itemCount === 0) {
