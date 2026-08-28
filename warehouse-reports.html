@@ -2575,7 +2575,7 @@
       <button class="refresh-btn" onclick="loadAnnualFilterPlanning(true)">REFRESH FILTER DATA</button>
 
       <div class="status-note">
-        The current Tech Details route population controls which clients belong in the annual filter program. The Skimmer Customers file supplies filter-system tags, current monthly rates, and rate types.
+        The current Tech Details route population controls which clients belong in the annual filter program. For ADMIN and SYSTEM_ADMIN users, this is the single Skimmer Customers import for both Annual Filter Planning and Client Market Sync.
       </div>
 
       <div class="filter-planning-grid">
@@ -2585,7 +2585,7 @@
           <div class="status-note">
             <strong>Customers File Export Instructions:</strong><br>
             Skimmer &rarr; Settings &rarr; Export &rarr; Export Customers &rarr; click <strong>Export to Excel</strong>.<br>
-            Save the exported file to your desktop as a CSV file, then select that CSV file below to import.
+            Save the exported file to your desktop, then select the CSV or Excel file below. When confirmed by an ADMIN or SYSTEM_ADMIN, the import also refreshes the shared Client Market Sync data.
           </div>
 
           <label>Customers File:</label>
@@ -2595,7 +2595,7 @@
             <button class="report-btn" onclick="previewClientFilterImport()">PREVIEW FILTER IMPORT</button>
             <button id="confirmFilterImportButton" class="save-btn" onclick="confirmClientFilterImport()" disabled>CONFIRM FILTER IMPORT</button>
           </div>
-          <div id="filterImportSummary" class="session-id-box">Select a Skimmer Customers file and preview the import.</div>
+          <div id="filterImportSummary" class="session-id-box">Select one Skimmer Customers file to update Annual Filter Planning and Client Market Sync.</div>
         </div>
 
         <div class="filter-planning-panel">
@@ -2774,6 +2774,8 @@ let currentWarehouseProfile = null;
 let currentWarehouseSession = null;
 let currentFilterImportBatchId = null;
 let currentFilterImportPreview = null;
+let currentSkimmerCustomerMasterRows = [];
+let currentSkimmerCustomerFileName = '';
 let filterPurchaseForecastData = [];
 let filterStagingData = [];
 let filterChecklistData = [];
@@ -2827,16 +2829,26 @@ function setWarehouseReportTab(tabId) {
     }
   });
 
-  if (tabId === 'annualFilterPlanningTab') {
+  if (tabId === 'annualFilterPlanningTab' && currentWarehouseProfile) {
     loadAnnualFilterPlanning(false);
   }
 }
 
 function initializeWarehouseReportTabs() {
-  setWarehouseReportTab('warehouseTransactionLogTab');
+  const requestedTab = String(window.location.hash || '').replace(/^#/, '');
+  const validTabs = [
+    'warehouseTransactionLogTab',
+    'uagBulkBatchUsageTab',
+    'reorderDashboardTab',
+    'annualFilterPlanningTab'
+  ];
+
+  setWarehouseReportTab(validTabs.includes(requestedTab) ? requestedTab : 'warehouseTransactionLogTab');
 }
 
 initializeWarehouseReportTabs();
+
+window.addEventListener('hashchange', initializeWarehouseReportTabs);
 
 window.addEventListener('load', async () => {
   const hasAccess = await enforceWarehouseAccess();
@@ -2845,6 +2857,7 @@ window.addEventListener('load', async () => {
     return;
   }
 
+  initializeWarehouseReportTabs();
   await loadParts();
   await loadReorder();
 });
@@ -4368,7 +4381,7 @@ async function readSkimmerCustomersFile(file) {
     throw new Error('Missing required column(s): ' + missingHeaders.join(', '));
   }
 
-  return rawRows.map((row, index) => {
+  const filterRows = rawRows.map((row, index) => {
     const rateText = String(row.Rate ?? '').replace(/[$,]/g, '').trim();
     const monthlyRate = rateText === '' ? null : Number(rateText);
 
@@ -4382,6 +4395,95 @@ async function readSkimmerCustomersFile(file) {
       rate_type: String(row.RateType || '').trim()
     };
   });
+
+  const masterRows = rawRows.map((row, index) =>
+    mapSkimmerCustomerRowForMaster(row, index + 1)
+  );
+
+  return { filterRows, masterRows };
+}
+
+function getSkimmerCustomerValue(row, expectedHeader) {
+  const expected = String(expectedHeader || '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  const matchingKey = Object.keys(row || {}).find(key =>
+    String(key || '').replace(/[^a-z0-9]/gi, '').toLowerCase() === expected
+  );
+
+  return matchingKey ? row[matchingKey] : '';
+}
+
+function cleanSkimmerNullable(value) {
+  const cleaned = String(value ?? '').trim();
+  return cleaned === '' ? null : cleaned;
+}
+
+function parseSkimmerBoolean(value) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (['true', 'yes', 'y', '1'].includes(normalized)) return true;
+  if (['false', 'no', 'n', '0'].includes(normalized)) return false;
+  return false;
+}
+
+function parseSkimmerNumber(value) {
+  const cleaned = String(value ?? '').replace(/[$,]/g, '').trim();
+  if (cleaned === '') return null;
+  const number = Number(cleaned);
+  return Number.isFinite(number) ? number : null;
+}
+
+function parseSkimmerInteger(value) {
+  const number = parseSkimmerNumber(value);
+  return number === null ? null : Math.trunc(number);
+}
+
+function mapSkimmerCustomerRowForMaster(row, rowNumber) {
+  const get = name => getSkimmerCustomerValue(row, name);
+
+  return {
+    row_number: rowNumber,
+    full_name: cleanSkimmerNullable(get('FullName')),
+    display_as_company: parseSkimmerBoolean(get('DisplayAsCompany')),
+    mobile_phone_1: cleanSkimmerNullable(get('MobilePhone1')),
+    mobile_phone_2: cleanSkimmerNullable(get('MobilePhone2')),
+    mobile_label_1: cleanSkimmerNullable(get('MobileLabel1')),
+    mobile_label_2: cleanSkimmerNullable(get('MobileLabel2')),
+    home_phone: cleanSkimmerNullable(get('HomePhone')),
+    work_phone: cleanSkimmerNullable(get('WorkPhone')),
+    email_1: cleanSkimmerNullable(get('Email1')),
+    email_2: cleanSkimmerNullable(get('Email2')),
+    email_3: cleanSkimmerNullable(get('Email3')),
+    email_4: cleanSkimmerNullable(get('Email4')),
+    customer_notes: cleanSkimmerNullable(get('CustomerNotes')),
+    tag_list: cleanSkimmerNullable(get('TagList')),
+    billing_address: cleanSkimmerNullable(get('BillingAddress')),
+    billing_city: cleanSkimmerNullable(get('BillingCity')),
+    billing_state: cleanSkimmerNullable(get('BillingState')),
+    billing_zip: cleanSkimmerNullable(get('BillingZip')),
+    status: cleanSkimmerNullable(get('Status')),
+    location_address: cleanSkimmerNullable(get('LocationAddress')),
+    location_city: cleanSkimmerNullable(get('LocationCity')),
+    location_state: cleanSkimmerNullable(get('LocationState')),
+    location_zip: cleanSkimmerNullable(get('LocationZip')),
+    location_code: cleanSkimmerNullable(get('LocationCode')),
+    gate_code: cleanSkimmerNullable(get('GateCode')),
+    dogs_name: cleanSkimmerNullable(get('DogsName')),
+    rate: parseSkimmerNumber(get('Rate')),
+    rate_type: cleanSkimmerNullable(get('RateType')),
+    labor_cost: parseSkimmerNumber(get('LaborCost')),
+    labor_cost_type: cleanSkimmerNullable(get('LaborCostType')),
+    minutes_at_stop: parseSkimmerInteger(get('MinutesAtStop')),
+    location_notes: cleanSkimmerNullable(get('LocationNotes')),
+    lead_source: cleanSkimmerNullable(get('LeadSource')),
+    first_name: cleanSkimmerNullable(get('FirstName')),
+    last_name: cleanSkimmerNullable(get('LastName')),
+    company_name: cleanSkimmerNullable(get('CompanyName')),
+    customer_code: cleanSkimmerNullable(get('CustomerCode')),
+    full_name_or_company_display: cleanSkimmerNullable(get('FullNameOrCompanyDisplay')),
+    list_sort_name: cleanSkimmerNullable(get('ListSortName')),
+    raw_payload: row,
+    import_action: 'PENDING',
+    import_error: null
+  };
 }
 
 async function previewClientFilterImport() {
@@ -4393,18 +4495,22 @@ async function previewClientFilterImport() {
 
   currentFilterImportBatchId = null;
   currentFilterImportPreview = null;
+  currentSkimmerCustomerMasterRows = [];
+  currentSkimmerCustomerFileName = '';
   confirmButton.disabled = true;
   summary.textContent = 'Reading Skimmer Customers file...';
   detailBody.innerHTML = '<tr><td colspan="10">Reading file...</td></tr>';
 
   try {
-    const rows = await readSkimmerCustomersFile(file);
+    const { filterRows, masterRows } = await readSkimmerCustomersFile(file);
+    currentSkimmerCustomerMasterRows = masterRows;
+    currentSkimmerCustomerFileName = file.name;
 
-    summary.textContent = `Starting import preview for ${formatNumber(rows.length)} source rows...`;
+    summary.textContent = `Starting import preview for ${formatNumber(filterRows.length)} source rows...`;
 
     const { data: batchId, error: startError } = await client.rpc('start_client_filter_import', {
       p_source_file_name: file.name,
-      p_source_row_count: rows.length
+      p_source_row_count: filterRows.length
     });
 
     if (startError) throw startError;
@@ -4412,7 +4518,7 @@ async function previewClientFilterImport() {
 
     const { error: loadError } = await client.rpc('load_client_filter_import_rows', {
       p_import_batch_id: batchId,
-      p_rows: rows
+      p_rows: filterRows
     });
 
     if (loadError) throw loadError;
@@ -4431,6 +4537,8 @@ async function previewClientFilterImport() {
 
     confirmButton.disabled = String(currentFilterImportPreview?.import_status || '').toUpperCase() !== 'READY';
   } catch (error) {
+    currentSkimmerCustomerMasterRows = [];
+    currentSkimmerCustomerFileName = '';
     console.error('Filter import preview error:', error);
     summary.textContent = error.message || String(error);
     detailBody.innerHTML = `<tr><td colspan="10">${escapeHTML(error.message || String(error))}</td></tr>`;
@@ -4525,7 +4633,7 @@ async function confirmClientFilterImport() {
   }
 
   confirmButton.disabled = true;
-  summary.textContent = 'Confirming filter import...';
+  summary.textContent = 'Confirming filter import and updating shared Skimmer client data...';
 
   const { data, error } = await client.rpc('confirm_client_filter_import', {
     p_import_batch_id: currentFilterImportBatchId
@@ -4537,10 +4645,28 @@ async function confirmClientFilterImport() {
   }
 
   const result = Array.isArray(data) ? data[0] : data;
+  const canSyncClientMaster = ['ADMIN', 'SYSTEM_ADMIN'].includes(currentWarehouseProfile?.role);
+  let clientMasterSyncResult = null;
+  let clientMasterSyncError = null;
+
+  if (canSyncClientMaster) {
+    try {
+      clientMasterSyncResult = await syncSkimmerClientMasterFromAnnualFilterImport();
+    } catch (syncError) {
+      clientMasterSyncError = syncError;
+      console.error('Shared Skimmer client master sync error:', syncError);
+    }
+  }
+
   summary.textContent =
     `Status: ${result?.import_status || 'COMPLETED'}\n` +
     `Assignments Applied: ${formatNumber(result?.assignments_applied || 0)}\n` +
-    `Assignments Deactivated: ${formatNumber(result?.assignments_deactivated || 0)}`;
+    `Assignments Deactivated: ${formatNumber(result?.assignments_deactivated || 0)}\n` +
+    (!canSyncClientMaster
+      ? 'Client Market Sync: NOT UPDATED — an ADMIN or SYSTEM_ADMIN must confirm the shared import'
+      : clientMasterSyncError
+      ? `Client Market Sync: FAILED — ${clientMasterSyncError.message || String(clientMasterSyncError)}`
+      : `Client Market Sync: ${clientMasterSyncResult?.status || 'PROCESSED'} — ${formatNumber(clientMasterSyncResult?.total_rows || 0)} customer rows shared`);
 
   await Promise.all([
     loadClientFilterImportHistory(),
@@ -4550,6 +4676,53 @@ async function confirmClientFilterImport() {
   ]);
 
   await loadRouteTechFilterReports();
+}
+
+async function syncSkimmerClientMasterFromAnnualFilterImport() {
+  if (!currentSkimmerCustomerMasterRows.length || !currentSkimmerCustomerFileName) {
+    throw new Error('The full Skimmer Customers data is no longer available. Preview the file again before confirming.');
+  }
+
+  const uploadedBy =
+    currentWarehouseProfile?.full_name ||
+    currentWarehouseSession?.user?.email ||
+    'Annual Filter Planning';
+
+  const { data: batch, error: batchError } = await client
+    .from('skimmer_import_batches')
+    .insert({
+      file_name: currentSkimmerCustomerFileName,
+      uploaded_by: uploadedBy,
+      total_rows: currentSkimmerCustomerMasterRows.length,
+      import_status: 'UPLOADED',
+      notes: `Automatically synchronized from Annual Filter Planning batch ${currentFilterImportBatchId}`
+    })
+    .select('id')
+    .single();
+
+  if (batchError) throw batchError;
+
+  const batchId = batch.id;
+  const rows = currentSkimmerCustomerMasterRows.map(row => ({
+    ...row,
+    batch_id: batchId
+  }));
+
+  const chunkSize = 150;
+  for (let index = 0; index < rows.length; index += chunkSize) {
+    const { error: insertError } = await client
+      .from('skimmer_client_import_raw')
+      .insert(rows.slice(index, index + chunkSize));
+
+    if (insertError) throw insertError;
+  }
+
+  const { data: processResult, error: processError } = await client.rpc('process_skimmer_import_batch', {
+    p_batch_id: batchId
+  });
+
+  if (processError) throw processError;
+  return processResult || { status: 'PROCESSED', total_rows: rows.length };
 }
 
 async function loadClientFilterImportHistory() {
