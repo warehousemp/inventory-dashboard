@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purchasing - Molinari Pools</title>
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="shared-navigation.css">
+
+  <meta name="theme-color" content="#0b3c5d">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #f4f8fb;
+      color: #1f2933;
+      font-family: Arial, sans-serif;
+    }
+
+    .hidden { display: none !important; }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 30px;
+      background: #0b3c5d;
+      color: #fff;
+    }
+
+    .page-header h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .page-header p {
+      margin: 4px 0 0;
+      color: #dbeafe;
+      font-size: 13px;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+    }
+
+    .refresh-btn,
+    .print-btn,
+    .primary-btn,
+    .logout-btn,
+    .link-btn {
+      padding: 10px 14px;
+    }
+
+    .refresh-btn,
+    .print-btn,
+    .primary-btn {
+      background: #0b3c5d;
+      color: #fff;
+    }
+
+    .logout-btn {
+      background: #b91c1c;
+      color: #fff;
+    }
+
+    .link-btn {
+      display: inline-block;
+      border-radius: 8px;
+      background: #0b3c5d;
+      color: #fff;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .page-shell {
+      width: min(1680px, 100%);
+      margin: 24px auto 40px;
+      padding: 0 18px;
+    }
+
+    .card {
+      margin-bottom: 22px;
+      padding: 22px;
+      border: 1px solid #dbe5ee;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 5px 16px rgba(15, 23, 42, .07);
+    }
+
+    .card h2,
+    .card h3 {
+      margin-top: 0;
+      color: #0b3c5d;
+    }
+
+    .access-card {
+      max-width: 680px;
+      margin: 55px auto;
+    }
+
+    .access-actions,
+    .section-heading,
+    .planning-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .status-note,
+    .warning-note,
+    .error-note {
+      margin: 12px 0 18px;
+      padding: 13px 15px;
+      border-radius: 9px;
+      white-space: pre-line;
+      line-height: 1.45;
+    }
+
+    .status-note {
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      color: #1e3a5f;
+    }
+
+    .warning-note {
+      border: 1px solid #fed7aa;
+      background: #fff7ed;
+      color: #9a3412;
+    }
+
+    .error-note {
+      border: 1px solid #fecaca;
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(190px, 1fr));
+      gap: 12px;
+      margin: 16px 0 22px;
+    }
+
+    .summary-card {
+      min-height: 102px;
+      padding: 16px;
+      border: 1px solid #d8e2ec;
+      border-radius: 11px;
+      background: #f8fafc;
+    }
+
+    .summary-label {
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .summary-value {
+      margin-top: 8px;
+      color: #0b3c5d;
+      font-size: 25px;
+      font-weight: 900;
+    }
+
+    .summary-detail {
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .order-section {
+      margin-top: 26px;
+      padding-top: 20px;
+      border-top: 2px solid #e2e8f0;
+    }
+
+    .order-section:first-of-type {
+      margin-top: 12px;
+    }
+
+    .section-total {
+      margin: 10px 0 12px;
+      padding: 12px 14px;
+      border-radius: 9px;
+      background: #eef4f8;
+      color: #0b3c5d;
+      font-weight: 900;
+      white-space: pre-line;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow: auto;
+      border: 1px solid #d8e2ec;
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    .order-table {
+      table-layout: fixed;
+      min-width: 1330px;
+    }
+
+    th,
+    td {
+      padding: 11px 10px;
+      border-bottom: 1px solid #dbe5ee;
+      vertical-align: middle;
+      font-size: 13px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #d1fae5;
+      color: #0f172a;
+      font-weight: 900;
+      text-align: left;
+    }
+
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #f8fbfd; }
+
+    .order-table th:nth-child(1), .order-table td:nth-child(1) { width: 130px; }
+    .order-table th:nth-child(2), .order-table td:nth-child(2) { width: 300px; }
+    .order-table th:nth-child(3), .order-table td:nth-child(3) { width: 135px; }
+    .order-table th:nth-child(4), .order-table td:nth-child(4) { width: 105px; }
+    .order-table th:nth-child(5), .order-table td:nth-child(5) { width: 125px; }
+    .order-table th:nth-child(6), .order-table td:nth-child(6) { width: 125px; }
+    .order-table th:nth-child(7), .order-table td:nth-child(7) { width: 135px; }
+    .order-table th:nth-child(8), .order-table td:nth-child(8) { width: 135px; }
+    .order-table th:nth-child(9), .order-table td:nth-child(9) { width: 140px; }
+
+    .order-table th:nth-child(n+4),
+    .order-table td:nth-child(n+4) {
+      text-align: center;
+    }
+
+    .part-number {
+      color: #0b3c5d;
+      font-weight: 900;
+    }
+
+    .source-uag {
+      color: #0f766e;
+      font-weight: 900;
+    }
+
+    .qty-order,
+    .money-total {
+      color: #b91c1c;
+      font-weight: 900;
+    }
+
+    .cost-missing {
+      color: #b45309;
+      font-weight: 900;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: minmax(260px, 2fr) minmax(180px, 1fr) minmax(200px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin: 16px 0;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 5px;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .field input,
+    .field select,
+    .program-select {
+      width: 100%;
+      margin: 0;
+      padding: 9px 10px;
+      border: 1px solid #94a3b8;
+      border-radius: 7px;
+      background: #fff;
+      color: #0f172a;
+    }
+
+    .planning-table {
+      min-width: 2440px;
+    }
+
+    .planning-table th,
+    .planning-table td {
+      white-space: nowrap;
+    }
+
+    .planning-table th:nth-child(3),
+    .planning-table td:nth-child(3),
+    .planning-table th:nth-child(5),
+    .planning-table td:nth-child(5),
+    .planning-table th:nth-child(17),
+    .planning-table td:nth-child(17) {
+      min-width: 260px;
+      white-space: normal;
+    }
+
+    .planning-table th:nth-child(n+7):nth-child(-n+16),
+    .planning-table td:nth-child(n+7):nth-child(-n+16) {
+      text-align: center;
+    }
+
+    .program-select {
+      min-width: 145px;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .program-basis {
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 700;
+      white-space: normal;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .status-needs { background: #fee2e2; color: #991b1b; }
+    .status-current { background: #dcfce7; color: #166534; }
+    .status-review { background: #ffedd5; color: #9a3412; }
+
+    @media (max-width: 1050px) {
+      .summary-grid { grid-template-columns: repeat(2, minmax(190px, 1fr)); }
+      .filters { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 650px) {
+      .page-header { padding: 16px 18px; }
+      .page-shell { padding: 0 10px; }
+      .card { padding: 16px; }
+      .summary-grid, .filters { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      #sharedNavigation,
+      .page-header,
+      .access-card,
+      .planning-card,
+      .print-btn,
+      .refresh-btn {
+        display: none !important;
+      }
+
+      body { background: #fff; }
+      .page-shell { width: 100%; margin: 0; padding: 0; }
+      .card { box-shadow: none; border: 0; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="sharedNavigation"></div>
+
+  <header class="page-header">
+    <div>
+      <h1>Molinari Pools – Purchasing</h1>
+      <p>Usage-based stock targets and purchase-order recommendations</p>
+    </div>
+    <button class="refresh-btn" type="button" onclick="refreshPurchasingPage()">REFRESH</button>
+  </header>
+
+  <main class="page-shell">
+    <section id="accessGate" class="card access-card">
+      <h2>Purchasing Access Required</h2>
+      <div id="accessMessage" class="warning-note">Checking purchasing access...</div>
+      <div class="access-actions">
+        <a class="link-btn" href="login.html">GO TO LOGIN</a>
+        <a class="link-btn" href="index.html">BACK TO MAIN MENU</a>
+        <button class="logout-btn" type="button" onclick="purchasingLogout()">LOGOUT</button>
+      </div>
+    </section>
+
+    <div id="purchasingContent" class="hidden">
+      <section class="card">
+        <h2>Current Purchase Recommendations</h2>
+
+        <div class="status-note">
+          Standard parts target 1.5 months of demonstrated usage. Parts explicitly designated as UAG Bulk target four months and are purchased on a consolidated three-month cycle. Vendor and Purchase Program are separate—a Standard item may still be purchased from UAG.
+        </div>
+
+        <div id="orderSummaryCards" class="summary-grid"></div>
+        <div id="orderLoadStatus" class="status-note">Loading purchasing recommendations...</div>
+
+        <section class="order-section" aria-labelledby="standardOrderHeading">
+          <div class="section-heading">
+            <h3 id="standardOrderHeading">Standard Parts Order</h3>
+            <button class="print-btn" type="button" onclick="printOrderReport('STANDARD')">PRINT STANDARD ORDER REPORT</button>
+          </div>
+          <div id="standardOrderTotal" class="section-total">Loading Standard Parts Order total...</div>
+          <div class="table-wrap">
+            <table class="order-table">
+              <thead>
+                <tr>
+                  <th>Part #</th>
+                  <th>Description</th>
+                  <th>Purchasing Source</th>
+                  <th>Qty On Hand</th>
+                  <th>Usage (1.5 Months)</th>
+                  <th>Reorder Setpoint</th>
+                  <th>Recommended Reorder</th>
+                  <th>Last Purchased Unit Cost</th>
+                  <th>Total Reorder $</th>
+                </tr>
+              </thead>
+              <tbody id="standardOrderTableBody">
+                <tr><td colspan="9">Loading Standard Parts Order...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="order-section" aria-labelledby="uagOrderHeading">
+          <div class="section-heading">
+            <h3 id="uagOrderHeading">UAG Bulk Order</h3>
+            <button class="print-btn" type="button" onclick="printOrderReport('UAG_BULK')">PRINT UAG BULK ORDER REPORT</button>
+          </div>
+          <div id="uagOrderTotal" class="section-total">Loading UAG Bulk Order total...</div>
+          <div class="table-wrap">
+            <table class="order-table">
+              <thead>
+                <tr>
+                  <th>Part #</th>
+                  <th>Description</th>
+                  <th>Purchasing Source</th>
+                  <th>Qty On Hand</th>
+                  <th>Usage (4 Months)</th>
+                  <th>Reorder Setpoint</th>
+                  <th>Recommended Reorder</th>
+                  <th>Last Purchased Unit Cost</th>
+                  <th>Total Reorder $</th>
+                </tr>
+              </thead>
+              <tbody id="uagOrderTableBody">
+                <tr><td colspan="9">Loading UAG Bulk Order...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="card planning-card">
+        <h2>Usage-Based Purchase Target Planning</h2>
+        <div class="status-note">
+          Monthly usage equals net issues during the rolling four-month window divided by the available history. Use Purchase Program to move a part between Standard and UAG Bulk. Changing a program recalculates the recommendation; use Sync Selected Stock Targets to save the recommended setpoint.
+        </div>
+
+        <div id="planningHistoryNote" class="status-note">Loading planning history...</div>
+        <div id="planningSummaryCards" class="summary-grid"></div>
+
+        <div class="filters">
+          <div class="field">
+            <label for="planningSearch">Search Part or Description</label>
+            <input id="planningSearch" type="search" placeholder="Search part number or description" oninput="applyPlanningFilters()">
+          </div>
+          <div class="field">
+            <label for="planningProgramFilter">Purchase Program</label>
+            <select id="planningProgramFilter" onchange="applyPlanningFilters()">
+              <option value="ALL">All Programs</option>
+              <option value="STANDARD">Standard</option>
+              <option value="UAG_BULK">UAG Bulk</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="planningStatusFilter">Target Status</label>
+            <select id="planningStatusFilter" onchange="applyPlanningFilters()">
+              <option value="ALL">All Statuses</option>
+              <option value="NEEDS_UPDATE">Target Update Needed</option>
+              <option value="CURRENT">Current</option>
+              <option value="NO_USAGE">No Usage — Do Not Order</option>
+            </select>
+          </div>
+          <button id="syncSelectedButton" class="primary-btn" type="button" onclick="syncSelectedStockTargets()" disabled>
+            SYNC SELECTED STOCK TARGETS
+          </button>
+        </div>
+
+        <div id="planningActionStatus" class="status-note">
+          Select one or more rows marked Target Update Needed to synchronize the saved stock target.
+        </div>
+
+        <div class="table-wrap">
+          <table class="planning-table">
+            <thead>
+              <tr>
+                <th><input id="planningSelectAll" type="checkbox" aria-label="Select all visible eligible parts" onchange="toggleAllVisiblePlanningRows(this.checked)"></th>
+                <th>Part #</th>
+                <th>Description</th>
+                <th>Source</th>
+                <th>Purchase Program</th>
+                <th>Buy Cycle</th>
+                <th>Target Coverage</th>
+                <th>Purchased 4 Months</th>
+                <th>Issued 4 Months</th>
+                <th>Issue Reversals</th>
+                <th>Net Usage 4 Months</th>
+                <th>Average Per Month</th>
+                <th>Main Warehouse On Hand</th>
+                <th>Current Stock Target</th>
+                <th>Recommended Stock Target</th>
+                <th>Recommended Qty to Buy</th>
+                <th>Purchasing Rule</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="planningTableBody">
+              <tr><td colspan="18">Loading purchase-target planning...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="shared-navigation.js"></script>
+  <script>
+    const SUPABASE_URL = 'https://icqkuhbhcennhhbbwqgo.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentProfile = null;
+    let currentSession = null;
+    let orderRows = [];
+    let planningRows = [];
+    let filteredPlanningRows = [];
+    const selectedPlanningPartIds = new Set();
+
+    window.addEventListener('load', async () => {
+      const hasAccess = await enforcePurchasingAccess();
+      if (!hasAccess) return;
+      await loadPurchasingPage();
+    });
+
+    async function enforcePurchasingAccess() {
+      showAccessGate('Checking purchasing access...', 'warning');
+
+      const { data: sessionData, error: sessionError } = await client.auth.getSession();
+      if (sessionError) {
+        showAccessGate('Unable to verify login session: ' + sessionError.message, 'error');
+        return false;
+      }
+
+      const session = sessionData?.session;
+      if (!session?.user) {
+        showAccessGate('You must be logged in as a SYSTEM_ADMIN, ADMIN, WAREHOUSE, or PROJECTS user to access Purchasing.', 'error');
+        return false;
+      }
+
+      const { data: profile, error: profileError } = await client
+        .from('user_profiles')
+        .select('id, full_name, role, active')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profileError) {
+        showAccessGate('Login found, but the user profile could not be loaded: ' + profileError.message, 'error');
+        return false;
+      }
+
+      const allowedRoles = ['SYSTEM_ADMIN', 'ADMIN', 'WAREHOUSE', 'PROJECTS'];
+      if (!profile?.active || !allowedRoles.includes(profile.role)) {
+        showAccessGate(`Access denied. This page requires SYSTEM_ADMIN, ADMIN, WAREHOUSE, or PROJECTS access.`, 'error');
+        return false;
+      }
+
+      currentProfile = profile;
+      currentSession = session;
+      document.getElementById('accessGate')?.classList.add('hidden');
+      document.getElementById('purchasingContent')?.classList.remove('hidden');
+      return true;
+    }
+
+    function showAccessGate(message, type) {
+      const gate = document.getElementById('accessGate');
+      const content = document.getElementById('purchasingContent');
+      const box = document.getElementById('accessMessage');
+      gate?.classList.remove('hidden');
+      content?.classList.add('hidden');
+      if (box) {
+        box.className = type === 'error' ? 'error-note' : 'warning-note';
+        box.textContent = message;
+      }
+    }
+
+    async function purchasingLogout() {
+      await client.auth.signOut();
+      currentProfile = null;
+      currentSession = null;
+      window.location.href = 'login.html';
+    }
+
+    async function appLogout() {
+      await purchasingLogout();
+    }
+
+    function canManagePurchasing() {
+      return ['SYSTEM_ADMIN', 'ADMIN', 'WAREHOUSE'].includes(currentProfile?.role);
+    }
+
+    async function loadPurchasingPage() {
+      await Promise.all([loadOrderRecommendations(), loadPlanningRows()]);
+    }
+
+    async function loadOrderRecommendations() {
+      const status = document.getElementById('orderLoadStatus');
+      if (status) status.textContent = 'Loading purchasing recommendations...';
+
+      const { data, error } = await client
+        .from('inventory_purchasing_order_view')
+        .select('*')
+        .order('recommended_reorder', { ascending: false })
+        .order('part_number', { ascending: true });
+
+      if (error) {
+        orderRows = [];
+        if (status) {
+          status.className = 'error-note';
+          status.textContent = 'Unable to load purchase recommendations: ' + error.message;
+        }
+        renderOrderSections();
+        return;
+      }
+
+      orderRows = data || [];
+      if (status) {
+        status.className = 'status-note';
+        status.textContent = `Loaded ${formatNumber(orderRows.length)} current purchase recommendations. Dollar totals use the latest valid paid receipt cost for each part.`;
+      }
+      renderOrderSections();
+    }
+
+    function getProgramRows(program) {
+      return orderRows.filter(row =>
+        program === 'UAG_BULK'
+          ? row.is_uag_bulk_order === true
+          : row.is_uag_bulk_order !== true
+      );
+    }
+
+    function summarizeOrderRows(rows) {
+      return rows.reduce((summary, row) => {
+        summary.quantity += Number(row.recommended_reorder || 0);
+        if (row.last_purchased_unit_cost === null || row.last_purchased_unit_cost === undefined) {
+          summary.missingCost += 1;
+        } else {
+          summary.amount += Number(row.total_reorder_amount || 0);
+        }
+        return summary;
+      }, { items: rows.length, quantity: 0, amount: 0, missingCost: 0 });
+    }
+
+    function renderOrderSections() {
+      const standardRows = getProgramRows('STANDARD');
+      const uagRows = getProgramRows('UAG_BULK');
+      const standardSummary = summarizeOrderRows(standardRows);
+      const uagSummary = summarizeOrderRows(uagRows);
+
+      renderSummaryCards(standardSummary, uagSummary);
+      renderOrderTable('standardOrderTableBody', standardRows, 'No Standard parts currently need ordering.');
+      renderOrderTable('uagOrderTableBody', uagRows, 'No UAG Bulk parts currently need ordering.');
+      renderSectionTotal('standardOrderTotal', 'Standard Parts Order Total Amount', standardSummary);
+      renderSectionTotal('uagOrderTotal', 'UAG BULK ORDER Total Amount', uagSummary);
+    }
+
+    function renderSummaryCards(standard, uag) {
+      const cards = document.getElementById('orderSummaryCards');
+      if (!cards) return;
+
+      cards.innerHTML = `
+        <div class="summary-card">
+          <div class="summary-label">Standard Items</div>
+          <div class="summary-value">${formatNumber(standard.items)}</div>
+          <div class="summary-detail">${formatNumber(standard.quantity)} units recommended</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Standard Parts Order Total</div>
+          <div class="summary-value">${formatCurrency(standard.amount)}</div>
+          <div class="summary-detail">${costCoverageText(standard)}</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">UAG Bulk Items</div>
+          <div class="summary-value">${formatNumber(uag.items)}</div>
+          <div class="summary-detail">${formatNumber(uag.quantity)} units recommended</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">UAG Bulk Order Total</div>
+          <div class="summary-value">${formatCurrency(uag.amount)}</div>
+          <div class="summary-detail">${costCoverageText(uag)}</div>
+        </div>`;
+    }
+
+    function costCoverageText(summary) {
+      return summary.missingCost > 0
+        ? `${formatNumber(summary.missingCost)} part cost${summary.missingCost === 1 ? '' : 's'} unavailable`
+        : 'All line-item costs available';
+    }
+
+    function renderSectionTotal(elementId, label, summary) {
+      const element = document.getElementById(elementId);
+      if (!element) return;
+      element.textContent =
+        `${label}: ${formatCurrency(summary.amount)}\n` +
+        `Items: ${formatNumber(summary.items)} | Recommended Units: ${formatNumber(summary.quantity)}` +
+        (summary.missingCost > 0
+          ? ` | Cost unavailable for ${formatNumber(summary.missingCost)} part${summary.missingCost === 1 ? '' : 's'}`
+          : ' | All costs available');
+    }
+
+    function renderOrderTable(tableBodyId, rows, emptyMessage) {
+      const tableBody = document.getElementById(tableBodyId);
+      if (!tableBody) return;
+
+      if (!rows.length) {
+        tableBody.innerHTML = `<tr><td colspan="9">${escapeHTML(emptyMessage)}</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = rows.map(row => {
+        const costMissing = row.last_purchased_unit_cost === null || row.last_purchased_unit_cost === undefined;
+        const source = row.purchasing_source || 'Needs Review';
+        return `
+          <tr>
+            <td class="part-number">${escapeHTML(row.part_number || '')}</td>
+            <td>${escapeHTML(row.description || '')}</td>
+            <td class="${String(source).toUpperCase() === 'UAG' ? 'source-uag' : ''}">${escapeHTML(source)}</td>
+            <td>${formatNumber(row.qty_on_hand)}</td>
+            <td>${formatNumber(row.usage_target)}</td>
+            <td>${formatNumber(row.reorder_setpoint)}</td>
+            <td class="qty-order">${formatNumber(row.recommended_reorder)}</td>
+            <td class="${costMissing ? 'cost-missing' : ''}" title="${costMissing ? 'No valid paid receipt cost is available.' : escapeHTML(costDetail(row))}">
+              ${costMissing ? 'Cost unavailable' : formatCurrency(row.last_purchased_unit_cost)}
+            </td>
+            <td class="${costMissing ? 'cost-missing' : 'money-total'}">
+              ${costMissing ? 'Cost unavailable' : formatCurrency(row.total_reorder_amount)}
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    function costDetail(row) {
+      const pieces = [];
+      if (row.last_purchase_vendor) pieces.push(row.last_purchase_vendor);
+      if (row.last_purchased_at) pieces.push(formatDate(row.last_purchased_at));
+      return pieces.length ? `Last paid receipt: ${pieces.join(' on ')}` : 'Latest paid receipt cost';
+    }
+
+    function printOrderReport(program) {
+      const isUagBulk = program === 'UAG_BULK';
+      const rows = getProgramRows(program);
+      if (!rows.length) {
+        window.alert(isUagBulk ? 'There are no UAG Bulk items to print.' : 'There are no Standard items to print.');
+        return;
+      }
+
+      const summary = summarizeOrderRows(rows);
+      const title = isUagBulk ? 'UAG Bulk Order Report' : 'Standard Parts Order Report';
+      const usageHeading = isUagBulk ? 'Usage (4 Months)' : 'Usage (1.5 Months)';
+      const rule = isUagBulk
+        ? 'Four months of demonstrated usage; consolidated purchase every three months.'
+        : 'One and one-half months of demonstrated usage; reviewed monthly.';
+
+      const lines = rows.map(row => {
+        const costMissing = row.last_purchased_unit_cost === null || row.last_purchased_unit_cost === undefined;
+        return `<tr>
+          <td>${escapeHTML(row.part_number || '')}</td>
+          <td>${escapeHTML(row.description || '')}</td>
+          <td>${escapeHTML(row.purchasing_source || 'Needs Review')}</td>
+          <td class="number">${formatNumber(row.qty_on_hand)}</td>
+          <td class="number">${formatNumber(row.usage_target)}</td>
+          <td class="number">${formatNumber(row.reorder_setpoint)}</td>
+          <td class="number strong">${formatNumber(row.recommended_reorder)}</td>
+          <td class="number">${costMissing ? 'Unavailable' : formatCurrency(row.last_purchased_unit_cost)}</td>
+          <td class="number strong">${costMissing ? 'Unavailable' : formatCurrency(row.total_reorder_amount)}</td>
+        </tr>`;
+      }).join('');
+
+      const printWindow = window.open('', '_blank', 'width=1400,height=900');
+      if (!printWindow) {
+        window.alert('Pop-up blocked. Allow pop-ups and try printing again.');
+        return;
+      }
+
+      printWindow.document.write(`<!doctype html>
+<html><head><title>${escapeHTML(title)}</title><style>
+  body{font-family:Arial,sans-serif;color:#111;margin:24px}
+  h1{margin:0 0 5px;color:#0b3c5d;font-size:23px}
+  .meta{margin-bottom:15px;font-size:11px;line-height:1.5}
+  .total{margin:12px 0;padding:10px;border:1px solid #9ca3af;background:#f3f4f6;font-size:14px;font-weight:800}
+  table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9px}
+  th,td{border:1px solid #7c8793;padding:5px;vertical-align:middle}
+  th{background:#d1fae5;text-align:left}
+  th:nth-child(1){width:9%}th:nth-child(2){width:25%}th:nth-child(3){width:10%}
+  th:nth-child(4),th:nth-child(5),th:nth-child(6),th:nth-child(7){width:9%}
+  th:nth-child(8),th:nth-child(9){width:10%}
+  .number{text-align:center}.strong{font-weight:900}
+  @page{size:landscape;margin:.35in}
+</style></head><body>
+  <h1>${escapeHTML(title)}</h1>
+  <div class="meta">
+    Generated: ${escapeHTML(new Date().toLocaleString())}<br>
+    Purchasing Rule: ${escapeHTML(rule)}
+  </div>
+  <div class="total">
+    ${escapeHTML(isUagBulk ? 'UAG BULK ORDER Total Amount' : 'Standard Parts Order Total Amount')}: ${formatCurrency(summary.amount)}<br>
+    Items: ${formatNumber(summary.items)} | Recommended Units: ${formatNumber(summary.quantity)}${summary.missingCost ? ` | Cost unavailable for ${formatNumber(summary.missingCost)} part(s)` : ''}
+  </div>
+  <table><thead><tr>
+    <th>Part #</th><th>Description</th><th>Purchasing Source</th><th>Qty On Hand</th>
+    <th>${escapeHTML(usageHeading)}</th><th>Reorder Setpoint</th><th>Recommended Reorder</th>
+    <th>Last Purchased Unit Cost</th><th>Total Reorder $</th>
+  </tr></thead><tbody>${lines}</tbody></table>
+</body></html>`);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+    }
+
+    async function loadPlanningRows() {
+      const tableBody = document.getElementById('planningTableBody');
+      if (tableBody) tableBody.innerHTML = '<tr><td colspan="18">Loading purchase-target planning...</td></tr>';
+
+      const { data, error } = await client
+        .from('inventory_purchase_planning_view')
+        .select('*')
+        .order('net_usage_qty_4m', { ascending: false })
+        .order('part_number', { ascending: true });
+
+      if (error) {
+        planningRows = [];
+        filteredPlanningRows = [];
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="18">${escapeHTML(error.message)}</td></tr>`;
+        updatePlanningSummary();
+        return;
+      }
+
+      planningRows = data || [];
+      for (const id of [...selectedPlanningPartIds]) {
+        const eligible = planningRows.some(row =>
+          String(row.part_id) === id && Number(row.current_reorder_point || 0) !== Number(row.recommended_stock_target || 0)
+        );
+        if (!eligible) selectedPlanningPartIds.delete(id);
+      }
+
+      updatePlanningSummary();
+      updatePlanningHistoryNote();
+      applyPlanningFilters();
+
+      const actionStatus = document.getElementById('planningActionStatus');
+      if (actionStatus) {
+        actionStatus.textContent = canManagePurchasing()
+          ? 'Select one or more rows marked Target Update Needed to synchronize the saved stock target.'
+          : 'View only: SYSTEM_ADMIN, ADMIN, or WAREHOUSE access is required to change programs or stock targets.';
+      }
+    }
+
+    function updatePlanningSummary() {
+      const cards = document.getElementById('planningSummaryCards');
+      if (!cards) return;
+
+      const needsSync = planningRows.filter(row => ['TARGET UPDATE NEEDED', 'DORMANT — CLEAR TARGET', 'DO NOT STOCK — CLEAR TARGET'].includes(row.target_status)).length;
+      const uagBulk = planningRows.filter(row => row.is_uag_bulk_order === true).length;
+      const noUsage = planningRows.filter(row => row.should_auto_order !== true).length;
+
+      cards.innerHTML = `
+        <div class="summary-card"><div class="summary-label">Parts Reviewed</div><div class="summary-value">${formatNumber(planningRows.length)}</div></div>
+        <div class="summary-card"><div class="summary-label">Targets Needing Sync</div><div class="summary-value">${formatNumber(needsSync)}</div></div>
+        <div class="summary-card"><div class="summary-label">UAG Bulk Items</div><div class="summary-value">${formatNumber(uagBulk)}</div></div>
+        <div class="summary-card"><div class="summary-label">No Usage — Do Not Order</div><div class="summary-value">${formatNumber(noUsage)}</div></div>`;
+    }
+
+    function updatePlanningHistoryNote() {
+      const note = document.getElementById('planningHistoryNote');
+      if (!note) return;
+      if (!planningRows.length) {
+        note.textContent = 'No purchase-target planning history is available.';
+        return;
+      }
+
+      const sample = planningRows[0];
+      note.textContent =
+        `Rolling history window: ${formatDate(sample.history_start_date)} through ${formatDate(sample.history_end_date)}.\n` +
+        `Available issuance history begins: ${formatDate(sample.available_history_start)}. The window advances automatically each day.`;
+    }
+
+    function applyPlanningFilters() {
+      const search = String(document.getElementById('planningSearch')?.value || '').trim().toUpperCase();
+      const program = document.getElementById('planningProgramFilter')?.value || 'ALL';
+      const status = document.getElementById('planningStatusFilter')?.value || 'ALL';
+
+      filteredPlanningRows = planningRows.filter(row => {
+        const searchable = `${row.part_number || ''} ${row.description || ''}`.toUpperCase();
+        if (search && !searchable.includes(search)) return false;
+        if (program !== 'ALL' && row.purchase_program !== program) return false;
+        if (status === 'NEEDS_UPDATE' && !['TARGET UPDATE NEEDED', 'DORMANT — CLEAR TARGET', 'DO NOT STOCK — CLEAR TARGET'].includes(row.target_status)) return false;
+        if (status === 'CURRENT' && row.target_status !== 'CURRENT') return false;
+        if (status === 'NO_USAGE' && row.should_auto_order === true) return false;
+        return true;
+      });
+
+      renderPlanningTable();
+      syncPlanningSelectAll();
+      updateSyncButton();
+    }
+
+    function renderPlanningTable() {
+      const tableBody = document.getElementById('planningTableBody');
+      if (!tableBody) return;
+      if (!filteredPlanningRows.length) {
+        tableBody.innerHTML = '<tr><td colspan="18">No parts match the selected planning filters.</td></tr>';
+        return;
+      }
+
+      tableBody.innerHTML = filteredPlanningRows.map(row => {
+        const id = String(row.part_id || '');
+        const current = Number(row.current_reorder_point || 0);
+        const recommended = Number(row.recommended_stock_target || 0);
+        const eligible = canManagePurchasing() && current !== recommended;
+        const selected = selectedPlanningPartIds.has(id);
+        const program = row.purchase_program === 'UAG_BULK' ? 'UAG_BULK' : 'STANDARD';
+        return `<tr>
+          <td><input type="checkbox" aria-label="Select ${escapeHTML(row.part_number || 'part')}" ${eligible ? '' : 'disabled'} ${selected ? 'checked' : ''} onchange="togglePlanningSelection('${escapeHTML(id)}', this.checked)"></td>
+          <td class="part-number">${escapeHTML(row.part_number || '')}</td>
+          <td>${escapeHTML(row.description || '')}</td>
+          <td class="${String(row.recommended_source || '').toUpperCase() === 'UAG' ? 'source-uag' : ''}">${escapeHTML(row.recommended_source || 'Needs Review')}</td>
+          <td>
+            <select class="program-select" data-current-program="${program}" ${canManagePurchasing() ? '' : 'disabled'} onchange="changePurchaseProgram('${escapeHTML(id)}', '${escapeHTML(row.part_number || '')}', this)">
+              <option value="STANDARD" ${program === 'STANDARD' ? 'selected' : ''}>STANDARD</option>
+              <option value="UAG_BULK" ${program === 'UAG_BULK' ? 'selected' : ''}>UAG BULK</option>
+            </select>
+            <div class="program-basis">${escapeHTML(row.purchase_program_basis || '')}</div>
+          </td>
+          <td>${escapeHTML(row.purchase_cadence || '')}</td>
+          <td>${formatNumber(row.target_coverage_months)} months</td>
+          <td>${formatNumber(row.total_purchased_qty_4m)}</td>
+          <td>${formatNumber(row.issued_qty_4m)}</td>
+          <td>${formatNumber(row.reversal_qty_4m)}</td>
+          <td><strong>${formatNumber(row.net_usage_qty_4m)}</strong></td>
+          <td>${formatNumber(row.source_adjusted_average_monthly_usage)}</td>
+          <td>${formatNumber(row.main_warehouse_qty_on_hand)}</td>
+          <td>${formatNumber(current)}</td>
+          <td><strong>${formatNumber(recommended)}</strong></td>
+          <td class="${Number(row.recommended_purchase_qty || 0) > 0 ? 'qty-order' : ''}">${formatNumber(row.recommended_purchase_qty)}</td>
+          <td>${escapeHTML(row.purchasing_rule || '')}</td>
+          <td><span class="status-badge ${planningStatusClass(row.target_status)}">${escapeHTML(row.target_status || '')}</span></td>
+        </tr>`;
+      }).join('');
+    }
+
+    function planningStatusClass(status) {
+      if (status === 'CURRENT') return 'status-current';
+      if (status === 'TARGET UPDATE NEEDED' || status === 'DO NOT STOCK — CLEAR TARGET') return 'status-needs';
+      if (status === 'DORMANT — CLEAR TARGET') return 'status-review';
+      return '';
+    }
+
+    async function changePurchaseProgram(partId, partNumber, selectElement) {
+      if (!canManagePurchasing() || !selectElement) return;
+      const previous = String(selectElement.dataset.currentProgram || 'STANDARD');
+      const next = String(selectElement.value || 'STANDARD');
+      if (previous === next) return;
+
+      const label = next === 'UAG_BULK' ? 'UAG BULK' : 'STANDARD';
+      if (!window.confirm(`Change ${partNumber || 'this part'} to ${label}?\n\nThis changes its usage coverage and order section.`)) {
+        selectElement.value = previous;
+        return;
+      }
+
+      const reason = window.prompt(
+        `Reason for changing ${partNumber || 'this part'} to ${label}:`,
+        next === 'UAG_BULK' ? 'Designated for consolidated UAG bulk purchasing.' : 'Purchased as a Standard item, even if the vendor is UAG.'
+      );
+
+      if (!reason?.trim()) {
+        selectElement.value = previous;
+        window.alert('No change was saved because a reason is required.');
+        return;
+      }
+
+      selectElement.disabled = true;
+      const { error } = await client.rpc('set_inventory_purchase_program', {
+        p_part_id: partId,
+        p_purchase_program: next,
+        p_reason: reason.trim()
+      });
+
+      if (error) {
+        selectElement.value = previous;
+        selectElement.disabled = false;
+        window.alert('Unable to change the Purchase Program: ' + error.message);
+        return;
+      }
+
+      await loadPurchasingPage();
+      const status = document.getElementById('planningActionStatus');
+      if (status) status.textContent = `${partNumber || 'Part'} is now assigned to ${label}. Review and sync its recommended stock target if needed.`;
+    }
+
+    function togglePlanningSelection(partId, checked) {
+      if (checked) selectedPlanningPartIds.add(String(partId));
+      else selectedPlanningPartIds.delete(String(partId));
+      syncPlanningSelectAll();
+      updateSyncButton();
+    }
+
+    function toggleAllVisiblePlanningRows(checked) {
+      filteredPlanningRows.forEach(row => {
+        const eligible = Number(row.current_reorder_point || 0) !== Number(row.recommended_stock_target || 0);
+        if (!eligible) return;
+        if (checked) selectedPlanningPartIds.add(String(row.part_id));
+        else selectedPlanningPartIds.delete(String(row.part_id));
+      });
+      renderPlanningTable();
+      syncPlanningSelectAll();
+      updateSyncButton();
+    }
+
+    function syncPlanningSelectAll() {
+      const checkbox = document.getElementById('planningSelectAll');
+      if (!checkbox) return;
+      const eligible = filteredPlanningRows.filter(row => Number(row.current_reorder_point || 0) !== Number(row.recommended_stock_target || 0));
+      const selectedCount = eligible.filter(row => selectedPlanningPartIds.has(String(row.part_id))).length;
+      checkbox.disabled = !canManagePurchasing() || !eligible.length;
+      checkbox.checked = eligible.length > 0 && selectedCount === eligible.length;
+      checkbox.indeterminate = selectedCount > 0 && selectedCount < eligible.length;
+    }
+
+    function updateSyncButton() {
+      const button = document.getElementById('syncSelectedButton');
+      if (!button) return;
+      const eligibleCount = planningRows.filter(row =>
+        selectedPlanningPartIds.has(String(row.part_id)) &&
+        Number(row.current_reorder_point || 0) !== Number(row.recommended_stock_target || 0)
+      ).length;
+      button.disabled = !canManagePurchasing() || eligibleCount === 0;
+      button.textContent = eligibleCount > 0
+        ? `SYNC ${formatNumber(eligibleCount)} SELECTED STOCK TARGET${eligibleCount === 1 ? '' : 'S'}`
+        : 'SYNC SELECTED STOCK TARGETS';
+    }
+
+    async function syncSelectedStockTargets() {
+      if (!canManagePurchasing()) return;
+      const ids = planningRows
+        .filter(row => selectedPlanningPartIds.has(String(row.part_id)) && Number(row.current_reorder_point || 0) !== Number(row.recommended_stock_target || 0))
+        .map(row => row.part_id);
+      if (!ids.length) return;
+
+      if (!window.confirm(`Synchronize ${ids.length} saved stock target${ids.length === 1 ? '' : 's'} to the current recommendations?`)) return;
+      const reason = window.prompt('Reason for synchronizing these stock targets:', 'Purchasing page usage-based target synchronization.');
+      if (!reason?.trim()) {
+        window.alert('No targets were changed because a reason is required.');
+        return;
+      }
+
+      const button = document.getElementById('syncSelectedButton');
+      if (button) button.disabled = true;
+
+      const { data, error } = await client.rpc('sync_inventory_purchase_targets', {
+        p_part_ids: ids,
+        p_reason: reason.trim()
+      });
+
+      if (error) {
+        window.alert('Unable to synchronize stock targets: ' + error.message);
+        updateSyncButton();
+        return;
+      }
+
+      selectedPlanningPartIds.clear();
+      await loadPurchasingPage();
+      const result = Array.isArray(data) ? data[0] : data;
+      const status = document.getElementById('planningActionStatus');
+      if (status) status.textContent = `Stock-target synchronization complete. Updated: ${formatNumber(result?.updated_count || 0)}; skipped: ${formatNumber(result?.skipped_count || 0)}.`;
+    }
+
+    function refreshPurchasingPage() {
+      if (!currentProfile) {
+        window.location.reload();
+        return;
+      }
+      loadPurchasingPage();
+    }
+
+    function formatCurrency(value) {
+      return Number(value || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    }
+
+    function formatNumber(value) {
+      if (value === null || value === undefined || value === '') return '';
+      const number = Number(value);
+      if (Number.isNaN(number)) return String(value);
+      return number.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    }
+
+    function formatDate(value) {
+      if (!value) return '';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
+    }
+
+    function escapeHTML(value) {
+      if (value === null || value === undefined) return '';
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
