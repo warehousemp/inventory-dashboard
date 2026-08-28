@@ -231,9 +231,21 @@
       margin-bottom: 8px;
     }
 
-    .button-row button {
+    .button-row button,
+    .button-row a {
       width: auto;
       min-width: 180px;
+    }
+
+    .button-row a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      text-decoration: none;
     }
 
     .quick-filter-row {
@@ -497,49 +509,32 @@
     <div id="adminContent" class="main-layout hidden">
 
       <div class="card">
-        <h2>Skimmer Customer CSV Import</h2>
-        <button class="secondary-btn section-refresh-btn" onclick="refreshAdminPage()">REFRESH PAGE</button>
+        <h2>Shared Skimmer Customer Data</h2>
+        <button class="secondary-btn section-refresh-btn" onclick="refreshSharedSkimmerData()">REFRESH SHARED DATA</button>
 
         <div class="status-note">
-          Admin-only sync page. Upload the Skimmer Customers CSV here. The page stores the raw Skimmer rows,
-          processes them into the clean client master table, and prepares the data for future HubSpot export mapping.
+          The Skimmer Customers file is imported once from <strong>Warehouse Reports &rarr; Annual Filter Planning</strong>.
+          This page automatically reads that confirmed shared customer data; no second file upload is required.
         </div>
 
         <div class="warning-note">
-          Phase 1 only: this page does not export HubSpot yet. It imports Skimmer data, cleans it, flags missing email/phone,
-          and lets you export an internal client review CSV.
+          Phase 1 only: this page does not export directly to HubSpot yet. It cleans the shared Skimmer data, flags missing email/phone,
+          and lets you export internal-review and HubSpot-ready CSV files.
         </div>
 
-        <div class="three-column-form">
-          <div>
-            <label>Skimmer Customers CSV:</label>
-            <input id="skimmerCsvInput" type="file" accept=".csv,text/csv">
-          </div>
-
-          <div>
-            <label>Uploaded By:</label>
-            <input id="uploadedByInput" placeholder="Example: Tim" autocomplete="off">
-          </div>
-
-          <div>
-            <label>Import Notes:</label>
-            <input id="importNotesInput" placeholder="Optional notes..." autocomplete="off">
-          </div>
+        <div class="info-grid">
+          <div class="info-box"><div class="info-label">Latest Shared Sync</div><div class="info-value" id="sharedSyncDate">Not synced</div></div>
+          <div class="info-box"><div class="info-label">Source File</div><div class="info-value" id="sharedSyncFile">—</div></div>
+          <div class="info-box"><div class="info-label">Status</div><div class="info-value" id="sharedSyncStatus">—</div></div>
+          <div class="info-box"><div class="info-label">Customer Rows</div><div class="info-value" id="sharedSyncRows">0</div></div>
         </div>
 
         <div class="button-row">
-          <button class="admin-btn" id="processImportButton" onclick="uploadAndProcessSkimmerCsv()">UPLOAD AND PROCESS SKIMMER CSV</button>
+          <a class="admin-btn" href="warehouse-reports.html#annualFilterPlanningTab">GO TO ANNUAL FILTER PLANNING</a>
           <button class="secondary-btn" onclick="loadImportBatches()">REFRESH IMPORT HISTORY</button>
         </div>
 
-        <div id="importMessage" class="message"></div>
-
-        <div id="importProgressWrap" class="progress-wrap hidden">
-          <div class="progress-bar-shell">
-            <div class="progress-bar-fill" id="importProgressFill"></div>
-          </div>
-          <div class="progress-text" id="importProgressText">Waiting...</div>
-        </div>
+        <div id="sharedImportMessage" class="message"></div>
       </div>
 
       <div class="card">
@@ -560,7 +555,7 @@
         </div>
 
         <div class="status-note">
-          Use this section as the live Skimmer cleanup worklist. The Active Missing Email and Active Missing Phone shortcuts use the same dedicated missing-data worklist as Client Services. Update the actual customer record in Skimmer, then re-export/import the Skimmer Customers CSV so this dashboard refreshes. Supabase is the mirror; Skimmer remains the source of truth.
+          Use this section as the live Skimmer cleanup worklist. The Active Missing Email and Active Missing Phone shortcuts use the same dedicated missing-data worklist as Client Services. Update the actual customer record in Skimmer, then import the next Skimmer Customers file once through Annual Filter Planning. Supabase is the mirror; Skimmer remains the source of truth.
         </div>
 
         <div class="quick-filter-row" aria-label="Client cleanup shortcuts">
@@ -631,7 +626,7 @@
       </div>
 
       <div class="card">
-        <h2>Import History</h2>
+        <h2>Shared Import History</h2>
         <button class="secondary-btn section-refresh-btn" onclick="loadImportBatches()">REFRESH IMPORT HISTORY</button>
 
         <div class="table-wrap">
@@ -681,11 +676,6 @@ window.addEventListener('load', async () => {
 
   if (!hasAccess) {
     return;
-  }
-
-  const uploadedByInput = document.getElementById('uploadedByInput');
-  if (uploadedByInput && currentAdminProfile?.full_name) {
-    uploadedByInput.value = currentAdminProfile.full_name;
   }
 
   await loadImportBatches();
@@ -803,201 +793,13 @@ async function appLogout() {
   window.location.href = 'login.html';
 }
 
-function refreshAdminPage() {
-  window.location.reload();
-}
+async function refreshSharedSkimmerData() {
+  setMessage('sharedImportMessage', 'info', 'Refreshing shared Skimmer customer data...');
 
-async function uploadAndProcessSkimmerCsv() {
-  const fileInput = document.getElementById('skimmerCsvInput');
-  const uploadedBy = document.getElementById('uploadedByInput').value.trim();
-  const notes = document.getElementById('importNotesInput').value.trim();
-  const processButton = document.getElementById('processImportButton');
+  await loadImportBatches();
+  await loadClientMaster();
 
-  clearMessage('importMessage');
-
-  const file = fileInput?.files?.[0];
-
-  if (!file) {
-    setMessage('importMessage', 'error', 'Select the Skimmer Customers CSV before processing.');
-    return;
-  }
-
-  if (!uploadedBy) {
-    setMessage('importMessage', 'error', 'Uploaded By is required.');
-    return;
-  }
-
-  if (!file.name.toLowerCase().endsWith('.csv')) {
-    setMessage('importMessage', 'error', 'The selected file must be a CSV file.');
-    return;
-  }
-
-  const browserConfirm = confirm(
-    `Process Skimmer CSV?\n\nFile: ${file.name}\nUploaded By: ${uploadedBy}\n\nThis will insert raw rows and update the Skimmer client master table.`
-  );
-
-  if (!browserConfirm) {
-    setMessage('importMessage', 'info', 'Import cancelled.');
-    return;
-  }
-
-  try {
-    processButton.disabled = true;
-    showProgress(3, 'Reading CSV file...');
-    setMessage('importMessage', 'info', 'Reading and parsing CSV file...');
-
-    const csvText = await file.text();
-    const parsed = parseCSV(csvText);
-
-    if (!parsed.headers || parsed.headers.length === 0 || parsed.rows.length === 0) {
-      throw new Error('CSV appears to be empty or missing headers.');
-    }
-
-    const missingHeaders = getMissingRequiredHeaders(parsed.headers);
-    if (missingHeaders.length > 0) {
-      throw new Error('CSV is missing expected Skimmer column(s): ' + missingHeaders.join(', '));
-    }
-
-    showProgress(10, `Creating import batch for ${parsed.rows.length} CSV rows...`);
-
-    const { data: batch, error: batchError } = await client
-      .from('skimmer_import_batches')
-      .insert({
-        file_name: file.name,
-        uploaded_by: uploadedBy,
-        total_rows: parsed.rows.length,
-        import_status: 'UPLOADED',
-        notes: notes || null
-      })
-      .select('id')
-      .single();
-
-    if (batchError) {
-      throw batchError;
-    }
-
-    const batchId = batch.id;
-    const rawRows = parsed.rows.map((row, index) => mapSkimmerCsvRowToRawInsert(row, index + 1, batchId));
-
-    const chunkSize = 150;
-    let insertedCount = 0;
-
-    for (let i = 0; i < rawRows.length; i += chunkSize) {
-      const chunk = rawRows.slice(i, i + chunkSize);
-
-      const { error: insertError } = await client
-        .from('skimmer_client_import_raw')
-        .insert(chunk);
-
-      if (insertError) {
-        throw insertError;
-      }
-
-      insertedCount += chunk.length;
-      const percent = 10 + Math.round((insertedCount / rawRows.length) * 70);
-      showProgress(percent, `Inserted ${insertedCount.toLocaleString()} of ${rawRows.length.toLocaleString()} raw Skimmer rows...`);
-    }
-
-    showProgress(85, 'Processing raw rows into client master table...');
-
-    const { data: processResult, error: processError } = await client.rpc('process_skimmer_import_batch', {
-      p_batch_id: batchId
-    });
-
-    if (processError) {
-      throw processError;
-    }
-
-    showProgress(100, 'Import complete. Refreshing page data...');
-
-    setMessage(
-      'importMessage',
-      'success',
-      'Skimmer CSV import processed successfully.\n\n' + JSON.stringify(processResult, null, 2)
-    );
-
-    fileInput.value = '';
-    document.getElementById('importNotesInput').value = '';
-
-    await loadImportBatches();
-    await loadClientMaster();
-  } catch (error) {
-    console.error('Skimmer import error:', error);
-    setMessage('importMessage', 'error', error.message || String(error));
-    showProgress(0, 'Import failed.');
-  } finally {
-    processButton.disabled = false;
-  }
-}
-
-function getMissingRequiredHeaders(headers) {
-  const normalized = headers.map(h => normalizeHeaderName(h));
-  const required = ['FullName', 'Status', 'LocationAddress', 'LocationZip'];
-  return required.filter(header => !normalized.includes(normalizeHeaderName(header)));
-}
-
-function mapSkimmerCsvRowToRawInsert(row, rowNumber, batchId) {
-  const get = (name) => getCsvValue(row, name);
-
-  return {
-    batch_id: batchId,
-    row_number: rowNumber,
-
-    full_name: cleanNullable(get('FullName')),
-    display_as_company: parseBoolean(get('DisplayAsCompany')),
-
-    mobile_phone_1: cleanNullable(get('MobilePhone1')),
-    mobile_phone_2: cleanNullable(get('MobilePhone2')),
-    mobile_label_1: cleanNullable(get('MobileLabel1')),
-    mobile_label_2: cleanNullable(get('MobileLabel2')),
-    home_phone: cleanNullable(get('HomePhone')),
-    work_phone: cleanNullable(get('WorkPhone')),
-
-    email_1: cleanNullable(get('Email1')),
-    email_2: cleanNullable(get('Email2')),
-    email_3: cleanNullable(get('Email3')),
-    email_4: cleanNullable(get('Email4')),
-
-    customer_notes: cleanNullable(get('CustomerNotes')),
-    tag_list: cleanNullable(get('TagList')),
-
-    billing_address: cleanNullable(get('BillingAddress')),
-    billing_city: cleanNullable(get('BillingCity')),
-    billing_state: cleanNullable(get('BillingState')),
-    billing_zip: cleanNullable(get('BillingZip')),
-
-    status: cleanNullable(get('Status')),
-
-    location_address: cleanNullable(get('LocationAddress')),
-    location_city: cleanNullable(get('LocationCity')),
-    location_state: cleanNullable(get('LocationState')),
-    location_zip: cleanNullable(get('LocationZip')),
-    location_code: cleanNullable(get('LocationCode')),
-
-    gate_code: cleanNullable(get('GateCode')),
-    dogs_name: cleanNullable(get('DogsName')),
-
-    rate: parseNullableNumber(get('Rate')),
-    rate_type: cleanNullable(get('RateType')),
-    labor_cost: parseNullableNumber(get('LaborCost')),
-    labor_cost_type: cleanNullable(get('LaborCostType')),
-    minutes_at_stop: parseNullableInteger(get('MinutesAtStop')),
-
-    location_notes: cleanNullable(get('LocationNotes')),
-    lead_source: cleanNullable(get('LeadSource')),
-
-    first_name: cleanNullable(get('FirstName')),
-    last_name: cleanNullable(get('LastName')),
-    company_name: cleanNullable(get('CompanyName')),
-    customer_code: cleanNullable(get('CustomerCode')),
-
-    full_name_or_company_display: cleanNullable(get('FullNameOrCompanyDisplay')),
-    list_sort_name: cleanNullable(get('ListSortName')),
-
-    raw_payload: row,
-    import_action: 'PENDING',
-    import_error: null
-  };
+  setMessage('sharedImportMessage', 'success', 'Shared Skimmer customer data refreshed.');
 }
 
 async function loadImportBatches() {
@@ -1013,6 +815,8 @@ async function loadImportBatches() {
   if (error) {
     importBatchData = [];
     tbody.innerHTML = `<tr><td colspan="11">${escapeHTML(error.message)}</td></tr>`;
+    renderSharedImportStatus([]);
+    setMessage('sharedImportMessage', 'error', error.message);
     return;
   }
 
@@ -1023,6 +827,7 @@ async function loadImportBatches() {
 function renderImportBatches(rows) {
   const tbody = document.getElementById('importBatchesBody');
   tbody.innerHTML = '';
+  renderSharedImportStatus(rows);
 
   if (!rows || rows.length === 0) {
     tbody.innerHTML = '<tr><td colspan="11">No Skimmer import batches found yet.</td></tr>';
@@ -1046,6 +851,27 @@ function renderImportBatches(rows) {
     `;
     tbody.appendChild(tr);
   });
+}
+
+function renderSharedImportStatus(rows) {
+  const latest = Array.isArray(rows) && rows.length ? rows[0] : null;
+  const syncDate = document.getElementById('sharedSyncDate');
+  const syncFile = document.getElementById('sharedSyncFile');
+  const syncStatus = document.getElementById('sharedSyncStatus');
+  const syncRows = document.getElementById('sharedSyncRows');
+
+  if (syncDate) syncDate.textContent = latest ? formatDateTime(latest.uploaded_at) : 'Not synced';
+  if (syncFile) syncFile.textContent = latest?.file_name || '—';
+  if (syncStatus) syncStatus.textContent = latest?.import_status || '—';
+  if (syncRows) syncRows.textContent = formatNumber(latest?.total_rows || 0);
+
+  if (!latest) {
+    setMessage(
+      'sharedImportMessage',
+      'info',
+      'No shared Skimmer customer import has been processed yet. Use Annual Filter Planning for the next import.'
+    );
+  }
 }
 
 async function loadClientMaster() {
@@ -1075,7 +901,7 @@ async function loadClientMaster() {
   await loadClientSyncDashboard();
 
   if (clientMasterData.length === 0 && clientMissingDataWorklistData.length === 0) {
-    setMessage('clientMasterMessage', 'info', 'No Skimmer client master records found yet. Upload and process a Skimmer CSV first.');
+    setMessage('clientMasterMessage', 'info', 'No Skimmer client master records found yet. Confirm a Skimmer Customers import through Annual Filter Planning first.');
   } else {
     setMessage(
       'clientMasterMessage',
@@ -1440,111 +1266,6 @@ function getHubSpotNameParts(row) {
   return { firstName, lastName };
 }
 
-function parseCSV(text) {
-  const rows = [];
-  let currentRow = [];
-  let currentValue = '';
-  let insideQuotes = false;
-
-  const normalizedText = String(text || '').replace(/^\uFEFF/, '');
-
-  for (let i = 0; i < normalizedText.length; i++) {
-    const char = normalizedText[i];
-    const nextChar = normalizedText[i + 1];
-
-    if (char === '"') {
-      if (insideQuotes && nextChar === '"') {
-        currentValue += '"';
-        i++;
-      } else {
-        insideQuotes = !insideQuotes;
-      }
-    } else if (char === ',' && !insideQuotes) {
-      currentRow.push(currentValue);
-      currentValue = '';
-    } else if ((char === '\n' || char === '\r') && !insideQuotes) {
-      if (char === '\r' && nextChar === '\n') {
-        i++;
-      }
-
-      currentRow.push(currentValue);
-      rows.push(currentRow);
-      currentRow = [];
-      currentValue = '';
-    } else {
-      currentValue += char;
-    }
-  }
-
-  if (currentValue.length > 0 || currentRow.length > 0) {
-    currentRow.push(currentValue);
-    rows.push(currentRow);
-  }
-
-  const nonEmptyRows = rows.filter(row => row.some(value => String(value || '').trim() !== ''));
-
-  if (nonEmptyRows.length === 0) {
-    return { headers: [], rows: [] };
-  }
-
-  const headers = nonEmptyRows[0].map(header => String(header || '').trim());
-  const dataRows = nonEmptyRows.slice(1).map(row => {
-    const obj = {};
-    headers.forEach((header, index) => {
-      obj[header] = row[index] === undefined ? '' : row[index];
-    });
-    return obj;
-  });
-
-  return { headers, rows: dataRows };
-}
-
-function getCsvValue(row, expectedHeader) {
-  const expected = normalizeHeaderName(expectedHeader);
-  const foundKey = Object.keys(row).find(key => normalizeHeaderName(key) === expected);
-  return foundKey ? row[foundKey] : '';
-}
-
-function normalizeHeaderName(value) {
-  return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-function cleanNullable(value) {
-  const trimmed = String(value ?? '').trim();
-  return trimmed === '' ? null : trimmed;
-}
-
-function parseBoolean(value) {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (['true', 'yes', 'y', '1'].includes(normalized)) return true;
-  if (['false', 'no', 'n', '0'].includes(normalized)) return false;
-  return false;
-}
-
-function parseNullableNumber(value) {
-  const cleaned = String(value ?? '').replace(/[$,]/g, '').trim();
-  if (!cleaned) return null;
-  const number = Number(cleaned);
-  return Number.isNaN(number) ? null : number;
-}
-
-function parseNullableInteger(value) {
-  const cleaned = String(value ?? '').replace(/,/g, '').trim();
-  if (!cleaned) return null;
-  const number = parseInt(cleaned, 10);
-  return Number.isNaN(number) ? null : number;
-}
-
-function showProgress(percent, text) {
-  const wrap = document.getElementById('importProgressWrap');
-  const fill = document.getElementById('importProgressFill');
-  const progressText = document.getElementById('importProgressText');
-
-  wrap.classList.remove('hidden');
-  fill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
-  progressText.textContent = text || '';
-}
-
 function renderReviewBadge(row) {
   if (row.duplicate_flag === true) {
     return '<span class="badge orange">Possible Duplicate</span>';
@@ -1765,13 +1486,6 @@ function setMessage(elementId, type, message) {
   if (!el) return;
   el.className = `message ${type}`;
   el.textContent = message;
-}
-
-function clearMessage(elementId) {
-  const el = document.getElementById(elementId);
-  if (!el) return;
-  el.className = 'message';
-  el.textContent = '';
 }
 
 function formatDateTime(value) {
