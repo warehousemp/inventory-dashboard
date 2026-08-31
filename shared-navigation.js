@@ -3,9 +3,18 @@
 
   const SUPABASE_URL = 'https://icqkuhbhcennhhbbwqgo.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+
   const ALL_ACTIVE_ROLES = [
-    'ADMIN', 'WAREHOUSE', 'ACCOUNTING', 'SERVICE', 'READ_ONLY',
-    'SALES', 'TECHS', 'SYSTEM_ADMIN', 'PROJECTS', 'SERVICE_MANAGER'
+    'ADMIN',
+    'WAREHOUSE',
+    'ACCOUNTING',
+    'SERVICE',
+    'READ_ONLY',
+    'SALES',
+    'TECHS',
+    'SYSTEM_ADMIN',
+    'PROJECTS',
+    'SERVICE_MANAGER'
   ];
 
   const navigation = [
@@ -20,6 +29,7 @@
         }
       ]
     },
+
     {
       label: 'Accounting PPV',
       roles: ['ACCOUNTING', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN'],
@@ -33,14 +43,10 @@
           label: 'PPV Payroll Review',
           href: 'ppv-payroll-review.html',
           roles: ['ACCOUNTING', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'PPV Admin',
-          href: 'ppv-admin.html',
-          roles: ['ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
+
     {
       label: 'Company Tools',
       roles: ALL_ACTIVE_ROLES,
@@ -65,30 +71,58 @@
         }
       ]
     },
+
     {
       label: 'Service CSC',
       roles: [
-        'SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
-        'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN', 'SERVICE_MANAGER'
+        'SERVICE',
+        'WAREHOUSE',
+        'ACCOUNTING',
+        'TECHS',
+        'READ_ONLY',
+        'PROJECTS',
+        'ADMIN',
+        'SYSTEM_ADMIN',
+        'SERVICE_MANAGER'
       ],
       links: [
         {
           label: 'Client Services Dashboard',
           href: 'client-services.html',
           roles: [
-            'SERVICE', 'WAREHOUSE', 'ACCOUNTING', 'TECHS',
-            'READ_ONLY', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN', 'SERVICE_MANAGER'
+            'SERVICE',
+            'WAREHOUSE',
+            'ACCOUNTING',
+            'TECHS',
+            'READ_ONLY',
+            'PROJECTS',
+            'ADMIN',
+            'SYSTEM_ADMIN',
+            'SERVICE_MANAGER'
           ]
         },
         {
           label: 'Client Changes',
           href: 'client-changes.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: [
+            'ACCOUNTING',
+            'SERVICE',
+            'SERVICE_MANAGER',
+            'ADMIN',
+            'SYSTEM_ADMIN'
+          ]
         },
         {
           label: 'CSC Service Labor Guide',
           href: 'csc-service-labor-guide.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'READ_ONLY', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: [
+            'ACCOUNTING',
+            'SERVICE',
+            'SERVICE_MANAGER',
+            'READ_ONLY',
+            'ADMIN',
+            'SYSTEM_ADMIN'
+          ]
         },
         {
           label: 'Inspection Requests',
@@ -102,6 +136,7 @@
         }
       ]
     },
+
     {
       label: 'Service Repair',
       roles: ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN'],
@@ -113,9 +148,16 @@
         }
       ]
     },
+
     {
       label: 'Service Route',
-      roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN'],
+      roles: [
+        'ACCOUNTING',
+        'SERVICE',
+        'SERVICE_MANAGER',
+        'ADMIN',
+        'SYSTEM_ADMIN'
+      ],
       links: [
         {
           label: 'Service Manager Dashboard',
@@ -125,17 +167,35 @@
         {
           label: 'Route Assignment Validation',
           href: 'route-assignment-validation.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: [
+            'ACCOUNTING',
+            'SERVICE',
+            'SERVICE_MANAGER',
+            'ADMIN',
+            'SYSTEM_ADMIN'
+          ]
         },
         {
           label: 'Route Time Validation',
           href: 'route-time-validation.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: [
+            'ACCOUNTING',
+            'SERVICE',
+            'SERVICE_MANAGER',
+            'ADMIN',
+            'SYSTEM_ADMIN'
+          ]
         },
         {
           label: 'PPV Safeguard Tracking',
           href: 'ppv-safeguard-tracking.html',
-          roles: ['ACCOUNTING', 'SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: [
+            'ACCOUNTING',
+            'SERVICE',
+            'SERVICE_MANAGER',
+            'ADMIN',
+            'SYSTEM_ADMIN'
+          ]
         },
         {
           label: 'RSO Tracking',
@@ -144,11 +204,15 @@
         }
       ]
     },
+
     {
       label: 'Warehouse',
       roles: [
-        'WAREHOUSE', 'ACCOUNTING', 'PROJECTS',
-        'ADMIN', 'SYSTEM_ADMIN'
+        'WAREHOUSE',
+        'ACCOUNTING',
+        'PROJECTS',
+        'ADMIN',
+        'SYSTEM_ADMIN'
       ],
       links: [
         {
@@ -178,12 +242,14 @@
         }
       ]
     },
+
     {
       label: 'Sales',
       roles: ['SALES', 'ADMIN', 'SYSTEM_ADMIN'],
       showWhenEmpty: true,
       links: []
     },
+
     {
       label: 'Projects',
       roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
@@ -195,6 +261,7 @@
         }
       ]
     },
+
     {
       label: 'Admin',
       roles: ['ADMIN', 'SYSTEM_ADMIN'],
@@ -207,6 +274,11 @@
         {
           label: 'Service Department Admin',
           href: 'service-department-admin.html',
+          roles: ['ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'PPV Admin',
+          href: 'ppv-admin.html',
           roles: ['ADMIN', 'SYSTEM_ADMIN']
         },
         {
@@ -287,11 +359,16 @@
 
   function renderMenu(role) {
     const menubar = document.getElementById('sharedNavMenubar');
-    if (!menubar) return;
+
+    if (!menubar) {
+      return;
+    }
 
     const currentPage = currentPageName();
+
     const homeActive =
-      currentPage === '' || currentPage === 'index.html';
+      currentPage === '' ||
+      currentPage === 'index.html';
 
     const visibleSections = navigation
       .filter(section => isAllowed(section.roles, role))
@@ -302,7 +379,8 @@
         )
       }))
       .filter(section =>
-        section.links.length > 0 || section.showWhenEmpty === true
+        section.links.length > 0 ||
+        section.showWhenEmpty === true
       );
 
     const sectionHtml = visibleSections
@@ -311,32 +389,33 @@
           link => link.href.toLowerCase() === currentPage
         );
 
-        const links = section.links.length > 0
-          ? section.links
-              .map(link => {
-                const active =
-                  link.href.toLowerCase() === currentPage;
+        const links =
+          section.links.length > 0
+            ? section.links
+                .map(link => {
+                  const active =
+                    link.href.toLowerCase() === currentPage;
 
-                return `
-                  <a
-                    class="shared-nav-link${active ? ' active' : ''}"
-                    href="${escapeHtml(link.href)}"
-                    ${active ? 'aria-current="page"' : ''}
-                  >
-                    ${escapeHtml(link.label)}
-                  </a>
-                `;
-              })
-              .join('')
-          : `
-              <span
-                class="shared-nav-link"
-                aria-disabled="true"
-                style="cursor: default; opacity: 0.65;"
-              >
-                Future sales tools will appear here.
-              </span>
-            `;
+                  return `
+                    <a
+                      class="shared-nav-link${active ? ' active' : ''}"
+                      href="${escapeHtml(link.href)}"
+                      ${active ? 'aria-current="page"' : ''}
+                    >
+                      ${escapeHtml(link.label)}
+                    </a>
+                  `;
+                })
+                .join('')
+            : `
+                <span
+                  class="shared-nav-link"
+                  aria-disabled="true"
+                  style="cursor: default; opacity: 0.65;"
+                >
+                  Future sales tools will appear here.
+                </span>
+              `;
 
         return `
           <div
@@ -413,7 +492,11 @@
             !item.classList.contains('open');
 
           closeAllDropdowns(item);
-          item.classList.toggle('open', willOpen);
+
+          item.classList.toggle(
+            'open',
+            willOpen
+          );
 
           trigger.setAttribute(
             'aria-expanded',
@@ -430,6 +513,7 @@
             );
 
             closeAllDropdowns(item);
+
             item.classList.add('open');
 
             trigger.setAttribute(
@@ -441,7 +525,9 @@
               '.shared-nav-link'
             );
 
-            if (firstLink) firstLink.focus();
+            if (firstLink) {
+              firstLink.focus();
+            }
           }
         });
       });
@@ -449,26 +535,29 @@
     document
       .querySelectorAll('.shared-nav-dropdown')
       .forEach(dropdown => {
-        dropdown.addEventListener('keydown', event => {
-          if (event.key === 'Escape') {
-            const item = dropdown.closest(
-              '.shared-nav-item'
-            );
+        dropdown.addEventListener(
+          'keydown',
+          event => {
+            if (event.key === 'Escape') {
+              const item = dropdown.closest(
+                '.shared-nav-item'
+              );
 
-            item.classList.remove('open');
+              item.classList.remove('open');
 
-            const trigger = item.querySelector(
-              '.shared-nav-trigger'
-            );
+              const trigger = item.querySelector(
+                '.shared-nav-trigger'
+              );
 
-            trigger.setAttribute(
-              'aria-expanded',
-              'false'
-            );
+              trigger.setAttribute(
+                'aria-expanded',
+                'false'
+              );
 
-            trigger.focus();
+              trigger.focus();
+            }
           }
-        });
+        );
       });
   }
 
@@ -492,7 +581,9 @@
       error: sessionError
     } = await navClient.auth.getSession();
 
-    if (sessionError) throw sessionError;
+    if (sessionError) {
+      throw sessionError;
+    }
 
     const session = sessionData?.session;
 
@@ -512,7 +603,9 @@
       .eq('id', session.user.id)
       .maybeSingle();
 
-    if (profileError) throw profileError;
+    if (profileError) {
+      throw profileError;
+    }
 
     return {
       session,
@@ -538,7 +631,9 @@
       'sharedNavigation'
     );
 
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     document.body.classList.add(
       'has-shared-navigation'
@@ -573,9 +668,10 @@
       event => {
         event.stopPropagation();
 
-        const open = menubar.classList.toggle(
-          'mobile-open'
-        );
+        const open =
+          menubar.classList.toggle(
+            'mobile-open'
+          );
 
         mobileToggle.setAttribute(
           'aria-expanded',
@@ -591,7 +687,10 @@
 
     document
       .getElementById('sharedNavLogout')
-      .addEventListener('click', logout);
+      .addEventListener(
+        'click',
+        logout
+      );
 
     try {
       const {
@@ -601,16 +700,18 @@
 
       currentProfile = profile;
 
-      const userLabel = document.getElementById(
-        'sharedNavUser'
-      );
+      const userLabel =
+        document.getElementById(
+          'sharedNavUser'
+        );
 
       if (
         !session ||
         !profile ||
         profile.active !== true
       ) {
-        userLabel.textContent = 'Not signed in';
+        userLabel.textContent =
+          'Not signed in';
 
         document.getElementById(
           'sharedNavLogout'
@@ -619,22 +720,27 @@
         document.getElementById(
           'sharedNavLogout'
         ).onclick = () => {
-          window.location.href = 'index.html';
+          window.location.href =
+            'index.html';
         };
 
         renderMenu(null);
+
         return;
       }
 
       userLabel.textContent =
-        `${profile.full_name || session.user.email}` +
-        ` · ${profile.role}`;
+        `${
+          profile.full_name ||
+          session.user.email
+        } · ${profile.role}`;
 
       renderMenu(profile.role);
     } catch (error) {
-      const userLabel = document.getElementById(
-        'sharedNavUser'
-      );
+      const userLabel =
+        document.getElementById(
+          'sharedNavUser'
+        );
 
       if (userLabel) {
         userLabel.textContent =
@@ -655,7 +761,9 @@
     getProfile: () => currentProfile
   };
 
-  if (document.readyState === 'loading') {
+  if (
+    document.readyState === 'loading'
+  ) {
     document.addEventListener(
       'DOMContentLoaded',
       initializeSharedNavigation
