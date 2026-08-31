@@ -1590,6 +1590,85 @@
       padding-top: 0;
     }
 
+    /* Annual Filter Planning - drag and drop Customers import */
+    .filter-file-drop-zone {
+      width: 100%;
+      min-height: 175px;
+      border: 2px dashed #94a3b8;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 24px 18px;
+      margin: 8px 0 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .filter-file-drop-zone.drag-over {
+      border-color: #1aa3b0;
+      background: #ecfeff;
+      box-shadow: inset 0 0 0 1px #1aa3b0;
+    }
+
+    .filter-file-drop-zone.has-file {
+      border-style: solid;
+      border-color: #1aa3b0;
+      background: #f0fdfa;
+    }
+
+    .filter-file-drop-icon {
+      font-size: 30px;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .filter-file-drop-title {
+      color: #0b3c5d;
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .filter-file-drop-subtitle {
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.4;
+      margin-bottom: 12px;
+    }
+
+    .filter-file-hidden-input {
+      display: none;
+    }
+
+    .filter-file-browse-btn {
+      width: auto !important;
+      min-width: 150px;
+      margin: 0 !important;
+      padding: 10px 16px;
+    }
+
+    .filter-file-name {
+      width: 100%;
+      margin-top: 12px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+
+    .filter-file-drop-zone.has-file .filter-file-name {
+      background: #dcfce7;
+      color: #166534;
+    }
+
     .filter-summary-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(150px, 1fr));
@@ -2863,17 +2942,40 @@
           <div class="status-note">
             <strong>Customers File Export Instructions:</strong><br>
             Skimmer &rarr; Settings &rarr; Export &rarr; Export Customers &rarr; click <strong>Export to Excel</strong>.<br>
-            Save the exported file to your desktop, then select the CSV or Excel file below. When confirmed by an ADMIN or SYSTEM_ADMIN, the import also refreshes the shared Client Market Sync data.
+            Save the exported file to your desktop, then drag and drop the CSV or Excel file below, or click <strong>Choose File</strong>. When confirmed by an ADMIN or SYSTEM_ADMIN, the import also refreshes the shared Client Market Sync data.
           </div>
 
           <label>Customers File:</label>
-          <input id="filterCustomersFile" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+          <div
+            id="filterCustomersDropZone"
+            class="filter-file-drop-zone"
+            ondragenter="handleFilterCustomersDragEnter(event)"
+            ondragover="handleFilterCustomersDragOver(event)"
+            ondragleave="handleFilterCustomersDragLeave(event)"
+            ondrop="handleFilterCustomersDrop(event)">
+            <div class="filter-file-drop-icon" aria-hidden="true">&#8681;</div>
+            <div class="filter-file-drop-title">Drag &amp; Drop Skimmer Customers File Here</div>
+            <div class="filter-file-drop-subtitle">Accepted file types: CSV, XLSX, or XLS</div>
+            <button
+              type="button"
+              class="report-btn filter-file-browse-btn"
+              onclick="document.getElementById('filterCustomersFile').click()">
+              CHOOSE FILE
+            </button>
+            <input
+              id="filterCustomersFile"
+              class="filter-file-hidden-input"
+              type="file"
+              accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              onchange="handleFilterCustomersFileSelected(this)">
+            <div id="filterCustomersFileName" class="filter-file-name">No file selected.</div>
+          </div>
           <div class="help-text">Required columns: FullName, TagList, Status, LocationAddress, Rate, and RateType.</div>
           <div class="button-row">
             <button class="report-btn" onclick="previewClientFilterImport()">PREVIEW FILTER IMPORT</button>
             <button id="confirmFilterImportButton" class="save-btn" onclick="confirmClientFilterImport()" disabled>CONFIRM FILTER IMPORT</button>
           </div>
-          <div id="filterImportSummary" class="session-id-box">Select one Skimmer Customers file to update Annual Filter Planning and Client Market Sync.</div>
+          <div id="filterImportSummary" class="session-id-box">Drag and drop one Skimmer Customers file above, or click CHOOSE FILE, then preview the import.</div>
         </div>
 
         <div class="filter-planning-panel">
@@ -3057,6 +3159,8 @@ let currentFilterImportBatchId = null;
 let currentFilterImportPreview = null;
 let currentSkimmerCustomerMasterRows = [];
 let currentSkimmerCustomerFileName = '';
+let droppedFilterCustomersFile = null;
+let filterCustomersDragDepth = 0;
 let filterPurchaseForecastData = [];
 let filterStagingData = [];
 let filterChecklistData = [];
@@ -5169,18 +5273,178 @@ function mapSkimmerCustomerRowForMaster(row, rowNumber) {
   };
 }
 
+function isValidFilterCustomersFile(file) {
+  if (!file || !file.name) {
+    return false;
+  }
+
+  const fileName = String(file.name).toLowerCase();
+  return fileName.endsWith('.csv') || fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+}
+
+function resetFilterImportPreviewForNewFile() {
+  currentFilterImportBatchId = null;
+  currentFilterImportPreview = null;
+  currentSkimmerCustomerMasterRows = [];
+  currentSkimmerCustomerFileName = '';
+
+  const confirmButton = document.getElementById('confirmFilterImportButton');
+  if (confirmButton) {
+    confirmButton.disabled = true;
+  }
+
+  const detailBody = document.getElementById('filterImportDetailBody');
+  if (detailBody) {
+    detailBody.innerHTML = '<tr><td colspan="10">No filter import preview loaded.</td></tr>';
+  }
+}
+
+function setFilterCustomersFile(file, source = 'selected') {
+  const dropZone = document.getElementById('filterCustomersDropZone');
+  const fileNameDisplay = document.getElementById('filterCustomersFileName');
+  const fileInput = document.getElementById('filterCustomersFile');
+  const summary = document.getElementById('filterImportSummary');
+
+  resetFilterImportPreviewForNewFile();
+
+  if (!file) {
+    droppedFilterCustomersFile = null;
+
+    if (dropZone) {
+      dropZone.classList.remove('has-file');
+    }
+
+    if (fileNameDisplay) {
+      fileNameDisplay.textContent = 'No file selected.';
+    }
+
+    if (summary) {
+      summary.textContent = 'Drag and drop one Skimmer Customers file above, or click CHOOSE FILE, then preview the import.';
+    }
+
+    return false;
+  }
+
+  if (!isValidFilterCustomersFile(file)) {
+    droppedFilterCustomersFile = null;
+
+    if (fileInput) {
+      fileInput.value = '';
+    }
+
+    if (dropZone) {
+      dropZone.classList.remove('has-file');
+    }
+
+    if (fileNameDisplay) {
+      fileNameDisplay.textContent = `Unsupported file: ${file.name}`;
+    }
+
+    if (summary) {
+      summary.textContent = 'Unsupported file type. Use a Skimmer Customers CSV, XLSX, or XLS file.';
+    }
+
+    return false;
+  }
+
+  droppedFilterCustomersFile = file;
+
+  if (source === 'drop' && fileInput) {
+    // Dropped files are held separately because input.files is browser-managed.
+    // previewClientFilterImport reads droppedFilterCustomersFile first while the
+    // existing input remains available for the CHOOSE FILE fallback.
+    fileInput.value = '';
+  }
+
+  if (dropZone) {
+    dropZone.classList.add('has-file');
+  }
+
+  if (fileNameDisplay) {
+    const sizeKb = Math.max(1, Math.round(Number(file.size || 0) / 1024));
+    fileNameDisplay.textContent = `Selected: ${file.name} (${sizeKb.toLocaleString('en-US')} KB)`;
+  }
+
+  if (summary) {
+    summary.textContent = `Ready to preview: ${file.name}`;
+  }
+
+  return true;
+}
+
+function handleFilterCustomersFileSelected(input) {
+  const file = input?.files?.[0] || null;
+  setFilterCustomersFile(file, 'input');
+}
+
+function handleFilterCustomersDragEnter(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  filterCustomersDragDepth += 1;
+  document.getElementById('filterCustomersDropZone')?.classList.add('drag-over');
+}
+
+function handleFilterCustomersDragOver(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'copy';
+  }
+
+  document.getElementById('filterCustomersDropZone')?.classList.add('drag-over');
+}
+
+function handleFilterCustomersDragLeave(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  filterCustomersDragDepth = Math.max(0, filterCustomersDragDepth - 1);
+
+  if (filterCustomersDragDepth === 0) {
+    document.getElementById('filterCustomersDropZone')?.classList.remove('drag-over');
+  }
+}
+
+function handleFilterCustomersDrop(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  filterCustomersDragDepth = 0;
+  document.getElementById('filterCustomersDropZone')?.classList.remove('drag-over');
+
+  const files = event.dataTransfer?.files;
+  if (!files || files.length === 0) {
+    return;
+  }
+
+  setFilterCustomersFile(files[0], 'drop');
+}
+
 async function previewClientFilterImport() {
   const fileInput = document.getElementById('filterCustomersFile');
   const summary = document.getElementById('filterImportSummary');
   const detailBody = document.getElementById('filterImportDetailBody');
   const confirmButton = document.getElementById('confirmFilterImportButton');
-  const file = fileInput?.files?.[0];
+  const file = droppedFilterCustomersFile || fileInput?.files?.[0] || null;
 
   currentFilterImportBatchId = null;
   currentFilterImportPreview = null;
   currentSkimmerCustomerMasterRows = [];
   currentSkimmerCustomerFileName = '';
   confirmButton.disabled = true;
+
+  if (!file) {
+    summary.textContent = 'Drag and drop a Skimmer Customers CSV or Excel file above, or click CHOOSE FILE.';
+    detailBody.innerHTML = '<tr><td colspan="10">No Customers file selected.</td></tr>';
+    return;
+  }
+
+  if (!isValidFilterCustomersFile(file)) {
+    summary.textContent = 'Unsupported file type. Use a Skimmer Customers CSV, XLSX, or XLS file.';
+    detailBody.innerHTML = '<tr><td colspan="10">Unsupported Customers file type.</td></tr>';
+    return;
+  }
+
   summary.textContent = 'Reading Skimmer Customers file...';
   detailBody.innerHTML = '<tr><td colspan="10">Reading file...</td></tr>';
 
