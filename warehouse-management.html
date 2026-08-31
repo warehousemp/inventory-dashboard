@@ -1220,6 +1220,61 @@
       word-break: break-word;
     }
 
+    .shelf-label-actions {
+      display: grid;
+      grid-template-columns: minmax(200px, 0.9fr) minmax(220px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin: 12px 0 14px;
+    }
+
+    .shelf-label-actions input,
+    .shelf-label-actions select,
+    .shelf-label-actions button {
+      margin-bottom: 0;
+    }
+
+    .shelf-label-actions button {
+      white-space: nowrap;
+    }
+
+    .shelf-label-part-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 420px) minmax(190px, 240px) auto;
+      gap: 12px;
+      align-items: end;
+      margin: 12px 0 14px;
+    }
+
+    .shelf-label-part-grid input,
+    .shelf-label-part-grid select,
+    .shelf-label-part-grid button {
+      margin-bottom: 0;
+    }
+
+    .shelf-label-part-grid button {
+      white-space: nowrap;
+    }
+
+    .shelf-label-print-note {
+      margin-top: 8px;
+    }
+
+    .shelf-location-print-btn {
+      width: auto;
+      min-width: 120px;
+      margin: 0;
+      padding: 8px 10px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .shelf-location-setup-table th:nth-child(4),
+    .shelf-location-setup-table td:nth-child(4) {
+      width: 150px;
+      text-align: center;
+    }
+
     @media (max-width: 900px) {
       .current-shelf-change-grid {
         grid-template-columns: 1fr;
@@ -1230,6 +1285,11 @@
       }
 
       .shelf-location-setup-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .shelf-label-actions,
+      .shelf-label-part-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -3172,15 +3232,66 @@
 <th>Active Shelf Location</th>
 <th>Sort Order</th>
 <th>Description / Notes</th>
+<th>Print Labels</th>
 </tr>
 </thead>
 <tbody id="warehouseShelfLocationSetupTableBody">
 <tr>
-<td colspan="3">Loading active Shelf Locations...</td>
+<td colspan="4">Loading active Shelf Locations...</td>
 </tr>
 </tbody>
 </table>
 </div>
+<div class="section-divider"></div>
+<h3>Print Shelf Labels — Avery 5163</h3>
+<div class="warning-note">
+      Print one 2&quot; × 4&quot; label for each active part that has a Main Warehouse Shelf Location assigned.
+      Labels are sorted by Shelf Location, then Part Number. Quantity and cost are intentionally excluded so the physical shelf label remains valid as inventory changes.
+    </div>
+<div class="shelf-label-actions">
+<div>
+<label for="shelfLabelShelfLocation">Shelf Location:</label>
+<select id="shelfLabelShelfLocation">
+<option value="">Loading shelf locations...</option>
+</select>
+</div>
+<div>
+<label for="shelfLabelStartPosition">Starting Label Position (for partially used sheets):</label>
+<select id="shelfLabelStartPosition">
+<option value="1">1 — Top Left</option>
+<option value="2">2 — Top Right</option>
+<option value="3">3 — Row 2 Left</option>
+<option value="4">4 — Row 2 Right</option>
+<option value="5">5 — Row 3 Left</option>
+<option value="6">6 — Row 3 Right</option>
+<option value="7">7 — Row 4 Left</option>
+<option value="8">8 — Row 4 Right</option>
+<option value="9">9 — Bottom Left</option>
+<option value="10">10 — Bottom Right</option>
+</select>
+</div>
+<button class="report-btn" onclick="printSelectedShelfLocationLabels()" type="button">PRINT SELECTED SHELF</button>
+</div>
+<div class="shelf-label-part-grid">
+<div>
+<label for="shelfLabelPartNumber">Individual Part Number:</label>
+<input autocomplete="off" id="shelfLabelPartNumber" list="partsList" placeholder="Enter exact active part number..."/>
+</div>
+<div>
+<label>&nbsp;</label>
+<button class="report-btn" onclick="printIndividualPartShelfLabel()" type="button">PRINT PART LABEL</button>
+</div>
+<div>
+<label>&nbsp;</label>
+<button class="export-btn" onclick="printAllShelfLabels()" type="button">PRINT ALL SHELF LABELS</button>
+</div>
+</div>
+<div class="help-text shelf-label-print-note">
+      Avery 5163 uses US Letter paper with 10 labels per sheet (2 columns × 5 rows). In the browser print dialog use Letter paper and Actual Size / 100% scaling — do not use Fit to Page.
+    </div>
+<div class="session-id-box" id="shelfLabelPrintStatus">
+      Choose a Shelf Location, enter a Part Number, or print all assigned shelf labels.
+    </div>
 <div class="section-divider"></div>
 <h3>Needs Shelf Location</h3>
 <div class="warning-note">
@@ -3474,6 +3585,7 @@ let uagBulkSummaryData = [];
 let uagBulkLineData = [];
 let inventoryVendorData = [];
 let mainWarehouseShelfLocationData = [];
+let shelfLabelData = [];
 
 let currentWarehouseProfile = null;
 let currentWarehouseSession = null;
@@ -7505,6 +7617,7 @@ async function loadMainWarehouseShelfLocations() {
   }
 
   populateNewPartShelfLocationDropdown();
+  populateShelfLabelShelfDropdown();
   renderWarehouseShelfLocationSetupTable();
   console.log('Main Warehouse Shelf Locations loaded:', mainWarehouseShelfLocationData.length);
 }
@@ -7539,17 +7652,484 @@ function renderWarehouseShelfLocationSetupTable() {
   }
 
   if (!mainWarehouseShelfLocationData || mainWarehouseShelfLocationData.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="3">No active Shelf Locations found.</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="4">No active Shelf Locations found.</td></tr>';
     return;
   }
 
-  tableBody.innerHTML = mainWarehouseShelfLocationData.map(row => `
-    <tr>
-      <td><span class="shelf-location-pill">${escapeHTML(getShelfLocationCode(row))}</span></td>
-      <td>${escapeHTML(row.sort_order ?? '')}</td>
-      <td>${escapeHTML(row.notes || '')}</td>
-    </tr>
+  tableBody.innerHTML = mainWarehouseShelfLocationData.map(row => {
+    const shelfCode = getShelfLocationCode(row);
+    const encodedShelfCode = encodeURIComponent(shelfCode);
+
+    return `
+      <tr>
+        <td><span class="shelf-location-pill">${escapeHTML(shelfCode)}</span></td>
+        <td>${escapeHTML(row.sort_order ?? '')}</td>
+        <td>${escapeHTML(row.notes || '')}</td>
+        <td><button class="report-btn shelf-location-print-btn" onclick="printShelfLocationLabelsByCode(decodeURIComponent('${encodedShelfCode}'))" type="button">PRINT LABELS</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function populateShelfLabelShelfDropdown() {
+  const select = document.getElementById('shelfLabelShelfLocation');
+
+  if (!select) {
+    return;
+  }
+
+  const currentValue = String(select.value || '').trim().toUpperCase();
+  let options = '<option value="">Select Shelf Location...</option>';
+
+  mainWarehouseShelfLocationData.forEach(row => {
+    const shelfCode = getShelfLocationCode(row);
+
+    if (!shelfCode) {
+      return;
+    }
+
+    const selected = shelfCode.toUpperCase() === currentValue ? ' selected' : '';
+    options += `<option value="${escapeHTML(shelfCode)}"${selected}>${escapeHTML(shelfCode)}</option>`;
+  });
+
+  select.innerHTML = options;
+}
+
+function getShelfLabelStartPosition() {
+  const select = document.getElementById('shelfLabelStartPosition');
+  const parsed = Number.parseInt(select?.value || '1', 10);
+
+  if (!Number.isFinite(parsed)) {
+    return 1;
+  }
+
+  return Math.min(10, Math.max(1, parsed));
+}
+
+function setShelfLabelPrintStatus(message) {
+  const status = document.getElementById('shelfLabelPrintStatus');
+
+  if (status) {
+    status.textContent = message;
+  }
+}
+
+function getShelfLabelShelfCode(row) {
+  return String(row?.shelf_location || row?.shelf_code || '').trim().toUpperCase();
+}
+
+function getShelfSortOrderForLabelRow(row) {
+  const directSortOrder = Number(row?.shelf_sort_order);
+
+  if (Number.isFinite(directSortOrder)) {
+    return directSortOrder;
+  }
+
+  const shelfCode = getShelfLabelShelfCode(row);
+  const shelfRow = mainWarehouseShelfLocationData.find(item =>
+    String(getShelfLocationCode(item) || '').trim().toUpperCase() === shelfCode
+  );
+  const fallbackSortOrder = Number(shelfRow?.sort_order);
+
+  return Number.isFinite(fallbackSortOrder) ? fallbackSortOrder : 999999;
+}
+
+async function loadShelfLabelData(forceRefresh = false) {
+  if (!forceRefresh && shelfLabelData.length > 0) {
+    return shelfLabelData;
+  }
+
+  if (!partsData || partsData.length === 0) {
+    await loadParts();
+  }
+
+  if (!mainWarehouseShelfLocationData || mainWarehouseShelfLocationData.length === 0) {
+    await loadMainWarehouseShelfLocations();
+  }
+
+  const activePartNumbers = new Set(
+    (partsData || []).map(part => String(part.part_number || '').trim().toUpperCase()).filter(Boolean)
+  );
+  let rows = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    const { data, error } = await client
+      .from('main_warehouse_part_shelf_status_view')
+      .select('*')
+      .eq('shelf_assignment_status', 'ASSIGNED')
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    rows = rows.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  const deduped = new Map();
+
+  rows.forEach(row => {
+    const partNumber = String(row?.part_number || '').trim();
+    const normalizedPartNumber = partNumber.toUpperCase();
+    const shelfCode = getShelfLabelShelfCode(row);
+
+    if (!partNumber || !shelfCode || !activePartNumbers.has(normalizedPartNumber)) {
+      return;
+    }
+
+    const key = `${normalizedPartNumber}||${shelfCode}`;
+
+    if (!deduped.has(key)) {
+      deduped.set(key, row);
+    }
+  });
+
+  shelfLabelData = Array.from(deduped.values()).sort((a, b) => {
+    const sortA = getShelfSortOrderForLabelRow(a);
+    const sortB = getShelfSortOrderForLabelRow(b);
+
+    if (sortA !== sortB) {
+      return sortA - sortB;
+    }
+
+    const shelfCompare = getShelfLabelShelfCode(a).localeCompare(getShelfLabelShelfCode(b), undefined, { numeric: true });
+
+    if (shelfCompare !== 0) {
+      return shelfCompare;
+    }
+
+    return String(a.part_number || '').localeCompare(String(b.part_number || ''), undefined, { numeric: true });
+  });
+
+  return shelfLabelData;
+}
+
+function createShelfLabelPrintWindow() {
+  const printWindow = window.open('', '_blank');
+
+  if (!printWindow) {
+    setShelfLabelPrintStatus('Unable to open the label print window. Allow pop-ups for this site, then try again.');
+    return null;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(`<!doctype html><html><head><title>Preparing Shelf Labels...</title></head><body style="font-family:Arial,sans-serif;padding:24px;"><h2>Preparing Avery 5163 shelf labels...</h2><p>The print preview will open automatically.</p></body></html>`);
+  printWindow.document.close();
+  return printWindow;
+}
+
+function getShelfLabelPageCount(labelCount, startPosition = 1) {
+  const blanksBefore = Math.max(0, Math.min(9, startPosition - 1));
+  return Math.max(1, Math.ceil((blanksBefore + labelCount) / 10));
+}
+
+function writeAvery5163LabelsToWindow(printWindow, rows, startPosition = 1, printTitle = 'Shelf Labels') {
+  const blanksBefore = Math.max(0, Math.min(9, startPosition - 1));
+  const slots = [];
+
+  for (let i = 0; i < blanksBefore; i++) {
+    slots.push(null);
+  }
+
+  rows.forEach(row => slots.push(row));
+
+  while (slots.length % 10 !== 0) {
+    slots.push(null);
+  }
+
+  const pages = [];
+
+  for (let i = 0; i < slots.length; i += 10) {
+    pages.push(slots.slice(i, i + 10));
+  }
+
+  const pageHTML = pages.map(pageSlots => `
+    <section class="sheet">
+      ${pageSlots.map(row => {
+        if (!row) {
+          return '<div class="label blank-label" aria-hidden="true"></div>';
+        }
+
+        const shelfCode = getShelfLabelShelfCode(row);
+        const partNumber = String(row.part_number || '').trim();
+        const description = String(row.description || '').trim();
+        const category = String(row.category || row.cycle_count_category || '').trim();
+        const shelfClass = shelfCode.length > 18 ? 'shelf-code compact' : 'shelf-code';
+        const partClass = partNumber.length > 22 ? 'part-number compact' : 'part-number';
+        const descriptionClass = description.length > 95 ? 'description compact' : 'description';
+
+        return `
+          <div class="label">
+            <div class="label-topline">
+              <span>MOLINARI POOLS</span>
+              <span>MAIN WAREHOUSE</span>
+            </div>
+            <div class="${shelfClass}">${escapeHTML(shelfCode)}</div>
+            <div class="${partClass}">${escapeHTML(partNumber)}</div>
+            <div class="${descriptionClass}">${escapeHTML(description || 'No description on file')}</div>
+            <div class="label-footer">${escapeHTML(category || 'UNCATEGORIZED')}</div>
+          </div>
+        `;
+      }).join('')}
+    </section>
   `).join('');
+
+  const safeTitle = escapeHTML(printTitle);
+  const documentHTML = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>${safeTitle}</title>
+<style>
+  @page { size: Letter portrait; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #111827; }
+  .sheet {
+    width: 8.5in;
+    height: 11in;
+    padding-top: 0.5in;
+    padding-left: 0.15625in;
+    display: grid;
+    grid-template-columns: 4in 4in;
+    grid-template-rows: repeat(5, 2in);
+    column-gap: 0.1875in;
+    row-gap: 0;
+    overflow: hidden;
+    page-break-after: always;
+    break-after: page;
+  }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+  .label {
+    width: 4in;
+    height: 2in;
+    padding: 0.12in 0.16in 0.1in;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+  .blank-label { visibility: hidden; }
+  .label-topline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.1in;
+    font-size: 7.5pt;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #4b5563;
+    border-bottom: 1px solid #d1d5db;
+    padding-bottom: 0.04in;
+    margin-bottom: 0.04in;
+  }
+  .shelf-code {
+    font-size: 29pt;
+    line-height: 0.98;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    color: #0b3c5d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .shelf-code.compact { font-size: 21pt; }
+  .part-number {
+    font-size: 18pt;
+    line-height: 1.05;
+    font-weight: 800;
+    margin-top: 0.045in;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .part-number.compact { font-size: 14.5pt; }
+  .description {
+    font-size: 10.5pt;
+    line-height: 1.15;
+    font-weight: 600;
+    margin-top: 0.045in;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .description.compact { font-size: 9pt; }
+  .label-footer {
+    margin-top: auto;
+    padding-top: 0.035in;
+    border-top: 1px solid #e5e7eb;
+    font-size: 8pt;
+    line-height: 1;
+    font-weight: 700;
+    color: #4b5563;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  @media screen {
+    body { background: #e5e7eb; padding: 12px 0; }
+    .sheet { margin: 0 auto 14px; background: #fff; }
+    .label:not(.blank-label) { outline: 1px dashed #cbd5e1; outline-offset: -1px; }
+  }
+  @media print {
+    body { background: #fff; }
+    .sheet { margin: 0; }
+    .label { outline: none !important; }
+  }
+</style>
+</head>
+<body>
+${pageHTML}
+<script>
+  window.addEventListener('load', function () {
+    window.setTimeout(function () { window.print(); }, 250);
+  });
+<\/script>
+</body>
+</html>`;
+
+  printWindow.document.open();
+  printWindow.document.write(documentHTML);
+  printWindow.document.close();
+}
+
+async function printShelfLabelRows(rows, startPosition, printTitle, printWindow) {
+  if (!rows || rows.length === 0) {
+    if (printWindow && !printWindow.closed) {
+      printWindow.close();
+    }
+
+    setShelfLabelPrintStatus('No assigned shelf labels matched that selection.');
+    return;
+  }
+
+  const pageCount = getShelfLabelPageCount(rows.length, startPosition);
+  writeAvery5163LabelsToWindow(printWindow, rows, startPosition, printTitle);
+  setShelfLabelPrintStatus(
+    `${printTitle} prepared successfully.
+` +
+    `Labels: ${formatNumber(rows.length)}
+` +
+    `Avery 5163 Sheet(s): ${formatNumber(pageCount)}
+` +
+    `Starting Position: ${formatNumber(startPosition)}
+
+` +
+    `Print using Letter paper and Actual Size / 100% scaling.`
+  );
+}
+
+async function printAllShelfLabels() {
+  const printWindow = createShelfLabelPrintWindow();
+
+  if (!printWindow) {
+    return;
+  }
+
+  setShelfLabelPrintStatus('Loading all active assigned shelf labels...');
+
+  try {
+    const rows = await loadShelfLabelData(true);
+    await printShelfLabelRows(rows, 1, 'All Main Warehouse Shelf Labels', printWindow);
+  } catch (error) {
+    if (!printWindow.closed) printWindow.close();
+    setShelfLabelPrintStatus('Unable to load shelf labels: ' + error.message);
+  }
+}
+
+async function printSelectedShelfLocationLabels() {
+  const shelfSelect = document.getElementById('shelfLabelShelfLocation');
+  const shelfCode = String(shelfSelect?.value || '').trim().toUpperCase();
+
+  if (!shelfCode) {
+    setShelfLabelPrintStatus('Select a Shelf Location before printing.');
+    shelfSelect?.focus();
+    return;
+  }
+
+  const printWindow = createShelfLabelPrintWindow();
+
+  if (!printWindow) {
+    return;
+  }
+
+  const startPosition = getShelfLabelStartPosition();
+  setShelfLabelPrintStatus(`Loading labels assigned to Shelf Location ${shelfCode}...`);
+
+  try {
+    const rows = (await loadShelfLabelData(true)).filter(row => getShelfLabelShelfCode(row) === shelfCode);
+    await printShelfLabelRows(rows, startPosition, `Shelf ${shelfCode} Labels`, printWindow);
+  } catch (error) {
+    if (!printWindow.closed) printWindow.close();
+    setShelfLabelPrintStatus('Unable to load shelf labels: ' + error.message);
+  }
+}
+
+async function printShelfLocationLabelsByCode(shelfCode) {
+  const normalizedShelfCode = String(shelfCode || '').trim().toUpperCase();
+  const select = document.getElementById('shelfLabelShelfLocation');
+
+  if (select) {
+    select.value = normalizedShelfCode;
+  }
+
+  await printSelectedShelfLocationLabels();
+}
+
+async function printIndividualPartShelfLabel() {
+  const partInput = document.getElementById('shelfLabelPartNumber');
+  const partNumber = String(partInput?.value || '').trim();
+  const normalizedPartNumber = partNumber.toUpperCase();
+
+  if (!normalizedPartNumber) {
+    setShelfLabelPrintStatus('Enter an active Part Number before printing an individual label.');
+    partInput?.focus();
+    return;
+  }
+
+  const printWindow = createShelfLabelPrintWindow();
+
+  if (!printWindow) {
+    return;
+  }
+
+  const startPosition = getShelfLabelStartPosition();
+  setShelfLabelPrintStatus(`Loading shelf label for Part ${partNumber}...`);
+
+  try {
+    const rows = (await loadShelfLabelData(true)).filter(row =>
+      String(row?.part_number || '').trim().toUpperCase() === normalizedPartNumber
+    );
+
+    if (rows.length === 0) {
+      if (!printWindow.closed) printWindow.close();
+      setShelfLabelPrintStatus(`No assigned Main Warehouse Shelf Location was found for active Part ${partNumber}.`);
+      return;
+    }
+
+    if (partInput) {
+      partInput.value = rows[0].part_number || partNumber;
+    }
+
+    await printShelfLabelRows(rows.slice(0, 1), startPosition, `Part ${rows[0].part_number} Shelf Label`, printWindow);
+  } catch (error) {
+    if (!printWindow.closed) printWindow.close();
+    setShelfLabelPrintStatus('Unable to load the part shelf label: ' + error.message);
+  }
 }
 
 async function addMainWarehouseShelfLocation() {
