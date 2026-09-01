@@ -145,6 +145,11 @@
           label: 'On-Call Schedule',
           href: 'on-call-schedule.html',
           roles: ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'Callback Tracking',
+          href: 'callback-tracking.html',
+          roles: ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
@@ -187,8 +192,8 @@
           ]
         },
         {
-          label: 'PPV Safeguard Tracking',
-          href: 'ppv-safeguard-tracking.html',
+          label: 'Callback Tracking',
+          href: 'callback-tracking.html',
           roles: [
             'ACCOUNTING',
             'SERVICE',
