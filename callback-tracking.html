@@ -1,0 +1,1712 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Molinari Pools – Callback Tracking</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="shared-navigation.css">
+  <style>
+    :root {
+      --navy:#173f67; --navy-dark:#0d2b49; --blue:#1f6fa9; --blue-soft:#eaf4fb;
+      --green:#157347; --green-soft:#e8f6ee; --amber:#9a6700; --amber-soft:#fff4ce;
+      --red:#b42318; --red-soft:#feeceb; --gray-50:#f8fafc; --gray-100:#eef2f6;
+      --gray-200:#d8e0e8; --gray-500:#667085; --gray-700:#344054; --text:#172b3a;
+      --white:#fff; --shadow:0 8px 24px rgba(13,43,73,.08);
+    }
+
+    * { box-sizing:border-box; }
+    body {
+      margin:0; color:var(--text); background:#f3f6f9;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    button,input,select,textarea { font:inherit; }
+    button { cursor:pointer; }
+    .hidden { display:none !important; }
+
+    .page-wrapper { width:min(1540px,calc(100% - 32px)); margin:24px auto 56px; }
+    .page-header {
+      display:flex; justify-content:space-between; gap:20px; align-items:flex-start;
+      margin-bottom:18px;
+    }
+    .eyebrow {
+      color:var(--blue); font-weight:800; letter-spacing:.08em;
+      text-transform:uppercase; font-size:.76rem;
+    }
+    h1 {
+      margin:4px 0 6px; color:var(--navy-dark);
+      font-size:clamp(1.65rem,3vw,2.35rem);
+    }
+    .subtitle { margin:0; color:var(--gray-500); max-width:980px; line-height:1.45; }
+
+    .header-actions,.footer-actions { display:flex; gap:10px; flex-wrap:wrap; }
+
+    .primary-btn,.secondary-btn,.small-btn {
+      border-radius:8px; padding:10px 15px; font-weight:750;
+      border:1px solid transparent; transition:transform .1s ease,box-shadow .1s ease;
+    }
+    .primary-btn { color:var(--white); background:var(--navy); }
+    .secondary-btn { color:var(--navy); background:var(--white); border-color:var(--gray-200); }
+    .small-btn {
+      padding:6px 10px; color:var(--navy); background:var(--white);
+      border-color:var(--gray-200); font-size:.82rem;
+    }
+    button:hover:not(:disabled) {
+      transform:translateY(-1px); box-shadow:0 5px 12px rgba(13,43,73,.11);
+    }
+    button:disabled { cursor:not-allowed; opacity:.55; }
+
+    .standalone-banner {
+      background:var(--blue-soft); border:1px solid #b8d9ee; border-left:5px solid var(--blue);
+      border-radius:10px; padding:13px 16px; margin-bottom:16px; color:#174b70;
+      line-height:1.45;
+    }
+    .standalone-banner strong { color:var(--navy-dark); }
+
+    .status-bar {
+      min-height:42px; display:flex; align-items:center; border-radius:8px; padding:9px 13px;
+      background:var(--white); border:1px solid var(--gray-200); margin-bottom:16px; color:var(--gray-700);
+    }
+    .status-bar.success { background:var(--green-soft); border-color:#a7d9bc; color:var(--green); }
+    .status-bar.error { background:var(--red-soft); border-color:#f2b8b5; color:var(--red); }
+
+    .metric-grid {
+      display:grid; grid-template-columns:repeat(4,minmax(170px,1fr)); gap:12px; margin-bottom:16px;
+    }
+    .metric-card,.panel {
+      background:var(--white); border:1px solid var(--gray-200);
+      border-radius:12px; box-shadow:var(--shadow);
+    }
+    .metric-card { padding:15px 17px; }
+    .metric-label {
+      color:var(--gray-500); font-weight:700; font-size:.8rem;
+      text-transform:uppercase; letter-spacing:.04em;
+    }
+    .metric-value {
+      color:var(--navy-dark); font-size:1.65rem; font-weight:850; margin-top:5px;
+    }
+    .metric-note { color:var(--gray-500); font-size:.77rem; margin-top:2px; }
+
+    .panel { margin-bottom:16px; overflow:hidden; }
+    .panel-header {
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      padding:14px 17px; border-bottom:1px solid var(--gray-200);
+    }
+    .panel-header h2 { margin:0; color:var(--navy-dark); font-size:1.05rem; }
+    .panel-body { padding:16px; }
+
+    .filter-grid {
+      display:grid; grid-template-columns:minmax(220px,2fr) repeat(5,minmax(140px,1fr));
+      gap:11px; align-items:end;
+    }
+
+    .field { display:flex; flex-direction:column; gap:5px; min-width:0; }
+    .field label { font-size:.78rem; font-weight:750; color:var(--gray-700); }
+    .field input,.field select,.field textarea {
+      width:100%; border:1px solid #cbd5df; border-radius:7px;
+      padding:9px 10px; color:var(--text); background:var(--white);
+    }
+    .field input[readonly] { background:var(--gray-50); color:var(--gray-700); }
+    .field textarea { min-height:92px; resize:vertical; line-height:1.4; }
+    .field input:focus,.field select:focus,.field textarea:focus {
+      outline:2px solid #b9daf0; border-color:var(--blue);
+    }
+    .field small,.muted { color:var(--gray-500); }
+    .span-2 { grid-column:span 2; }
+    .span-full { grid-column:1/-1; }
+
+    .fixed-value {
+      min-height:40px; display:flex; align-items:center; padding:9px 10px;
+      border:1px solid #cbd5df; border-radius:7px;
+      background:var(--gray-50); color:var(--navy-dark); font-weight:750;
+    }
+
+    .table-wrap { overflow:auto; max-height:58vh; }
+    table { width:100%; border-collapse:separate; border-spacing:0; min-width:1420px; }
+    thead th {
+      position:sticky; top:0; z-index:2; background:var(--navy); color:var(--white);
+      padding:10px 9px; text-align:left; font-size:.75rem; letter-spacing:.02em; white-space:nowrap;
+    }
+    tbody td {
+      padding:10px 9px; border-bottom:1px solid var(--gray-100);
+      vertical-align:top; font-size:.83rem;
+    }
+    tbody tr:hover { background:var(--gray-50); }
+    .issue-cell { max-width:330px; line-height:1.35; }
+    .money-negative { color:var(--red); font-weight:800; }
+
+    .chip {
+      display:inline-flex; align-items:center; border-radius:999px;
+      padding:4px 8px; font-size:.72rem; font-weight:800; white-space:nowrap;
+    }
+    .chip-open { color:#175c87; background:var(--blue-soft); }
+    .chip-reviewed { color:var(--green); background:var(--green-soft); }
+    .chip-voided { color:var(--gray-700); background:var(--gray-100); }
+    .chip-warning { color:var(--amber); background:var(--amber-soft); }
+    .chip-danger { color:var(--red); background:var(--red-soft); }
+
+    .empty-state { text-align:center; padding:38px 20px !important; color:var(--gray-500); }
+
+    .access-layout {
+      width:min(680px,calc(100% - 32px)); margin:70px auto; background:var(--white);
+      border:1px solid var(--gray-200); border-radius:14px; padding:28px; box-shadow:var(--shadow);
+    }
+    .access-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+
+    .modal-backdrop {
+      position:fixed; inset:0; z-index:9999; background:rgba(11,30,48,.62);
+      display:flex; align-items:flex-start; justify-content:center;
+      overflow:auto; padding:28px 14px;
+    }
+    .modal {
+      width:min(1080px,100%); background:var(--white);
+      border-radius:14px; box-shadow:0 28px 60px rgba(0,0,0,.28); overflow:hidden;
+    }
+    .modal-header {
+      display:flex; justify-content:space-between; gap:14px; align-items:flex-start;
+      padding:18px 20px; background:var(--navy-dark); color:var(--white);
+    }
+    .modal-header h2 { margin:0 0 3px; font-size:1.25rem; }
+    .modal-header p { margin:0; color:#d7e6f3; font-size:.84rem; }
+    .icon-btn { color:var(--white); background:transparent; border:0; font-size:1.5rem; line-height:1; }
+    .modal-body { padding:20px; }
+    .modal-section { margin-bottom:22px; }
+    .modal-section h3 {
+      margin:0 0 12px; padding-bottom:7px; border-bottom:1px solid var(--gray-200);
+      color:var(--navy-dark); font-size:1rem;
+    }
+    .section-note {
+      margin:-4px 0 12px; color:var(--gray-500); font-size:.82rem; line-height:1.4;
+    }
+    .form-grid {
+      display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px;
+    }
+
+    .impact-box {
+      background:var(--amber-soft); border:1px solid #ead28c;
+      border-radius:10px; padding:15px;
+    }
+    .impact-total {
+      color:var(--navy-dark); font-size:1.45rem; font-weight:850; margin-bottom:4px;
+    }
+    .impact-detail { color:var(--gray-700); line-height:1.45; }
+    .impact-disclaimer {
+      color:var(--amber); font-weight:700; margin-top:8px; font-size:.8rem;
+    }
+
+    .modal-footer {
+      display:flex; justify-content:space-between; gap:12px;
+      padding:15px 20px; background:var(--gray-50); border-top:1px solid var(--gray-200);
+    }
+
+    @media (max-width:1100px) {
+      .metric-grid { grid-template-columns:repeat(2,1fr); }
+      .filter-grid,.form-grid { grid-template-columns:repeat(2,1fr); }
+      .page-header { flex-direction:column; }
+    }
+
+    @media (max-width:620px) {
+      .page-wrapper { width:min(100% - 18px,1540px); margin-top:14px; }
+      .metric-grid,.filter-grid,.form-grid { grid-template-columns:1fr; }
+      .span-2,.span-full { grid-column:auto; }
+      .modal-footer { flex-direction:column; }
+    }
+
+    @media print {
+      #sharedNavigation,.no-print,.header-actions,.filters-panel,.actions-column {
+        display:none !important;
+      }
+      body { background:white; }
+      .page-wrapper { width:100%; margin:0; }
+      .panel,.metric-card { box-shadow:none; }
+      .table-wrap { overflow:visible; max-height:none; }
+      table { min-width:0; font-size:8pt; }
+      thead th { position:static; }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="sharedNavigation"></div>
+
+  <section id="accessGate" class="access-layout hidden">
+    <div class="eyebrow">Restricted Page</div>
+    <h1>Callback Tracking</h1>
+    <p id="accessMessage">Sign in with an authorized Molinari Pools account to continue.</p>
+    <div class="access-actions">
+      <button class="primary-btn" onclick="window.location.href='login.html'">Sign In</button>
+      <button class="secondary-btn" onclick="window.location.href='index.html'">Main Menu</button>
+      <button class="secondary-btn" id="logoutButton">Sign Out</button>
+    </div>
+  </section>
+
+  <main id="pageContent" class="page-wrapper hidden">
+    <header class="page-header">
+      <div>
+        <div class="eyebrow">Service Operations</div>
+        <h1>Callback Tracking</h1>
+        <p class="subtitle">
+          CSC logs Route Service and Repair Service callbacks in one location. Leadership completes the management review
+          and determines causation, corrective action, and any applicable Route PPV or Repair WORC impact.
+        </p>
+      </div>
+
+      <div class="header-actions no-print">
+        <button class="secondary-btn" id="refreshButton">Refresh</button>
+        <button class="secondary-btn" id="exportButton">Export CSV</button>
+        <button class="secondary-btn" onclick="window.print()">Print</button>
+        <button class="primary-btn manage-only" id="newIncidentButton">+ Log Callback</button>
+      </div>
+    </header>
+
+    <div class="standalone-banner">
+      <strong>Unified callback tracking.</strong>
+      This page is the CSC intake point for both Route Service Callbacks and Repair Service Callbacks.
+      Route callbacks support service safeguard tracking. Repair callbacks support WORC review and Success Tier accountability.
+    </div>
+
+    <div id="statusBar" class="status-bar no-print">Loading callback tracking…</div>
+
+    <section class="metric-grid">
+      <article class="metric-card">
+        <div class="metric-label">Visible Callbacks</div>
+        <div class="metric-value" id="totalMetric">0</div>
+        <div class="metric-note">Based on current filters</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Open for Review</div>
+        <div class="metric-value" id="openMetric">0</div>
+        <div class="metric-note">CSC intake is complete</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Reviewed</div>
+        <div class="metric-value" id="reviewedMetric">0</div>
+        <div class="metric-note">Management review completed</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Causation Callbacks</div>
+        <div class="metric-value" id="causationMetric">0</div>
+        <div class="metric-note">Based on leadership review</div>
+      </article>
+    </section>
+
+    <section class="panel filters-panel no-print">
+      <div class="panel-header">
+        <h2>Filters</h2>
+        <button class="small-btn" id="clearFiltersButton">Clear Filters</button>
+      </div>
+
+      <div class="panel-body filter-grid">
+        <div class="field">
+          <label for="searchInput">Search</label>
+          <input id="searchInput" type="search" placeholder="Client, address, tech, leader, work order, or callback">
+        </div>
+
+        <div class="field">
+          <label for="divisionFilter">Division</label>
+          <select id="divisionFilter">
+            <option value="">All Divisions</option>
+            <option value="ROUTE_SERVICE">Route Service</option>
+            <option value="REPAIR_SERVICE">Repair Service</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter">
+            <option value="">All Statuses</option>
+            <option value="OPEN">Open</option>
+            <option value="REVIEWED">Reviewed</option>
+            <option value="VOIDED">Voided</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="typeFilter">Review Classification</label>
+          <select id="typeFilter">
+            <option value="">All Classifications</option>
+            <option value="ROUTE_SERVICE_CALLBACK">Route Service Callback</option>
+            <option value="QCS_FAILURE">QCS Failure</option>
+            <option value="LOST_CLIENT">Lost Client</option>
+            <option value="REPAIR_SERVICE_CALLBACK">Repair Service Callback</option>
+            <option value="REPAIR_WORKMANSHIP_CALLBACK">Repair Workmanship Callback</option>
+            <option value="REPAIR_DIAGNOSTIC_MISS">Repair Diagnostic Miss</option>
+            <option value="REPAIR_INSTALLATION_ISSUE">Repair Installation Issue</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="techFilter">Tech</label>
+          <select id="techFilter">
+            <option value="">All Techs</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="dateFromFilter">From</label>
+          <input id="dateFromFilter" type="date">
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Route Service Callback Worklist</h2>
+        <span id="roleModeLabel" class="muted"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Client</th>
+              <th>Callback Description</th>
+              <th>Called In By</th>
+              <th>Route Tech</th>
+              <th>Route Tech Leader</th>
+              <th>RTL Classification</th>
+              <th>Causation?</th>
+              <th>Root Cause</th>
+              <th>Severity</th>
+              <th>Impact*</th>
+              <th class="actions-column">Action</th>
+            </tr>
+          </thead>
+          <tbody id="routeTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="panel-body muted" style="font-size:.78rem;">
+        *Route impact is informational for service safeguard tracking.
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Repair Service Callback Worklist</h2>
+        <span class="muted">Repair callbacks support WORC review and Success Tier accountability</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Client</th>
+              <th>Callback Description</th>
+              <th>Called In By</th>
+              <th>Repair Tech</th>
+              <th>Tech Level</th>
+              <th>Work Order</th>
+              <th>Quote #</th>
+              <th>Review Classification</th>
+              <th>Causation?</th>
+              <th>Root Cause</th>
+              <th>Severity</th>
+              <th>WORC Impact</th>
+              <th class="actions-column">Action</th>
+            </tr>
+          </thead>
+          <tbody id="repairTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="panel-body muted" style="font-size:.78rem;">
+        Repair Service causation callbacks result in a one-tier reduction of Bonus Hourly Pay for the applicable WORC week.
+      </div>
+    </section>
+  </main>
+
+  <div id="eventModalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h2 id="eventModalTitle">Log Callback</h2>
+          <p id="eventModalSubtitle">CSC intake creates an OPEN callback for management review.</p>
+        </div>
+        <button class="icon-btn" id="closeModalButton" aria-label="Close">×</button>
+      </div>
+
+      <div class="modal-body">
+        <input id="eventIdInput" type="hidden">
+        <input id="clientSelect" type="hidden">
+
+        <section class="modal-section">
+          <h3>1. CSC Callback Intake</h3>
+          <p class="section-note">
+            Select the callback division first. Route callbacks use the latest Client Changes route upload when available.
+            Repair callbacks may be logged manually if the client is not found in the route list.
+          </p>
+
+          <div class="form-grid">
+            <div class="field">
+              <label for="callbackDivisionInput">Callback Division *</label>
+              <select id="callbackDivisionInput">
+                <option value="ROUTE_SERVICE">Route Service Callback</option>
+                <option value="REPAIR_SERVICE">Repair Service Callback</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="incidentDateInput">Date of Callback *</label>
+              <input id="incidentDateInput" type="date">
+            </div>
+
+            <div class="field">
+              <label for="reportedByInput">Who Called It In? *</label>
+              <input id="reportedByInput" type="text" placeholder="Client, property manager, or caller name">
+            </div>
+
+            <div class="field span-full">
+              <label for="clientSearchInput">Client Name *</label>
+              <input id="clientSearchInput" type="search" list="clientDatalist" autocomplete="off" placeholder="Type a client name or service address">
+              <datalist id="clientDatalist"></datalist>
+              <small id="clientSearchCount">Start typing to search the latest Client Changes route upload.</small>
+            </div>
+
+            <div class="field span-full">
+              <label for="addressInput">Service Address</label>
+              <input id="addressInput" type="text" placeholder="Service address">
+            </div>
+
+            <div class="field span-full">
+              <label for="descriptionInput">Description of Callback *</label>
+              <textarea id="descriptionInput" placeholder="Describe the callback, client concern, or reported issue."></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section id="routeCallbackSection" class="modal-section">
+          <h3>2. Route Service Assignment</h3>
+          <div class="form-grid">
+            <div class="field">
+              <label for="routeTechInput">Route Tech Name *</label>
+              <select id="routeTechInput">
+                <option value="">Select Route Tech</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="routeLeaderInput">Route Tech Leader *</label>
+              <select id="routeLeaderInput">
+                <option value="">Select Route Tech Leader</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Route Callback Type</label>
+              <div class="fixed-value">Route Service Callback</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="repairCallbackSection" class="modal-section hidden">
+          <h3>2. Repair Service Assignment</h3>
+          <div class="form-grid">
+            <div class="field">
+              <label for="repairTechInput">Repair Tech Name *</label>
+              <input id="repairTechInput" type="text" list="repairTechDatalist" placeholder="Enter Repair Tech name">
+              <datalist id="repairTechDatalist"></datalist>
+            </div>
+
+            <div class="field">
+              <label for="repairTechLevelInput">Repair Tech Level *</label>
+              <select id="repairTechLevelInput">
+                <option value="">Select level</option>
+                <option value="LEVEL_1">Repair Tech Level 1</option>
+                <option value="LEVEL_2">Repair Tech Level 2</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="originalServiceDateInput">Original Service Date</label>
+              <input id="originalServiceDateInput" type="date">
+            </div>
+
+            <div class="field">
+              <label for="workOrderInput">Related Work Order #</label>
+              <input id="workOrderInput" type="text" placeholder="Skimmer WO or service reference">
+            </div>
+
+            <div class="field">
+              <label for="quoteNumberInput">Related Quote #</label>
+              <input id="quoteNumberInput" type="text" placeholder="Quote number, if applicable">
+            </div>
+
+            <div class="field">
+              <label>Repair WORC Rule</label>
+              <div class="fixed-value">Causation = Lose 1 Success Tier</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="reviewSection" class="modal-section hidden">
+          <h3>3. Management Review</h3>
+          <p class="section-note">
+            Completing this section and clicking Complete Management Review automatically changes the callback from OPEN to REVIEWED.
+          </p>
+
+          <div class="form-grid">
+            <div class="field">
+              <label for="reviewTypeInput">Management Classification *</label>
+              <select id="reviewTypeInput"></select>
+            </div>
+
+            <div class="field">
+              <label for="causationInput">Was It Causation? *</label>
+              <select id="causationInput">
+                <option value="">Select Yes or No</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="rootCauseInput">Root Cause Category *</label>
+              <select id="rootCauseInput">
+                <option value="">Select root cause</option>
+                <option value="CHEMISTRY">Chemistry</option>
+                <option value="MISSED_STEP_INCOMPLETE_CLEAN">Missed Step / Incomplete Clean</option>
+                <option value="EQUIPMENT_MISS_NOT_REPORTED">Equipment Miss / Not Reported</option>
+                <option value="REPAIR_WORKMANSHIP">Repair Workmanship</option>
+                <option value="INCOMPLETE_DIAGNOSIS">Incomplete Diagnosis</option>
+                <option value="INSTALLATION_ISSUE">Installation Issue</option>
+                <option value="DOCUMENTATION_SKIMMER">Documentation / Skimmer</option>
+                <option value="COMMUNICATION_CLIENT_EXPERIENCE">Communication / Client Experience</option>
+                <option value="SCHEDULING_ACCESS">Scheduling / Access</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="severityInput">Severity *</label>
+              <select id="severityInput">
+                <option value="">Select severity</option>
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="CRITICAL">Critical</option>
+              </select>
+            </div>
+
+            <div class="field span-full">
+              <label for="correctiveActionInput">Corrective Action *</label>
+              <textarea id="correctiveActionInput" placeholder="Document the corrective action, coaching, client recovery, or follow-up steps."></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section class="modal-section impact-box">
+          <h3 id="impactPreviewTitle" style="border:0;padding:0;margin-bottom:8px;">4. Callback Impact Preview</h3>
+          <div class="impact-total" id="impactPreviewAmount">$0.00</div>
+          <div class="impact-detail" id="impactPreviewDetail">
+            The impact remains pending until management review is completed.
+          </div>
+          <div class="impact-disclaimer" id="impactPreviewDisclaimer">
+            Route impacts are informational. Repair causation callbacks affect WORC Success Tier treatment.
+          </div>
+        </section>
+      </div>
+
+      <div class="modal-footer">
+        <div>
+          <span id="modalStatusLabel" class="chip chip-open">OPEN</span>
+        </div>
+
+        <div class="footer-actions">
+          <button class="secondary-btn" id="cancelModalButton">Cancel</button>
+          <button class="secondary-btn manage-only" id="saveIntakeButton">Save Open Callback</button>
+          <button class="primary-btn manage-only hidden" id="completeReviewButton">Complete Management Review</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="shared-navigation.js"></script>
+  <script>
+    const SUPABASE_URL = 'https://icqkuhbhcennhhbbwqgo.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const VIEW_ROLES = ['SYSTEM_ADMIN','ADMIN','ACCOUNTING','SERVICE','SERVICE_MANAGER'];
+    const MANAGE_ROLES = ['SYSTEM_ADMIN','ADMIN','SERVICE','SERVICE_MANAGER'];
+
+    const CALLBACK_TABLE = 'service_callback_incidents';
+
+    const ROUTE_CLASSIFICATION_LABELS = {
+      ROUTE_SERVICE_CALLBACK:'Route Service Callback',
+      QCS_FAILURE:'QCS Failure',
+      LOST_CLIENT:'Lost Client'
+    };
+
+    const REPAIR_CLASSIFICATION_LABELS = {
+      REPAIR_SERVICE_CALLBACK:'Repair Service Callback',
+      REPAIR_WORKMANSHIP_CALLBACK:'Repair Workmanship Callback',
+      REPAIR_DIAGNOSTIC_MISS:'Repair Diagnostic Miss',
+      REPAIR_INSTALLATION_ISSUE:'Repair Installation Issue'
+    };
+
+    const CLASSIFICATION_LABELS = {
+      ...ROUTE_CLASSIFICATION_LABELS,
+      ...REPAIR_CLASSIFICATION_LABELS
+    };
+
+    const ROOT_CAUSE_LABELS = {
+      CHEMISTRY:'Chemistry',
+      MISSED_STEP_INCOMPLETE_CLEAN:'Missed Step / Incomplete Clean',
+      EQUIPMENT_MISS_NOT_REPORTED:'Equipment Miss / Not Reported',
+      REPAIR_WORKMANSHIP:'Repair Workmanship',
+      INCOMPLETE_DIAGNOSIS:'Incomplete Diagnosis',
+      INSTALLATION_ISSUE:'Installation Issue',
+      DOCUMENTATION_SKIMMER:'Documentation / Skimmer',
+      COMMUNICATION_CLIENT_EXPERIENCE:'Communication / Client Experience',
+      SCHEDULING_ACCESS:'Scheduling / Access',
+      OTHER:'Other'
+    };
+
+    const TECH_LEVEL_LABELS = {
+      LEVEL_1:'Level 1',
+      LEVEL_2:'Level 2'
+    };
+
+    let currentProfile = null;
+    let canManage = false;
+    let eventRows = [];
+    let filteredRows = [];
+    let clientLookup = [];
+    let lookupByKey = new Map();
+    let activeEvent = null;
+
+    const $ = id => document.getElementById(id);
+
+    const todayISO = () => new Date().toISOString().slice(0,10);
+
+    const formatCurrency = amount =>
+      new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(amount || 0));
+
+    const formatDate = date =>
+      date ? new Date(date + 'T00:00:00').toLocaleDateString('en-US') : '—';
+
+    const normalize = text =>
+      String(text || '').toLowerCase().replace(/[^a-z0-9]/g,'');
+
+    const escapeHtml = text =>
+      String(text ?? '').replace(/[&<>'"]/g,ch => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'
+      }[ch]));
+
+    const textClip = (text,max=180) =>
+      String(text || '').length > max ? String(text).slice(0,max-1) + '…' : String(text || '');
+
+    function setStatus(message,type='') {
+      $('statusBar').textContent = message;
+      $('statusBar').className = 'status-bar no-print' + (type ? ' ' + type : '');
+    }
+
+    function showAccessGate(message) {
+      $('accessMessage').textContent = message;
+      $('accessGate').classList.remove('hidden');
+      $('pageContent').classList.add('hidden');
+    }
+
+    async function enforceAccess() {
+      const {data:sessionData,error:sessionError} = await client.auth.getSession();
+
+      if (sessionError || !sessionData.session) {
+        showAccessGate('Sign in with an authorized Molinari Pools account to continue.');
+        return false;
+      }
+
+      const {data:profile,error:profileError} = await client.from('user_profiles')
+        .select('id, full_name, role, active')
+        .eq('id',sessionData.session.user.id)
+        .maybeSingle();
+
+      if (profileError || !profile || !profile.active) {
+        showAccessGate('Your active user profile could not be verified.');
+        return false;
+      }
+
+      if (!VIEW_ROLES.includes(profile.role)) {
+        showAccessGate('Your role does not have access to Callback Tracking.');
+        return false;
+      }
+
+      currentProfile = profile;
+      canManage = MANAGE_ROLES.includes(profile.role);
+
+      $('accessGate').classList.add('hidden');
+      $('pageContent').classList.remove('hidden');
+
+      document.querySelectorAll('.manage-only').forEach(el => {
+        el.classList.toggle('hidden',!canManage);
+      });
+
+      $('roleModeLabel').textContent =
+        (profile.full_name || profile.role) + (canManage ? ' · Intake and Review Access' : ' · View Only');
+
+      return true;
+    }
+
+    function addOption(select,value,label=value) {
+      if (value && ![...select.options].some(option => option.value === value)) {
+        select.append(new Option(label,value));
+      }
+    }
+
+    function clientDisplayValue(row) {
+      return row.client_name + ' — ' + (row.service_address || 'Historical address');
+    }
+
+    function renderClientOptions(selectedKey='') {
+      $('clientDatalist').innerHTML = '';
+
+      lookupByKey.forEach((row,key) => {
+        const option = document.createElement('option');
+        option.value = clientDisplayValue(row);
+        option.dataset.key = key;
+        $('clientDatalist').append(option);
+      });
+
+      $('clientSelect').value = selectedKey || '';
+
+      if (selectedKey && lookupByKey.has(selectedKey)) {
+        $('clientSearchInput').value = clientDisplayValue(lookupByKey.get(selectedKey));
+      }
+
+      updateClientHelperText();
+    }
+
+    function updateClientHelperText() {
+      const division = $('callbackDivisionInput').value;
+
+      if (division === 'ROUTE_SERVICE') {
+        $('clientSearchCount').textContent =
+          'Select a client from the latest Client Changes route upload. ' + clientLookup.length + ' route locations loaded.';
+      } else {
+        $('clientSearchCount').textContent =
+          'Select a matching client if available, or type the client name manually for Repair Service callbacks.';
+      }
+    }
+
+    function syncClientSearchSelection() {
+      const entered = $('clientSearchInput').value.trim().toLowerCase();
+
+      const match = [...lookupByKey.entries()].find(([,row]) => {
+        return clientDisplayValue(row).toLowerCase() === entered;
+      });
+
+      $('clientSelect').value = match ? match[0] : '';
+      clientChanged();
+    }
+
+    async function loadClientLookup() {
+      const {data,error} = await client.rpc('get_service_safeguard_client_lookup');
+
+      if (error) {
+        throw new Error('Unable to load Client Changes route clients: ' + error.message);
+      }
+
+      clientLookup = data || [];
+      lookupByKey = new Map();
+
+      $('routeTechInput').innerHTML = '<option value="">Select Route Tech</option>';
+      $('routeLeaderInput').innerHTML = '<option value="">Select Route Tech Leader</option>';
+      $('techFilter').innerHTML = '<option value="">All Techs</option>';
+
+      const techs = new Set();
+      const leaders = new Set();
+
+      clientLookup.forEach((row,index) => {
+        const key = 'client-' + index;
+        lookupByKey.set(key,row);
+
+        if (row.route_tech_name) techs.add(row.route_tech_name);
+        if (row.route_tech_leader_name) leaders.add(row.route_tech_leader_name);
+      });
+
+      renderClientOptions();
+
+      [...techs].sort().forEach(name => {
+        addOption($('routeTechInput'),name);
+        addOption($('techFilter'),name);
+      });
+
+      [...leaders].sort().forEach(name => {
+        addOption($('routeLeaderInput'),name);
+      });
+    }
+
+    async function loadEvents() {
+      setStatus('Loading callback incidents…');
+
+      const {data,error} = await client.from(CALLBACK_TABLE)
+        .select('*')
+        .order('callback_date',{ascending:false})
+        .order('created_at',{ascending:false});
+
+      if (error) {
+        eventRows = [];
+        applyFilters();
+        setStatus('Callback tracking load error: ' + error.message,'error');
+        return;
+      }
+
+      eventRows = data || [];
+      rebuildTechListsFromEvents();
+      applyFilters();
+
+      setStatus(
+        'Loaded ' + eventRows.length + ' callback incidents and ' +
+        clientLookup.length + ' current Client Changes route locations.',
+        'success'
+      );
+    }
+
+    function rebuildTechListsFromEvents() {
+      const selectedTechFilter = $('techFilter').value;
+      const selectedRepairTech = $('repairTechInput').value;
+
+      const allTechs = new Set();
+      const repairTechs = new Set();
+
+      eventRows.forEach(row => {
+        if (row.route_tech_name) allTechs.add(row.route_tech_name);
+        if (row.repair_tech_name) {
+          allTechs.add(row.repair_tech_name);
+          repairTechs.add(row.repair_tech_name);
+        }
+      });
+
+      clientLookup.forEach(row => {
+        if (row.route_tech_name) allTechs.add(row.route_tech_name);
+      });
+
+      $('techFilter').innerHTML = '<option value="">All Techs</option>';
+      [...allTechs].sort().forEach(name => addOption($('techFilter'),name));
+      $('techFilter').value = selectedTechFilter;
+
+      $('repairTechDatalist').innerHTML = '';
+      [...repairTechs].sort().forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        $('repairTechDatalist').append(option);
+      });
+
+      $('repairTechInput').value = selectedRepairTech;
+    }
+
+    function applyFilters() {
+      const search = $('searchInput').value.trim().toLowerCase();
+      const division = $('divisionFilter').value;
+      const status = $('statusFilter').value;
+      const type = $('typeFilter').value;
+      const tech = $('techFilter').value;
+      const from = $('dateFromFilter').value;
+
+      filteredRows = eventRows.filter(row => {
+        const haystack = [
+          row.client_name,
+          row.service_address,
+          row.callback_description,
+          row.called_in_by,
+          row.route_tech_name,
+          row.route_tech_leader_name,
+          row.repair_tech_name,
+          row.repair_tech_level,
+          row.related_work_order_number,
+          row.related_quote_number,
+          row.management_classification,
+          row.root_cause_category,
+          row.corrective_action,
+          row.worc_impact_notes
+        ].join(' ').toLowerCase();
+
+        const rowTechMatch =
+          !tech || row.route_tech_name === tech || row.repair_tech_name === tech;
+
+        return (!search || haystack.includes(search))
+          && (!division || row.callback_division === division)
+          && (!status || row.status === status)
+          && (!type || row.management_classification === type)
+          && rowTechMatch
+          && (!from || row.callback_date >= from);
+      });
+
+      renderMetrics();
+      renderTables();
+    }
+
+    function renderMetrics() {
+      const active = filteredRows.filter(row => row.status !== 'VOIDED');
+
+      $('totalMetric').textContent = filteredRows.length;
+      $('openMetric').textContent = active.filter(row => row.status === 'OPEN').length;
+      $('reviewedMetric').textContent = active.filter(row => row.status === 'REVIEWED').length;
+      $('causationMetric').textContent = active.filter(row => row.causation_callback === true).length;
+    }
+
+    function renderTables() {
+      renderRouteTable(filteredRows.filter(row => row.callback_division === 'ROUTE_SERVICE'));
+      renderRepairTable(filteredRows.filter(row => row.callback_division === 'REPAIR_SERVICE'));
+
+      document.querySelectorAll('.open-event').forEach(button => {
+        button.addEventListener('click',() => openExisting(button.dataset.id));
+      });
+    }
+
+    function renderRouteTable(rows) {
+      if (!rows.length) {
+        $('routeTableBody').innerHTML =
+          '<tr><td colspan="13" class="empty-state">No Route Service callbacks match the current filters.</td></tr>';
+        return;
+      }
+
+      $('routeTableBody').innerHTML = rows.map(row => {
+        const causation = row.causation_callback === true ? 'Yes' : row.causation_callback === false ? 'No' : 'Pending';
+        const classification = row.status === 'OPEN'
+          ? '<span class="muted">Awaiting Review</span>'
+          : escapeHtml(CLASSIFICATION_LABELS[row.management_classification] || row.management_classification || '—');
+
+        const action = row.status === 'OPEN' && canManage ? 'Complete Review' : 'View';
+
+        return `<tr>
+          <td>${escapeHtml(formatDate(row.callback_date))}</td>
+          <td><span class="chip chip-${escapeHtml(String(row.status).toLowerCase())}">${escapeHtml(row.status)}</span></td>
+          <td><strong>${escapeHtml(row.client_name)}</strong><br><span class="muted">${escapeHtml(row.service_address || '')}</span></td>
+          <td class="issue-cell" title="${escapeHtml(row.callback_description)}">${escapeHtml(textClip(row.callback_description))}</td>
+          <td>${escapeHtml(row.called_in_by || '—')}</td>
+          <td>${escapeHtml(row.route_tech_name || '—')}</td>
+          <td>${escapeHtml(row.route_tech_leader_name || '—')}</td>
+          <td>${classification}</td>
+          <td>${causation}</td>
+          <td>${escapeHtml(ROOT_CAUSE_LABELS[row.root_cause_category] || 'Pending')}</td>
+          <td>${escapeHtml(row.severity || 'Pending')}</td>
+          <td class="${Number(row.route_ppv_impact_amount || 0) < 0 ? 'money-negative' : ''}">${escapeHtml(formatCurrency(row.route_ppv_impact_amount))}</td>
+          <td class="actions-column"><button class="small-btn open-event" data-id="${row.id}">${action}</button></td>
+        </tr>`;
+      }).join('');
+    }
+
+    function renderRepairTable(rows) {
+      if (!rows.length) {
+        $('repairTableBody').innerHTML =
+          '<tr><td colspan="15" class="empty-state">No Repair Service callbacks match the current filters.</td></tr>';
+        return;
+      }
+
+      $('repairTableBody').innerHTML = rows.map(row => {
+        const causation = row.causation_callback === true ? 'Yes' : row.causation_callback === false ? 'No' : 'Pending';
+        const classification = row.status === 'OPEN'
+          ? '<span class="muted">Awaiting Review</span>'
+          : escapeHtml(CLASSIFICATION_LABELS[row.management_classification] || row.management_classification || '—');
+
+        const worcImpact = row.worc_impact_applies
+          ? '<span class="chip chip-danger">Lose 1 Tier</span>'
+          : row.status === 'REVIEWED'
+            ? '<span class="chip chip-reviewed">No WORC Impact</span>'
+            : '<span class="muted">Pending</span>';
+
+        const action = row.status === 'OPEN' && canManage ? 'Complete Review' : 'View';
+
+        return `<tr>
+          <td>${escapeHtml(formatDate(row.callback_date))}</td>
+          <td><span class="chip chip-${escapeHtml(String(row.status).toLowerCase())}">${escapeHtml(row.status)}</span></td>
+          <td><strong>${escapeHtml(row.client_name)}</strong><br><span class="muted">${escapeHtml(row.service_address || '')}</span></td>
+          <td class="issue-cell" title="${escapeHtml(row.callback_description)}">${escapeHtml(textClip(row.callback_description))}</td>
+          <td>${escapeHtml(row.called_in_by || '—')}</td>
+          <td>${escapeHtml(row.repair_tech_name || '—')}</td>
+          <td>${escapeHtml(TECH_LEVEL_LABELS[row.repair_tech_level] || '—')}</td>
+          <td>${escapeHtml(row.related_work_order_number || '—')}</td>
+          <td>${escapeHtml(row.related_quote_number || '—')}</td>
+          <td>${classification}</td>
+          <td>${causation}</td>
+          <td>${escapeHtml(ROOT_CAUSE_LABELS[row.root_cause_category] || 'Pending')}</td>
+          <td>${escapeHtml(row.severity || 'Pending')}</td>
+          <td>${worcImpact}</td>
+          <td class="actions-column"><button class="small-btn open-event" data-id="${row.id}">${action}</button></td>
+        </tr>`;
+      }).join('');
+    }
+
+    function setModalStatus(status) {
+      $('modalStatusLabel').textContent = status;
+      $('modalStatusLabel').className = 'chip chip-' + String(status).toLowerCase();
+    }
+
+    function setModalDisabled(disabled) {
+      document.querySelectorAll('#eventModalBackdrop input,#eventModalBackdrop select,#eventModalBackdrop textarea')
+        .forEach(el => {
+          el.disabled = disabled;
+        });
+    }
+
+    function clearModal() {
+      activeEvent = null;
+
+      $('eventIdInput').value = '';
+      $('clientSelect').value = '';
+      $('callbackDivisionInput').value = 'ROUTE_SERVICE';
+      $('incidentDateInput').value = todayISO();
+      $('clientSearchInput').value = '';
+      $('addressInput').value = '';
+      $('reportedByInput').value = '';
+      $('descriptionInput').value = '';
+
+      $('routeTechInput').value = '';
+      $('routeLeaderInput').value = '';
+
+      $('repairTechInput').value = '';
+      $('repairTechLevelInput').value = '';
+      $('originalServiceDateInput').value = '';
+      $('workOrderInput').value = '';
+      $('quoteNumberInput').value = '';
+
+      $('reviewTypeInput').value = '';
+      $('causationInput').value = '';
+      $('rootCauseInput').value = '';
+      $('severityInput').value = '';
+      $('correctiveActionInput').value = '';
+
+      $('reviewSection').classList.add('hidden');
+      $('saveIntakeButton').classList.toggle('hidden',!canManage);
+      $('completeReviewButton').classList.add('hidden');
+
+      setModalDisabled(false);
+      setModalStatus('OPEN');
+      renderClientOptions();
+      setDivisionUI();
+      updateImpactPreview();
+    }
+
+    function openNew() {
+      clearModal();
+
+      $('eventModalTitle').textContent = 'Log Callback';
+      $('eventModalSubtitle').textContent = 'CSC intake creates an OPEN callback for management review.';
+      $('eventModalBackdrop').classList.remove('hidden');
+      $('incidentDateInput').focus();
+    }
+
+    function selectClientForEvent(row) {
+      const match = [...lookupByKey.entries()].find(([,item]) => {
+        return normalize(item.client_name) === normalize(row.client_name)
+          && normalize(item.service_address) === normalize(row.service_address);
+      });
+
+      if (match) {
+        renderClientOptions(match[0]);
+        return;
+      }
+
+      const key = 'snapshot-' + row.id;
+      const snapshot = {
+        client_name:row.client_name,
+        service_address:row.service_address || '',
+        route_tech_name:row.route_tech_name || '',
+        route_tech_leader_name:row.route_tech_leader_name || ''
+      };
+
+      lookupByKey.set(key,snapshot);
+      renderClientOptions(key);
+    }
+
+    function openExisting(id) {
+      const row = eventRows.find(item => item.id === id);
+      if (!row) return;
+
+      clearModal();
+      activeEvent = row;
+
+      $('eventIdInput').value = row.id;
+      $('callbackDivisionInput').value = row.callback_division || 'ROUTE_SERVICE';
+      setDivisionUI();
+
+      $('incidentDateInput').value = row.callback_date || '';
+      selectClientForEvent(row);
+      $('addressInput').value = row.service_address || '';
+      $('reportedByInput').value = row.called_in_by || '';
+      $('descriptionInput').value = row.callback_description || '';
+
+      addOption($('routeTechInput'),row.route_tech_name);
+      addOption($('routeLeaderInput'),row.route_tech_leader_name);
+
+      $('routeTechInput').value = row.route_tech_name || '';
+      $('routeLeaderInput').value = row.route_tech_leader_name || '';
+
+      $('repairTechInput').value = row.repair_tech_name || '';
+      $('repairTechLevelInput').value = row.repair_tech_level || '';
+      $('originalServiceDateInput').value = row.original_service_date || '';
+      $('workOrderInput').value = row.related_work_order_number || '';
+      $('quoteNumberInput').value = row.related_quote_number || '';
+
+      setClassificationOptions(row.callback_division,row.management_classification);
+
+      $('causationInput').value =
+        row.causation_callback === true ? 'true' :
+        row.causation_callback === false ? 'false' : '';
+
+      $('rootCauseInput').value = row.root_cause_category || '';
+      $('severityInput').value = row.severity || '';
+      $('correctiveActionInput').value = row.corrective_action || '';
+
+      $('reviewSection').classList.remove('hidden');
+      setModalStatus(row.status);
+
+      $('eventModalTitle').textContent =
+        row.status === 'OPEN' ? 'Complete Management Review' : 'Reviewed Callback';
+
+      $('eventModalSubtitle').textContent =
+        formatCallbackDivision(row.callback_division) + ' · ' + row.client_name + ' · ' + formatDate(row.callback_date);
+
+      if (row.status === 'OPEN' && canManage) {
+        $('saveIntakeButton').classList.remove('hidden');
+        $('completeReviewButton').classList.remove('hidden');
+        setModalDisabled(false);
+        setDivisionUI();
+      } else {
+        $('saveIntakeButton').classList.add('hidden');
+        $('completeReviewButton').classList.add('hidden');
+        setModalDisabled(true);
+      }
+
+      updateImpactPreview();
+      $('eventModalBackdrop').classList.remove('hidden');
+    }
+
+    function clientChanged() {
+      const row = lookupByKey.get($('clientSelect').value);
+      const division = $('callbackDivisionInput').value;
+
+      if (row) {
+        $('addressInput').value = row.service_address || '';
+
+        addOption($('routeTechInput'),row.route_tech_name);
+        addOption($('routeLeaderInput'),row.route_tech_leader_name);
+
+        if (division === 'ROUTE_SERVICE') {
+          $('routeTechInput').value = row.route_tech_name || '';
+          $('routeLeaderInput').value = row.route_tech_leader_name || '';
+        }
+      } else if (division === 'ROUTE_SERVICE') {
+        $('addressInput').value = '';
+        $('routeTechInput').value = '';
+        $('routeLeaderInput').value = '';
+      }
+    }
+
+    function setDivisionUI() {
+      const division = $('callbackDivisionInput').value;
+
+      $('routeCallbackSection').classList.toggle('hidden',division !== 'ROUTE_SERVICE');
+      $('repairCallbackSection').classList.toggle('hidden',division !== 'REPAIR_SERVICE');
+
+      if (!$('eventModalBackdrop').classList.contains('hidden')) {
+        $('eventModalTitle').textContent =
+          division === 'REPAIR_SERVICE' ? 'Log Repair Service Callback' : 'Log Route Service Callback';
+      }
+
+      $('addressInput').readOnly = division === 'ROUTE_SERVICE';
+
+      if (division === 'ROUTE_SERVICE') {
+        $('addressInput').placeholder = 'Auto-filled from Client Changes route upload';
+      } else {
+        $('addressInput').placeholder = 'Enter service address';
+      }
+
+      setClassificationOptions(division,$('reviewTypeInput').value);
+      updateClientHelperText();
+      clientChanged();
+      updateImpactPreview();
+    }
+
+    function setClassificationOptions(division,selectedValue='') {
+      const classifications =
+        division === 'REPAIR_SERVICE' ? REPAIR_CLASSIFICATION_LABELS : ROUTE_CLASSIFICATION_LABELS;
+
+      $('reviewTypeInput').innerHTML = '<option value="">Select classification</option>';
+
+      Object.entries(classifications).forEach(([value,label]) => {
+        $('reviewTypeInput').append(new Option(label,value));
+      });
+
+      if (selectedValue && classifications[selectedValue]) {
+        $('reviewTypeInput').value = selectedValue;
+      }
+    }
+
+    function formatCallbackDivision(division) {
+      return division === 'REPAIR_SERVICE' ? 'Repair Service Callback' : 'Route Service Callback';
+    }
+
+    function calculatedRouteImpact() {
+      if ($('callbackDivisionInput').value !== 'ROUTE_SERVICE') return 0;
+      if ($('causationInput').value !== 'true') return 0;
+
+      if ($('reviewTypeInput').value === 'LOST_CLIENT') return -248;
+
+      return ['ROUTE_SERVICE_CALLBACK','QCS_FAILURE'].includes($('reviewTypeInput').value) ? -62 : 0;
+    }
+
+    function calculatedRepairWorcImpact() {
+      return $('callbackDivisionInput').value === 'REPAIR_SERVICE'
+        && $('causationInput').value === 'true';
+    }
+
+    function getWeekStartISO(dateValue) {
+      if (!dateValue) return null;
+
+      const date = new Date(dateValue + 'T00:00:00');
+      const day = date.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+
+      date.setDate(date.getDate() + diff);
+      return date.toISOString().slice(0,10);
+    }
+
+    function updateImpactPreview() {
+      const division = $('callbackDivisionInput').value;
+
+      if (activeEvent && activeEvent.status !== 'OPEN') {
+        if (activeEvent.callback_division === 'REPAIR_SERVICE') {
+          $('impactPreviewTitle').textContent = '4. Repair WORC Impact';
+          $('impactPreviewAmount').textContent =
+            activeEvent.worc_impact_applies ? 'Lose 1 Success Tier' : 'No WORC Impact';
+
+          $('impactPreviewDetail').textContent = activeEvent.worc_impact_applies
+            ? 'This reviewed Repair Service callback was marked as causation. The Repair Tech loses one Success Tier of Bonus Hourly Pay for the applicable WORC week.'
+            : 'This reviewed Repair Service callback does not create a WORC Success Tier reduction.';
+
+          $('impactPreviewDisclaimer').textContent =
+            'Repair WORC impact applies only when leadership marks the callback as causation.';
+        } else {
+          $('impactPreviewTitle').textContent = '4. Route Safeguard Impact';
+          $('impactPreviewAmount').textContent = formatCurrency(activeEvent.route_ppv_impact_amount);
+
+          if (activeEvent.management_classification === 'LOST_CLIENT' && Number(activeEvent.route_ppv_impact_amount) === -248) {
+            $('impactPreviewDetail').textContent =
+              '-$124 per pay period × 2 pay periods = -$248 total monthly route safeguard impact.';
+          } else if (Number(activeEvent.route_ppv_impact_amount) === -62) {
+            $('impactPreviewDetail').textContent =
+              '-$62 route safeguard impact for the reviewed incident.';
+          } else {
+            $('impactPreviewDetail').textContent =
+              '$0 impact was recorded for this reviewed Route Service callback.';
+          }
+
+          $('impactPreviewDisclaimer').textContent =
+            'Route impacts are informational for service safeguard tracking.';
+        }
+
+        return;
+      }
+
+      if (division === 'REPAIR_SERVICE') {
+        $('impactPreviewTitle').textContent = '4. Repair WORC Impact';
+
+        if (!$('reviewTypeInput').value || !$('causationInput').value) {
+          $('impactPreviewAmount').textContent = 'Pending Review';
+          $('impactPreviewDetail').textContent =
+            'The WORC impact remains pending until management review is completed.';
+        } else if (calculatedRepairWorcImpact()) {
+          $('impactPreviewAmount').textContent = 'Lose 1 Success Tier';
+          $('impactPreviewDetail').textContent =
+            'Because this Repair Service callback is marked as causation, the Repair Tech loses one Success Tier of Bonus Hourly Pay for the applicable WORC week.';
+        } else {
+          $('impactPreviewAmount').textContent = 'No WORC Impact';
+          $('impactPreviewDetail').textContent =
+            'No WORC Success Tier reduction applies because causation was marked No.';
+        }
+
+        $('impactPreviewDisclaimer').textContent =
+          'Repair causation callbacks affect Bonus Hourly Pay only, not base hourly pay.';
+      } else {
+        $('impactPreviewTitle').textContent = '4. Route Safeguard Impact';
+        $('impactPreviewAmount').textContent = formatCurrency(calculatedRouteImpact());
+
+        if (!$('reviewTypeInput').value || !$('causationInput').value) {
+          $('impactPreviewDetail').textContent =
+            'The route impact remains $0 until management review is completed.';
+        } else if ($('causationInput').value === 'false') {
+          $('impactPreviewDetail').textContent =
+            '$0 because management selected No for causation.';
+        } else if ($('reviewTypeInput').value === 'LOST_CLIENT') {
+          $('impactPreviewDetail').textContent =
+            '-$124 per pay period × 2 pay periods = -$248 total monthly route safeguard impact.';
+        } else if ($('reviewTypeInput').value === 'QCS_FAILURE') {
+          $('impactPreviewDetail').textContent =
+            '-$62 for a causation-related QCS Failure.';
+        } else {
+          $('impactPreviewDetail').textContent =
+            '-$62 for a causation-related Route Service Callback.';
+        }
+
+        $('impactPreviewDisclaimer').textContent =
+          'Route impacts are informational for service safeguard tracking.';
+      }
+    }
+
+    function getClientNameForSave() {
+      const selected = lookupByKey.get($('clientSelect').value);
+
+      if (selected) return selected.client_name;
+
+      const raw = $('clientSearchInput').value.trim();
+      if (raw.includes(' — ')) return raw.split(' — ')[0].trim();
+
+      return raw;
+    }
+
+    function validateIntake() {
+      const division = $('callbackDivisionInput').value;
+      const selected = lookupByKey.get($('clientSelect').value);
+      const clientName = getClientNameForSave();
+
+      if (!$('incidentDateInput').value) {
+        setStatus('Date of Callback is required.','error');
+        return false;
+      }
+
+      if (!clientName) {
+        setStatus('Client Name is required.','error');
+        return false;
+      }
+
+      if (division === 'ROUTE_SERVICE' && !selected) {
+        setStatus('Route Service callbacks must use a client from the Client Changes route list.','error');
+        return false;
+      }
+
+      if (!$('reportedByInput').value.trim()) {
+        setStatus('Who Called It In is required.','error');
+        return false;
+      }
+
+      if (!$('descriptionInput').value.trim()) {
+        setStatus('Description of Callback is required.','error');
+        return false;
+      }
+
+      if (division === 'ROUTE_SERVICE') {
+        if (!$('routeTechInput').value) {
+          setStatus('Route Tech Name is required for Route Service callbacks.','error');
+          return false;
+        }
+
+        if (!$('routeLeaderInput').value) {
+          setStatus('Route Tech Leader is required for Route Service callbacks.','error');
+          return false;
+        }
+      }
+
+      if (division === 'REPAIR_SERVICE') {
+        if (!$('repairTechInput').value.trim()) {
+          setStatus('Repair Tech Name is required for Repair Service callbacks.','error');
+          return false;
+        }
+
+        if (!$('repairTechLevelInput').value) {
+          setStatus('Repair Tech Level is required for Repair Service callbacks.','error');
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    function validateReview() {
+      if (!$('reviewTypeInput').value) {
+        setStatus('Management Classification is required.','error');
+        return false;
+      }
+
+      if ($('causationInput').value === '') {
+        setStatus('Was It Causation is required.','error');
+        return false;
+      }
+
+      if (!$('rootCauseInput').value) {
+        setStatus('Root Cause Category is required.','error');
+        return false;
+      }
+
+      if (!$('severityInput').value) {
+        setStatus('Severity is required.','error');
+        return false;
+      }
+
+      if (!$('correctiveActionInput').value.trim()) {
+        setStatus('Corrective Action is required.','error');
+        return false;
+      }
+
+      return true;
+    }
+
+    function buildIntakePayload() {
+      const selected = lookupByKey.get($('clientSelect').value);
+      const division = $('callbackDivisionInput').value;
+      const clientName = getClientNameForSave();
+
+      const payload = {
+        callback_division: division,
+        callback_date: $('incidentDateInput').value || null,
+        status: 'OPEN',
+
+        client_name: clientName,
+        service_address: $('addressInput').value.trim() || selected?.service_address || null,
+        callback_description: $('descriptionInput').value.trim() || null,
+        called_in_by: $('reportedByInput').value.trim() || null,
+
+        route_tech_name: division === 'ROUTE_SERVICE' ? $('routeTechInput').value || null : null,
+        route_tech_leader_name: division === 'ROUTE_SERVICE' ? $('routeLeaderInput').value || null : null,
+
+        repair_tech_name: division === 'REPAIR_SERVICE' ? $('repairTechInput').value.trim() || null : null,
+        repair_tech_level: division === 'REPAIR_SERVICE' ? $('repairTechLevelInput').value || null : null,
+        original_service_date: division === 'REPAIR_SERVICE' ? $('originalServiceDateInput').value || null : null,
+        related_work_order_number: division === 'REPAIR_SERVICE' ? $('workOrderInput').value.trim() || null : null,
+        related_quote_number: division === 'REPAIR_SERVICE' ? $('quoteNumberInput').value.trim() || null : null,
+
+        updated_by: currentProfile?.id || null,
+        updated_by_name: currentProfile?.full_name || null,
+        updated_at: new Date().toISOString()
+      };
+
+      if (!$('eventIdInput').value) {
+        payload.created_by = currentProfile?.id || null;
+        payload.created_by_name = currentProfile?.full_name || null;
+      }
+
+      return payload;
+    }
+
+    async function saveIntake() {
+      if (!canManage) return;
+      if (!validateIntake()) return;
+
+      const eventId = $('eventIdInput').value;
+      const payload = buildIntakePayload();
+
+      $('saveIntakeButton').disabled = true;
+      setStatus('Saving OPEN callback…');
+
+      let response;
+
+      if (eventId) {
+        response = await client.from(CALLBACK_TABLE)
+          .update(payload)
+          .eq('id',eventId);
+      } else {
+        response = await client.from(CALLBACK_TABLE)
+          .insert(payload);
+      }
+
+      $('saveIntakeButton').disabled = false;
+
+      if (response.error) {
+        setStatus('Callback intake save error: ' + response.error.message,'error');
+        return;
+      }
+
+      closeModal();
+      await loadEvents();
+
+      setStatus('Callback saved as OPEN for management review.','success');
+    }
+
+    async function completeReview() {
+      if (!canManage || !activeEvent || activeEvent.status !== 'OPEN') return;
+      if (!validateReview()) return;
+
+      const division = $('callbackDivisionInput').value;
+      const causation = $('causationInput').value === 'true';
+      const routeImpact = division === 'ROUTE_SERVICE' ? calculatedRouteImpact() : 0;
+      const repairWorcImpact = division === 'REPAIR_SERVICE' && causation;
+      const sourceDate = $('originalServiceDateInput').value || $('incidentDateInput').value;
+
+      const reviewPayload = {
+        ...buildIntakePayload(),
+
+        status: 'REVIEWED',
+        management_classification: $('reviewTypeInput').value || null,
+        causation_callback: causation,
+        root_cause_category: $('rootCauseInput').value || null,
+        severity: $('severityInput').value || null,
+        corrective_action: $('correctiveActionInput').value.trim() || null,
+
+        route_ppv_impact_amount: routeImpact,
+
+        worc_impact_applies: repairWorcImpact,
+        worc_success_tier_penalty: repairWorcImpact ? 1 : 0,
+        worc_week_start: repairWorcImpact ? getWeekStartISO(sourceDate) : null,
+        worc_impact_notes: repairWorcImpact
+          ? 'Causation Repair Service Callback: technician loses one Success Tier of Bonus Hourly Pay for the applicable WORC week.'
+          : null,
+
+        reviewed_by: currentProfile?.id || null,
+        reviewed_by_name: currentProfile?.full_name || null,
+        reviewed_at: new Date().toISOString(),
+
+        updated_by: currentProfile?.id || null,
+        updated_by_name: currentProfile?.full_name || null,
+        updated_at: new Date().toISOString()
+      };
+
+      $('completeReviewButton').disabled = true;
+      setStatus('Completing management review…');
+
+      const {error} = await client.from(CALLBACK_TABLE)
+        .update(reviewPayload)
+        .eq('id',activeEvent.id);
+
+      $('completeReviewButton').disabled = false;
+
+      if (error) {
+        setStatus('Management review save error: ' + error.message,'error');
+        return;
+      }
+
+      closeModal();
+      await loadEvents();
+
+      if (division === 'REPAIR_SERVICE' && repairWorcImpact) {
+        setStatus('Management review completed. Repair WORC impact applies: technician loses one Success Tier.','success');
+      } else if (division === 'ROUTE_SERVICE') {
+        setStatus('Management review completed. Route safeguard impact is ' + formatCurrency(routeImpact) + '.','success');
+      } else {
+        setStatus('Management review completed. No WORC impact applies.','success');
+      }
+    }
+
+    function closeModal() {
+      $('eventModalBackdrop').classList.add('hidden');
+    }
+
+    function exportCsv() {
+      const cols = [
+        ['Division',r=>formatCallbackDivision(r.callback_division)],
+        ['Date of Callback',r=>r.callback_date],
+        ['Status',r=>r.status],
+        ['Client Name',r=>r.client_name],
+        ['Service Address',r=>r.service_address],
+        ['Description of Callback',r=>r.callback_description],
+        ['Who Called It In',r=>r.called_in_by],
+        ['Route Tech Name',r=>r.route_tech_name],
+        ['Route Tech Leader',r=>r.route_tech_leader_name],
+        ['Repair Tech Name',r=>r.repair_tech_name],
+        ['Repair Tech Level',r=>TECH_LEVEL_LABELS[r.repair_tech_level] || r.repair_tech_level],
+        ['Original Service Date',r=>r.original_service_date],
+        ['Related Work Order #',r=>r.related_work_order_number],
+        ['Related Quote #',r=>r.related_quote_number],
+        ['Management Classification',r=>CLASSIFICATION_LABELS[r.management_classification] || r.management_classification],
+        ['Was It Causation?',r=>r.causation_callback === true ? 'Yes' : r.causation_callback === false ? 'No' : ''],
+        ['Root Cause',r=>ROOT_CAUSE_LABELS[r.root_cause_category] || r.root_cause_category],
+        ['Severity',r=>r.severity],
+        ['Corrective Action',r=>r.corrective_action],
+        ['Route PPV Impact',r=>r.route_ppv_impact_amount],
+        ['WORC Impact Applies',r=>r.worc_impact_applies ? 'Yes' : 'No'],
+        ['WORC Success Tier Penalty',r=>r.worc_success_tier_penalty],
+        ['WORC Week Start',r=>r.worc_week_start],
+        ['WORC Impact Notes',r=>r.worc_impact_notes],
+        ['Reviewed By',r=>r.reviewed_by_name],
+        ['Reviewed At',r=>r.reviewed_at]
+      ];
+
+      const quote = value => '"' + String(value ?? '').replace(/"/g,'""') + '"';
+      const lines = [cols.map(col => quote(col[0])).join(',')];
+
+      filteredRows.forEach(row => {
+        lines.push(cols.map(col => quote(col[1](row))).join(','));
+      });
+
+      const blob = new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+      const link = document.createElement('a');
+
+      link.href = URL.createObjectURL(blob);
+      link.download = 'Callback_Tracking_' + todayISO() + '.csv';
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      URL.revokeObjectURL(link.href);
+    }
+
+    function clearFilters() {
+      ['searchInput','divisionFilter','statusFilter','typeFilter','techFilter','dateFromFilter'].forEach(id => {
+        $(id).value = '';
+      });
+
+      applyFilters();
+    }
+
+    function bindEvents() {
+      $('refreshButton').addEventListener('click',async () => {
+        try {
+          await loadClientLookup();
+          await loadEvents();
+        } catch (error) {
+          setStatus(error.message,'error');
+        }
+      });
+
+      $('exportButton').addEventListener('click',exportCsv);
+      $('newIncidentButton').addEventListener('click',openNew);
+      $('clearFiltersButton').addEventListener('click',clearFilters);
+
+      $('callbackDivisionInput').addEventListener('change',setDivisionUI);
+
+      $('clientSearchInput').addEventListener('input',syncClientSearchSelection);
+      $('clientSearchInput').addEventListener('change',syncClientSearchSelection);
+
+      $('reviewTypeInput').addEventListener('change',updateImpactPreview);
+      $('causationInput').addEventListener('change',updateImpactPreview);
+      $('originalServiceDateInput').addEventListener('change',updateImpactPreview);
+      $('incidentDateInput').addEventListener('change',updateImpactPreview);
+
+      $('closeModalButton').addEventListener('click',closeModal);
+      $('cancelModalButton').addEventListener('click',closeModal);
+      $('saveIntakeButton').addEventListener('click',saveIntake);
+      $('completeReviewButton').addEventListener('click',completeReview);
+
+      ['searchInput','divisionFilter','statusFilter','typeFilter','techFilter','dateFromFilter'].forEach(id => {
+        $(id).addEventListener(id === 'searchInput' ? 'input' : 'change',applyFilters);
+      });
+
+      $('eventModalBackdrop').addEventListener('click',event => {
+        if (event.target === $('eventModalBackdrop')) closeModal();
+      });
+
+      document.addEventListener('keydown',event => {
+        if (event.key === 'Escape') closeModal();
+      });
+
+      $('logoutButton').addEventListener('click',async () => {
+        await client.auth.signOut();
+        window.location.href = 'login.html';
+      });
+    }
+
+    async function initializePage() {
+      bindEvents();
+
+      if (!await enforceAccess()) return;
+
+      try {
+        await loadClientLookup();
+        await loadEvents();
+      } catch (error) {
+        setStatus(error.message,'error');
+      }
+    }
+
+    initializePage();
+  </script>
+</body>
+</html>
