@@ -6230,6 +6230,8 @@ function renderFilterChecklistTable() {
   const body = document.getElementById('filterChecklistBody');
   body.innerHTML = '';
 
+  // The Client Changeout Checklist uses the billing view rows so the field/CSC
+  // checklist contains the Hurricane part, filter cost, O-ring cost, and total.
   const rows = filterCSCBillingData || [];
 
   if (!rows.length) {
@@ -6597,6 +6599,87 @@ function printRouteTechFilterChecklist() {
   printWindow.document.close();
   printWindow.focus();
   printWindow.print();
+}
+
+
+function getVarianceClass(value) {
+  const number = Number(value || 0);
+
+  if (number > 0) {
+    return 'variance-positive';
+  }
+
+  if (number < 0) {
+    return 'variance-negative';
+  }
+
+  return 'variance-zero';
+}
+
+function formatCurrency(value) {
+  return Number(value || 0).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  });
+}
+
+function formatNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+
+  const number = Number(value);
+
+  if (Number.isNaN(number)) {
+    return value;
+  }
+
+  return number.toLocaleString('en-US', {
+    maximumFractionDigits: 2
+  });
+}
+
+function formatDateOnly(value) {
+  if (!value) {
+    return '';
+  }
+
+  const stringValue = String(value);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) {
+    const [year, month, day] = stringValue.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString();
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString();
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
+function cleanCSV(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value).replace(/"/g, '""');
 }
 
 function cleanFilename(value) {
