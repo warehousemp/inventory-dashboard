@@ -3094,9 +3094,9 @@
         </table>
       </div>
 
-      <h3>Warehouse Filter Staging and Client Changeout Checklist</h3>
+      <h3>Warehouse Filter &amp; O-Ring Staging</h3>
       <div class="status-note">
-        The 2026 Annual Filter &amp; O-Ring Changeout is scheduled at up to 4 client locations per Route Tech per normal service day, beginning October 5 and completing by October 31. Use Changeout Service Date to see exactly what Warehouse must stage for that date. Jacob Martin's two Tuesday overflow clients are scheduled for Wednesday, October 28.
+        The 2026 Annual Filter &amp; O-Ring Changeout is scheduled at up to 4 client locations per Route Tech per normal service day, beginning October 5 and completing by October 31. Use Changeout Service Date to see exactly what Warehouse must stage for that date. Skimmer is the Route Tech's official changeout checklist and work-order record. Jacob Martin's two Tuesday overflow clients are scheduled for Wednesday, October 28.
       </div>
 
       <div class="filter-inline-actions">
@@ -3129,15 +3129,13 @@
         </div>
 
         <div class="filter-action-buttons">
-          <button class="report-btn" onclick="loadRouteTechFilterReports()">LOAD FILTER REQUIREMENTS</button>
+          <button class="report-btn" onclick="loadRouteTechFilterReports()">LOAD STAGING REQUIREMENTS</button>
           <button class="export-btn" onclick="exportRouteTechStagingCSV()">EXPORT STAGING CSV</button>
-          <button class="export-btn" onclick="exportRouteTechChecklistCSV()">EXPORT CHECKLIST CSV</button>
-          <button class="transfer-btn" onclick="printRouteTechFilterChecklist()">PRINT CHANGEOUT CHECKLIST</button>
         </div>
       </div>
 
       <div id="filterRouteTechSummary" class="session-id-box">
-        Select filters and load the Warehouse staging quantities and client checklist.
+        Select filters and load the Warehouse filter and O-ring staging quantities.
       </div>
 
       <h3>Staging Summary</h3>
@@ -3155,28 +3153,6 @@
             </tr>
           </thead>
           <tbody id="filterStagingBody"><tr><td colspan="7">Load filter and O-ring requirements.</td></tr></tbody>
-        </table>
-      </div>
-
-      <h3>Client Changeout Checklist</h3>
-      <div class="count-table-wrapper">
-        <table class="filter-billing-table">
-          <thead>
-            <tr>
-              <th>Entered into Skimmer</th>
-              <th>Client</th>
-              <th>Service Location</th>
-              <th>Filter System</th>
-              <th>Hurricane Part #</th>
-              <th>Qty</th>
-              <th>Unit Cost</th>
-              <th>O-Ring Part #</th>
-              <th>Qty</th>
-              <th>O-Ring Unit Cost</th>
-              <th>Total Billable to Client</th>
-            </tr>
-          </thead>
-          <tbody id="filterChecklistBody"><tr><td colspan="11">Load filter and O-ring requirements.</td></tr></tbody>
         </table>
       </div>
 
@@ -6134,15 +6110,13 @@ async function loadRouteTechFilterReports() {
   const selections = getFilterReportSelections();
   const summary = document.getElementById('filterRouteTechSummary');
   const stagingBody = document.getElementById('filterStagingBody');
-  const checklistBody = document.getElementById('filterChecklistBody');
   const billingBody = document.getElementById('filterCSCBillingBody');
   const billingSummary = document.getElementById('filterCSCBillingSummary');
 
-  if (!summary || !stagingBody || !checklistBody || !billingBody || !billingSummary) return;
+  if (!summary || !stagingBody || !billingBody || !billingSummary) return;
 
   summary.textContent = `Loading ${selections.serviceDateLabel} filter requirements for ${selections.routeTechLabel}...`;
   stagingBody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
-  checklistBody.innerHTML = '<tr><td colspan="11">Loading...</td></tr>';
   billingBody.innerHTML = '<tr><td colspan="12">Loading...</td></tr>';
   billingSummary.textContent = 'Loading CSC billing data...';
 
@@ -6211,7 +6185,6 @@ async function loadRouteTechFilterReports() {
     const message = stagingError?.message || checklistError?.message || billingError?.message || 'Unable to load filter reports.';
     summary.textContent = message;
     stagingBody.innerHTML = `<tr><td colspan="7">${escapeHTML(message)}</td></tr>`;
-    checklistBody.innerHTML = `<tr><td colspan="11">${escapeHTML(message)}</td></tr>`;
     billingBody.innerHTML = `<tr><td colspan="12">${escapeHTML(message)}</td></tr>`;
     billingSummary.textContent = message;
     return;
@@ -6222,7 +6195,6 @@ async function loadRouteTechFilterReports() {
   filterCSCBillingData = sortFilterChecklistRows(billing || []);
 
   renderFilterStagingTable();
-  renderFilterChecklistTable();
   renderCSCBillingTable();
 
   const totalQty = filterStagingData.reduce((sum, row) => sum + Number(row.quantity_to_stage || 0), 0);
@@ -6338,54 +6310,6 @@ function renderFilterStagingTable() {
       <td>${formatOringPartNumber(row.oring_part_number)}</td>
       <td>${formatNumber(row.oring_quantity_to_stage)}</td>
       <td>${escapeHTML(row.filter_systems || '')}</td>
-    `;
-    body.appendChild(tr);
-  });
-}
-
-function renderFilterChecklistTable() {
-  const body = document.getElementById('filterChecklistBody');
-  body.innerHTML = '';
-
-  const rows = filterCSCBillingData || [];
-
-  if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="11">No filter checklist rows found for the selected filters.</td></tr>';
-    return;
-  }
-
-  let lastServiceDate = null;
-  let lastRouteTech = null;
-
-  rows.forEach(row => {
-    const serviceDate = getFilterServiceDateValue(row);
-    const dayName = getFilterServiceDayName(row);
-    const routeTech = row.route_tech || 'Unassigned';
-
-    if (serviceDate !== lastServiceDate) {
-      appendFilterDateHeader(body, serviceDate, dayName, 11);
-      lastServiceDate = serviceDate;
-      lastRouteTech = null;
-    }
-
-    if (routeTech !== lastRouteTech) {
-      appendFilterRouteHeader(body, routeTech, 11);
-      lastRouteTech = routeTech;
-    }
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>☐</td>
-      <td>${escapeHTML(row.client_name || '')}</td>
-      <td>${escapeHTML(row.service_location || '')}</td>
-      <td>${escapeHTML(row.filter_system_name || '')}</td>
-      <td>${escapeHTML(row.hurricane_part_number || 'TBD')}</td>
-      <td>${formatNumber(row.system_quantity)}</td>
-      <td>${formatFilterBillingPrice(row.filter_unit_cost, 'COST NEEDED')}</td>
-      <td>${formatOringPartNumber(row.oring_part_number)}</td>
-      <td>${formatNumber(row.oring_quantity || 1)}</td>
-      <td>${formatFilterBillingPrice(row.oring_unit_cost, 'TBD')}</td>
-      <td>${formatFilterBillingPrice(row.total_billable_to_client, 'REVIEW')}</td>
     `;
     body.appendChild(tr);
   });
@@ -6599,130 +6523,6 @@ function exportRouteTechStagingCSV() {
   });
 
   downloadCSV(csv, `${getFilterExportFilenameBase('filter_staging')}.csv`);
-}
-
-function exportRouteTechChecklistCSV() {
-  if (!filterCSCBillingData.length) {
-    document.getElementById('filterRouteTechSummary').textContent = 'Load filter requirements before exporting the client checklist.';
-    return;
-  }
-
-  let csv = 'Entered into Skimmer,Service Date,Client,Service Location,Filter System,Hurricane Part #,Qty,Unit Cost,O-Ring Part #,Qty,O-Ring Unit Cost,Total Billable to Client\n';
-
-  sortFilterChecklistRows(filterCSCBillingData).forEach(row => {
-    csv +=
-      `"",` +
-      `"${cleanCSV(formatDateOnly(row.service_date))}",` +
-      `"${cleanCSV(row.client_name)}",` +
-      `"${cleanCSV(row.service_location)}",` +
-      `"${cleanCSV(row.filter_system_name)}",` +
-      `"${cleanCSV(row.hurricane_part_number || 'TBD')}",` +
-      `"${cleanCSV(row.system_quantity)}",` +
-      `"${cleanCSV(row.filter_unit_cost == null ? 'COST NEEDED' : Number(row.filter_unit_cost).toFixed(2))}",` +
-      `"${cleanCSV(row.oring_part_number || 'TBD')}",` +
-      `"${cleanCSV(row.oring_quantity || 1)}",` +
-      `"${cleanCSV(row.oring_unit_cost == null ? 'TBD' : Number(row.oring_unit_cost).toFixed(2))}",` +
-      `"${cleanCSV(row.total_billable_to_client == null ? 'REVIEW' : Number(row.total_billable_to_client).toFixed(2))}"\n`;
-  });
-
-  downloadCSV(csv, `${getFilterExportFilenameBase('filter_changeout_checklist')}.csv`);
-}
-
-function printRouteTechFilterChecklist() {
-  if (!filterCSCBillingData.length) {
-    document.getElementById('filterRouteTechSummary').textContent = 'Load filter requirements before printing.';
-    return;
-  }
-
-  const selections = getFilterReportSelections();
-  const sortedRows = sortFilterChecklistRows(filterCSCBillingData);
-  const totalQty = sortedRows.reduce((sum, row) => sum + Number(row.system_quantity || 0), 0);
-  const clientCount = new Set(sortedRows.map(row => `${row.client_name}|${row.service_location}`)).size;
-
-  let rowsHtml = '';
-  let lastServiceDate = null;
-  let lastRouteTech = null;
-
-  sortedRows.forEach(row => {
-    const serviceDate = getFilterServiceDateValue(row);
-    const dayName = getFilterServiceDayName(row);
-    const routeTech = row.route_tech || 'Unassigned';
-
-    if (serviceDate !== lastServiceDate) {
-      rowsHtml += `<tr class="day-header"><td colspan="11">${escapeHTML(getFilterServiceDateLabel(serviceDate))} — ${escapeHTML(dayName)}</td></tr>`;
-      lastServiceDate = serviceDate;
-      lastRouteTech = null;
-    }
-
-    if (routeTech !== lastRouteTech) {
-      rowsHtml += `<tr class="route-header"><td colspan="11">Route Tech: ${escapeHTML(routeTech)}</td></tr>`;
-      lastRouteTech = routeTech;
-    }
-
-    rowsHtml += `
-      <tr>
-        <td class="check">☐</td>
-        <td>${escapeHTML(row.client_name || '')}</td>
-        <td>${escapeHTML(row.service_location || '')}</td>
-        <td>${escapeHTML(row.filter_system_name || '')}</td>
-        <td>${escapeHTML(row.hurricane_part_number || 'TBD')}</td>
-        <td class="num">${formatNumber(row.system_quantity)}</td>
-        <td class="money">${row.filter_unit_cost == null ? 'COST NEEDED' : formatCurrency(Number(row.filter_unit_cost))}</td>
-        <td>${escapeHTML(String(row.oring_part_number || 'TBD'))}</td>
-        <td class="num">${formatNumber(row.oring_quantity || 1)}</td>
-        <td class="money">${row.oring_unit_cost == null ? 'TBD' : formatCurrency(Number(row.oring_unit_cost))}</td>
-        <td class="money">${row.total_billable_to_client == null ? 'REVIEW' : formatCurrency(Number(row.total_billable_to_client))}</td>
-      </tr>`;
-  });
-
-  const printWindow = window.open('', '_blank', 'width=1400,height=850');
-
-  if (!printWindow) {
-    document.getElementById('filterRouteTechSummary').textContent = 'Pop-up blocked. Allow pop-ups and try printing again.';
-    return;
-  }
-
-  printWindow.document.write(`<!doctype html>
-<html>
-<head>
-<title>Filter Changeout Checklist - ${escapeHTML(selections.serviceDateLabel)} - ${escapeHTML(selections.routeTechLabel)}</title>
-<style>
-  body{font-family:Arial,sans-serif;color:#111;margin:18px}
-  h1{font-size:20px;margin:0 0 6px}
-  .meta{font-size:11px;margin-bottom:12px;line-height:1.5}
-  table{width:100%;border-collapse:collapse;font-size:8px}
-  th,td{border:1px solid #555;padding:4px;vertical-align:top}
-  th{background:#eee}
-  .check{font-size:14px;text-align:center;width:42px}
-  .num,.money{text-align:right}
-  .money{font-weight:700}
-  .day-header td{background:#dbeafe;color:#0b3c5d;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;padding:6px;page-break-after:avoid}
-  .route-header td{background:#ecfdf3;color:#166534;font-size:9px;font-weight:900;padding:5px 8px;page-break-after:avoid}
-  @page{size:landscape;margin:.3in}
-</style>
-</head>
-<body>
-<h1>Annual Filter Changeout Checklist</h1>
-<div class="meta">
-  <strong>Changeout Date:</strong> ${escapeHTML(selections.serviceDateLabel)} &nbsp;&nbsp;
-  <strong>Day:</strong> ${escapeHTML(selections.serviceDayName)} &nbsp;&nbsp;
-  <strong>Route Tech:</strong> ${escapeHTML(selections.routeTechLabel)} &nbsp;&nbsp;
-  <strong>Client Locations:</strong> ${formatNumber(clientCount)} &nbsp;&nbsp;
-  <strong>Filter Lines:</strong> ${formatNumber(sortedRows.length)} &nbsp;&nbsp;
-  <strong>Total Filters:</strong> ${formatNumber(totalQty)}
-</div>
-<table>
-<thead>
-<tr><th>Entered into Skimmer</th><th>Client</th><th>Service Location</th><th>Filter System</th><th>Hurricane Part #</th><th>Qty</th><th>Unit Cost</th><th>O-Ring Part #</th><th>Qty</th><th>O-Ring Unit Cost</th><th>Total Billable to Client</th></tr>
-</thead>
-<tbody>${rowsHtml}</tbody>
-</table>
-</body>
-</html>`);
-
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
 }
 
 
