@@ -1728,7 +1728,11 @@
     .filter-import-table th:nth-child(10), .filter-import-table td:nth-child(10) { width: 260px; }
 
     .filter-forecast-table { min-width: 1650px; }
-    .filter-staging-table { min-width: 1550px; }
+    .filter-staging-table { min-width: 760px; table-layout: fixed; }
+    .filter-staging-table th:nth-child(1), .filter-staging-table td:nth-child(1) { width: 34%; font-weight: 800; }
+    .filter-staging-table th:nth-child(2), .filter-staging-table td:nth-child(2) { width: 16%; text-align: right; font-weight: 800; }
+    .filter-staging-table th:nth-child(3), .filter-staging-table td:nth-child(3) { width: 34%; font-weight: 800; }
+    .filter-staging-table th:nth-child(4), .filter-staging-table td:nth-child(4) { width: 16%; text-align: right; font-weight: 800; }
     .filter-checklist-table { min-width: 1650px; }
     .filter-billing-table { min-width: 1680px; table-layout: fixed; }
 
@@ -3143,16 +3147,13 @@
         <table class="filter-staging-table">
           <thead>
             <tr>
-              <th>Replacement Filter</th>
-              <th>Manufacturer</th>
-              <th>Client Locations</th>
-              <th>Filter Qty to Stage</th>
+              <th>Hurricane Part #</th>
+              <th>QTY to Stage</th>
               <th>O-Ring Part #</th>
-              <th>O-Ring Qty to Stage</th>
-              <th>Filter Systems</th>
+              <th>QTY to Stage</th>
             </tr>
           </thead>
-          <tbody id="filterStagingBody"><tr><td colspan="7">Load filter and O-ring requirements.</td></tr></tbody>
+          <tbody id="filterStagingBody"><tr><td colspan="4">Load filter and O-ring requirements.</td></tr></tbody>
         </table>
       </div>
 
@@ -6116,7 +6117,7 @@ async function loadRouteTechFilterReports() {
   if (!summary || !stagingBody || !billingBody || !billingSummary) return;
 
   summary.textContent = `Loading ${selections.serviceDateLabel} filter requirements for ${selections.routeTechLabel}...`;
-  stagingBody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
+  stagingBody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
   billingBody.innerHTML = '<tr><td colspan="11">Loading...</td></tr>';
   billingSummary.textContent = 'Loading CSC billing data...';
 
@@ -6184,7 +6185,7 @@ async function loadRouteTechFilterReports() {
 
     const message = stagingError?.message || checklistError?.message || billingError?.message || 'Unable to load filter reports.';
     summary.textContent = message;
-    stagingBody.innerHTML = `<tr><td colspan="7">${escapeHTML(message)}</td></tr>`;
+    stagingBody.innerHTML = `<tr><td colspan="4">${escapeHTML(message)}</td></tr>`;
     billingBody.innerHTML = `<tr><td colspan="11">${escapeHTML(message)}</td></tr>`;
     billingSummary.textContent = message;
     return;
@@ -6272,7 +6273,7 @@ function renderFilterStagingTable() {
   body.innerHTML = '';
 
   if (!filterStagingData.length) {
-    body.innerHTML = '<tr><td colspan="7">No filter/O-ring staging rows found for the selected filters.</td></tr>';
+    body.innerHTML = '<tr><td colspan="4">No filter/O-ring staging rows found for the selected filters.</td></tr>';
     return;
   }
 
@@ -6285,7 +6286,7 @@ function renderFilterStagingTable() {
     const routeTech = row.route_tech || 'Unassigned';
 
     if (serviceDate !== lastServiceDate) {
-      appendFilterDateHeader(body, serviceDate, dayName, 7);
+      appendFilterDateHeader(body, serviceDate, dayName, 4);
       lastServiceDate = serviceDate;
       lastRouteTech = null;
     }
@@ -6295,7 +6296,7 @@ function renderFilterStagingTable() {
       appendFilterRouteHeader(
         body,
         routeTech,
-        7,
+        4,
         `${formatNumber(scheduledClientCount)} scheduled client${scheduledClientCount === 1 ? '' : 's'}`
       );
       lastRouteTech = routeTech;
@@ -6303,13 +6304,10 @@ function renderFilterStagingTable() {
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${escapeHTML(row.replacement_filter || '')}</td>
-      <td>${escapeHTML(row.manufacturer || '')}</td>
-      <td>${formatNumber(row.client_location_count)}</td>
+      <td>${escapeHTML(row.hurricane_part_number || 'TBD')}</td>
       <td>${formatNumber(row.quantity_to_stage)}</td>
       <td>${formatOringPartNumber(row.oring_part_number)}</td>
       <td>${formatNumber(row.oring_quantity_to_stage)}</td>
-      <td>${escapeHTML(row.filter_systems || '')}</td>
     `;
     body.appendChild(tr);
   });
@@ -6517,26 +6515,23 @@ function printRouteTechStagingReport() {
     const routeTech = row.route_tech || 'Unassigned';
 
     if (serviceDate !== lastServiceDate) {
-      rowsHtml += `<tr class="day-header"><td colspan="7">${escapeHTML(getFilterServiceDateLabel(serviceDate))} — ${escapeHTML(dayName)}</td></tr>`;
+      rowsHtml += `<tr class="day-header"><td colspan="4">${escapeHTML(getFilterServiceDateLabel(serviceDate))} — ${escapeHTML(dayName)}</td></tr>`;
       lastServiceDate = serviceDate;
       lastRouteTech = null;
     }
 
     if (routeTech !== lastRouteTech) {
       const scheduledClientCount = getScheduledClientCountForRoute(serviceDate, routeTech);
-      rowsHtml += `<tr class="route-header"><td colspan="7">Route Tech: ${escapeHTML(routeTech)} — ${formatNumber(scheduledClientCount)} scheduled client${scheduledClientCount === 1 ? '' : 's'}</td></tr>`;
+      rowsHtml += `<tr class="route-header"><td colspan="4">Route Tech: ${escapeHTML(routeTech)} — ${formatNumber(scheduledClientCount)} scheduled client${scheduledClientCount === 1 ? '' : 's'}</td></tr>`;
       lastRouteTech = routeTech;
     }
 
     rowsHtml += `
       <tr>
-        <td>${escapeHTML(row.replacement_filter || '')}</td>
-        <td>${escapeHTML(row.manufacturer || '')}</td>
-        <td class="num">${formatNumber(row.client_location_count)}</td>
+        <td class="strong">${escapeHTML(row.hurricane_part_number || 'TBD')}</td>
         <td class="num strong">${formatNumber(row.quantity_to_stage)}</td>
-        <td>${escapeHTML(String(row.oring_part_number || 'TBD'))}</td>
+        <td class="strong">${escapeHTML(String(row.oring_part_number || 'TBD'))}</td>
         <td class="num strong">${formatNumber(row.oring_quantity_to_stage)}</td>
-        <td>${escapeHTML(row.filter_systems || '')}</td>
       </tr>`;
   });
 
@@ -6554,7 +6549,7 @@ body{font-family:Arial,sans-serif;color:#111;margin:18px}h1{font-size:20px;margi
 </style></head><body>
 <h1>Annual Filter &amp; O-Ring Warehouse Staging Report</h1>
 <div class="meta"><strong>Changeout Date:</strong> ${escapeHTML(selections.serviceDateLabel)} &nbsp;&nbsp; <strong>Day:</strong> ${escapeHTML(selections.serviceDayName)} &nbsp;&nbsp; <strong>Route Tech:</strong> ${escapeHTML(selections.routeTechLabel)} &nbsp;&nbsp; <strong>Route Techs Included:</strong> ${formatNumber(routeTechCount)} &nbsp;&nbsp; <strong>Total Filters:</strong> ${formatNumber(totalFilters)} &nbsp;&nbsp; <strong>Total O-Rings:</strong> ${formatNumber(totalOrings)}</div>
-<table><thead><tr><th>Replacement Filter</th><th>Manufacturer</th><th>Client Locations</th><th>Filter Qty to Stage</th><th>O-Ring Part #</th><th>O-Ring Qty to Stage</th><th>Filter Systems</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+<table><thead><tr><th>Hurricane Part #</th><th>QTY to Stage</th><th>O-Ring Part #</th><th>QTY to Stage</th></tr></thead><tbody>${rowsHtml}</tbody></table>
 </body></html>`);
 
   printWindow.document.close();
