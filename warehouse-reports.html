@@ -1751,6 +1751,20 @@
     .filter-billing-table th:nth-child(10), .filter-billing-table td:nth-child(10) { width: 145px; text-align:right; font-weight:800; }
     .filter-billing-table th:nth-child(11), .filter-billing-table td:nth-child(11) { width: 155px; text-align:right; font-weight:900; }
 
+    .filter-csc-billing-table { min-width: 1810px; }
+    .filter-csc-billing-table th:nth-child(1), .filter-csc-billing-table td:nth-child(1) { width: 110px; text-align:center; }
+    .filter-csc-billing-table th:nth-child(2), .filter-csc-billing-table td:nth-child(2) { width: 105px; text-align:center; font-weight:800; }
+    .filter-csc-billing-table th:nth-child(3), .filter-csc-billing-table td:nth-child(3) { width: 200px; }
+    .filter-csc-billing-table th:nth-child(4), .filter-csc-billing-table td:nth-child(4) { width: 220px; }
+    .filter-csc-billing-table th:nth-child(5), .filter-csc-billing-table td:nth-child(5) { width: 130px; }
+    .filter-csc-billing-table th:nth-child(6), .filter-csc-billing-table td:nth-child(6) { width: 175px; font-weight:800; }
+    .filter-csc-billing-table th:nth-child(7), .filter-csc-billing-table td:nth-child(7) { width: 60px; text-align:right; }
+    .filter-csc-billing-table th:nth-child(8), .filter-csc-billing-table td:nth-child(8) { width: 125px; text-align:right; font-weight:800; }
+    .filter-csc-billing-table th:nth-child(9), .filter-csc-billing-table td:nth-child(9) { width: 130px; font-weight:800; }
+    .filter-csc-billing-table th:nth-child(10), .filter-csc-billing-table td:nth-child(10) { width: 60px; text-align:right; }
+    .filter-csc-billing-table th:nth-child(11), .filter-csc-billing-table td:nth-child(11) { width: 135px; text-align:right; font-weight:800; }
+    .filter-csc-billing-table th:nth-child(12), .filter-csc-billing-table td:nth-child(12) { width: 150px; text-align:right; font-weight:900; }
+
     .filter-price-needed { color:#b91c1c; font-weight:900; }
     .filter-billing-tbd { color:#b45309; font-weight:900; }
     .filter-missing-tag-table { min-width: 1350px; table-layout: fixed; }
@@ -1809,7 +1823,7 @@
 
     .filter-inline-actions {
       display: grid;
-      grid-template-columns: repeat(2, minmax(220px, 1fr));
+      grid-template-columns: repeat(3, minmax(200px, 1fr));
       gap: 12px;
       align-items: end;
     }
@@ -1826,7 +1840,8 @@
       margin: 0;
     }
 
-    .filter-day-header-row td {
+    .filter-day-header-row td,
+    .filter-date-header-row td {
       background: #dbeafe !important;
       color: #0b3c5d;
       border-top: 2px solid #93c5fd;
@@ -3081,10 +3096,17 @@
 
       <h3>Warehouse Filter Staging and Client Changeout Checklist</h3>
       <div class="status-note">
-        Select a service day to prepare filters and O-rings for the full team, or narrow the report to one route technician. All Service Days is organized Monday through Sunday, with each route technician grouped under the correct day.
+        The 2026 Annual Filter &amp; O-Ring Changeout is scheduled at up to 4 client locations per Route Tech per normal service day, beginning October 5 and completing by October 31. Use Changeout Service Date to see exactly what Warehouse must stage for that date. Jacob Martin's two Tuesday overflow clients are scheduled for Wednesday, October 28.
       </div>
 
       <div class="filter-inline-actions">
+        <div>
+          <label>Changeout Service Date:</label>
+          <select id="filterServiceDateSelect" onchange="loadRouteTechFilterReports()">
+            <option value="ALL">All Changeout Dates</option>
+          </select>
+        </div>
+
         <div>
           <label>Day of Week:</label>
           <select id="filterServiceDaySelect" onchange="loadRouteTechFilterReports()">
@@ -3170,10 +3192,11 @@
         Load filter requirements to view the CSC billing list.
       </div>
       <div class="count-table-wrapper">
-        <table class="filter-billing-table">
+        <table class="filter-billing-table filter-csc-billing-table">
           <thead>
             <tr>
               <th>Entered into Skimmer</th>
+              <th>Service Date</th>
               <th>Client</th>
               <th>Service Location</th>
               <th>Filter System</th>
@@ -3186,7 +3209,7 @@
               <th>Total Billable to Client</th>
             </tr>
           </thead>
-          <tbody id="filterCSCBillingBody"><tr><td colspan="11">Load filter requirements.</td></tr></tbody>
+          <tbody id="filterCSCBillingBody"><tr><td colspan="12">Load filter requirements.</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -5189,6 +5212,7 @@ async function loadAnnualFilterPlanning(forceReload = false) {
   await Promise.all([
     loadClientFilterImportHistory(),
     loadFilterPurchaseForecast(),
+    loadFilterServiceDateOptions(),
     loadFilterRouteTechOptions(),
     loadMissingFilterTagWorklist()
   ]);
@@ -5985,7 +6009,30 @@ function getFilterServiceDayName(row) {
   return matched?.name || 'Unassigned Day';
 }
 
+function getFilterServiceDateValue(row) {
+  return String(row?.service_date || '').slice(0, 10);
+}
+
+function getFilterServiceDateLabel(value) {
+  if (!value || value === 'ALL') return 'All Changeout Dates';
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric'
+  });
+}
+
+function formatFilterServiceDateShort(value) {
+  const serviceDate = getFilterServiceDateValue({ service_date: value });
+  const match = serviceDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[2]}/${match[3]}` : formatDateOnly(value);
+}
+
 function getFilterReportSelections() {
+  const serviceDate = document.getElementById('filterServiceDateSelect')?.value || 'ALL';
   const serviceDayValue = document.getElementById('filterServiceDaySelect')?.value || 'ALL';
   const routeTech = document.getElementById('filterRouteTechSelect')?.value || 'ALL';
   const serviceDayNumber = serviceDayValue === 'ALL' ? null : Number(serviceDayValue);
@@ -5994,6 +6041,8 @@ function getFilterReportSelections() {
     : 'All Service Days';
 
   return {
+    serviceDate,
+    serviceDateLabel: getFilterServiceDateLabel(serviceDate),
     serviceDayNumber,
     serviceDayName,
     routeTech,
@@ -6003,7 +6052,7 @@ function getFilterReportSelections() {
 
 function sortFilterStagingRows(rows) {
   return [...(rows || [])].sort((a, b) => {
-    return getFilterServiceDayNumber(a) - getFilterServiceDayNumber(b)
+    return getFilterServiceDateValue(a).localeCompare(getFilterServiceDateValue(b))
       || String(a.route_tech || '').localeCompare(String(b.route_tech || ''))
       || String(a.replacement_filter || '').localeCompare(String(b.replacement_filter || ''))
       || String(a.manufacturer || '').localeCompare(String(b.manufacturer || ''))
@@ -6013,12 +6062,42 @@ function sortFilterStagingRows(rows) {
 
 function sortFilterChecklistRows(rows) {
   return [...(rows || [])].sort((a, b) => {
-    return getFilterServiceDayNumber(a) - getFilterServiceDayNumber(b)
+    return getFilterServiceDateValue(a).localeCompare(getFilterServiceDateValue(b))
       || String(a.route_tech || '').localeCompare(String(b.route_tech || ''))
+      || Number(a.changeout_sequence || 0) - Number(b.changeout_sequence || 0)
       || String(a.client_name || '').localeCompare(String(b.client_name || ''))
       || String(a.service_location || '').localeCompare(String(b.service_location || ''))
       || String(a.filter_system_name || '').localeCompare(String(b.filter_system_name || ''));
   });
+}
+
+async function loadFilterServiceDateOptions() {
+  const select = document.getElementById('filterServiceDateSelect');
+  if (!select) return;
+
+  const currentValue = select.value || 'ALL';
+  const { data, error } = await client
+    .from('route_tech_filter_staging_summary_view')
+    .select('service_date')
+    .order('service_date', { ascending: true });
+
+  if (error) {
+    select.innerHTML = '<option value="ALL">All Changeout Dates</option>';
+    console.error('Changeout service date option load error:', error);
+    return;
+  }
+
+  const dates = [...new Set((data || []).map(row => getFilterServiceDateValue(row)).filter(Boolean))];
+  select.innerHTML = '<option value="ALL">All Changeout Dates</option>';
+
+  dates.forEach(serviceDate => {
+    const option = document.createElement('option');
+    option.value = serviceDate;
+    option.textContent = getFilterServiceDateLabel(serviceDate);
+    select.appendChild(option);
+  });
+
+  select.value = dates.includes(currentValue) ? currentValue : 'ALL';
 }
 
 async function loadFilterRouteTechOptions() {
@@ -6061,10 +6140,10 @@ async function loadRouteTechFilterReports() {
 
   if (!summary || !stagingBody || !checklistBody || !billingBody || !billingSummary) return;
 
-  summary.textContent = `Loading ${selections.serviceDayName} filter requirements for ${selections.routeTechLabel}...`;
+  summary.textContent = `Loading ${selections.serviceDateLabel} filter requirements for ${selections.routeTechLabel}...`;
   stagingBody.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
   checklistBody.innerHTML = '<tr><td colspan="11">Loading...</td></tr>';
-  billingBody.innerHTML = '<tr><td colspan="11">Loading...</td></tr>';
+  billingBody.innerHTML = '<tr><td colspan="12">Loading...</td></tr>';
   billingSummary.textContent = 'Loading CSC billing data...';
 
   let stagingQuery = client
@@ -6079,6 +6158,12 @@ async function loadRouteTechFilterReports() {
     .from('csc_filter_changeout_billing_view')
     .select('*');
 
+  if (selections.serviceDate !== 'ALL') {
+    stagingQuery = stagingQuery.eq('service_date', selections.serviceDate);
+    checklistQuery = checklistQuery.eq('service_date', selections.serviceDate);
+    billingQuery = billingQuery.eq('service_date', selections.serviceDate);
+  }
+
   if (selections.serviceDayNumber) {
     stagingQuery = stagingQuery.eq('service_day_number', selections.serviceDayNumber);
     checklistQuery = checklistQuery.eq('service_day_number', selections.serviceDayNumber);
@@ -6092,20 +6177,22 @@ async function loadRouteTechFilterReports() {
   }
 
   stagingQuery = stagingQuery
-    .order('service_day_number', { ascending: true })
+    .order('service_date', { ascending: true })
     .order('route_tech', { ascending: true })
     .order('replacement_filter', { ascending: true });
 
   checklistQuery = checklistQuery
-    .order('service_day_number', { ascending: true })
+    .order('service_date', { ascending: true })
     .order('route_tech', { ascending: true })
+    .order('changeout_sequence', { ascending: true })
     .order('client_name', { ascending: true })
     .order('service_location', { ascending: true })
     .order('filter_system_name', { ascending: true });
 
   billingQuery = billingQuery
-    .order('service_day_number', { ascending: true })
+    .order('service_date', { ascending: true })
     .order('route_tech', { ascending: true })
+    .order('changeout_sequence', { ascending: true })
     .order('client_name', { ascending: true })
     .order('service_location', { ascending: true })
     .order('filter_system_name', { ascending: true });
@@ -6125,7 +6212,7 @@ async function loadRouteTechFilterReports() {
     summary.textContent = message;
     stagingBody.innerHTML = `<tr><td colspan="7">${escapeHTML(message)}</td></tr>`;
     checklistBody.innerHTML = `<tr><td colspan="11">${escapeHTML(message)}</td></tr>`;
-    billingBody.innerHTML = `<tr><td colspan="11">${escapeHTML(message)}</td></tr>`;
+    billingBody.innerHTML = `<tr><td colspan="12">${escapeHTML(message)}</td></tr>`;
     billingSummary.textContent = message;
     return;
   }
@@ -6144,12 +6231,13 @@ async function loadRouteTechFilterReports() {
     filterChecklistData.map(row => `${row.client_name}|${row.service_location}`)
   ).size;
   const routeTechCount = new Set(filterChecklistData.map(row => row.route_tech).filter(Boolean)).size;
-  const serviceDayCount = new Set(filterChecklistData.map(row => getFilterServiceDayNumber(row))).size;
+  const changeoutDateCount = new Set(filterChecklistData.map(row => getFilterServiceDateValue(row)).filter(Boolean)).size;
 
   summary.textContent =
-    `Service Day: ${selections.serviceDayName}\n` +
+    `Changeout Service Date: ${selections.serviceDateLabel}\n` +
+    `Day of Week: ${selections.serviceDayName}\n` +
     `Route Tech: ${selections.routeTechLabel}\n` +
-    `Service Days Included: ${formatNumber(serviceDayCount)}\n` +
+    `Changeout Dates Included: ${formatNumber(changeoutDateCount)}\n` +
     `Route Technicians Included: ${formatNumber(routeTechCount)}\n` +
     `Client Locations: ${formatNumber(clientCount)}\n` +
     `Filter Assignment Lines: ${formatNumber(filterChecklistData.length)}\n` +
@@ -6160,8 +6248,10 @@ async function loadRouteTechFilterReports() {
   const oringTbdCount = filterCSCBillingData.filter(row => !row.oring_part_number || String(row.oring_part_number).toUpperCase() === 'TBD').length;
   const readyCount = filterCSCBillingData.filter(row => row.total_billable_to_client != null).length;
   const readyTotal = filterCSCBillingData.reduce((sum, row) => sum + Number(row.total_billable_to_client || 0), 0);
+
   billingSummary.textContent =
-    `Service Day: ${selections.serviceDayName}\n` +
+    `Changeout Service Date: ${selections.serviceDateLabel}\n` +
+    `Day of Week: ${selections.serviceDayName}\n` +
     `Route Tech: ${selections.routeTechLabel}\n` +
     `Billing Lines: ${formatNumber(filterCSCBillingData.length)}\n` +
     `Ready to Enter in Skimmer: ${formatNumber(readyCount)}\n` +
@@ -6177,11 +6267,32 @@ function appendFilterDayHeader(body, dayName, colspan) {
   body.appendChild(row);
 }
 
-function appendFilterRouteHeader(body, routeTech, colspan) {
+function appendFilterDateHeader(body, serviceDate, dayName, colspan) {
+  const row = document.createElement('tr');
+  row.className = 'filter-date-header-row';
+  const dateLabel = getFilterServiceDateLabel(serviceDate);
+  row.innerHTML = `<td colspan="${colspan}">${escapeHTML(dateLabel)}${dayName ? ` — ${escapeHTML(dayName)}` : ''}</td>`;
+  body.appendChild(row);
+}
+
+function appendFilterRouteHeader(body, routeTech, colspan, detailText = '') {
   const row = document.createElement('tr');
   row.className = 'filter-route-header-row';
-  row.innerHTML = `<td colspan="${colspan}">Route Tech: ${escapeHTML(routeTech || 'Unassigned')}</td>`;
+  const detail = detailText ? ` — ${escapeHTML(detailText)}` : '';
+  row.innerHTML = `<td colspan="${colspan}">Route Tech: ${escapeHTML(routeTech || 'Unassigned')}${detail}</td>`;
   body.appendChild(row);
+}
+
+function getScheduledClientCountForRoute(serviceDate, routeTech) {
+  const clients = new Set(
+    (filterChecklistData || [])
+      .filter(row =>
+        getFilterServiceDateValue(row) === serviceDate &&
+        String(row.route_tech || 'Unassigned') === String(routeTech || 'Unassigned')
+      )
+      .map(row => `${row.client_name || ''}|${row.service_location || ''}`)
+  );
+  return clients.size;
 }
 
 function renderFilterStagingTable() {
@@ -6193,22 +6304,28 @@ function renderFilterStagingTable() {
     return;
   }
 
-  let lastDayNumber = null;
+  let lastServiceDate = null;
   let lastRouteTech = null;
 
   filterStagingData.forEach(row => {
-    const dayNumber = getFilterServiceDayNumber(row);
+    const serviceDate = getFilterServiceDateValue(row);
     const dayName = getFilterServiceDayName(row);
     const routeTech = row.route_tech || 'Unassigned';
 
-    if (dayNumber !== lastDayNumber) {
-      appendFilterDayHeader(body, dayName, 7);
-      lastDayNumber = dayNumber;
+    if (serviceDate !== lastServiceDate) {
+      appendFilterDateHeader(body, serviceDate, dayName, 7);
+      lastServiceDate = serviceDate;
       lastRouteTech = null;
     }
 
     if (routeTech !== lastRouteTech) {
-      appendFilterRouteHeader(body, routeTech, 7);
+      const scheduledClientCount = getScheduledClientCountForRoute(serviceDate, routeTech);
+      appendFilterRouteHeader(
+        body,
+        routeTech,
+        7,
+        `${formatNumber(scheduledClientCount)} scheduled client${scheduledClientCount === 1 ? '' : 's'}`
+      );
       lastRouteTech = routeTech;
     }
 
@@ -6230,8 +6347,6 @@ function renderFilterChecklistTable() {
   const body = document.getElementById('filterChecklistBody');
   body.innerHTML = '';
 
-  // The Client Changeout Checklist uses the billing view rows so the field/CSC
-  // checklist contains the Hurricane part, filter cost, O-ring cost, and total.
   const rows = filterCSCBillingData || [];
 
   if (!rows.length) {
@@ -6239,17 +6354,17 @@ function renderFilterChecklistTable() {
     return;
   }
 
-  let lastDayNumber = null;
+  let lastServiceDate = null;
   let lastRouteTech = null;
 
   rows.forEach(row => {
-    const dayNumber = getFilterServiceDayNumber(row);
+    const serviceDate = getFilterServiceDateValue(row);
     const dayName = getFilterServiceDayName(row);
     const routeTech = row.route_tech || 'Unassigned';
 
-    if (dayNumber !== lastDayNumber) {
-      appendFilterDayHeader(body, dayName, 11);
-      lastDayNumber = dayNumber;
+    if (serviceDate !== lastServiceDate) {
+      appendFilterDateHeader(body, serviceDate, dayName, 11);
+      lastServiceDate = serviceDate;
       lastRouteTech = null;
     }
 
@@ -6297,32 +6412,33 @@ function renderCSCBillingTable() {
   body.innerHTML = '';
 
   if (!filterCSCBillingData.length) {
-    body.innerHTML = '<tr><td colspan="11">No CSC billing rows found for the selected filters.</td></tr>';
+    body.innerHTML = '<tr><td colspan="12">No CSC billing rows found for the selected filters.</td></tr>';
     return;
   }
 
-  let lastDayNumber = null;
+  let lastServiceDate = null;
   let lastRouteTech = null;
 
   filterCSCBillingData.forEach(row => {
-    const dayNumber = getFilterServiceDayNumber(row);
+    const serviceDate = getFilterServiceDateValue(row);
     const dayName = getFilterServiceDayName(row);
     const routeTech = row.route_tech || 'Unassigned';
 
-    if (dayNumber !== lastDayNumber) {
-      appendFilterDayHeader(body, dayName, 11);
-      lastDayNumber = dayNumber;
+    if (serviceDate !== lastServiceDate) {
+      appendFilterDateHeader(body, serviceDate, dayName, 12);
+      lastServiceDate = serviceDate;
       lastRouteTech = null;
     }
 
     if (routeTech !== lastRouteTech) {
-      appendFilterRouteHeader(body, routeTech, 11);
+      appendFilterRouteHeader(body, routeTech, 12);
       lastRouteTech = routeTech;
     }
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>☐</td>
+      <td>${escapeHTML(formatFilterServiceDateShort(row.service_date))}</td>
       <td>${escapeHTML(row.client_name || '')}</td>
       <td>${escapeHTML(row.service_location || '')}</td>
       <td>${escapeHTML(row.filter_system_name || '')}</td>
@@ -6345,7 +6461,7 @@ function exportCSCBillingListCSV() {
     return;
   }
 
-  let csv = 'Service Day Number,Day of Week,Route Tech,Entered into Skimmer,Client,Service Location,Filter System,Hurricane Part #,Filter Qty,Unit Cost,O-Ring Part #,O-Ring Qty,O-Ring Unit Cost,Total Billable to Client,Billing Status\n';
+  let csv = 'Service Day Number,Day of Week,Route Tech,Entered into Skimmer,Service Date,Client,Service Location,Filter System,Hurricane Part #,Filter Qty,Unit Cost,O-Ring Part #,O-Ring Qty,O-Ring Unit Cost,Total Billable to Client,Billing Status\n';
 
   sortFilterChecklistRows(filterCSCBillingData).forEach(row => {
     csv +=
@@ -6353,6 +6469,7 @@ function exportCSCBillingListCSV() {
       `"${cleanCSV(getFilterServiceDayName(row))}",` +
       `"${cleanCSV(row.route_tech)}",` +
       `"",` +
+      `"${cleanCSV(formatDateOnly(row.service_date))}",` +
       `"${cleanCSV(row.client_name)}",` +
       `"${cleanCSV(row.service_location)}",` +
       `"${cleanCSV(row.filter_system_name)}",` +
@@ -6384,22 +6501,22 @@ function printCSCBillingList() {
   const clientCount = new Set(sortedRows.map(row => `${row.client_name}|${row.service_location}`)).size;
 
   let rowsHtml = '';
-  let lastDayNumber = null;
+  let lastServiceDate = null;
   let lastRouteTech = null;
 
   sortedRows.forEach(row => {
-    const dayNumber = getFilterServiceDayNumber(row);
+    const serviceDate = getFilterServiceDateValue(row);
     const dayName = getFilterServiceDayName(row);
     const routeTech = row.route_tech || 'Unassigned';
 
-    if (dayNumber !== lastDayNumber) {
-      rowsHtml += `<tr class="day-header"><td colspan="11">${escapeHTML(dayName)}</td></tr>`;
-      lastDayNumber = dayNumber;
+    if (serviceDate !== lastServiceDate) {
+      rowsHtml += `<tr class="day-header"><td colspan="12">${escapeHTML(getFilterServiceDateLabel(serviceDate))} — ${escapeHTML(dayName)}</td></tr>`;
+      lastServiceDate = serviceDate;
       lastRouteTech = null;
     }
 
     if (routeTech !== lastRouteTech) {
-      rowsHtml += `<tr class="route-header"><td colspan="11">Route Tech: ${escapeHTML(routeTech)}</td></tr>`;
+      rowsHtml += `<tr class="route-header"><td colspan="12">Route Tech: ${escapeHTML(routeTech)}</td></tr>`;
       lastRouteTech = routeTech;
     }
 
@@ -6407,6 +6524,7 @@ function printCSCBillingList() {
     rowsHtml += `
       <tr>
         <td class="check">☐</td>
+        <td>${escapeHTML(formatFilterServiceDateShort(row.service_date))}</td>
         <td>${escapeHTML(row.client_name || '')}</td>
         <td>${escapeHTML(row.service_location || '')}</td>
         <td>${escapeHTML(row.filter_system_name || '')}</td>
@@ -6420,7 +6538,7 @@ function printCSCBillingList() {
       </tr>`;
   });
 
-  const printWindow = window.open('', '_blank', 'width=1400,height=850');
+  const printWindow = window.open('', '_blank', 'width=1500,height=850');
   if (!printWindow) {
     document.getElementById('filterCSCBillingSummary').textContent = 'Pop-up blocked. Allow pop-ups and try printing again.';
     return;
@@ -6428,13 +6546,13 @@ function printCSCBillingList() {
 
   printWindow.document.write(`<!doctype html>
 <html><head>
-<title>CSC Filter Billing List - ${escapeHTML(selections.serviceDayName)} - ${escapeHTML(selections.routeTechLabel)}</title>
+<title>CSC Filter Billing List - ${escapeHTML(selections.serviceDateLabel)} - ${escapeHTML(selections.routeTechLabel)}</title>
 <style>
-body{font-family:Arial,sans-serif;color:#111;margin:18px}h1{font-size:20px;margin:0 0 6px}.meta{font-size:11px;margin-bottom:12px;line-height:1.5}table{width:100%;border-collapse:collapse;font-size:8px}th,td{border:1px solid #555;padding:4px;vertical-align:top}th{background:#eee}.check{font-size:14px;text-align:center;width:42px}.num,.money{text-align:right}.money{font-weight:700}.day-header td{background:#dbeafe;color:#0b3c5d;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;padding:6px;page-break-after:avoid}.route-header td{background:#ecfdf3;color:#166534;font-size:9px;font-weight:900;padding:5px 8px;page-break-after:avoid}@page{size:landscape;margin:.3in}
+body{font-family:Arial,sans-serif;color:#111;margin:18px}h1{font-size:20px;margin:0 0 6px}.meta{font-size:11px;margin-bottom:12px;line-height:1.5}table{width:100%;border-collapse:collapse;font-size:7.6px}th,td{border:1px solid #555;padding:4px;vertical-align:top}th{background:#eee}.check{font-size:14px;text-align:center;width:42px}.num,.money{text-align:right}.money{font-weight:700}.day-header td{background:#dbeafe;color:#0b3c5d;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;padding:6px;page-break-after:avoid}.route-header td{background:#ecfdf3;color:#166534;font-size:9px;font-weight:900;padding:5px 8px;page-break-after:avoid}@page{size:landscape;margin:.3in}
 </style></head><body>
 <h1>CSC Annual Filter Changeout Billing List</h1>
-<div class="meta"><strong>Service Day:</strong> ${escapeHTML(selections.serviceDayName)} &nbsp;&nbsp; <strong>Route Tech:</strong> ${escapeHTML(selections.routeTechLabel)} &nbsp;&nbsp; <strong>Client Locations:</strong> ${formatNumber(clientCount)} &nbsp;&nbsp; <strong>Billing Lines:</strong> ${formatNumber(sortedRows.length)} &nbsp;&nbsp; <strong>Ready:</strong> ${formatNumber(readyCount)} &nbsp;&nbsp; <strong>Filter Cost Needed:</strong> ${formatNumber(missingCostCount)} &nbsp;&nbsp; <strong>O-Ring TBD:</strong> ${formatNumber(oringTbdCount)}</div>
-<table><thead><tr><th>Entered into Skimmer</th><th>Client</th><th>Service Location</th><th>Filter System</th><th>Hurricane Part #</th><th>Qty</th><th>Unit Cost</th><th>O-Ring Part #</th><th>Qty</th><th>O-Ring Unit Cost</th><th>Total Billable to Client</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+<div class="meta"><strong>Changeout Date:</strong> ${escapeHTML(selections.serviceDateLabel)} &nbsp;&nbsp; <strong>Day:</strong> ${escapeHTML(selections.serviceDayName)} &nbsp;&nbsp; <strong>Route Tech:</strong> ${escapeHTML(selections.routeTechLabel)} &nbsp;&nbsp; <strong>Client Locations:</strong> ${formatNumber(clientCount)} &nbsp;&nbsp; <strong>Billing Lines:</strong> ${formatNumber(sortedRows.length)} &nbsp;&nbsp; <strong>Ready:</strong> ${formatNumber(readyCount)} &nbsp;&nbsp; <strong>Filter Cost Needed:</strong> ${formatNumber(missingCostCount)} &nbsp;&nbsp; <strong>O-Ring TBD:</strong> ${formatNumber(oringTbdCount)}</div>
+<table><thead><tr><th>Entered into Skimmer</th><th>Service Date</th><th>Client</th><th>Service Location</th><th>Filter System</th><th>Hurricane Part #</th><th>Qty</th><th>Unit Cost</th><th>O-Ring Part #</th><th>Qty</th><th>O-Ring Unit Cost</th><th>Total Billable to Client</th></tr></thead><tbody>${rowsHtml}</tbody></table>
 </body></html>`);
 
   printWindow.document.close();
@@ -6444,6 +6562,9 @@ body{font-family:Arial,sans-serif;color:#111;margin:18px}h1{font-size:20px;margi
 
 function getFilterExportFilenameBase(prefix) {
   const selections = getFilterReportSelections();
+  const datePart = selections.serviceDate === 'ALL'
+    ? 'all_changeout_dates'
+    : cleanFilename(selections.serviceDate);
   const dayPart = selections.serviceDayNumber
     ? cleanFilename(selections.serviceDayName)
     : 'all_service_days';
@@ -6451,7 +6572,7 @@ function getFilterExportFilenameBase(prefix) {
     ? 'all_route_techs'
     : cleanFilename(selections.routeTech);
 
-  return `${prefix}_${dayPart}_${routePart}`;
+  return `${prefix}_${datePart}_${dayPart}_${routePart}`;
 }
 
 function exportRouteTechStagingCSV() {
@@ -6460,10 +6581,11 @@ function exportRouteTechStagingCSV() {
     return;
   }
 
-  let csv = 'Service Day Number,Day of Week,Route Tech,Replacement Filter,Manufacturer,Client Locations,Filter Quantity to Stage,O-Ring Part Number,O-Ring Quantity to Stage,Filter Systems\n';
+  let csv = 'Service Date,Service Day Number,Day of Week,Route Tech,Replacement Filter,Manufacturer,Client Locations,Filter Quantity to Stage,O-Ring Part Number,O-Ring Quantity to Stage,Filter Systems\n';
 
   sortFilterStagingRows(filterStagingData).forEach(row => {
     csv +=
+      `"${cleanCSV(formatDateOnly(row.service_date))}",` +
       `"${cleanCSV(getFilterServiceDayNumber(row))}",` +
       `"${cleanCSV(getFilterServiceDayName(row))}",` +
       `"${cleanCSV(row.route_tech)}",` +
@@ -6485,11 +6607,12 @@ function exportRouteTechChecklistCSV() {
     return;
   }
 
-  let csv = 'Entered into Skimmer,Client,Service Location,Filter System,Hurricane Part #,Qty,Unit Cost,O-Ring Part #,Qty,O-Ring Unit Cost,Total Billable to Client\n';
+  let csv = 'Entered into Skimmer,Service Date,Client,Service Location,Filter System,Hurricane Part #,Qty,Unit Cost,O-Ring Part #,Qty,O-Ring Unit Cost,Total Billable to Client\n';
 
   sortFilterChecklistRows(filterCSCBillingData).forEach(row => {
     csv +=
       `"",` +
+      `"${cleanCSV(formatDateOnly(row.service_date))}",` +
       `"${cleanCSV(row.client_name)}",` +
       `"${cleanCSV(row.service_location)}",` +
       `"${cleanCSV(row.filter_system_name)}",` +
@@ -6517,17 +6640,17 @@ function printRouteTechFilterChecklist() {
   const clientCount = new Set(sortedRows.map(row => `${row.client_name}|${row.service_location}`)).size;
 
   let rowsHtml = '';
-  let lastDayNumber = null;
+  let lastServiceDate = null;
   let lastRouteTech = null;
 
   sortedRows.forEach(row => {
-    const dayNumber = getFilterServiceDayNumber(row);
+    const serviceDate = getFilterServiceDateValue(row);
     const dayName = getFilterServiceDayName(row);
     const routeTech = row.route_tech || 'Unassigned';
 
-    if (dayNumber !== lastDayNumber) {
-      rowsHtml += `<tr class="day-header"><td colspan="11">${escapeHTML(dayName)}</td></tr>`;
-      lastDayNumber = dayNumber;
+    if (serviceDate !== lastServiceDate) {
+      rowsHtml += `<tr class="day-header"><td colspan="11">${escapeHTML(getFilterServiceDateLabel(serviceDate))} — ${escapeHTML(dayName)}</td></tr>`;
+      lastServiceDate = serviceDate;
       lastRouteTech = null;
     }
 
@@ -6562,7 +6685,7 @@ function printRouteTechFilterChecklist() {
   printWindow.document.write(`<!doctype html>
 <html>
 <head>
-<title>Filter Changeout Checklist - ${escapeHTML(selections.serviceDayName)} - ${escapeHTML(selections.routeTechLabel)}</title>
+<title>Filter Changeout Checklist - ${escapeHTML(selections.serviceDateLabel)} - ${escapeHTML(selections.routeTechLabel)}</title>
 <style>
   body{font-family:Arial,sans-serif;color:#111;margin:18px}
   h1{font-size:20px;margin:0 0 6px}
@@ -6581,7 +6704,8 @@ function printRouteTechFilterChecklist() {
 <body>
 <h1>Annual Filter Changeout Checklist</h1>
 <div class="meta">
-  <strong>Service Day:</strong> ${escapeHTML(selections.serviceDayName)} &nbsp;&nbsp;
+  <strong>Changeout Date:</strong> ${escapeHTML(selections.serviceDateLabel)} &nbsp;&nbsp;
+  <strong>Day:</strong> ${escapeHTML(selections.serviceDayName)} &nbsp;&nbsp;
   <strong>Route Tech:</strong> ${escapeHTML(selections.routeTechLabel)} &nbsp;&nbsp;
   <strong>Client Locations:</strong> ${formatNumber(clientCount)} &nbsp;&nbsp;
   <strong>Filter Lines:</strong> ${formatNumber(sortedRows.length)} &nbsp;&nbsp;
