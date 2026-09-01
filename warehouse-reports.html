@@ -3138,20 +3138,20 @@
 
       <h3>Client Changeout Checklist</h3>
       <div class="count-table-wrapper">
-        <table class="filter-checklist-table">
+        <table class="filter-billing-table">
           <thead>
             <tr>
-              <th>Changed</th>
+              <th>Entered into Skimmer</th>
               <th>Client</th>
               <th>Service Location</th>
               <th>Filter System</th>
-              <th>Manufacturer</th>
-              <th>Replacement Filter</th>
+              <th>Hurricane Part #</th>
               <th>Qty</th>
+              <th>Unit Cost</th>
               <th>O-Ring Part #</th>
-              <th>Date</th>
-              <th>Initials</th>
-              <th>Notes / Exception</th>
+              <th>Qty</th>
+              <th>O-Ring Unit Cost</th>
+              <th>Total Billable to Client</th>
             </tr>
           </thead>
           <tbody id="filterChecklistBody"><tr><td colspan="11">Load filter and O-ring requirements.</td></tr></tbody>
@@ -6230,7 +6230,9 @@ function renderFilterChecklistTable() {
   const body = document.getElementById('filterChecklistBody');
   body.innerHTML = '';
 
-  if (!filterChecklistData.length) {
+  const rows = filterCSCBillingData || [];
+
+  if (!rows.length) {
     body.innerHTML = '<tr><td colspan="11">No filter checklist rows found for the selected filters.</td></tr>';
     return;
   }
@@ -6238,7 +6240,7 @@ function renderFilterChecklistTable() {
   let lastDayNumber = null;
   let lastRouteTech = null;
 
-  filterChecklistData.forEach(row => {
+  rows.forEach(row => {
     const dayNumber = getFilterServiceDayNumber(row);
     const dayName = getFilterServiceDayName(row);
     const routeTech = row.route_tech || 'Unassigned';
@@ -6260,13 +6262,13 @@ function renderFilterChecklistTable() {
       <td>${escapeHTML(row.client_name || '')}</td>
       <td>${escapeHTML(row.service_location || '')}</td>
       <td>${escapeHTML(row.filter_system_name || '')}</td>
-      <td>${escapeHTML(row.manufacturer || '')}</td>
-      <td>${escapeHTML(row.replacement_filter || '')}</td>
+      <td>${escapeHTML(row.hurricane_part_number || 'TBD')}</td>
       <td>${formatNumber(row.system_quantity)}</td>
+      <td>${formatFilterBillingPrice(row.filter_unit_cost, 'COST NEEDED')}</td>
       <td>${formatOringPartNumber(row.oring_part_number)}</td>
-      <td>____________</td>
-      <td>________</td>
-      <td>________________________________</td>
+      <td>${formatNumber(row.oring_quantity || 1)}</td>
+      <td>${formatFilterBillingPrice(row.oring_unit_cost, 'TBD')}</td>
+      <td>${formatFilterBillingPrice(row.total_billable_to_client, 'REVIEW')}</td>
     `;
     body.appendChild(tr);
   });
@@ -6476,42 +6478,39 @@ function exportRouteTechStagingCSV() {
 }
 
 function exportRouteTechChecklistCSV() {
-  if (!filterChecklistData.length) {
+  if (!filterCSCBillingData.length) {
     document.getElementById('filterRouteTechSummary').textContent = 'Load filter requirements before exporting the client checklist.';
     return;
   }
 
-  let csv = 'Service Day Number,Day of Week,Route Tech,Client,Service Location,Filter System,Manufacturer,Replacement Filter,Required Quantity,O-Ring Part Number,Latest Service Date,Week Start,Week End,Changed,Changeout Date,Initials,Notes or Exception\n';
+  let csv = 'Entered into Skimmer,Client,Service Location,Filter System,Hurricane Part #,Qty,Unit Cost,O-Ring Part #,Qty,O-Ring Unit Cost,Total Billable to Client\n';
 
-  sortFilterChecklistRows(filterChecklistData).forEach(row => {
+  sortFilterChecklistRows(filterCSCBillingData).forEach(row => {
     csv +=
-      `"${cleanCSV(getFilterServiceDayNumber(row))}",` +
-      `"${cleanCSV(getFilterServiceDayName(row))}",` +
-      `"${cleanCSV(row.route_tech)}",` +
+      `"",` +
       `"${cleanCSV(row.client_name)}",` +
       `"${cleanCSV(row.service_location)}",` +
       `"${cleanCSV(row.filter_system_name)}",` +
-      `"${cleanCSV(row.manufacturer)}",` +
-      `"${cleanCSV(row.replacement_filter)}",` +
+      `"${cleanCSV(row.hurricane_part_number || 'TBD')}",` +
       `"${cleanCSV(row.system_quantity)}",` +
-      `"${cleanCSV(row.oring_part_number)}",` +
-      `"${cleanCSV(formatDateOnly(row.latest_service_date))}",` +
-      `"${cleanCSV(formatDateOnly(row.week_start_date))}",` +
-      `"${cleanCSV(formatDateOnly(row.week_end_date))}",` +
-      `"","","",""\n`;
+      `"${cleanCSV(row.filter_unit_cost == null ? 'COST NEEDED' : Number(row.filter_unit_cost).toFixed(2))}",` +
+      `"${cleanCSV(row.oring_part_number || 'TBD')}",` +
+      `"${cleanCSV(row.oring_quantity || 1)}",` +
+      `"${cleanCSV(row.oring_unit_cost == null ? 'TBD' : Number(row.oring_unit_cost).toFixed(2))}",` +
+      `"${cleanCSV(row.total_billable_to_client == null ? 'REVIEW' : Number(row.total_billable_to_client).toFixed(2))}"\n`;
   });
 
   downloadCSV(csv, `${getFilterExportFilenameBase('filter_changeout_checklist')}.csv`);
 }
 
 function printRouteTechFilterChecklist() {
-  if (!filterChecklistData.length) {
+  if (!filterCSCBillingData.length) {
     document.getElementById('filterRouteTechSummary').textContent = 'Load filter requirements before printing.';
     return;
   }
 
   const selections = getFilterReportSelections();
-  const sortedRows = sortFilterChecklistRows(filterChecklistData);
+  const sortedRows = sortFilterChecklistRows(filterCSCBillingData);
   const totalQty = sortedRows.reduce((sum, row) => sum + Number(row.system_quantity || 0), 0);
   const clientCount = new Set(sortedRows.map(row => `${row.client_name}|${row.service_location}`)).size;
 
@@ -6541,17 +6540,17 @@ function printRouteTechFilterChecklist() {
         <td>${escapeHTML(row.client_name || '')}</td>
         <td>${escapeHTML(row.service_location || '')}</td>
         <td>${escapeHTML(row.filter_system_name || '')}</td>
-        <td>${escapeHTML(row.manufacturer || '')}</td>
-        <td>${escapeHTML(row.replacement_filter || '')}</td>
-        <td>${formatNumber(row.system_quantity)}</td>
-        <td>${escapeHTML(row.oring_part_number || 'TBD')}</td>
-        <td></td>
-        <td></td>
-        <td></td>
+        <td>${escapeHTML(row.hurricane_part_number || 'TBD')}</td>
+        <td class="num">${formatNumber(row.system_quantity)}</td>
+        <td class="money">${row.filter_unit_cost == null ? 'COST NEEDED' : formatCurrency(Number(row.filter_unit_cost))}</td>
+        <td>${escapeHTML(String(row.oring_part_number || 'TBD'))}</td>
+        <td class="num">${formatNumber(row.oring_quantity || 1)}</td>
+        <td class="money">${row.oring_unit_cost == null ? 'TBD' : formatCurrency(Number(row.oring_unit_cost))}</td>
+        <td class="money">${row.total_billable_to_client == null ? 'REVIEW' : formatCurrency(Number(row.total_billable_to_client))}</td>
       </tr>`;
   });
 
-  const printWindow = window.open('', '_blank', 'width=1200,height=800');
+  const printWindow = window.open('', '_blank', 'width=1400,height=850');
 
   if (!printWindow) {
     document.getElementById('filterRouteTechSummary').textContent = 'Pop-up blocked. Allow pop-ups and try printing again.';
@@ -6563,16 +6562,18 @@ function printRouteTechFilterChecklist() {
 <head>
 <title>Filter Changeout Checklist - ${escapeHTML(selections.serviceDayName)} - ${escapeHTML(selections.routeTechLabel)}</title>
 <style>
-  body{font-family:Arial,sans-serif;color:#111;margin:20px}
+  body{font-family:Arial,sans-serif;color:#111;margin:18px}
   h1{font-size:20px;margin:0 0 6px}
-  .meta{font-size:11px;margin-bottom:14px;line-height:1.5}
-  table{width:100%;border-collapse:collapse;font-size:8.5px}
-  th,td{border:1px solid #555;padding:5px;vertical-align:top}
+  .meta{font-size:11px;margin-bottom:12px;line-height:1.5}
+  table{width:100%;border-collapse:collapse;font-size:8px}
+  th,td{border:1px solid #555;padding:4px;vertical-align:top}
   th{background:#eee}
-  .check{font-size:15px;text-align:center;width:28px}
-  .day-header td{background:#dbeafe;color:#0b3c5d;font-size:12px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;padding:7px;page-break-after:avoid}
-  .route-header td{background:#ecfdf3;color:#166534;font-size:10px;font-weight:900;padding:6px 10px;page-break-after:avoid}
-  @page{size:landscape;margin:.35in}
+  .check{font-size:14px;text-align:center;width:42px}
+  .num,.money{text-align:right}
+  .money{font-weight:700}
+  .day-header td{background:#dbeafe;color:#0b3c5d;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;padding:6px;page-break-after:avoid}
+  .route-header td{background:#ecfdf3;color:#166534;font-size:9px;font-weight:900;padding:5px 8px;page-break-after:avoid}
+  @page{size:landscape;margin:.3in}
 </style>
 </head>
 <body>
@@ -6586,7 +6587,7 @@ function printRouteTechFilterChecklist() {
 </div>
 <table>
 <thead>
-<tr><th>Changed</th><th>Client</th><th>Service Location</th><th>Filter System</th><th>Manufacturer</th><th>Replacement Filter</th><th>Qty</th><th>O-Ring Part #</th><th>Date</th><th>Initials</th><th>Notes / Exception</th></tr>
+<tr><th>Entered into Skimmer</th><th>Client</th><th>Service Location</th><th>Filter System</th><th>Hurricane Part #</th><th>Qty</th><th>Unit Cost</th><th>O-Ring Part #</th><th>Qty</th><th>O-Ring Unit Cost</th><th>Total Billable to Client</th></tr>
 </thead>
 <tbody>${rowsHtml}</tbody>
 </table>
@@ -6596,87 +6597,6 @@ function printRouteTechFilterChecklist() {
   printWindow.document.close();
   printWindow.focus();
   printWindow.print();
-}
-
-
-function getVarianceClass(value) {
-  const number = Number(value || 0);
-
-  if (number > 0) {
-    return 'variance-positive';
-  }
-
-  if (number < 0) {
-    return 'variance-negative';
-  }
-
-  return 'variance-zero';
-}
-
-function formatCurrency(value) {
-  return Number(value || 0).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD'
-  });
-}
-
-function formatNumber(value) {
-  if (value === null || value === undefined || value === '') {
-    return '';
-  }
-
-  const number = Number(value);
-
-  if (Number.isNaN(number)) {
-    return value;
-  }
-
-  return number.toLocaleString('en-US', {
-    maximumFractionDigits: 2
-  });
-}
-
-function formatDateOnly(value) {
-  if (!value) {
-    return '';
-  }
-
-  const stringValue = String(value);
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) {
-    const [year, month, day] = stringValue.split('-').map(Number);
-    return new Date(year, month - 1, day).toLocaleDateString();
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString();
-}
-
-function formatDateTime(value) {
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleString();
-}
-
-function cleanCSV(value) {
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  return String(value).replace(/"/g, '""');
 }
 
 function cleanFilename(value) {
