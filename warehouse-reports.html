@@ -3154,7 +3154,7 @@
 
       <h3>CSC Billing List</h3>
       <div class="status-note">
-        CSC annual filter-changeout billing checklist. Filter pricing comes from the approved filter pricing catalog. O-ring pricing is calculated automatically from the current database unit cost × 1.82. Rows showing TBD or PRICE NEEDED require review before entry into Skimmer.
+        CSC annual filter-changeout billing checklist. Filter Unit Cost and O-Ring Unit Cost come directly from the current parts database. Total Billable to Client is calculated as (Filter Unit Cost × Filter Qty + O-Ring Unit Cost × O-Ring Qty) × 1.82. Rows showing TBD or COST NEEDED require review before entry into Skimmer.
       </div>
       <div class="button-row">
         <button class="export-btn" onclick="exportCSCBillingListCSV()">EXPORT CSC BILLING CSV</button>
@@ -3173,10 +3173,10 @@
               <th>Filter System</th>
               <th>Hurricane Part #</th>
               <th>Qty</th>
-              <th>Client Billable Price</th>
+              <th>Unit Cost</th>
               <th>O-Ring Part #</th>
               <th>Qty</th>
-              <th>O-Ring Billable Price</th>
+              <th>O-Ring Unit Cost</th>
               <th>Total Billable to Client</th>
             </tr>
           </thead>
@@ -6140,7 +6140,7 @@ async function loadRouteTechFilterReports() {
     `Filter Assignment Lines: ${formatNumber(filterChecklistData.length)}\n` +
     `Total Filters to Stage: ${formatNumber(totalQty)}`;
 
-  const missingPriceCount = filterCSCBillingData.filter(row => row.client_billable_unit_price == null).length;
+  const missingCostCount = filterCSCBillingData.filter(row => row.filter_unit_cost == null).length;
   const oringTbdCount = filterCSCBillingData.filter(row => !row.oring_part_number || String(row.oring_part_number).toUpperCase() === 'TBD').length;
   const readyCount = filterCSCBillingData.filter(row => row.total_billable_to_client != null).length;
   const readyTotal = filterCSCBillingData.reduce((sum, row) => sum + Number(row.total_billable_to_client || 0), 0);
@@ -6149,7 +6149,7 @@ async function loadRouteTechFilterReports() {
     `Route Tech: ${selections.routeTechLabel}\n` +
     `Billing Lines: ${formatNumber(filterCSCBillingData.length)}\n` +
     `Ready to Enter in Skimmer: ${formatNumber(readyCount)}\n` +
-    `Filter Price Needed: ${formatNumber(missingPriceCount)}\n` +
+    `Filter Cost Needed: ${formatNumber(missingCostCount)}\n` +
     `O-Ring Part # TBD: ${formatNumber(oringTbdCount)}\n` +
     `Calculated Billing Total (ready rows): ${formatCurrency(readyTotal)}`;
 }
@@ -6305,10 +6305,10 @@ function renderCSCBillingTable() {
       <td>${escapeHTML(row.filter_system_name || '')}</td>
       <td>${escapeHTML(row.hurricane_part_number || 'TBD')}</td>
       <td>${formatNumber(row.system_quantity)}</td>
-      <td>${formatFilterBillingPrice(row.client_billable_unit_price)}</td>
+      <td>${formatFilterBillingPrice(row.filter_unit_cost, 'COST NEEDED')}</td>
       <td>${formatOringPartNumber(row.oring_part_number)}</td>
       <td>${formatNumber(row.oring_quantity || 1)}</td>
-      <td>${formatFilterBillingPrice(row.oring_billable_unit_price, 'TBD')}</td>
+      <td>${formatFilterBillingPrice(row.oring_unit_cost, 'TBD')}</td>
       <td>${formatFilterBillingPrice(row.total_billable_to_client, 'REVIEW')}</td>
     `;
     body.appendChild(tr);
@@ -6322,7 +6322,7 @@ function exportCSCBillingListCSV() {
     return;
   }
 
-  let csv = 'Service Day Number,Day of Week,Route Tech,Entered into Skimmer,Client,Service Location,Filter System,Hurricane Part #,Filter Qty,Client Billable Price,O-Ring Part #,O-Ring Qty,O-Ring Billable Price,Total Billable to Client,Billing Status\n';
+  let csv = 'Service Day Number,Day of Week,Route Tech,Entered into Skimmer,Client,Service Location,Filter System,Hurricane Part #,Filter Qty,Unit Cost,O-Ring Part #,O-Ring Qty,O-Ring Unit Cost,Total Billable to Client,Billing Status\n';
 
   sortFilterChecklistRows(filterCSCBillingData).forEach(row => {
     csv +=
@@ -6335,10 +6335,10 @@ function exportCSCBillingListCSV() {
       `"${cleanCSV(row.filter_system_name)}",` +
       `"${cleanCSV(row.hurricane_part_number || 'TBD')}",` +
       `"${cleanCSV(row.system_quantity)}",` +
-      `"${cleanCSV(row.client_billable_unit_price == null ? 'PRICE NEEDED' : Number(row.client_billable_unit_price).toFixed(2))}",` +
+      `"${cleanCSV(row.filter_unit_cost == null ? 'COST NEEDED' : Number(row.filter_unit_cost).toFixed(2))}",` +
       `"${cleanCSV(row.oring_part_number || 'TBD')}",` +
       `"${cleanCSV(row.oring_quantity || 1)}",` +
-      `"${cleanCSV(row.oring_billable_unit_price == null ? 'TBD' : Number(row.oring_billable_unit_price).toFixed(2))}",` +
+      `"${cleanCSV(row.oring_unit_cost == null ? 'TBD' : Number(row.oring_unit_cost).toFixed(2))}",` +
       `"${cleanCSV(row.total_billable_to_client == null ? 'REVIEW' : Number(row.total_billable_to_client).toFixed(2))}",` +
       `"${cleanCSV(row.billing_status || '')}"\n`;
   });
@@ -6355,7 +6355,7 @@ function printCSCBillingList() {
 
   const selections = getFilterReportSelections();
   const sortedRows = sortFilterChecklistRows(filterCSCBillingData);
-  const missingPriceCount = sortedRows.filter(row => row.client_billable_unit_price == null).length;
+  const missingCostCount = sortedRows.filter(row => row.filter_unit_cost == null).length;
   const oringTbdCount = sortedRows.filter(row => !row.oring_part_number || String(row.oring_part_number).toUpperCase() === 'TBD').length;
   const readyCount = sortedRows.filter(row => row.total_billable_to_client != null).length;
   const clientCount = new Set(sortedRows.map(row => `${row.client_name}|${row.service_location}`)).size;
@@ -6389,10 +6389,10 @@ function printCSCBillingList() {
         <td>${escapeHTML(row.filter_system_name || '')}</td>
         <td>${escapeHTML(row.hurricane_part_number || 'TBD')}</td>
         <td class="num">${formatNumber(row.system_quantity)}</td>
-        <td class="money">${row.client_billable_unit_price == null ? 'PRICE NEEDED' : formatCurrency(Number(row.client_billable_unit_price))}</td>
+        <td class="money">${row.filter_unit_cost == null ? 'COST NEEDED' : formatCurrency(Number(row.filter_unit_cost))}</td>
         <td>${escapeHTML(oringPart)}</td>
         <td class="num">${formatNumber(row.oring_quantity || 1)}</td>
-        <td class="money">${row.oring_billable_unit_price == null ? 'TBD' : formatCurrency(Number(row.oring_billable_unit_price))}</td>
+        <td class="money">${row.oring_unit_cost == null ? 'TBD' : formatCurrency(Number(row.oring_unit_cost))}</td>
         <td class="money">${row.total_billable_to_client == null ? 'REVIEW' : formatCurrency(Number(row.total_billable_to_client))}</td>
       </tr>`;
   });
@@ -6410,8 +6410,8 @@ function printCSCBillingList() {
 body{font-family:Arial,sans-serif;color:#111;margin:18px}h1{font-size:20px;margin:0 0 6px}.meta{font-size:11px;margin-bottom:12px;line-height:1.5}table{width:100%;border-collapse:collapse;font-size:8px}th,td{border:1px solid #555;padding:4px;vertical-align:top}th{background:#eee}.check{font-size:14px;text-align:center;width:42px}.num,.money{text-align:right}.money{font-weight:700}.day-header td{background:#dbeafe;color:#0b3c5d;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;padding:6px;page-break-after:avoid}.route-header td{background:#ecfdf3;color:#166534;font-size:9px;font-weight:900;padding:5px 8px;page-break-after:avoid}@page{size:landscape;margin:.3in}
 </style></head><body>
 <h1>CSC Annual Filter Changeout Billing List</h1>
-<div class="meta"><strong>Service Day:</strong> ${escapeHTML(selections.serviceDayName)} &nbsp;&nbsp; <strong>Route Tech:</strong> ${escapeHTML(selections.routeTechLabel)} &nbsp;&nbsp; <strong>Client Locations:</strong> ${formatNumber(clientCount)} &nbsp;&nbsp; <strong>Billing Lines:</strong> ${formatNumber(sortedRows.length)} &nbsp;&nbsp; <strong>Ready:</strong> ${formatNumber(readyCount)} &nbsp;&nbsp; <strong>Filter Price Needed:</strong> ${formatNumber(missingPriceCount)} &nbsp;&nbsp; <strong>O-Ring TBD:</strong> ${formatNumber(oringTbdCount)}</div>
-<table><thead><tr><th>Entered into Skimmer</th><th>Client</th><th>Service Location</th><th>Filter System</th><th>Hurricane Part #</th><th>Qty</th><th>Client Billable Price</th><th>O-Ring Part #</th><th>Qty</th><th>O-Ring Billable Price</th><th>Total Billable to Client</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+<div class="meta"><strong>Service Day:</strong> ${escapeHTML(selections.serviceDayName)} &nbsp;&nbsp; <strong>Route Tech:</strong> ${escapeHTML(selections.routeTechLabel)} &nbsp;&nbsp; <strong>Client Locations:</strong> ${formatNumber(clientCount)} &nbsp;&nbsp; <strong>Billing Lines:</strong> ${formatNumber(sortedRows.length)} &nbsp;&nbsp; <strong>Ready:</strong> ${formatNumber(readyCount)} &nbsp;&nbsp; <strong>Filter Cost Needed:</strong> ${formatNumber(missingCostCount)} &nbsp;&nbsp; <strong>O-Ring TBD:</strong> ${formatNumber(oringTbdCount)}</div>
+<table><thead><tr><th>Entered into Skimmer</th><th>Client</th><th>Service Location</th><th>Filter System</th><th>Hurricane Part #</th><th>Qty</th><th>Unit Cost</th><th>O-Ring Part #</th><th>Qty</th><th>O-Ring Unit Cost</th><th>Total Billable to Client</th></tr></thead><tbody>${rowsHtml}</tbody></table>
 </body></html>`);
 
   printWindow.document.close();
