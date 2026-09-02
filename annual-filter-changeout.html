@@ -45,6 +45,19 @@
     .route-header td{background:#ecfdf3!important;color:#166534;font-weight:900}
     .badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:900;white-space:nowrap}.ready{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}.review{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
     .empty{padding:28px;text-align:center;color:var(--muted)}
+    .queue-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) 190px auto auto;gap:12px;align-items:end;padding:18px 20px;border-bottom:1px solid var(--border);background:#f8fafc}
+    .queue-summary{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;padding:14px 20px;border-bottom:1px solid var(--border)}
+    .queue-summary .summary-card{margin:0}
+    .queue-actions{display:flex;gap:6px;flex-wrap:wrap}
+    .queue-actions button{min-height:32px;padding:6px 9px;font-size:11px}
+    .btn-success{background:#067647;color:#fff}.btn-warning{background:#b45309;color:#fff}.btn-danger{background:#b42318;color:#fff}
+    .status-ready{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+    .status-hold{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+    .status-created{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+    .status-error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+    .status-skipped{background:#e5e7eb;color:#374151;border:1px solid #d1d5db}
+    .wo-text{min-width:360px;white-space:normal}
+    .queue-note{font-size:12px;color:var(--muted);line-height:1.45}
     .billing-lookup{padding:18px 20px;border-bottom:1px solid var(--border);background:#f8fafc}
     .billing-lookup-grid{display:grid;grid-template-columns:minmax(280px,1fr) auto;gap:12px;align-items:end}
     .billing-lookup button{margin:0}
@@ -57,8 +70,8 @@
     .quote-total{font-size:24px;font-weight:900;color:var(--success);margin-top:3px}
     .quote-total.review-total{color:#92400e}
     .quote-detail{font-size:11px;color:#475467;margin-top:6px}
-    @media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(150px,1fr))}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-action{grid-column:1/-1}.filter-action button{width:100%}.quote-summary{grid-template-columns:repeat(2,minmax(150px,1fr))}}
-    @media(max-width:650px){main{width:min(100% - 20px,1580px);margin-top:14px}.header-bar{padding:15px 16px}.hero{padding:18px}.summary-grid,.filters,.quote-summary,.billing-lookup-grid{grid-template-columns:1fr}.filter-action{grid-column:auto}.billing-lookup button{width:100%}}
+    @media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(150px,1fr))}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-action{grid-column:1/-1}.filter-action button{width:100%}.quote-summary{grid-template-columns:repeat(2,minmax(150px,1fr))}.queue-toolbar{grid-template-columns:1fr 1fr}.queue-summary{grid-template-columns:repeat(2,minmax(140px,1fr))}}
+    @media(max-width:650px){main{width:min(100% - 20px,1580px);margin-top:14px}.header-bar{padding:15px 16px}.hero{padding:18px}.summary-grid,.filters,.quote-summary,.billing-lookup-grid,.queue-toolbar,.queue-summary{grid-template-columns:1fr}.filter-action{grid-column:auto}.billing-lookup button{width:100%}}
     @media print{#sharedNavigation,.header-bar,.filters,.tabs,.no-print{display:none!important}body{background:#fff}main{width:100%;margin:0}.hero,.card{box-shadow:none;border-color:#aaa}.tab-pane{display:block!important;margin-bottom:18px}.table-wrap{overflow:visible;max-height:none}table{min-width:0;font-size:9px}th{position:static}}
   </style>
 </head>
@@ -106,6 +119,7 @@
       <button id="tabStaging" class="tab" onclick="setTab('Staging')">Warehouse Staging</button>
       <button id="tabBilling" class="tab" onclick="setTab('Billing')">CSC Billing List</button>
       <button id="tabForecast" class="tab" onclick="setTab('Forecast')">Purchasing Forecast</button>
+      <button id="tabQueue" class="tab" onclick="setTab('Queue')">Skimmer Work Order Queue</button>
     </div>
 
     <section id="paneSchedule" class="card tab-pane active">
@@ -152,6 +166,75 @@
       <div class="card-head"><h2>October Purchasing Forecast</h2><span id="forecastCount" class="strong"></span></div>
       <div class="table-wrap"><table style="min-width:1450px"><thead><tr><th>Item Type</th><th>Purchase Part #</th><th>Filter / O-Ring Reference</th><th>Manufacturer</th><th>Client Locations</th><th>System Models</th><th>Required Quantity</th><th>Compatible Filter Systems</th><th>Status</th></tr></thead><tbody id="forecastBody"></tbody></table></div>
     </section>
+
+    <section id="paneQueue" class="card tab-pane">
+      <div class="card-head">
+        <div>
+          <h2>Skimmer Work Order Creation Queue</h2>
+          <div class="queue-note" style="margin-top:5px;">
+            One queue item equals one client location and one scheduled changeout date. Multiple filter systems at the same property are combined into one Skimmer work order.
+            SERVICE and WAREHOUSE users can view this queue. Queue management is limited to Service Manager, Admin, and System Admin.
+          </div>
+        </div>
+        <span id="queueCount" class="strong"></span>
+      </div>
+
+      <div class="queue-summary" id="queueSummary"></div>
+
+      <div class="queue-toolbar">
+        <div>
+          <label for="queueSearch">Search Queue</label>
+          <input id="queueSearch" type="search" placeholder="Client, address, Route Tech, filter system..." oninput="renderWorkOrderQueue()">
+        </div>
+        <div>
+          <label for="queueStatusFilter">Queue Status</label>
+          <select id="queueStatusFilter" onchange="renderWorkOrderQueue()">
+            <option value="ALL">All Statuses</option>
+            <option value="READY">Ready</option>
+            <option value="HOLD">Hold</option>
+            <option value="CREATED">Created</option>
+            <option value="ERROR">Error</option>
+            <option value="SKIPPED">Skipped</option>
+          </select>
+        </div>
+        <div id="queueOperatorSync" style="display:none">
+          <button class="btn-primary" type="button" onclick="syncWorkOrderQueue()">SYNC / REFRESH QUEUE</button>
+        </div>
+        <div>
+          <button class="btn-secondary" type="button" onclick="exportWorkOrderQueueCSV()">EXPORT QUEUE CSV</button>
+        </div>
+      </div>
+
+      <div id="queueMessage" class="status" style="margin:14px 20px;">
+        Loading Skimmer work order queue…
+      </div>
+
+      <div class="table-wrap">
+        <table style="min-width:2050px">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Service Date</th>
+              <th>Route Tech</th>
+              <th>Client</th>
+              <th>Service Location</th>
+              <th>Skimmer Customer #</th>
+              <th>Location Code</th>
+              <th>Filter Systems</th>
+              <th>Filters</th>
+              <th>O-Rings</th>
+              <th>Total Billable</th>
+              <th>Work Order Type</th>
+              <th>Work Needed</th>
+              <th>Skimmer WO ID</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="queueBody"></tbody>
+        </table>
+      </div>
+    </section>
+
   </main>
 
   <script src="shared-navigation.js"></script>
@@ -160,8 +243,11 @@
     const SUPABASE_KEY="sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
     const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
     const VIEW_ROLES=["SERVICE","SERVICE_MANAGER","WAREHOUSE","ADMIN","SYSTEM_ADMIN"];
+    const QUEUE_OPERATOR_ROLES=["SERVICE_MANAGER","ADMIN","SYSTEM_ADMIN"];
+    let currentProfile=null;
 
     let scheduleData=[],stagingData=[],billingData=[],forecastData=[];
+    let workOrderQueueData=[];
     let filteredSchedule=[],filteredStaging=[],filteredBilling=[];
     let billingClientSearch="";
 
@@ -174,7 +260,7 @@
     function message(text,type="status"){const b=document.getElementById("pageMessage");b.className=type;b.textContent=text}
 
     function setTab(name){
-      ["Schedule","Staging","Billing","Forecast"].forEach(n=>{
+      ["Schedule","Staging","Billing","Forecast","Queue"].forEach(n=>{
         document.getElementById("pane"+n).classList.toggle("active",n===name);
         document.getElementById("tab"+n).classList.toggle("active",n===name);
       });
@@ -191,25 +277,29 @@
         location.href="index.html";return;
       }
 
-      document.getElementById("headerUser").textContent=`${profile.full_name||session.user.email} · ${profile.role} · View Only`;
+      currentProfile=profile;
+      document.getElementById("headerUser").textContent=`${profile.full_name||session.user.email} · ${profile.role} · ${QUEUE_OPERATOR_ROLES.includes(profile.role) ? "Queue Operator" : "View Only"}`;
+      const syncButton=document.getElementById("queueOperatorSync");
+      if(syncButton && QUEUE_OPERATOR_ROLES.includes(profile.role))syncButton.style.display="block";
       await loadData();
     }
 
     async function loadData(){
       message("Loading annual filter-changeout data…","warning");
 
-      const [s,st,b,f]=await Promise.all([
+      const [s,st,b,f,q]=await Promise.all([
         db.from("route_tech_filter_changeout_checklist_view").select("*").order("service_date").order("route_tech").order("changeout_sequence"),
         db.from("route_tech_filter_staging_summary_view").select("*").order("service_date").order("route_tech").order("hurricane_part_number"),
         db.from("csc_filter_changeout_billing_view").select("*").order("service_date").order("route_tech").order("changeout_sequence"),
-        db.from("annual_filter_purchase_forecast_view").select("*").order("item_type").order("purchase_part_number")
+        db.from("annual_filter_purchase_forecast_view").select("*").order("item_type").order("purchase_part_number"),
+        db.from("annual_filter_skimmer_work_order_queue").select("*").order("service_date").order("route_tech").order("client_name")
       ]);
 
-      const failed=[s,st,b,f].find(x=>x.error);
+      const failed=[s,st,b,f,q].find(x=>x.error);
       if(failed){message("Unable to load Annual Filter Changeout: "+failed.error.message,"danger");return}
 
-      scheduleData=s.data||[];stagingData=st.data||[];billingData=b.data||[];forecastData=f.data||[];
-      populateFilters();applyFilters();renderForecast();
+      scheduleData=s.data||[];stagingData=st.data||[];billingData=b.data||[];forecastData=f.data||[];workOrderQueueData=q.data||[];
+      populateFilters();applyFilters();renderForecast();renderWorkOrderQueue();
       message("View-only page loaded. Data maintenance and imports remain on Warehouse Reports → Annual Filter Planning.","status");
     }
 
@@ -397,6 +487,237 @@
         const ready=!String(r.purchasing_status||"").toUpperCase().includes("REVIEW");
         return `<tr><td class="strong">${esc(r.item_type||"")}</td><td>${esc(r.purchase_part_number||"TBD")}</td><td>${esc(r.replacement_filter||"")}</td><td>${esc(r.manufacturer||"")}</td><td class="num">${num(r.client_location_count)}</td><td class="num">${num(r.filter_system_model_count)}</td><td class="num strong">${num(r.required_quantity)}</td><td>${esc(r.compatible_filter_systems||"")}</td><td><span class="badge ${ready?"ready":"review"}">${esc(r.purchasing_status||"")}</span></td></tr>`;
       }).join("");
+    }
+
+
+    function queueOperator(){
+      return !!currentProfile && QUEUE_OPERATOR_ROLES.includes(currentProfile.role);
+    }
+
+    function queueStatusClass(status){
+      const value=String(status||"").toUpperCase();
+      if(value==="READY")return"status-ready";
+      if(value==="HOLD")return"status-hold";
+      if(value==="CREATED")return"status-created";
+      if(value==="ERROR")return"status-error";
+      return"status-skipped";
+    }
+
+    function getVisibleQueueRows(){
+      const q=(document.getElementById("queueSearch")?.value||"").trim().toLowerCase();
+      const status=document.getElementById("queueStatusFilter")?.value||"ALL";
+
+      return workOrderQueueData.filter(row=>{
+        if(status!=="ALL" && String(row.queue_status||"").toUpperCase()!==status)return false;
+        if(!q)return true;
+        const text=[
+          row.client_name,row.service_location,row.route_tech,row.filter_system_summary,
+          row.work_needed,row.skimmer_customer_code,row.skimmer_location_code,row.skimmer_work_order_id
+        ].join(" ").toLowerCase();
+        return text.includes(q);
+      });
+    }
+
+    function renderQueueSummary(){
+      const summary=document.getElementById("queueSummary");
+      if(!summary)return;
+
+      const count=status=>workOrderQueueData.filter(row=>row.queue_status===status).length;
+      summary.innerHTML=`
+        <div class="summary-card"><div class="summary-label">Ready</div><div class="summary-value">${num(count("READY"))}</div></div>
+        <div class="summary-card"><div class="summary-label">Hold / Review</div><div class="summary-value">${num(count("HOLD")+count("ERROR"))}</div></div>
+        <div class="summary-card"><div class="summary-label">Created</div><div class="summary-value">${num(count("CREATED"))}</div></div>
+        <div class="summary-card"><div class="summary-label">Queue Total</div><div class="summary-value">${num(workOrderQueueData.length)}</div></div>`;
+    }
+
+    function renderWorkOrderQueue(){
+      renderQueueSummary();
+      const body=document.getElementById("queueBody");
+      const countLabel=document.getElementById("queueCount");
+      const msg=document.getElementById("queueMessage");
+      if(!body)return;
+
+      const rows=getVisibleQueueRows();
+      if(countLabel)countLabel.textContent=`${rows.length} queue item${rows.length===1?"":"s"}`;
+
+      if(!workOrderQueueData.length){
+        body.innerHTML='<tr><td colspan="15" class="empty">The queue has not been initialized yet. An authorized queue operator can click SYNC / REFRESH QUEUE.</td></tr>';
+        if(msg){
+          msg.className="warning";
+          msg.textContent="No queue records exist yet. Syncing will create one queue item per client location and changeout date from the current Annual Filter Changeout schedule.";
+        }
+        return;
+      }
+
+      if(msg){
+        msg.className="status";
+        msg.textContent=queueOperator()
+          ? "Queue is ready. Sync / Refresh updates it from the current Annual Filter Changeout data while preserving CREATED and SKIPPED records."
+          : "View only. Work order queue management is limited to Service Manager, Admin, and System Admin.";
+      }
+
+      if(!rows.length){
+        body.innerHTML='<tr><td colspan="15" class="empty">No work order queue items match the current search or status filter.</td></tr>';
+        return;
+      }
+
+      body.innerHTML=rows.map(row=>{
+        let actions=`<button class="btn-secondary" type="button" onclick='copyQueueWorkNeeded(${JSON.stringify(row.id)})'>COPY WORK NEEDED</button>`;
+
+        if(queueOperator()){
+          if(row.queue_status!=="CREATED"){
+            actions+=` <button class="btn-success" type="button" onclick='markQueueCreated(${JSON.stringify(row.id)})'>MARK CREATED</button>`;
+          }
+          if(row.queue_status!=="HOLD"){
+            actions+=` <button class="btn-warning" type="button" onclick='setQueueStatus(${JSON.stringify(row.id)},"HOLD")'>HOLD</button>`;
+          }
+          if(row.queue_status!=="READY" && row.queue_status!=="CREATED"){
+            actions+=` <button class="btn-primary" type="button" onclick='setQueueStatus(${JSON.stringify(row.id)},"READY")'>READY</button>`;
+          }
+          if(row.queue_status!=="SKIPPED" && row.queue_status!=="CREATED"){
+            actions+=` <button class="btn-danger" type="button" onclick='setQueueStatus(${JSON.stringify(row.id)},"SKIPPED")'>SKIP</button>`;
+          }
+        }
+
+        return `<tr>
+          <td><span class="badge ${queueStatusClass(row.queue_status)}">${esc(row.queue_status||"")}</span></td>
+          <td>${esc(dateLabel(row.service_date))}</td>
+          <td>${esc(row.route_tech||"")}</td>
+          <td class="strong">${esc(row.client_name||"")}</td>
+          <td>${esc(row.service_location||"")}</td>
+          <td>${esc(row.skimmer_customer_code||"MISSING")}</td>
+          <td>${esc(row.skimmer_location_code||"MISSING")}</td>
+          <td>${esc(row.filter_system_summary||"")}</td>
+          <td class="num">${num(row.filter_quantity)}</td>
+          <td class="num">${num(row.oring_quantity)}</td>
+          <td class="money">${esc(whole(row.total_billable_to_client))}</td>
+          <td>${esc(row.work_order_type||"")}</td>
+          <td class="wo-text">${esc(row.work_needed||"")}</td>
+          <td>${esc(row.skimmer_work_order_id||"")}</td>
+          <td><div class="queue-actions">${actions}</div></td>
+        </tr>`;
+      }).join("");
+    }
+
+    async function reloadWorkOrderQueue(){
+      const {data,error}=await db.from("annual_filter_skimmer_work_order_queue").select("*")
+        .order("service_date").order("route_tech").order("client_name");
+
+      if(error){
+        const msg=document.getElementById("queueMessage");
+        if(msg){msg.className="danger";msg.textContent=error.message}
+        return false;
+      }
+
+      workOrderQueueData=data||[];
+      renderWorkOrderQueue();
+      return true;
+    }
+
+    async function syncWorkOrderQueue(){
+      if(!queueOperator())return;
+
+      const msg=document.getElementById("queueMessage");
+      if(msg){msg.className="warning";msg.textContent="Syncing work order queue from the current Annual Filter Changeout schedule…"}
+
+      const {data,error}=await db.rpc("sync_annual_filter_skimmer_work_order_queue");
+
+      if(error){
+        if(msg){msg.className="danger";msg.textContent=error.message}
+        return;
+      }
+
+      await reloadWorkOrderQueue();
+      const result=Array.isArray(data)?data[0]:data;
+      if(msg){
+        msg.className="status";
+        msg.textContent=result
+          ? `Queue sync complete. Inserted: ${result.inserted_count||0}. Updated: ${result.updated_count||0}. Ready: ${result.ready_count||0}. Hold: ${result.hold_count||0}.`
+          : "Queue sync complete.";
+      }
+    }
+
+    async function setQueueStatus(id,status){
+      if(!queueOperator())return;
+
+      const {error}=await db.rpc("set_annual_filter_work_order_queue_status",{
+        p_id:id,
+        p_status:status,
+        p_skimmer_work_order_id:null,
+        p_last_error:null
+      });
+
+      if(error){
+        alert(error.message);
+        return;
+      }
+
+      await reloadWorkOrderQueue();
+    }
+
+    async function markQueueCreated(id){
+      if(!queueOperator())return;
+
+      const workOrderId=prompt("Enter the Skimmer Work Order ID if available. You may leave this blank and add it later.");
+      if(workOrderId===null)return;
+
+      const {error}=await db.rpc("set_annual_filter_work_order_queue_status",{
+        p_id:id,
+        p_status:"CREATED",
+        p_skimmer_work_order_id:workOrderId||null,
+        p_last_error:null
+      });
+
+      if(error){
+        alert(error.message);
+        return;
+      }
+
+      await reloadWorkOrderQueue();
+    }
+
+    async function copyQueueWorkNeeded(id){
+      const row=workOrderQueueData.find(item=>item.id===id);
+      if(!row)return;
+
+      const text=`${row.client_name}\n${row.service_location}\nService Date: ${dateLabel(row.service_date)}\nRoute Tech: ${row.route_tech||""}\nWork Order Type: ${row.work_order_type||""}\nWork Needed: ${row.work_needed||""}\nTotal Billable: ${whole(row.total_billable_to_client)}`;
+
+      try{
+        await navigator.clipboard.writeText(text);
+      }catch(error){
+        alert(text);
+      }
+    }
+
+    function csvValue(value){
+      return `"${String(value??"").replace(/"/g,'""')}"`;
+    }
+
+    function exportWorkOrderQueueCSV(){
+      const rows=getVisibleQueueRows();
+      if(!rows.length){
+        alert("No queue items are available for export.");
+        return;
+      }
+
+      let csv="Status,Service Date,Route Tech,Client,Service Location,Skimmer Customer Number,Location Code,Filter Systems,Filter Qty,O-Ring Qty,Total Billable,Work Order Type,Work Needed,Skimmer Work Order ID\n";
+      rows.forEach(row=>{
+        csv+=[
+          row.queue_status,row.service_date,row.route_tech,row.client_name,row.service_location,
+          row.skimmer_customer_code,row.skimmer_location_code,row.filter_system_summary,row.filter_quantity,
+          row.oring_quantity,row.total_billable_to_client,row.work_order_type,row.work_needed,row.skimmer_work_order_id
+        ].map(csvValue).join(",")+"\n";
+      });
+
+      const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url;
+      a.download="annual_filter_skimmer_work_order_queue.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     }
 
     document.addEventListener("DOMContentLoaded",init);
