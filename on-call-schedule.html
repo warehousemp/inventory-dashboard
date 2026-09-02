@@ -319,6 +319,21 @@
       padding: 9px 11px;
     }
 
+    .view-only-badge {
+      display: inline-block;
+      width: 100%;
+      min-width: 90px;
+      padding: 9px 11px;
+      border-radius: 9px;
+      background: #eef2f6;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
     .result-note {
       margin-top: 12px;
       color: var(--muted);
@@ -649,12 +664,21 @@
       currentProfile = profileResponse.data;
       document.getElementById('accessGate').classList.add('hidden');
       document.getElementById('pageContent').classList.remove('hidden');
+
+      if (currentProfile.role === 'SERVICE') {
+        setMessage('info', 'SERVICE access is view only. You can view, filter, print, and open the On-Call Policy and Pay Request Form, but you cannot change assignments or notes.');
+      }
+
       return true;
     }
 
     function showAccessMessage(message) {
       const element = document.getElementById('accessMessage');
       if (element) element.textContent = message;
+    }
+
+    function canEditSchedule() {
+      return currentProfile && currentProfile.role !== 'SERVICE';
     }
 
     function getLocalToday() {
@@ -824,6 +848,8 @@
 
       if (showMessage) {
         setMessage('success', 'On-call schedule refreshed from the database and Company Calendar.');
+      } else if (currentProfile && currentProfile.role === 'SERVICE') {
+        setMessage('info', 'SERVICE access is view only. You can view, filter, print, and open the On-Call Policy and Pay Request Form, but you cannot change assignments or notes.');
       } else {
         setMessage('', '');
       }
@@ -965,17 +991,29 @@
             '<span class="muted-small">By: ' + escapeHtml(row.updatedBy || '—') + '</span>'
           : '<span class="muted-small">Not saved yet</span>';
 
+        const editAllowed = canEditSchedule();
+        const techControl = '<select id="tech_' + escapeHtml(row.key) + '"' +
+          (editAllowed ? '' : ' disabled aria-disabled="true"') + '>' +
+          renderTechOptions(row) + '</select>';
+
+        const notesControl = '<input id="notes_' + escapeHtml(row.key) + '" type="text" maxlength="250" value="' +
+          escapeHtml(row.notes) + '" placeholder="Optional notes"' +
+          (editAllowed ? '' : ' readonly aria-readonly="true"') + '>';
+
+        const actionControl = editAllowed
+          ? '<button class="save-row-btn" id="save_' + escapeHtml(row.key) +
+            '" type="button" onclick="saveWeekendAssignment(\'' + escapeHtml(row.key) + '\')">Save</button>'
+          : '<span class="view-only-badge">View Only</span>';
+
         tr.innerHTML =
           '<td><span class="quarter-badge">' + escapeHtml(row.quarter) + '</span></td>' +
           '<td><span class="date-primary">' + escapeHtml(formatDate(row.saturday, true)) + '</span>' +
           '<span class="date-secondary">through ' + escapeHtml(formatDate(row.sunday, true)) + '</span></td>' +
           '<td>' + holidayHtml + '</td>' +
-          '<td><select id="tech_' + escapeHtml(row.key) + '">' + renderTechOptions(row) + '</select></td>' +
-          '<td><input id="notes_' + escapeHtml(row.key) + '" type="text" maxlength="250" value="' +
-            escapeHtml(row.notes) + '" placeholder="Optional notes"></td>' +
+          '<td>' + techControl + '</td>' +
+          '<td>' + notesControl + '</td>' +
           '<td>' + lastUpdated + '</td>' +
-          '<td><button class="save-row-btn" id="save_' + escapeHtml(row.key) +
-            '" type="button" onclick="saveWeekendAssignment(\'' + escapeHtml(row.key) + '\')">Save</button></td>';
+          '<td>' + actionControl + '</td>';
 
         tbody.appendChild(tr);
       });
@@ -1000,6 +1038,11 @@
     }
 
     async function saveWeekendAssignment(weekendKey) {
+      if (!canEditSchedule()) {
+        setMessage('error', 'SERVICE access is view only. Schedule changes require SERVICE_MANAGER, ADMIN, or SYSTEM_ADMIN access.');
+        return;
+      }
+
       const row = generatedWeekends.find(function(item) { return item.key === weekendKey; });
       if (!row) {
         setMessage('error', 'The selected weekend could not be found.');
