@@ -1710,8 +1710,8 @@
             <button class="payroll-step-header" type="button" onclick="togglePayrollStep(3)">
               <span class="payroll-step-number">3</span>
               <span>
-                <span class="payroll-step-title">Extra Cleaning / Manual Payroll Adjustments</span>
-                <span class="payroll-step-summary">Add completed cleanings missed by Skimmer or approved manual dollar adjustments.</span>
+                <span class="payroll-step-title">Extra Cleaning / Manual Adjustments / On-call Pay</span>
+                <span class="payroll-step-summary">Add completed cleanings missed by Skimmer or approved manual adjustments, including On-call Pay.</span>
               </span>
               <span class="payroll-step-status" id="payrollStep3Status">Ready</span>
               <span class="payroll-step-toggle" id="payrollStep3Toggle">+</span>
@@ -1739,9 +1739,9 @@
                 </div>
 
                 <div class="card manager-only">
-                  <h2>Manual Dollar Adjustment</h2>
+                  <h2>Manual Adjustments / On-call Pay</h2>
                   <div class="warning-note">
-                    Use this only for approved payroll dollar corrections that are not visit credits, PTO/holiday/other time, quarterly commissions, or safeguard events. Positive and negative amounts are allowed.
+                    Use this for approved payroll dollar corrections and On-call Pay. Do not use this for visit credits, PTO/holiday/other time, quarterly commissions, or safeguard events. Positive and negative amounts are allowed.
                   </div>
 
                   <label>Route Tech:</label>
@@ -1753,9 +1753,9 @@
                   <input id="manualAdjustmentAmountInput" type="number" step="0.01" placeholder="Example: 50.00 or -25.00">
 
                   <label>Reason / Notes:</label>
-                  <textarea id="manualAdjustmentReasonInput" placeholder="Required. Example: Approved payroll correction for missed bonus or deduction correction."></textarea>
+                  <textarea id="manualAdjustmentReasonInput" placeholder="Required. Example: On-call Pay for weekend coverage, missed bonus, or approved payroll correction."></textarea>
 
-                  <button class="primary-btn full-width-btn" type="button" onclick="saveManualDollarAdjustment()">SAVE MANUAL DOLLAR ADJUSTMENT</button>
+                  <button class="primary-btn full-width-btn" type="button" onclick="saveManualDollarAdjustment()">SAVE MANUAL ADJUSTMENT / ON-CALL PAY</button>
                 </div>
               </div>
 
@@ -1764,7 +1764,7 @@
               </div>
 
               <div class="step-complete-note">
-                If there are no extra cleanings or manual dollar adjustments for this pay period, use the review-complete button to move forward.
+                If there are no extra cleanings, manual adjustments, or On-call Pay for this pay period, use the review-complete button to move forward.
               </div>
             </div>
           </section>
@@ -3852,11 +3852,11 @@ async function saveManualDollarAdjustment() {
   const reason = getInputValue('manualAdjustmentReasonInput');
 
   if (!routeTechId || amount === 0 || !reason) {
-    setPPVStatus('Select a route tech, enter a non-zero dollar amount, and provide a reason before saving a manual dollar adjustment.', 'error');
+    setPPVStatus('Select a route tech, enter a non-zero dollar amount, and provide a reason before saving a manual adjustment or On-call Pay entry.', 'error');
     return;
   }
 
-  const fullReason = `Manual Dollar Adjustment - ${reason}`;
+  const fullReason = `Manual Adjustment / On-call Pay - ${reason}`;
 
   const { error } = await client.rpc('upsert_ppv_adjustment', {
     p_pay_period_id: currentPayPeriodId,
@@ -3871,11 +3871,11 @@ async function saveManualDollarAdjustment() {
   });
 
   if (error) {
-    setPPVStatus('Manual dollar adjustment save error: ' + error.message, 'error');
+    setPPVStatus('Manual adjustment / On-call Pay save error: ' + error.message, 'error');
     return;
   }
 
-  setPPVStatus('Manual dollar adjustment saved as an approved payroll correction.', 'success');
+  setPPVStatus('Manual adjustment / On-call Pay saved as an approved payroll correction.', 'success');
   setInputValue('manualAdjustmentAmountInput', '');
   setInputValue('manualAdjustmentReasonInput', '');
   await refreshSelectedPayPeriodData();
@@ -5388,11 +5388,11 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
             <td>Approved PTO / holiday credit paid at the final PPV rate.</td>
           </tr>
           <tr>
-            <td>Other Time / On Call Pay</td>
+            <td>Other Time</td>
             <td>${formatNumber(otherPaidCredit)} credits</td>
             <td>${formatCurrency(pickupRate)}</td>
             <td>${formatCurrency(otherPaidPay)}</td>
-            <td>Other approved paid-time / on-call credit paid at the pickup visit rate.</td>
+            <td>Other approved paid-time credit paid at the pickup visit rate.</td>
           </tr>
           <tr>
             <td>RT Meetings / Vehicle Maintenance</td>
@@ -5409,11 +5409,11 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
             <td>Approved quarterly commission earned for this pay period.</td>
           </tr>
           <tr>
-            <td>Manual Dollar Adjustments</td>
+            <td>Manual Adjustments / On-call Pay</td>
             <td></td>
             <td></td>
             <td>${formatCurrency(adjustmentTotal)}</td>
-            <td>Approved manual pay adjustments, if any.</td>
+            <td>Approved manual pay adjustments and On-call Pay, if any.</td>
           </tr>
           <tr>
             <td>Pre-Safeguard Pay</td>
