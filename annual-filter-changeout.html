@@ -45,8 +45,20 @@
     .route-header td{background:#ecfdf3!important;color:#166534;font-weight:900}
     .badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:900;white-space:nowrap}.ready{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}.review{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
     .empty{padding:28px;text-align:center;color:var(--muted)}
-    @media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(150px,1fr))}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-action{grid-column:1/-1}.filter-action button{width:100%}}
-    @media(max-width:650px){main{width:min(100% - 20px,1580px);margin-top:14px}.header-bar{padding:15px 16px}.hero{padding:18px}.summary-grid,.filters{grid-template-columns:1fr}.filter-action{grid-column:auto}}
+    .billing-lookup{padding:18px 20px;border-bottom:1px solid var(--border);background:#f8fafc}
+    .billing-lookup-grid{display:grid;grid-template-columns:minmax(280px,1fr) auto;gap:12px;align-items:end}
+    .billing-lookup button{margin:0}
+    .quote-summary{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px;margin-top:14px}
+    .quote-summary-card{border:1px solid #b8d8c5;border-radius:10px;padding:14px;background:#f0fdf4}
+    .quote-summary-card.review-card{border-color:#fde68a;background:#fffbeb}
+    .quote-client{font-size:15px;font-weight:900;color:var(--header);margin-bottom:4px}
+    .quote-location{font-size:12px;color:var(--muted);line-height:1.35;min-height:34px}
+    .quote-total-label{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-top:10px}
+    .quote-total{font-size:24px;font-weight:900;color:var(--success);margin-top:3px}
+    .quote-total.review-total{color:#92400e}
+    .quote-detail{font-size:11px;color:#475467;margin-top:6px}
+    @media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(150px,1fr))}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-action{grid-column:1/-1}.filter-action button{width:100%}.quote-summary{grid-template-columns:repeat(2,minmax(150px,1fr))}}
+    @media(max-width:650px){main{width:min(100% - 20px,1580px);margin-top:14px}.header-bar{padding:15px 16px}.hero{padding:18px}.summary-grid,.filters,.quote-summary,.billing-lookup-grid{grid-template-columns:1fr}.filter-action{grid-column:auto}.billing-lookup button{width:100%}}
     @media print{#sharedNavigation,.header-bar,.filters,.tabs,.no-print{display:none!important}body{background:#fff}main{width:100%;margin:0}.hero,.card{box-shadow:none;border-color:#aaa}.tab-pane{display:block!important;margin-bottom:18px}.table-wrap{overflow:visible;max-height:none}table{min-width:0;font-size:9px}th{position:static}}
   </style>
 </head>
@@ -108,6 +120,31 @@
 
     <section id="paneBilling" class="card tab-pane">
       <div class="card-head"><h2>CSC Billing List</h2><span id="billingCount" class="strong"></span></div>
+
+      <div class="billing-lookup">
+        <div class="billing-lookup-grid">
+          <div>
+            <label for="billingClientSearch">Client Quote Lookup</label>
+            <input
+              id="billingClientSearch"
+              type="search"
+              list="billingClientList"
+              placeholder="Search client name..."
+              oninput="applyBillingClientSearch()">
+            <datalist id="billingClientList"></datalist>
+          </div>
+          <div>
+            <button class="btn-primary" type="button" onclick="clearBillingClientSearch()">Clear Client Search</button>
+          </div>
+        </div>
+
+        <div class="subtitle" style="margin-top:10px;">
+          Search by client name to quote the annual filter changeout. When a client has multiple filter systems at the same service location, the quote summary combines all billable lines into one total for that location.
+        </div>
+
+        <div id="billingQuoteSummary" class="quote-summary"></div>
+      </div>
+
       <div class="table-wrap"><table style="min-width:1600px"><thead><tr><th>Service Date</th><th>Client</th><th>Total Billable to Client</th><th>Service Location</th><th>Filter System</th><th>Hurricane Part #</th><th>Filter Unit Cost</th><th>Qty</th><th>O-Ring Part #</th><th>Qty</th><th>O-Ring Unit Cost</th><th>Status</th></tr></thead><tbody id="billingBody"></tbody></table></div>
     </section>
 
@@ -126,6 +163,7 @@
 
     let scheduleData=[],stagingData=[],billingData=[],forecastData=[];
     let filteredSchedule=[],filteredStaging=[],filteredBilling=[];
+    let billingClientSearch="";
 
     function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]))}
     function num(v){return new Intl.NumberFormat("en-US",{maximumFractionDigits:2}).format(Number(v||0))}
@@ -182,6 +220,13 @@
       dates.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=dateLabel(v,true);ds.appendChild(o)});
       const ts=document.getElementById("routeTechFilter");
       techs.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;ts.appendChild(o)});
+
+      const clients=[...new Set(billingData.map(r=>r.client_name).filter(Boolean))].sort();
+      const clientList=document.getElementById("billingClientList");
+      if(clientList){
+        clientList.innerHTML="";
+        clients.forEach(v=>{const o=document.createElement("option");o.value=v;clientList.appendChild(o)});
+      }
     }
 
     function filters(){return{d:document.getElementById("serviceDateFilter").value,day:document.getElementById("serviceDayFilter").value,tech:document.getElementById("routeTechFilter").value,q:document.getElementById("searchFilter").value.trim().toLowerCase()}}
@@ -201,7 +246,25 @@
       filteredSchedule=scheduleData.filter(r=>matches(r,f));
       filteredStaging=stagingData.filter(r=>matches(r,f));
       filteredBilling=billingData.filter(r=>matches(r,f));
-      renderSchedule();renderStaging();renderBilling();renderSummary();
+
+      if(billingClientSearch){
+        const q=billingClientSearch.toLowerCase();
+        filteredBilling=filteredBilling.filter(r=>String(r.client_name||"").toLowerCase().includes(q));
+      }
+
+      renderSchedule();renderStaging();renderBilling();renderBillingQuoteSummary();renderSummary();
+    }
+
+    function applyBillingClientSearch(){
+      billingClientSearch=document.getElementById("billingClientSearch")?.value.trim()||"";
+      applyFilters();
+    }
+
+    function clearBillingClientSearch(){
+      billingClientSearch="";
+      const input=document.getElementById("billingClientSearch");
+      if(input)input.value="";
+      applyFilters();
     }
 
     function clearFilters(){
@@ -209,6 +272,9 @@
       document.getElementById("serviceDayFilter").value="ALL";
       document.getElementById("routeTechFilter").value="ALL";
       document.getElementById("searchFilter").value="";
+      billingClientSearch="";
+      const billingSearch=document.getElementById("billingClientSearch");
+      if(billingSearch)billingSearch.value="";
       applyFilters();
     }
 
@@ -245,6 +311,72 @@
       document.getElementById("stagingCount").textContent=`${filteredStaging.length} staging line${filteredStaging.length===1?"":"s"}`;
       if(!filteredStaging.length){body.innerHTML='<tr><td colspan="7" class="empty">No staging requirements match the selected filters.</td></tr>';return}
       body.innerHTML=filteredStaging.map(r=>`<tr><td>${esc(dateLabel(r.service_date))}</td><td class="strong">${esc(r.route_tech||"")}</td><td>${esc(r.hurricane_part_number||"TBD")}</td><td class="num strong">${num(r.quantity_to_stage)}</td><td>${esc(r.oring_part_number||"TBD")}</td><td class="num strong">${num(r.oring_quantity_to_stage)}</td><td>${esc(r.filter_systems||"")}</td></tr>`).join("");
+    }
+
+    function renderBillingQuoteSummary(){
+      const container=document.getElementById("billingQuoteSummary");
+      if(!container)return;
+
+      if(!billingClientSearch){
+        container.innerHTML='<div class="quote-summary-card" style="grid-column:1/-1"><div class="quote-client">Search a client to view the combined quote total.</div><div class="quote-detail">The CSC Billing List below remains available for browsing.</div></div>';
+        return;
+      }
+
+      if(!filteredBilling.length){
+        container.innerHTML='<div class="quote-summary-card review-card" style="grid-column:1/-1"><div class="quote-client">No matching client found.</div><div class="quote-detail">Check the client spelling or clear the client search.</div></div>';
+        return;
+      }
+
+      const groups=new Map();
+
+      filteredBilling.forEach(r=>{
+        const client=String(r.client_name||"").trim();
+        const location=String(r.service_location||"").trim();
+        const key=`${client}|||${location}`;
+
+        if(!groups.has(key)){
+          groups.set(key,{
+            client,
+            location,
+            rows:[],
+            total:0,
+            hasReview:false
+          });
+        }
+
+        const group=groups.get(key);
+        group.rows.push(r);
+
+        if(r.total_billable_to_client===null||r.total_billable_to_client===undefined||r.total_billable_to_client===""){
+          group.hasReview=true;
+        }else{
+          group.total+=Math.round(Number(r.total_billable_to_client));
+        }
+      });
+
+      container.innerHTML=[...groups.values()].map(group=>{
+        const lineCount=group.rows.length;
+        const filterQty=group.rows.reduce((sum,r)=>sum+Number(r.system_quantity||0),0);
+        const oringQty=group.rows.reduce((sum,r)=>sum+Number(r.oring_quantity||1),0);
+
+        if(group.hasReview){
+          return `<div class="quote-summary-card review-card">
+            <div class="quote-client">${esc(group.client)}</div>
+            <div class="quote-location">${esc(group.location)}</div>
+            <div class="quote-total-label">Combined Total Billable</div>
+            <div class="quote-total review-total">REVIEW REQUIRED</div>
+            <div class="quote-detail">${num(lineCount)} billing line${lineCount===1?"":"s"} · ${num(filterQty)} filter${filterQty===1?"":"s"} · ${num(oringQty)} O-ring${oringQty===1?"":"s"}</div>
+          </div>`;
+        }
+
+        return `<div class="quote-summary-card">
+          <div class="quote-client">${esc(group.client)}</div>
+          <div class="quote-location">${esc(group.location)}</div>
+          <div class="quote-total-label">Combined Total Billable</div>
+          <div class="quote-total">${esc(whole(group.total))}</div>
+          <div class="quote-detail">${num(lineCount)} billing line${lineCount===1?"":"s"} · ${num(filterQty)} filter${filterQty===1?"":"s"} · ${num(oringQty)} O-ring${oringQty===1?"":"s"}</div>
+        </div>`;
+      }).join("");
     }
 
     function renderBilling(){
