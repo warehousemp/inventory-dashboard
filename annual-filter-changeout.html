@@ -201,6 +201,7 @@
           <button class="btn-primary" type="button" onclick="syncWorkOrderQueue()">SYNC / REFRESH QUEUE</button>
         </div>
         <div>
+          <button class="btn-secondary" type="button" onclick="checkSkimmerExtension()">CHECK SKIMMER EXTENSION</button>
           <button class="btn-secondary" type="button" onclick="exportWorkOrderQueueCSV()">EXPORT QUEUE CSV</button>
         </div>
       </div>
@@ -565,6 +566,9 @@
         let actions=`<button class="btn-secondary" type="button" onclick='copyQueueWorkNeeded(${JSON.stringify(row.id)})'>COPY WORK NEEDED</button>`;
 
         if(queueOperator()){
+          if(row.queue_status==="READY"){
+            actions+=` <button class="btn-primary" type="button" onclick='runSkimmerDryRun(${JSON.stringify(row.id)})'>DRY RUN IN SKIMMER</button>`;
+          }
           if(row.queue_status!=="CREATED"){
             actions+=` <button class="btn-success" type="button" onclick='markQueueCreated(${JSON.stringify(row.id)})'>MARK CREATED</button>`;
           }
@@ -597,6 +601,142 @@
           <td><div class="queue-actions">${actions}</div></td>
         </tr>`;
       }).join("");
+    }
+
+    function skimmerExtensionRequest(action,payload={},timeoutMs=90000){
+      return new Promise((resolve,reject)=>{
+        const requestId=`molinari-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        let settled=false;
+
+        const cleanup=()=>{
+          window.removeEventListener("message",onMessage);
+          clearTimeout(timer);
+        };
+
+        const onMessage=(event)=>{
+          if(event.source!==window)return;
+          const data=event.data;
+          if(!data || data.source!=="MOLINARI_SKIMMER_EXTENSION" || data.requestId!==requestId)return;
+
+          settled=true;
+          cleanup();
+
+          if(data.ok){
+            resolve(data);
+          }else{
+            reject(new Error(data.message||"The Skimmer browser extension reported an error."));
+          }
+        };
+
+        const timer=setTimeout(()=>{
+          if(settled)return;
+          cleanup();
+          reject(new Error(
+            "The Molinari Skimmer browser extension did not respond. " +
+            "Confirm it is installed and enabled in this browser."
+          ));
+        },timeoutMs);
+
+        window.addEventListener("message",onMessage);
+        window.postMessage({
+          source:"MOLINARI_ANNUAL_FILTER_PAGE",
+          requestId,
+          action,
+          payload
+        },"*");
+      });
+    }
+
+    async function checkSkimmerExtension(){
+      const msg=document.getElementById("queueMessage");
+      if(msg){
+        msg.className="warning";
+        msg.textContent="Checking the Molinari Skimmer browser extension…";
+      }
+
+      try{
+        const result=await skimmerExtensionRequest("CHECK_EXTENSION",{},5000);
+
+        if(msg){
+          msg.className="status";
+          msg.textContent=
+            `Skimmer extension connected. Version: ${result.version||"unknown"}. ` +
+            `Test Mode: ${result.testMode ? "ON" : "OFF"}. ` +
+            `Allowed test property: ${result.allowedTestAddress||"not restricted"}.`;
+        }
+      }catch(error){
+        if(msg){
+          msg.className="danger";
+          msg.textContent=
+            "Skimmer extension is not connected. Install/enable the Molinari Skimmer Filter Extension in Edge or Chrome, " +
+            "then reload this page and click CHECK SKIMMER EXTENSION again. " + error.message;
+        }
+      }
+    }
+
+    async function runSkimmerDryRun(id){
+      if(!queueOperator())return;
+
+      const row=workOrderQueueData.find(item=>item.id===id);
+      if(!row)return;
+
+      if(row.queue_status!=="READY"){
+        alert("Only READY queue items can be sent to the Skimmer dry-run extension.");
+        return;
+      }
+
+      const confirmed=confirm(
+        `DRY RUN ONLY — NO WORK ORDER WILL BE SAVED.\n\n` +
+        `Client: ${row.client_name}\n` +
+        `Location: ${row.service_location}\n` +
+        `Service Date: ${dateLabel(row.service_date)}\n` +
+        `Route Tech: ${row.route_tech}\n` +
+        `Price: ${whole(row.total_billable_to_client)}\n\n` +
+        `Open Skimmer and prefill this work order?`
+      );
+      if(!confirmed)return;
+
+      const msg=document.getElementById("queueMessage");
+      if(msg){
+        msg.className="warning";
+        msg.textContent=
+          `Starting Skimmer browser-extension dry run for ${row.client_name} — ${row.service_location}. ` +
+          `The extension is locked to STOP BEFORE SAVE.`;
+      }
+
+      const payload={
+        queue_id:row.id,
+        queue_status:row.queue_status,
+        client_name:row.client_name,
+        service_location:row.service_location,
+        service_date:row.service_date,
+        route_tech:row.route_tech,
+        work_order_type:row.work_order_type,
+        work_needed:row.work_needed,
+        total_billable_to_client:row.total_billable_to_client,
+        filter_system_summary:row.filter_system_summary,
+        filter_quantity:row.filter_quantity,
+        oring_quantity:row.oring_quantity
+      };
+
+      try{
+        const result=await skimmerExtensionRequest("START_DRY_RUN",payload,120000);
+
+        if(msg){
+          msg.className="status";
+          msg.textContent=
+            `DRY RUN READY FOR REVIEW: ${row.client_name}. ` +
+            `The Skimmer extension stopped before Save at stage "${result.stage||"review"}". ` +
+            `Review every field in the Skimmer tab.`;
+        }
+      }catch(error){
+        if(msg){
+          msg.className="danger";
+          msg.textContent=
+            `Skimmer dry run stopped safely: ${error.message} ` +
+            `Open the Molinari extension icon to see the last diagnostic details.`;
+        }
+      }
     }
 
     async function reloadWorkOrderQueue(){
