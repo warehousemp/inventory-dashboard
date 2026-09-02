@@ -3100,7 +3100,7 @@
 
       <h3>Warehouse Filter &amp; O-Ring Staging</h3>
       <div class="status-note">
-        The 2026 Annual Filter &amp; O-Ring Changeout is scheduled at up to 4 client locations per Route Tech per normal service day, beginning October 5 and completing by October 31. Use Changeout Service Date to see exactly what Warehouse must stage for that date. Skimmer is the Route Tech's official changeout checklist and work-order record. Jacob Martin's two Tuesday overflow clients are scheduled for Wednesday, October 28.
+        The 2026 Annual Filter &amp; O-Ring Changeout is scheduled Monday through Friday at up to 4 client locations per Route Tech per changeout day, beginning October 5 and completing by October 31. Weekend service completions are not scheduled as filter-changeout days. Use Changeout Service Date to see exactly what Warehouse must stage for that date. Skimmer is the Route Tech's official changeout checklist and work-order record. Jacob Martin's two Tuesday overflow clients are scheduled for Wednesday, October 28.
       </div>
 
       <div class="filter-inline-actions">
@@ -3120,8 +3120,6 @@
             <option value="3">Wednesday</option>
             <option value="4">Thursday</option>
             <option value="5">Friday</option>
-            <option value="6">Saturday</option>
-            <option value="7">Sunday</option>
           </select>
         </div>
 
@@ -3159,7 +3157,7 @@
 
       <h3>CSC Billing List</h3>
       <div class="status-note">
-        CSC annual filter-changeout billing checklist. Total Billable to Client is calculated from the Hurricane filter and O-ring costs in the current parts database using (Hurricane Part Unit Cost × Filter Qty + O-Ring Unit Cost × O-Ring Qty) × 1.82. Both unit costs are shown for billing verification. Rows showing TBD, COST NEEDED, or REVIEW require review before entry into Skimmer.
+        CSC annual filter-changeout billing checklist. Total Billable to Client is calculated from the Hurricane filter and O-ring costs in the current parts database using (Hurricane Part Unit Cost × Filter Qty + O-Ring Unit Cost × O-Ring Qty) × 1.82, then rounded to the nearest whole dollar. Both unit costs are shown for billing verification. Rows showing TBD, COST NEEDED, or REVIEW require review before entry into Skimmer.
       </div>
       <div class="button-row">
         <button class="export-btn" onclick="exportCSCBillingListCSV()">EXPORT CSC BILLING CSV</button>
@@ -6220,7 +6218,10 @@ async function loadRouteTechFilterReports() {
   const missingCostCount = filterCSCBillingData.filter(row => row.filter_unit_cost == null).length;
   const oringTbdCount = filterCSCBillingData.filter(row => !row.oring_part_number || String(row.oring_part_number).toUpperCase() === 'TBD').length;
   const readyCount = filterCSCBillingData.filter(row => row.total_billable_to_client != null).length;
-  const readyTotal = filterCSCBillingData.reduce((sum, row) => sum + Number(row.total_billable_to_client || 0), 0);
+  const readyTotal = filterCSCBillingData.reduce(
+    (sum, row) => sum + (row.total_billable_to_client == null ? 0 : Math.round(Number(row.total_billable_to_client))),
+    0
+  );
 
   billingSummary.textContent =
     `Changeout Service Date: ${selections.serviceDateLabel}\n` +
@@ -6230,7 +6231,7 @@ async function loadRouteTechFilterReports() {
     `Ready to Enter in Skimmer: ${formatNumber(readyCount)}\n` +
     `Filter Cost Needed: ${formatNumber(missingCostCount)}\n` +
     `O-Ring Part # TBD: ${formatNumber(oringTbdCount)}\n` +
-    `Calculated Billing Total (ready rows): ${formatCurrency(readyTotal)}`;
+    `Calculated Billing Total (ready rows): ${formatFilterBillingWholeDollar(readyTotal, '$0')}`;
 }
 
 function appendFilterDayHeader(body, dayName, colspan) {
@@ -6320,6 +6321,19 @@ function formatFilterBillingPrice(value, missingLabel = 'PRICE NEEDED') {
   return formatCurrency(Number(value));
 }
 
+function formatFilterBillingWholeDollar(value, missingLabel = 'REVIEW') {
+  if (value === null || value === undefined || value === '') {
+    return `<span class="filter-price-needed">${escapeHTML(missingLabel)}</span>`;
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(Math.round(Number(value)));
+}
+
 function formatOringPartNumber(value) {
   const part = String(value || 'TBD').trim();
   if (!part || part.toUpperCase() === 'TBD') {
@@ -6362,7 +6376,7 @@ function renderCSCBillingTable() {
       <td>☐</td>
       <td>${escapeHTML(formatFilterServiceDateShort(row.service_date))}</td>
       <td>${escapeHTML(row.client_name || '')}</td>
-      <td>${formatFilterBillingPrice(row.total_billable_to_client, 'REVIEW')}</td>
+      <td>${formatFilterBillingWholeDollar(row.total_billable_to_client, 'REVIEW')}</td>
       <td>${escapeHTML(row.service_location || '')}</td>
       <td>${escapeHTML(row.filter_system_name || '')}</td>
       <td>${escapeHTML(row.hurricane_part_number || 'TBD')}</td>
@@ -6390,7 +6404,7 @@ function exportCSCBillingListCSV() {
       `"",` +
       `"${cleanCSV(formatDateOnly(row.service_date))}",` +
       `"${cleanCSV(row.client_name)}",` +
-      `"${cleanCSV(row.total_billable_to_client == null ? 'REVIEW' : Number(row.total_billable_to_client).toFixed(2))}",` +
+      `"${cleanCSV(row.total_billable_to_client == null ? 'REVIEW' : Math.round(Number(row.total_billable_to_client)))}",` +
       `"${cleanCSV(row.service_location)}",` +
       `"${cleanCSV(row.filter_system_name)}",` +
       `"${cleanCSV(row.hurricane_part_number || 'TBD')}",` +
@@ -6444,7 +6458,7 @@ function printCSCBillingList() {
         <td class="check">☐</td>
         <td>${escapeHTML(formatFilterServiceDateShort(row.service_date))}</td>
         <td>${escapeHTML(row.client_name || '')}</td>
-        <td class="money">${row.total_billable_to_client == null ? 'REVIEW' : formatCurrency(Number(row.total_billable_to_client))}</td>
+        <td class="money">${formatFilterBillingWholeDollar(row.total_billable_to_client, 'REVIEW')}</td>
         <td>${escapeHTML(row.service_location || '')}</td>
         <td>${escapeHTML(row.filter_system_name || '')}</td>
         <td>${escapeHTML(row.hurricane_part_number || 'TBD')}</td>
