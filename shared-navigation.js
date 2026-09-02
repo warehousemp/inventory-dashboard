@@ -125,6 +125,11 @@
           ]
         },
         {
+          label: 'Annual Filter Changeout',
+          href: 'annual-filter-changeout.html',
+          roles: ['SERVICE', 'SERVICE_MANAGER', 'WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
           label: 'Inspection Requests',
           href: 'inspection-requests-office.html',
           roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
@@ -255,11 +260,6 @@
         {
           label: 'CSC Service Labor Guide',
           href: 'csc-service-labor-guide.html',
-          roles: ['SALES', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Service Map',
-          href: 'service-map.html',
           roles: ['SALES', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
