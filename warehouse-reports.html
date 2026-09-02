@@ -1755,6 +1755,111 @@
     .filter-billing-table th:nth-child(10), .filter-billing-table td:nth-child(10) { width: 145px; text-align:right; font-weight:800; }
     .filter-billing-table th:nth-child(11), .filter-billing-table td:nth-child(11) { width: 155px; text-align:right; font-weight:900; }
 
+    .filter-csc-billing-client-search {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin: 14px 0 10px;
+      padding: 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #f8fafc;
+    }
+
+    .filter-csc-billing-client-search label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #475569;
+    }
+
+    .filter-csc-billing-client-search input {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border: 1px solid #b8c5d1;
+      border-radius: 8px;
+      font: inherit;
+      background: #fff;
+    }
+
+    .filter-csc-billing-client-search button {
+      min-height: 42px;
+      white-space: nowrap;
+    }
+
+    .filter-csc-client-quote-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+      margin: 10px 0 14px;
+    }
+
+    .filter-csc-client-quote-card {
+      border: 1px solid #bbf7d0;
+      border-radius: 10px;
+      background: #f0fdf4;
+      padding: 14px;
+    }
+
+    .filter-csc-client-quote-card.review {
+      border-color: #fde68a;
+      background: #fffbeb;
+    }
+
+    .filter-csc-client-quote-name {
+      color: #0b3c5d;
+      font-size: 15px;
+      font-weight: 900;
+      margin-bottom: 4px;
+    }
+
+    .filter-csc-client-quote-location {
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.35;
+      min-height: 32px;
+    }
+
+    .filter-csc-client-quote-label {
+      margin-top: 10px;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .filter-csc-client-quote-total {
+      margin-top: 3px;
+      color: #067647;
+      font-size: 26px;
+      font-weight: 900;
+    }
+
+    .filter-csc-client-quote-card.review .filter-csc-client-quote-total {
+      color: #92400e;
+      font-size: 19px;
+    }
+
+    .filter-csc-client-quote-detail {
+      margin-top: 6px;
+      color: #475569;
+      font-size: 11px;
+    }
+
+    @media (max-width: 760px) {
+      .filter-csc-billing-client-search {
+        grid-template-columns: 1fr;
+      }
+
+      .filter-csc-billing-client-search button {
+        width: 100%;
+      }
+    }
+
     .filter-csc-billing-table { min-width: 1740px; }
     .filter-csc-billing-table th:nth-child(1), .filter-csc-billing-table td:nth-child(1) { width: 110px; text-align:center; }
     .filter-csc-billing-table th:nth-child(2), .filter-csc-billing-table td:nth-child(2) { width: 100px; text-align:center; font-weight:800; }
@@ -3159,6 +3264,27 @@
       <div class="status-note">
         CSC annual filter-changeout billing checklist. Total Billable to Client is calculated from the Hurricane filter and O-ring costs in the current parts database using (Hurricane Part Unit Cost × Filter Qty + O-Ring Unit Cost × O-Ring Qty) × 1.82, then rounded to the nearest whole dollar. Both unit costs are shown for billing verification. Rows showing TBD, COST NEEDED, or REVIEW require review before entry into Skimmer.
       </div>
+      <div class="filter-csc-billing-client-search">
+        <div>
+          <label for="filterCSCBillingClientSearch">Client Quote Lookup</label>
+          <input
+            id="filterCSCBillingClientSearch"
+            type="search"
+            list="filterCSCBillingClientList"
+            placeholder="Search client name..."
+            oninput="handleCSCBillingClientSearch()"
+          >
+          <datalist id="filterCSCBillingClientList"></datalist>
+        </div>
+        <button class="transfer-btn" type="button" onclick="clearCSCBillingClientSearch()">CLEAR CLIENT SEARCH</button>
+      </div>
+
+      <div class="status-note" style="margin-top:0;">
+        Search by client name when CSC needs to quote the annual filter changeout. If the same client has multiple filter systems at the same service location, the quote summary combines all billable lines into one total for that location.
+      </div>
+
+      <div id="filterCSCBillingClientQuoteSummary" class="filter-csc-client-quote-summary"></div>
+
       <div class="button-row">
         <button class="export-btn" onclick="exportCSCBillingListCSV()">EXPORT CSC BILLING CSV</button>
         <button class="transfer-btn" onclick="printCSCBillingList()">PRINT CSC BILLING LIST</button>
@@ -3224,6 +3350,7 @@ let filterPurchaseForecastData = [];
 let filterStagingData = [];
 let filterChecklistData = [];
 let filterCSCBillingData = [];
+let filterCSCBillingClientSearch = '';
 let missingFilterTagWorklistData = [];
 let annualFilterPlanningLoaded = false;
 
@@ -6193,8 +6320,10 @@ async function loadRouteTechFilterReports() {
   filterChecklistData = sortFilterChecklistRows(checklist || []);
   filterCSCBillingData = sortFilterChecklistRows(billing || []);
 
+  populateCSCBillingClientList();
   renderFilterStagingTable();
   renderCSCBillingTable();
+  renderCSCBillingClientQuoteSummary();
 
   const totalQty = filterStagingData.reduce((sum, row) => sum + Number(row.quantity_to_stage || 0), 0);
   const totalOringQty = filterStagingData.reduce((sum, row) => sum + Number(row.oring_quantity_to_stage || 0), 0);
@@ -6215,23 +6344,7 @@ async function loadRouteTechFilterReports() {
     `Total Filters to Stage: ${formatNumber(totalQty)}\n` +
     `Total O-Rings to Stage: ${formatNumber(totalOringQty)}`;
 
-  const missingCostCount = filterCSCBillingData.filter(row => row.filter_unit_cost == null).length;
-  const oringTbdCount = filterCSCBillingData.filter(row => !row.oring_part_number || String(row.oring_part_number).toUpperCase() === 'TBD').length;
-  const readyCount = filterCSCBillingData.filter(row => row.total_billable_to_client != null).length;
-  const readyTotal = filterCSCBillingData.reduce(
-    (sum, row) => sum + (row.total_billable_to_client == null ? 0 : Math.round(Number(row.total_billable_to_client))),
-    0
-  );
-
-  billingSummary.textContent =
-    `Changeout Service Date: ${selections.serviceDateLabel}\n` +
-    `Day of Week: ${selections.serviceDayName}\n` +
-    `Route Tech: ${selections.routeTechLabel}\n` +
-    `Billing Lines: ${formatNumber(filterCSCBillingData.length)}\n` +
-    `Ready to Enter in Skimmer: ${formatNumber(readyCount)}\n` +
-    `Filter Cost Needed: ${formatNumber(missingCostCount)}\n` +
-    `O-Ring Part # TBD: ${formatNumber(oringTbdCount)}\n` +
-    `Calculated Billing Total (ready rows): ${formatFilterBillingWholeDollar(readyTotal, '$0')}`;
+  updateCSCBillingSummary();
 }
 
 function appendFilterDayHeader(body, dayName, colspan) {
@@ -6342,20 +6455,206 @@ function formatOringPartNumber(value) {
   return escapeHTML(part);
 }
 
+function populateCSCBillingClientList() {
+  const list = document.getElementById('filterCSCBillingClientList');
+  if (!list) return;
+
+  const clients = [...new Set(
+    filterCSCBillingData
+      .map(row => String(row.client_name || '').trim())
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b));
+
+  list.innerHTML = '';
+  clients.forEach(clientName => {
+    const option = document.createElement('option');
+    option.value = clientName;
+    list.appendChild(option);
+  });
+}
+
+function getVisibleCSCBillingRows() {
+  const search = String(filterCSCBillingClientSearch || '').trim().toLowerCase();
+
+  if (!search) {
+    return filterCSCBillingData;
+  }
+
+  return filterCSCBillingData.filter(row =>
+    String(row.client_name || '').toLowerCase().includes(search)
+  );
+}
+
+function handleCSCBillingClientSearch() {
+  filterCSCBillingClientSearch =
+    document.getElementById('filterCSCBillingClientSearch')?.value.trim() || '';
+
+  renderCSCBillingTable();
+  renderCSCBillingClientQuoteSummary();
+  updateCSCBillingSummary();
+}
+
+function clearCSCBillingClientSearch() {
+  filterCSCBillingClientSearch = '';
+
+  const input = document.getElementById('filterCSCBillingClientSearch');
+  if (input) input.value = '';
+
+  renderCSCBillingTable();
+  renderCSCBillingClientQuoteSummary();
+  updateCSCBillingSummary();
+}
+
+function updateCSCBillingSummary() {
+  const billingSummary = document.getElementById('filterCSCBillingSummary');
+  if (!billingSummary) return;
+
+  const selections = getFilterReportSelections();
+  const rows = getVisibleCSCBillingRows();
+
+  const missingCostCount = rows.filter(row => row.filter_unit_cost == null).length;
+  const oringTbdCount = rows.filter(
+    row => !row.oring_part_number || String(row.oring_part_number).toUpperCase() === 'TBD'
+  ).length;
+  const readyCount = rows.filter(row => row.total_billable_to_client != null).length;
+  const readyTotal = rows.reduce(
+    (sum, row) =>
+      sum +
+      (row.total_billable_to_client == null
+        ? 0
+        : Math.round(Number(row.total_billable_to_client))),
+    0
+  );
+
+  const clientSearchLabel = filterCSCBillingClientSearch
+    ? `\nClient Search: ${filterCSCBillingClientSearch}`
+    : '';
+
+  billingSummary.textContent =
+    `Changeout Service Date: ${selections.serviceDateLabel}\n` +
+    `Day of Week: ${selections.serviceDayName}\n` +
+    `Route Tech: ${selections.routeTechLabel}` +
+    clientSearchLabel + `\n` +
+    `Billing Lines: ${formatNumber(rows.length)}\n` +
+    `Ready to Enter in Skimmer: ${formatNumber(readyCount)}\n` +
+    `Filter Cost Needed: ${formatNumber(missingCostCount)}\n` +
+    `O-Ring Part # TBD: ${formatNumber(oringTbdCount)}\n` +
+    `Calculated Billing Total (ready rows): ${formatFilterBillingWholeDollar(readyTotal, '$0')}`;
+}
+
+function renderCSCBillingClientQuoteSummary() {
+  const container = document.getElementById('filterCSCBillingClientQuoteSummary');
+  if (!container) return;
+
+  const search = String(filterCSCBillingClientSearch || '').trim();
+  if (!search) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const rows = getVisibleCSCBillingRows();
+
+  if (!rows.length) {
+    container.innerHTML = `
+      <div class="filter-csc-client-quote-card review">
+        <div class="filter-csc-client-quote-name">No matching client found</div>
+        <div class="filter-csc-client-quote-detail">Check the spelling or clear the client search.</div>
+      </div>
+    `;
+    return;
+  }
+
+  const groups = new Map();
+
+  rows.forEach(row => {
+    const clientName = String(row.client_name || '').trim();
+    const serviceLocation = String(row.service_location || '').trim();
+    const key = `${clientName}|||${serviceLocation}`;
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        clientName,
+        serviceLocation,
+        rows: [],
+        roundedTotal: 0,
+        hasReview: false
+      });
+    }
+
+    const group = groups.get(key);
+    group.rows.push(row);
+
+    if (
+      row.total_billable_to_client === null ||
+      row.total_billable_to_client === undefined ||
+      row.total_billable_to_client === ''
+    ) {
+      group.hasReview = true;
+    } else {
+      // Sum the same whole-dollar amounts CSC will actually bill per line.
+      group.roundedTotal += Math.round(Number(row.total_billable_to_client));
+    }
+  });
+
+  container.innerHTML = [...groups.values()].map(group => {
+    const billingLineCount = group.rows.length;
+    const filterQty = group.rows.reduce(
+      (sum, row) => sum + Number(row.system_quantity || 0),
+      0
+    );
+    const oringQty = group.rows.reduce(
+      (sum, row) => sum + Number(row.oring_quantity || 1),
+      0
+    );
+
+    if (group.hasReview) {
+      return `
+        <div class="filter-csc-client-quote-card review">
+          <div class="filter-csc-client-quote-name">${escapeHTML(group.clientName)}</div>
+          <div class="filter-csc-client-quote-location">${escapeHTML(group.serviceLocation)}</div>
+          <div class="filter-csc-client-quote-label">Combined Total Billable to Client</div>
+          <div class="filter-csc-client-quote-total">REVIEW REQUIRED</div>
+          <div class="filter-csc-client-quote-detail">
+            ${formatNumber(billingLineCount)} billing line${billingLineCount === 1 ? '' : 's'} ·
+            ${formatNumber(filterQty)} filter${filterQty === 1 ? '' : 's'} ·
+            ${formatNumber(oringQty)} O-ring${oringQty === 1 ? '' : 's'}
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="filter-csc-client-quote-card">
+        <div class="filter-csc-client-quote-name">${escapeHTML(group.clientName)}</div>
+        <div class="filter-csc-client-quote-location">${escapeHTML(group.serviceLocation)}</div>
+        <div class="filter-csc-client-quote-label">Combined Total Billable to Client</div>
+        <div class="filter-csc-client-quote-total">${formatFilterBillingWholeDollar(group.roundedTotal, 'REVIEW')}</div>
+        <div class="filter-csc-client-quote-detail">
+          ${formatNumber(billingLineCount)} billing line${billingLineCount === 1 ? '' : 's'} ·
+          ${formatNumber(filterQty)} filter${filterQty === 1 ? '' : 's'} ·
+          ${formatNumber(oringQty)} O-ring${oringQty === 1 ? '' : 's'}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderCSCBillingTable() {
   const body = document.getElementById('filterCSCBillingBody');
   if (!body) return;
   body.innerHTML = '';
 
-  if (!filterCSCBillingData.length) {
-    body.innerHTML = '<tr><td colspan="12">No CSC billing rows found for the selected filters.</td></tr>';
+  const visibleRows = getVisibleCSCBillingRows();
+
+  if (!visibleRows.length) {
+    body.innerHTML = '<tr><td colspan="12">No CSC billing rows found for the selected filters or client search.</td></tr>';
     return;
   }
 
   let lastServiceDate = null;
   let lastRouteTech = null;
 
-  filterCSCBillingData.forEach(row => {
+  visibleRows.forEach(row => {
     const serviceDate = getFilterServiceDateValue(row);
     const dayName = getFilterServiceDayName(row);
     const routeTech = row.route_tech || 'Unassigned';
@@ -6391,15 +6690,17 @@ function renderCSCBillingTable() {
 }
 
 function exportCSCBillingListCSV() {
-  if (!filterCSCBillingData.length) {
+  const visibleRows = getVisibleCSCBillingRows();
+
+  if (!visibleRows.length) {
     const summary = document.getElementById('filterCSCBillingSummary');
-    if (summary) summary.textContent = 'Load filter requirements before exporting the CSC billing list.';
+    if (summary) summary.textContent = 'No CSC billing rows are available for the current filters or client search.';
     return;
   }
 
   let csv = 'Entered Into Skimmer,Service Date,Client,Total Billable to Client,Service Location,Filter System,Hurricane Part #,Hurricane Part Unit Cost,Qty,O-Ring Part #,Qty,O-Ring Unit Cost\n';
 
-  sortFilterChecklistRows(filterCSCBillingData).forEach(row => {
+  sortFilterChecklistRows(visibleRows).forEach(row => {
     csv +=
       `"",` +
       `"${cleanCSV(formatDateOnly(row.service_date))}",` +
@@ -6419,14 +6720,16 @@ function exportCSCBillingListCSV() {
 }
 
 function printCSCBillingList() {
-  if (!filterCSCBillingData.length) {
+  const visibleRows = getVisibleCSCBillingRows();
+
+  if (!visibleRows.length) {
     const summary = document.getElementById('filterCSCBillingSummary');
-    if (summary) summary.textContent = 'Load filter requirements before printing the CSC billing list.';
+    if (summary) summary.textContent = 'No CSC billing rows are available for the current filters or client search.';
     return;
   }
 
   const selections = getFilterReportSelections();
-  const sortedRows = sortFilterChecklistRows(filterCSCBillingData);
+  const sortedRows = sortFilterChecklistRows(visibleRows);
   const missingCostCount = sortedRows.filter(row => row.filter_unit_cost == null).length;
   const oringTbdCount = sortedRows.filter(row => !row.oring_part_number || String(row.oring_part_number).toUpperCase() === 'TBD').length;
   const readyCount = sortedRows.filter(row => row.total_billable_to_client != null).length;
