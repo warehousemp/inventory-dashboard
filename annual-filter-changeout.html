@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="google" content="notranslate">
+  <title>Annual Filter Changeout</title>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="shared-navigation.css">
+  <meta name="theme-color" content="#0b3c5d">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+  <style>
+    *{box-sizing:border-box}
+    :root{--header:#0b3c5d;--accent:#1aa3b0;--bg:#f4f8fb;--card:#fff;--text:#1f2933;--muted:#667085;--border:#d9e2ec;--success:#067647}
+    body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
+    .header-bar{background:var(--header);color:#fff;padding:18px 30px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+    .header-title{font-size:20px;font-weight:800}.header-user{font-size:13px;opacity:.92}
+    main{width:min(1580px,calc(100% - 32px));margin:24px auto 48px}
+    .hero,.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 3px 14px rgba(6,47,79,.07)}
+    .hero{padding:22px 24px;margin-bottom:18px}.hero h1{margin:0 0 8px;color:var(--header);font-size:25px}
+    .subtitle{color:var(--muted);line-height:1.5;max-width:1100px}
+    .read-only{display:inline-block;margin-left:8px;padding:4px 8px;border-radius:999px;background:#e7eef4;color:var(--header);font-size:11px;font-weight:900;vertical-align:middle}
+    .status,.warning,.danger{padding:12px 14px;border-radius:8px;font-size:13px;line-height:1.45;margin:14px 0;white-space:pre-line}
+    .status{background:#ecfdf3;border:1px solid #bbf7d0;color:#166534}.warning{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412}.danger{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+    .summary-grid{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:12px;margin:18px 0}
+    .summary-card{border:1px solid var(--border);border-radius:10px;padding:14px;background:#f8fafc}
+    .summary-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px}
+    .summary-value{color:var(--header);font-size:21px;font-weight:900}
+    .card{margin-bottom:18px;overflow:hidden}.card-head{padding:17px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    .card-head h2{margin:0;color:var(--header);font-size:18px}.card-body{padding:18px 20px}
+    .filters{display:grid;grid-template-columns:1.2fr 1fr 1.35fr 1.5fr auto;gap:12px;align-items:end}
+    label{display:block;font-size:12px;font-weight:800;color:#475467;margin-bottom:6px}
+    input,select{width:100%;min-height:42px;padding:10px 11px;border:1px solid #b9c6d2;border-radius:8px;font:inherit;background:#fff;color:var(--text)}
+    button{min-height:42px;border:0;border-radius:8px;padding:10px 14px;cursor:pointer;font:inherit;font-weight:800}
+    .btn-primary{background:var(--header);color:#fff}.btn-secondary{background:#e7eef4;color:var(--header)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}.tab{background:#e7eef4;color:var(--header)}.tab.active{background:var(--header);color:#fff}
+    .tab-pane{display:none}.tab-pane.active{display:block}
+    .table-wrap{width:100%;overflow:auto;max-height:720px;border-top:1px solid var(--border)}
+    table{width:100%;border-collapse:collapse;min-width:1100px;background:#fff}th{position:sticky;top:0;z-index:2;background:#eef4f8;color:#344054;font-size:11px;text-transform:uppercase;letter-spacing:.035em;text-align:left;padding:10px;border-bottom:1px solid var(--border);white-space:nowrap}
+    td{padding:10px;border-bottom:1px solid #e9eef2;font-size:13px;vertical-align:top;line-height:1.35}tbody tr:hover td{background:#f8fbfd}
+    .num,.money{text-align:right;white-space:nowrap}.money{font-weight:900;color:var(--success)}.strong{font-weight:800;color:var(--header)}
+    .date-header td{background:#dbeafe!important;color:var(--header);font-weight:900;text-transform:uppercase;letter-spacing:.04em;border-top:2px solid #93c5fd}
+    .route-header td{background:#ecfdf3!important;color:#166534;font-weight:900}
+    .badge{display:inline-block;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:900;white-space:nowrap}.ready{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}.review{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+    .empty{padding:28px;text-align:center;color:var(--muted)}
+    @media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(150px,1fr))}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-action{grid-column:1/-1}.filter-action button{width:100%}}
+    @media(max-width:650px){main{width:min(100% - 20px,1580px);margin-top:14px}.header-bar{padding:15px 16px}.hero{padding:18px}.summary-grid,.filters{grid-template-columns:1fr}.filter-action{grid-column:auto}}
+    @media print{#sharedNavigation,.header-bar,.filters,.tabs,.no-print{display:none!important}body{background:#fff}main{width:100%;margin:0}.hero,.card{box-shadow:none;border-color:#aaa}.tab-pane{display:block!important;margin-bottom:18px}.table-wrap{overflow:visible;max-height:none}table{min-width:0;font-size:9px}th{position:static}}
+  </style>
+</head>
+<body>
+  <div id="sharedNavigation"></div>
+  <header class="header-bar">
+    <div class="header-title">Annual Filter Changeout</div>
+    <div class="header-user" id="headerUser">Checking access…</div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>2026 Annual Filter &amp; O-Ring Changeout <span class="read-only">VIEW ONLY</span></h1>
+      <div class="subtitle">
+        Read-only operational view of the annual filter-changeout schedule, Warehouse staging requirements,
+        CSC billing list, and purchasing forecast. All file imports, data corrections, and Annual Filter Planning
+        administration remain on <strong>Warehouse Reports → Annual Filter Planning</strong>.
+      </div>
+      <div class="status">
+        Changeouts are scheduled Monday through Friday at up to 4 client locations per Route Tech per changeout day.
+        Weekend service completions are not used as filter-changeout days. Total Billable to Client is rounded to the nearest whole dollar.
+      </div>
+      <div id="pageMessage" class="warning">Loading annual filter-changeout data…</div>
+      <div id="summaryCards" class="summary-grid"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>View Filters</h2>
+        <button class="btn-secondary no-print" type="button" onclick="window.print()">Print Current View</button>
+      </div>
+      <div class="card-body">
+        <div class="filters">
+          <div><label>Changeout Service Date</label><select id="serviceDateFilter" onchange="applyFilters()"><option value="ALL">All Changeout Dates</option></select></div>
+          <div><label>Day of Week</label><select id="serviceDayFilter" onchange="applyFilters()"><option value="ALL">All Service Days</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option></select></div>
+          <div><label>Route Tech</label><select id="routeTechFilter" onchange="applyFilters()"><option value="ALL">All Route Techs</option></select></div>
+          <div><label>Client / Address / Filter System</label><input id="searchFilter" type="search" placeholder="Search…" oninput="applyFilters()"></div>
+          <div class="filter-action"><button class="btn-primary" type="button" onclick="clearFilters()">Clear Filters</button></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="tabs no-print">
+      <button id="tabSchedule" class="tab active" onclick="setTab('Schedule')">Client Schedule</button>
+      <button id="tabStaging" class="tab" onclick="setTab('Staging')">Warehouse Staging</button>
+      <button id="tabBilling" class="tab" onclick="setTab('Billing')">CSC Billing List</button>
+      <button id="tabForecast" class="tab" onclick="setTab('Forecast')">Purchasing Forecast</button>
+    </div>
+
+    <section id="paneSchedule" class="card tab-pane active">
+      <div class="card-head"><h2>Client Changeout Schedule</h2><span id="scheduleCount" class="strong"></span></div>
+      <div class="table-wrap"><table style="min-width:1350px"><thead><tr><th>Service Date</th><th>Route Tech</th><th>Sequence</th><th>Client</th><th>Service Location</th><th>Filter System</th><th>Hurricane Part #</th><th>Filter Qty</th><th>O-Ring Part #</th><th>O-Ring Qty</th></tr></thead><tbody id="scheduleBody"></tbody></table></div>
+    </section>
+
+    <section id="paneStaging" class="card tab-pane">
+      <div class="card-head"><h2>Warehouse Filter &amp; O-Ring Staging</h2><span id="stagingCount" class="strong"></span></div>
+      <div class="table-wrap"><table><thead><tr><th>Service Date</th><th>Route Tech</th><th>Hurricane Part #</th><th>QTY to Stage</th><th>O-Ring Part #</th><th>QTY to Stage</th><th>Filter Systems</th></tr></thead><tbody id="stagingBody"></tbody></table></div>
+    </section>
+
+    <section id="paneBilling" class="card tab-pane">
+      <div class="card-head"><h2>CSC Billing List</h2><span id="billingCount" class="strong"></span></div>
+      <div class="table-wrap"><table style="min-width:1600px"><thead><tr><th>Service Date</th><th>Client</th><th>Total Billable to Client</th><th>Service Location</th><th>Filter System</th><th>Hurricane Part #</th><th>Filter Unit Cost</th><th>Qty</th><th>O-Ring Part #</th><th>Qty</th><th>O-Ring Unit Cost</th><th>Status</th></tr></thead><tbody id="billingBody"></tbody></table></div>
+    </section>
+
+    <section id="paneForecast" class="card tab-pane">
+      <div class="card-head"><h2>October Purchasing Forecast</h2><span id="forecastCount" class="strong"></span></div>
+      <div class="table-wrap"><table style="min-width:1450px"><thead><tr><th>Item Type</th><th>Purchase Part #</th><th>Filter / O-Ring Reference</th><th>Manufacturer</th><th>Client Locations</th><th>System Models</th><th>Required Quantity</th><th>Compatible Filter Systems</th><th>Status</th></tr></thead><tbody id="forecastBody"></tbody></table></div>
+    </section>
+  </main>
+
+  <script src="shared-navigation.js"></script>
+  <script>
+    const SUPABASE_URL="https://icqkuhbhcennhhbbwqgo.supabase.co";
+    const SUPABASE_KEY="sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+    const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+    const VIEW_ROLES=["SERVICE","SERVICE_MANAGER","WAREHOUSE","ADMIN","SYSTEM_ADMIN"];
+
+    let scheduleData=[],stagingData=[],billingData=[],forecastData=[];
+    let filteredSchedule=[],filteredStaging=[],filteredBilling=[];
+
+    function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]))}
+    function num(v){return new Intl.NumberFormat("en-US",{maximumFractionDigits:2}).format(Number(v||0))}
+    function money(v){if(v===null||v===undefined||v==="")return"—";return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(v))}
+    function whole(v){if(v===null||v===undefined||v==="")return"REVIEW";return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:0,maximumFractionDigits:0}).format(Math.round(Number(v)))}
+    function dateLabel(v,weekday=false){if(!v)return"—";const d=new Date(`${String(v).slice(0,10)}T12:00:00`);if(Number.isNaN(d.getTime()))return String(v);return d.toLocaleDateString("en-US",weekday?{weekday:"short",month:"2-digit",day:"2-digit",year:"numeric"}:{month:"2-digit",day:"2-digit",year:"numeric"})}
+    function dateValue(r){return String(r?.service_date||"").slice(0,10)}
+    function message(text,type="status"){const b=document.getElementById("pageMessage");b.className=type;b.textContent=text}
+
+    function setTab(name){
+      ["Schedule","Staging","Billing","Forecast"].forEach(n=>{
+        document.getElementById("pane"+n).classList.toggle("active",n===name);
+        document.getElementById("tab"+n).classList.toggle("active",n===name);
+      });
+    }
+
+    async function init(){
+      const {data:sData,error:sErr}=await db.auth.getSession();
+      const session=sData?.session;
+      if(sErr||!session?.user){location.href="login.html";return}
+
+      const {data:profile,error:pErr}=await db.from("user_profiles").select("id,full_name,role,active").eq("id",session.user.id).single();
+      if(pErr||!profile?.active||!VIEW_ROLES.includes(profile.role)){
+        alert("Access denied. This page requires approved Service, Service Manager, Warehouse, Admin, or System Admin access.");
+        location.href="index.html";return;
+      }
+
+      document.getElementById("headerUser").textContent=`${profile.full_name||session.user.email} · ${profile.role} · View Only`;
+      await loadData();
+    }
+
+    async function loadData(){
+      message("Loading annual filter-changeout data…","warning");
+
+      const [s,st,b,f]=await Promise.all([
+        db.from("route_tech_filter_changeout_checklist_view").select("*").order("service_date").order("route_tech").order("changeout_sequence"),
+        db.from("route_tech_filter_staging_summary_view").select("*").order("service_date").order("route_tech").order("hurricane_part_number"),
+        db.from("csc_filter_changeout_billing_view").select("*").order("service_date").order("route_tech").order("changeout_sequence"),
+        db.from("annual_filter_purchase_forecast_view").select("*").order("item_type").order("purchase_part_number")
+      ]);
+
+      const failed=[s,st,b,f].find(x=>x.error);
+      if(failed){message("Unable to load Annual Filter Changeout: "+failed.error.message,"danger");return}
+
+      scheduleData=s.data||[];stagingData=st.data||[];billingData=b.data||[];forecastData=f.data||[];
+      populateFilters();applyFilters();renderForecast();
+      message("View-only page loaded. Data maintenance and imports remain on Warehouse Reports → Annual Filter Planning.","status");
+    }
+
+    function populateFilters(){
+      const dates=[...new Set(scheduleData.map(dateValue).filter(Boolean))].sort();
+      const techs=[...new Set(scheduleData.map(r=>r.route_tech).filter(Boolean))].sort();
+      const ds=document.getElementById("serviceDateFilter");
+      dates.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=dateLabel(v,true);ds.appendChild(o)});
+      const ts=document.getElementById("routeTechFilter");
+      techs.forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;ts.appendChild(o)});
+    }
+
+    function filters(){return{d:document.getElementById("serviceDateFilter").value,day:document.getElementById("serviceDayFilter").value,tech:document.getElementById("routeTechFilter").value,q:document.getElementById("searchFilter").value.trim().toLowerCase()}}
+    function matches(r,f){
+      if(f.d!=="ALL"&&dateValue(r)!==f.d)return false;
+      if(f.day!=="ALL"&&Number(r.service_day_number)!==Number(f.day))return false;
+      if(f.tech!=="ALL"&&r.route_tech!==f.tech)return false;
+      if(f.q){
+        const t=[r.client_name,r.service_location,r.filter_system_name,r.route_tech,r.hurricane_part_number,r.oring_part_number,r.replacement_filter,r.filter_systems].join(" ").toLowerCase();
+        if(!t.includes(f.q))return false;
+      }
+      return true;
+    }
+
+    function applyFilters(){
+      const f=filters();
+      filteredSchedule=scheduleData.filter(r=>matches(r,f));
+      filteredStaging=stagingData.filter(r=>matches(r,f));
+      filteredBilling=billingData.filter(r=>matches(r,f));
+      renderSchedule();renderStaging();renderBilling();renderSummary();
+    }
+
+    function clearFilters(){
+      document.getElementById("serviceDateFilter").value="ALL";
+      document.getElementById("serviceDayFilter").value="ALL";
+      document.getElementById("routeTechFilter").value="ALL";
+      document.getElementById("searchFilter").value="";
+      applyFilters();
+    }
+
+    function renderSummary(){
+      const clients=new Set(filteredSchedule.map(r=>`${r.client_name}|${r.service_location}`)).size;
+      const dates=new Set(filteredSchedule.map(dateValue).filter(Boolean)).size;
+      const techs=new Set(filteredSchedule.map(r=>r.route_tech).filter(Boolean)).size;
+      const filtersQty=filteredStaging.reduce((s,r)=>s+Number(r.quantity_to_stage||0),0);
+      const bill=filteredBilling.reduce((s,r)=>s+(r.total_billable_to_client==null?0:Math.round(Number(r.total_billable_to_client))),0);
+      document.getElementById("summaryCards").innerHTML=`
+        <div class="summary-card"><div class="summary-label">Client Locations</div><div class="summary-value">${num(clients)}</div></div>
+        <div class="summary-card"><div class="summary-label">Changeout Dates</div><div class="summary-value">${num(dates)}</div></div>
+        <div class="summary-card"><div class="summary-label">Route Techs</div><div class="summary-value">${num(techs)}</div></div>
+        <div class="summary-card"><div class="summary-label">Filters to Stage</div><div class="summary-value">${num(filtersQty)}</div></div>
+        <div class="summary-card"><div class="summary-label">Billing Total</div><div class="summary-value">${whole(bill)}</div></div>`;
+    }
+
+    function renderSchedule(){
+      const body=document.getElementById("scheduleBody");
+      document.getElementById("scheduleCount").textContent=`${filteredSchedule.length} assignment${filteredSchedule.length===1?"":"s"}`;
+      if(!filteredSchedule.length){body.innerHTML='<tr><td colspan="10" class="empty">No changeout assignments match the selected filters.</td></tr>';return}
+      let html="",lastDate="",lastTech="";
+      filteredSchedule.forEach(r=>{
+        const d=dateValue(r),tech=r.route_tech||"Unassigned";
+        if(d!==lastDate){html+=`<tr class="date-header"><td colspan="10">${esc(dateLabel(d,true))}</td></tr>`;lastDate=d;lastTech=""}
+        if(tech!==lastTech){const c=filteredSchedule.filter(x=>dateValue(x)===d&&(x.route_tech||"Unassigned")===tech).length;html+=`<tr class="route-header"><td colspan="10">${esc(tech)} — ${num(c)} scheduled client${c===1?"":"s"}</td></tr>`;lastTech=tech}
+        html+=`<tr><td>${esc(dateLabel(r.service_date))}</td><td>${esc(tech)}</td><td class="num">${num(r.changeout_sequence)}</td><td class="strong">${esc(r.client_name||"")}</td><td>${esc(r.service_location||"")}</td><td>${esc(r.filter_system_name||"")}</td><td>${esc(r.hurricane_part_number||"TBD")}</td><td class="num">${num(r.system_quantity)}</td><td>${esc(r.oring_part_number||"TBD")}</td><td class="num">${num(r.oring_quantity||1)}</td></tr>`;
+      });
+      body.innerHTML=html;
+    }
+
+    function renderStaging(){
+      const body=document.getElementById("stagingBody");
+      document.getElementById("stagingCount").textContent=`${filteredStaging.length} staging line${filteredStaging.length===1?"":"s"}`;
+      if(!filteredStaging.length){body.innerHTML='<tr><td colspan="7" class="empty">No staging requirements match the selected filters.</td></tr>';return}
+      body.innerHTML=filteredStaging.map(r=>`<tr><td>${esc(dateLabel(r.service_date))}</td><td class="strong">${esc(r.route_tech||"")}</td><td>${esc(r.hurricane_part_number||"TBD")}</td><td class="num strong">${num(r.quantity_to_stage)}</td><td>${esc(r.oring_part_number||"TBD")}</td><td class="num strong">${num(r.oring_quantity_to_stage)}</td><td>${esc(r.filter_systems||"")}</td></tr>`).join("");
+    }
+
+    function renderBilling(){
+      const body=document.getElementById("billingBody");
+      document.getElementById("billingCount").textContent=`${filteredBilling.length} billing line${filteredBilling.length===1?"":"s"}`;
+      if(!filteredBilling.length){body.innerHTML='<tr><td colspan="12" class="empty">No CSC billing rows match the selected filters.</td></tr>';return}
+      body.innerHTML=filteredBilling.map(r=>{
+        const ready=String(r.billing_status||"").toUpperCase().includes("READY");
+        return `<tr><td>${esc(dateLabel(r.service_date))}</td><td class="strong">${esc(r.client_name||"")}</td><td class="money">${esc(whole(r.total_billable_to_client))}</td><td>${esc(r.service_location||"")}</td><td>${esc(r.filter_system_name||"")}</td><td>${esc(r.hurricane_part_number||"TBD")}</td><td class="money">${esc(money(r.filter_unit_cost))}</td><td class="num">${num(r.system_quantity)}</td><td>${esc(r.oring_part_number||"TBD")}</td><td class="num">${num(r.oring_quantity||1)}</td><td class="money">${esc(money(r.oring_unit_cost))}</td><td><span class="badge ${ready?"ready":"review"}">${esc(r.billing_status||"REVIEW")}</span></td></tr>`;
+      }).join("");
+    }
+
+    function renderForecast(){
+      const body=document.getElementById("forecastBody");
+      document.getElementById("forecastCount").textContent=`${forecastData.length} forecast line${forecastData.length===1?"":"s"}`;
+      if(!forecastData.length){body.innerHTML='<tr><td colspan="9" class="empty">No purchasing forecast data is available.</td></tr>';return}
+      body.innerHTML=forecastData.map(r=>{
+        const ready=!String(r.purchasing_status||"").toUpperCase().includes("REVIEW");
+        return `<tr><td class="strong">${esc(r.item_type||"")}</td><td>${esc(r.purchase_part_number||"TBD")}</td><td>${esc(r.replacement_filter||"")}</td><td>${esc(r.manufacturer||"")}</td><td class="num">${num(r.client_location_count)}</td><td class="num">${num(r.filter_system_model_count)}</td><td class="num strong">${num(r.required_quantity)}</td><td>${esc(r.compatible_filter_systems||"")}</td><td><span class="badge ${ready?"ready":"review"}">${esc(r.purchasing_status||"")}</span></td></tr>`;
+      }).join("");
+    }
+
+    document.addEventListener("DOMContentLoaded",init);
+  </script>
+</body>
+</html>
