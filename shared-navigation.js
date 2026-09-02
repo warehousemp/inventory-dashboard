@@ -251,8 +251,13 @@
     {
       label: 'Sales',
       roles: ['SALES', 'ADMIN', 'SYSTEM_ADMIN'],
-      showWhenEmpty: true,
-      links: []
+      links: [
+        {
+          label: 'CSC Service Labor Guide',
+          href: 'csc-service-labor-guide.html',
+          roles: ['SALES', 'ADMIN', 'SYSTEM_ADMIN']
+        }
+      ]
     },
 
     {
