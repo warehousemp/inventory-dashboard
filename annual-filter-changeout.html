@@ -567,7 +567,7 @@
 
         if(queueOperator()){
           if(row.queue_status==="READY"){
-            actions+=` <button class="btn-primary" type="button" onclick='runSkimmerDryRun(${JSON.stringify(row.id)})'>DRY RUN IN SKIMMER</button>`;
+            actions+=` <button class="btn-primary" type="button" onclick='createSkimmerWorkOrder(${JSON.stringify(row.id)})'>CREATE IN SKIMMER</button>`;
           }
           if(row.queue_status!=="CREATED"){
             actions+=` <button class="btn-success" type="button" onclick='markQueueCreated(${JSON.stringify(row.id)})'>MARK CREATED</button>`;
@@ -674,7 +674,7 @@
       }
     }
 
-    async function runSkimmerDryRun(id){
+    async function createSkimmerWorkOrder(id){
       if(!queueOperator())return;
 
       const row=workOrderQueueData.find(item=>item.id===id);
@@ -686,13 +686,13 @@
       }
 
       const confirmed=confirm(
-        `DRY RUN ONLY — NO WORK ORDER WILL BE SAVED.\n\n` +
+        `LIVE TEST — THIS WILL CREATE THE WORK ORDER IN SKIMMER.\n\n` +
         `Client: ${row.client_name}\n` +
         `Location: ${row.service_location}\n` +
         `Service Date: ${dateLabel(row.service_date)}\n` +
         `Route Tech: ${row.route_tech}\n` +
         `Price: ${whole(row.total_billable_to_client)}\n\n` +
-        `Open Skimmer and prefill this work order?`
+        `Create this Skimmer work order now?`
       );
       if(!confirmed)return;
 
@@ -700,8 +700,8 @@
       if(msg){
         msg.className="warning";
         msg.textContent=
-          `Starting Skimmer browser-extension dry run for ${row.client_name} — ${row.service_location}. ` +
-          `The extension is locked to STOP BEFORE SAVE.`;
+          `Starting live Skimmer work-order creation for ${row.client_name} — ${row.service_location}. ` +
+          `TEST MODE is still locked to the approved test property.`;
       }
 
       const payload={
@@ -720,20 +720,36 @@
       };
 
       try{
-        const result=await skimmerExtensionRequest("START_DRY_RUN",payload,120000);
+        const result=await skimmerExtensionRequest("CREATE_TEST_WORK_ORDER",payload,120000);
 
         if(msg){
           msg.className="status";
           msg.textContent=
-            `DRY RUN READY FOR REVIEW: ${row.client_name}. ` +
-            `The Skimmer extension stopped before Save at stage "${result.stage||"review"}". ` +
-            `Review every field in the Skimmer tab.`;
+            `SKIMMER WORK ORDER CREATED: ${row.client_name}. ` +
+            `The extension completed the Save step at stage "${result.stage||"saved"}".`;
+        }
+
+        const {error: statusError}=await db.rpc("set_annual_filter_work_order_queue_status",{
+          p_id:row.id,
+          p_status:"CREATED",
+          p_skimmer_work_order_id:result.workOrderId||null,
+          p_last_error:null
+        });
+
+        if(statusError){
+          if(msg){
+            msg.className="warning";
+            msg.textContent=
+              `Skimmer work order appears to have been created, but the queue could not be marked CREATED automatically: ${statusError.message}`;
+          }
+        }else{
+          await reloadWorkOrderQueue();
         }
       }catch(error){
         if(msg){
           msg.className="danger";
           msg.textContent=
-            `Skimmer dry run stopped safely: ${error.message} ` +
+            `Skimmer work-order creation stopped safely: ${error.message} ` +
             `Open the Molinari extension icon to see the last diagnostic details.`;
         }
       }
