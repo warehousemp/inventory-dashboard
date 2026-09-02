@@ -256,6 +256,11 @@
           label: 'CSC Service Labor Guide',
           href: 'csc-service-labor-guide.html',
           roles: ['SALES', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'Service Map',
+          href: 'service-map.html',
+          roles: ['SALES', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
