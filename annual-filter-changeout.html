@@ -58,6 +58,16 @@
     .status-skipped{background:#e5e7eb;color:#374151;border:1px solid #d1d5db}
     .wo-text{min-width:360px;white-space:normal}
     .queue-note{font-size:12px;color:var(--muted);line-height:1.45}
+    .date-processing{padding:18px 20px;border-bottom:1px solid var(--border);background:#f8fbfd}
+    .date-processing h3,.exception-panel h3{margin:0;color:var(--header);font-size:16px}
+    .date-processing-head,.exception-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    .date-processing-note,.exception-note{font-size:12px;color:var(--muted);line-height:1.45;margin-top:4px}
+    .date-processing-table{width:100%;min-width:900px}.date-processing-table th{position:static}.date-processing-table td{vertical-align:middle}
+    .date-status{font-size:11px;font-weight:900;border-radius:999px;padding:4px 8px;display:inline-block;white-space:nowrap}
+    .date-ready{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}.date-progress{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}.date-review{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}.date-complete{background:#ecfdf3;color:#067647;border:1px solid #a7f3d0}
+    .btn-process-date{background:#0b3c5d;color:#fff;white-space:nowrap}.btn-process-date:disabled{background:#98a2b3;cursor:not-allowed}.batch-progress{font-size:12px;font-weight:800;color:var(--header);margin-top:8px}
+    .exception-panel{margin:0 20px 18px;border:1px solid #f3c98b;border-radius:10px;background:#fffbeb;overflow:hidden}.exception-head{padding:14px 16px;margin:0;border-bottom:1px solid #fde68a}
+    .exception-table-wrap{overflow:auto;max-height:380px}.exception-table{min-width:1250px}.exception-table th{background:#fff7ed}.error-reason{min-width:320px;white-space:normal;color:#991b1b;font-weight:700}.hold-reason{min-width:320px;white-space:normal;color:#92400e}
     .billing-lookup{padding:18px 20px;border-bottom:1px solid var(--border);background:#f8fafc}
     .billing-lookup-grid{display:grid;grid-template-columns:minmax(280px,1fr) auto;gap:12px;align-items:end}
     .billing-lookup button{margin:0}
@@ -168,72 +178,37 @@
     </section>
 
     <section id="paneQueue" class="card tab-pane">
-      <div class="card-head">
-        <div>
-          <h2>Skimmer Work Order Creation Queue</h2>
-          <div class="queue-note" style="margin-top:5px;">
-            One queue item equals one client location and one scheduled changeout date. Multiple filter systems at the same property are combined into one Skimmer work order.
-            SERVICE and WAREHOUSE users can view this queue. Queue management is limited to Service Manager, Admin, and System Admin.
-          </div>
-        </div>
-        <span id="queueCount" class="strong"></span>
-      </div>
+      <div class="card-head"><div><h2>Skimmer Work Order Creation Queue</h2>
+        <div class="queue-note" style="margin-top:5px;">Production work orders are processed one scheduled changeout date at a time. Each queue item equals one client location and one changeout date. Multiple filter systems at the same property are combined into one Skimmer work order. SERVICE and WAREHOUSE users can view this queue. Queue management and date processing are limited to Service Manager, Admin, and System Admin.</div>
+      </div><span id="queueCount" class="strong"></span></div>
 
       <div class="queue-summary" id="queueSummary"></div>
 
+      <div class="date-processing">
+        <div class="date-processing-head"><div><h3>Process Work Orders by Changeout Date</h3>
+          <div class="date-processing-note">CSC processes one date at a time. Only READY records for that date are sent to Skimmer. The batch pauses immediately if a record needs review. CREATED, HOLD, ERROR, and SKIPPED records are never resubmitted.</div>
+          <div id="batchProgress" class="batch-progress"></div>
+        </div></div>
+        <div class="table-wrap" style="max-height:430px;border:1px solid var(--border);border-radius:8px;">
+          <table class="date-processing-table"><thead><tr><th>Changeout Date</th><th>Total</th><th>Ready</th><th>Created</th><th>Needs Review</th><th>Hold</th><th>Skipped</th><th>Date Status</th><th>Action</th></tr></thead><tbody id="dateProcessingBody"></tbody></table>
+        </div>
+      </div>
+
       <div class="queue-toolbar">
-        <div>
-          <label for="queueSearch">Search Queue</label>
-          <input id="queueSearch" type="search" placeholder="Client, address, Route Tech, filter system..." oninput="renderWorkOrderQueue()">
-        </div>
-        <div>
-          <label for="queueStatusFilter">Queue Status</label>
-          <select id="queueStatusFilter" onchange="renderWorkOrderQueue()">
-            <option value="ALL">All Statuses</option>
-            <option value="READY">Ready</option>
-            <option value="HOLD">Hold</option>
-            <option value="CREATED">Created</option>
-            <option value="ERROR">Error</option>
-            <option value="SKIPPED">Skipped</option>
-          </select>
-        </div>
-        <div id="queueOperatorSync" style="display:none">
-          <button class="btn-primary" type="button" onclick="syncWorkOrderQueue()">SYNC / REFRESH QUEUE</button>
-        </div>
-        <div>
-          <button class="btn-secondary" type="button" onclick="checkSkimmerExtension()">CHECK SKIMMER EXTENSION</button>
-          <button class="btn-secondary" type="button" onclick="exportWorkOrderQueueCSV()">EXPORT QUEUE CSV</button>
-        </div>
+        <div><label for="queueSearch">Search Queue</label><input id="queueSearch" type="search" placeholder="Client, address, Route Tech, filter system..." oninput="renderWorkOrderQueue()"></div>
+        <div><label for="queueStatusFilter">Queue Status</label><select id="queueStatusFilter" onchange="renderWorkOrderQueue()"><option value="ALL">All Statuses</option><option value="READY">Ready</option><option value="HOLD">Hold</option><option value="CREATED">Created</option><option value="ERROR">Needs Review / Error</option><option value="SKIPPED">Skipped</option></select></div>
+        <div id="queueOperatorSync" style="display:none"><button class="btn-primary" type="button" onclick="syncWorkOrderQueue()">SYNC / REFRESH QUEUE</button></div>
+        <div><button class="btn-secondary" type="button" onclick="checkSkimmerExtension()">CHECK SKIMMER EXTENSION</button> <button class="btn-secondary" type="button" onclick="exportWorkOrderQueueCSV()">EXPORT QUEUE CSV</button></div>
       </div>
 
-      <div id="queueMessage" class="status" style="margin:14px 20px;">
-        Loading Skimmer work order queue…
+      <div id="queueMessage" class="status" style="margin:14px 20px;">Loading Skimmer work order queue…</div>
+
+      <div id="queueExceptions" class="exception-panel" style="display:none;">
+        <div class="exception-head"><div><h3>Needs Review / Hold</h3><div class="exception-note">Errors from Skimmer automation land here automatically. HOLD records are intentionally paused. Review the reason, correct the issue, then Return to Ready when appropriate.</div></div><span id="exceptionCount" class="strong"></span></div>
+        <div class="exception-table-wrap"><table class="exception-table"><thead><tr><th>Status</th><th>Service Date</th><th>Client</th><th>Service Location</th><th>Route Tech</th><th>Total Billable</th><th>Review / Hold Reason</th><th>Actions</th></tr></thead><tbody id="exceptionBody"></tbody></table></div>
       </div>
 
-      <div class="table-wrap">
-        <table style="min-width:2050px">
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th>Service Date</th>
-              <th>Route Tech</th>
-              <th>Client</th>
-              <th>Service Location</th>
-              <th>Skimmer Customer #</th>
-              <th>Location Code</th>
-              <th>Filter Systems</th>
-              <th>Filters</th>
-              <th>O-Rings</th>
-              <th>Total Billable</th>
-              <th>Work Order Type</th>
-              <th>Work Needed</th>
-              <th>Skimmer WO ID</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="queueBody"></tbody>
-        </table>
-      </div>
+      <div class="table-wrap"><table style="min-width:2050px"><thead><tr><th>Status</th><th>Service Date</th><th>Route Tech</th><th>Client</th><th>Service Location</th><th>Skimmer Customer #</th><th>Location Code</th><th>Filter Systems</th><th>Filters</th><th>O-Rings</th><th>Total Billable</th><th>Work Order Type</th><th>Work Needed</th><th>Skimmer WO ID</th><th>Actions</th></tr></thead><tbody id="queueBody"></tbody></table></div>
     </section>
 
   </main>
@@ -251,6 +226,8 @@
     let workOrderQueueData=[];
     let filteredSchedule=[],filteredStaging=[],filteredBilling=[];
     let billingClientSearch="";
+    let batchProcessing=false;
+    let activeBatchDate="";
 
     function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]))}
     function num(v){return new Intl.NumberFormat("en-US",{maximumFractionDigits:2}).format(Number(v||0))}
@@ -520,19 +497,60 @@
     }
 
     function renderQueueSummary(){
-      const summary=document.getElementById("queueSummary");
-      if(!summary)return;
+      const summary=document.getElementById("queueSummary"); if(!summary)return;
+      const count=status=>workOrderQueueData.filter(row=>String(row.queue_status||"").toUpperCase()===status).length;
+      summary.innerHTML=`<div class="summary-card"><div class="summary-label">Ready</div><div class="summary-value">${num(count("READY"))}</div></div><div class="summary-card"><div class="summary-label">Needs Review / Hold</div><div class="summary-value">${num(count("HOLD")+count("ERROR"))}</div></div><div class="summary-card"><div class="summary-label">Created</div><div class="summary-value">${num(count("CREATED"))}</div></div><div class="summary-card"><div class="summary-label">Queue Total</div><div class="summary-value">${num(workOrderQueueData.length)}</div></div>`;
+    }
 
-      const count=status=>workOrderQueueData.filter(row=>row.queue_status===status).length;
-      summary.innerHTML=`
-        <div class="summary-card"><div class="summary-label">Ready</div><div class="summary-value">${num(count("READY"))}</div></div>
-        <div class="summary-card"><div class="summary-label">Hold / Review</div><div class="summary-value">${num(count("HOLD")+count("ERROR"))}</div></div>
-        <div class="summary-card"><div class="summary-label">Created</div><div class="summary-value">${num(count("CREATED"))}</div></div>
-        <div class="summary-card"><div class="summary-label">Queue Total</div><div class="summary-value">${num(workOrderQueueData.length)}</div></div>`;
+    function queueRowsForDate(serviceDate){return workOrderQueueData.filter(row=>dateValue(row)===serviceDate)}
+
+    function renderDateProcessing(){
+      const body=document.getElementById("dateProcessingBody"); if(!body)return;
+      const dates=[...new Set(workOrderQueueData.map(dateValue).filter(Boolean))].sort();
+      if(!dates.length){body.innerHTML='<tr><td colspan="9" class="empty">No changeout dates are available in the Skimmer queue.</td></tr>';return}
+      body.innerHTML=dates.map(serviceDate=>{
+        const rows=queueRowsForDate(serviceDate);
+        const count=status=>rows.filter(row=>String(row.queue_status||"").toUpperCase()===status).length;
+        const ready=count("READY"),created=count("CREATED"),review=count("ERROR"),hold=count("HOLD"),skipped=count("SKIPPED"),total=rows.length;
+        let statusText="READY",statusClass="date-ready";
+        if(review>0){statusText="NEEDS REVIEW";statusClass="date-review"}
+        else if(ready===0){statusText="COMPLETE";statusClass="date-complete"}
+        else if(created>0||hold>0||skipped>0){statusText="IN PROGRESS";statusClass="date-progress"}
+        let action="—";
+        if(queueOperator()){
+          if(ready>0){
+            const disabled=batchProcessing?"disabled":"";
+            const label=batchProcessing&&activeBatchDate===serviceDate?"PROCESSING…":`PROCESS ${dateLabel(serviceDate)} WORK ORDERS`;
+            action=`<button class="btn-process-date" type="button" ${disabled} onclick='processWorkOrdersForDate(${JSON.stringify(serviceDate)})'>${esc(label)}</button>`;
+          }else if(review>0){action='<span class="strong" style="color:#991b1b">REVIEW EXCEPTIONS BELOW</span>'}
+          else{action='<span class="strong" style="color:#067647">✓ COMPLETE</span>'}
+        }
+        return `<tr><td class="strong">${esc(dateLabel(serviceDate,true))}</td><td class="num">${num(total)}</td><td class="num strong">${num(ready)}</td><td class="num">${num(created)}</td><td class="num">${num(review)}</td><td class="num">${num(hold)}</td><td class="num">${num(skipped)}</td><td><span class="date-status ${statusClass}">${esc(statusText)}</span></td><td>${action}</td></tr>`;
+      }).join("");
+    }
+
+    function renderQueueExceptions(){
+      const panel=document.getElementById("queueExceptions"),body=document.getElementById("exceptionBody"),countLabel=document.getElementById("exceptionCount"); if(!panel||!body)return;
+      const rows=workOrderQueueData.filter(row=>["ERROR","HOLD"].includes(String(row.queue_status||"").toUpperCase())).sort((a,b)=>dateValue(a).localeCompare(dateValue(b))||String(a.client_name||"").localeCompare(String(b.client_name||"")));
+      if(!rows.length){panel.style.display="none";body.innerHTML="";if(countLabel)countLabel.textContent="";return}
+      panel.style.display="block"; if(countLabel)countLabel.textContent=`${rows.length} item${rows.length===1?"":"s"} requiring attention`;
+      body.innerHTML=rows.map(row=>{
+        const status=String(row.queue_status||"").toUpperCase();
+        const reason=row.last_error||(status==="HOLD"?"Manually placed on hold. Review before returning this record to READY.":"Automation stopped and requires review.");
+        let actions='<span class="queue-note">View only</span>';
+        if(queueOperator()){
+          actions=`<button class="btn-primary" type="button" onclick='setQueueStatus(${JSON.stringify(row.id)},"READY")'>RETURN TO READY</button>`;
+          if(status!=="HOLD")actions+=` <button class="btn-warning" type="button" onclick='setQueueStatus(${JSON.stringify(row.id)},"HOLD")'>KEEP ON HOLD</button>`;
+          actions+=` <button class="btn-danger" type="button" onclick='setQueueStatus(${JSON.stringify(row.id)},"SKIPPED")'>SKIP / EXCLUDE</button>`;
+        }
+        return `<tr><td><span class="badge ${queueStatusClass(status)}">${esc(status==="ERROR"?"NEEDS REVIEW":status)}</span></td><td>${esc(dateLabel(row.service_date))}</td><td class="strong">${esc(row.client_name||"")}</td><td>${esc(row.service_location||"")}</td><td>${esc(row.route_tech||"")}</td><td class="money">${esc(whole(row.total_billable_to_client))}</td><td class="${status==="ERROR"?"error-reason":"hold-reason"}">${esc(reason)}</td><td><div class="queue-actions">${actions}</div></td></tr>`;
+      }).join("");
     }
 
     function renderWorkOrderQueue(){
       renderQueueSummary();
+      renderDateProcessing();
+      renderQueueExceptions();
       const body=document.getElementById("queueBody");
       const countLabel=document.getElementById("queueCount");
       const msg=document.getElementById("queueMessage");
@@ -553,7 +571,7 @@
       if(msg){
         msg.className="status";
         msg.textContent=queueOperator()
-          ? "Queue is ready. Sync / Refresh updates it from the current Annual Filter Changeout data while preserving CREATED and SKIPPED records."
+          ? "Queue is ready. Use Process Work Orders by Changeout Date for normal production. Individual CREATE IN SKIMMER remains available for reviewed exceptions and controlled one-off processing."
           : "View only. Work order queue management is limited to Service Manager, Admin, and System Admin.";
       }
 
@@ -647,112 +665,86 @@
       });
     }
 
-    async function checkSkimmerExtension(){
+    async function checkSkimmerExtension(silent=false){
       const msg=document.getElementById("queueMessage");
-      if(msg){
-        msg.className="warning";
-        msg.textContent="Checking the Molinari Skimmer browser extension…";
-      }
-
+      if(msg&&!silent){msg.className="warning";msg.textContent="Checking the Molinari Skimmer browser extension…"}
       try{
         const result=await skimmerExtensionRequest("CHECK_EXTENSION",{},5000);
-
-        if(msg){
-          msg.className="status";
-          msg.textContent=
-            `Skimmer extension connected. Version: ${result.version||"unknown"}. ` +
-            `Test Mode: ${result.testMode ? "ON" : "OFF"}. ` +
-            `Allowed test property: ${result.allowedTestAddress||"not restricted"}.`;
-        }
+        if(msg&&!silent){msg.className="status";msg.textContent=`Skimmer extension connected. Version: ${result.version||"unknown"}. Mode: ${result.testMode?"TEST":"PRODUCTION"}.`}
+        return result;
       }catch(error){
-        if(msg){
-          msg.className="danger";
-          msg.textContent=
-            "Skimmer extension is not connected. Install/enable the Molinari Skimmer Filter Extension in Edge or Chrome, " +
-            "then reload this page and click CHECK SKIMMER EXTENSION again. " + error.message;
-        }
+        if(msg){msg.className="danger";msg.textContent="Skimmer extension is not connected. Install/enable the Molinari Skimmer Filter Extension in Edge or Chrome, then reload this page and click CHECK SKIMMER EXTENSION again. "+error.message}
+        return null;
       }
     }
 
+    function skimmerPayloadForRow(row){return{queue_id:row.id,queue_status:row.queue_status,client_name:row.client_name,service_location:row.service_location,service_date:row.service_date,route_tech:row.route_tech,work_order_type:row.work_order_type,work_needed:row.work_needed,total_billable_to_client:row.total_billable_to_client,filter_system_summary:row.filter_system_summary,filter_quantity:row.filter_quantity,oring_quantity:row.oring_quantity}}
+
+    async function markQueueError(row,errorMessage,workOrderId=null){
+      const {error}=await db.rpc("set_annual_filter_work_order_queue_status",{p_id:row.id,p_status:"ERROR",p_skimmer_work_order_id:workOrderId||null,p_last_error:String(errorMessage||"Skimmer automation stopped and requires review.")});
+      return !error;
+    }
+
+    async function sendQueueRowToSkimmer(row){
+      if(!row||String(row.queue_status||"").toUpperCase()!=="READY")throw new Error("Only READY queue items can be sent to Skimmer.");
+      let result=null;
+      try{result=await skimmerExtensionRequest("CREATE_TEST_WORK_ORDER",skimmerPayloadForRow(row),120000)}
+      catch(error){await markQueueError(row,error.message,null);throw error}
+      const {error:statusError}=await db.rpc("set_annual_filter_work_order_queue_status",{p_id:row.id,p_status:"CREATED",p_skimmer_work_order_id:result.workOrderId||null,p_last_error:null});
+      if(statusError){
+        const reviewMessage=`Skimmer Save completed, but the Annual Filter queue could not be marked CREATED automatically: ${statusError.message}. Do not retry this record until the Skimmer work order is verified.`;
+        await markQueueError(row,reviewMessage,result.workOrderId||null); throw new Error(reviewMessage);
+      }
+      return result;
+    }
+
     async function createSkimmerWorkOrder(id){
-      if(!queueOperator())return;
-
-      const row=workOrderQueueData.find(item=>item.id===id);
-      if(!row)return;
-
-      if(row.queue_status!=="READY"){
-        alert("Only READY queue items can be sent to the Skimmer dry-run extension.");
-        return;
-      }
-
-      const confirmed=confirm(
-        `LIVE TEST — THIS WILL CREATE THE WORK ORDER IN SKIMMER.\n\n` +
-        `Client: ${row.client_name}\n` +
-        `Location: ${row.service_location}\n` +
-        `Service Date: ${dateLabel(row.service_date)}\n` +
-        `Route Tech: ${row.route_tech}\n` +
-        `Price: ${whole(row.total_billable_to_client)}\n\n` +
-        `Create this Skimmer work order now?`
-      );
+      if(!queueOperator()||batchProcessing)return;
+      const row=workOrderQueueData.find(item=>item.id===id); if(!row)return;
+      if(row.queue_status!=="READY"){alert("Only READY queue items can be sent to Skimmer.");return}
+      const confirmed=confirm(`LIVE — THIS WILL CREATE THE WORK ORDER IN SKIMMER.\n\nClient: ${row.client_name}\nLocation: ${row.service_location}\nService Date: ${dateLabel(row.service_date)}\nRoute Tech: ${row.route_tech}\nPrice: ${whole(row.total_billable_to_client)}\n\nCreate this Skimmer work order now?`);
       if(!confirmed)return;
-
-      const msg=document.getElementById("queueMessage");
-      if(msg){
-        msg.className="warning";
-        msg.textContent=
-          `Starting live Skimmer work-order creation for ${row.client_name} — ${row.service_location}. ` +
-          `TEST MODE is still locked to the approved test property.`;
-      }
-
-      const payload={
-        queue_id:row.id,
-        queue_status:row.queue_status,
-        client_name:row.client_name,
-        service_location:row.service_location,
-        service_date:row.service_date,
-        route_tech:row.route_tech,
-        work_order_type:row.work_order_type,
-        work_needed:row.work_needed,
-        total_billable_to_client:row.total_billable_to_client,
-        filter_system_summary:row.filter_system_summary,
-        filter_quantity:row.filter_quantity,
-        oring_quantity:row.oring_quantity
-      };
-
+      const msg=document.getElementById("queueMessage"); if(msg){msg.className="warning";msg.textContent=`Creating Skimmer work order for ${row.client_name} — ${row.service_location}…`}
       try{
-        const result=await skimmerExtensionRequest("CREATE_TEST_WORK_ORDER",payload,120000);
-
-        if(msg){
-          msg.className="status";
-          msg.textContent=
-            `SKIMMER WORK ORDER CREATED: ${row.client_name}. ` +
-            `The extension completed the Save step at stage "${result.stage||"saved"}".`;
-        }
-
-        const {error: statusError}=await db.rpc("set_annual_filter_work_order_queue_status",{
-          p_id:row.id,
-          p_status:"CREATED",
-          p_skimmer_work_order_id:result.workOrderId||null,
-          p_last_error:null
-        });
-
-        if(statusError){
-          if(msg){
-            msg.className="warning";
-            msg.textContent=
-              `Skimmer work order appears to have been created, but the queue could not be marked CREATED automatically: ${statusError.message}`;
-          }
-        }else{
-          await reloadWorkOrderQueue();
-        }
+        const result=await sendQueueRowToSkimmer(row); await reloadWorkOrderQueue();
+        if(msg){msg.className="status";msg.textContent=`SKIMMER WORK ORDER CREATED: ${row.client_name}. The extension completed the Save step at stage "${result.stage||"saved"}".`}
       }catch(error){
-        if(msg){
-          msg.className="danger";
-          msg.textContent=
-            `Skimmer work-order creation stopped safely: ${error.message} ` +
-            `Open the Molinari extension icon to see the last diagnostic details.`;
-        }
+        await reloadWorkOrderQueue(); if(msg){msg.className="danger";msg.textContent=`Skimmer work-order creation stopped safely and this record was moved to Needs Review: ${error.message}`}
       }
+    }
+
+    async function processWorkOrdersForDate(serviceDate){
+      if(!queueOperator()||batchProcessing)return;
+      const readyRows=queueRowsForDate(serviceDate).filter(row=>String(row.queue_status||"").toUpperCase()==="READY").sort((a,b)=>String(a.route_tech||"").localeCompare(String(b.route_tech||""))||String(a.client_name||"").localeCompare(String(b.client_name||"")));
+      if(!readyRows.length){alert(`There are no READY work orders remaining for ${dateLabel(serviceDate)}.`);return}
+      const totalBillable=readyRows.reduce((sum,row)=>sum+Number(row.total_billable_to_client||0),0);
+      const confirmed=confirm(`PROCESS ${dateLabel(serviceDate,true).toUpperCase()}\n\nREADY Work Orders: ${readyRows.length}\nTotal Billable: ${whole(totalBillable)}\n\nOnly READY records for this date will be sent to Skimmer.\nThe batch will PAUSE immediately if any record needs review.\n\nBegin processing this changeout date now?`);
+      if(!confirmed)return;
+      const extension=await checkSkimmerExtension(true);
+      if(!extension){alert("The Skimmer extension is not connected. No work orders were processed.");return}
+      if(extension.testMode){alert("The Skimmer extension is still in TEST MODE. Install/enable the production extension before processing a date.");return}
+
+      batchProcessing=true;activeBatchDate=serviceDate;renderWorkOrderQueue();
+      const progress=document.getElementById("batchProgress"),msg=document.getElementById("queueMessage");
+      let createdCount=0;
+      try{
+        for(let index=0;index<readyRows.length;index++){
+          const row=readyRows[index];
+          if(progress)progress.textContent=`${dateLabel(serviceDate)} Processing: ${index+1} of ${readyRows.length} · ${createdCount} Created · ${readyRows.length-index} Remaining`;
+          if(msg){msg.className="warning";msg.textContent=`Processing ${dateLabel(serviceDate)} — ${index+1} of ${readyRows.length}: ${row.client_name} — ${row.service_location}`}
+          try{await sendQueueRowToSkimmer(row);createdCount++}
+          catch(error){
+            await reloadWorkOrderQueue();
+            if(progress)progress.textContent=`${dateLabel(serviceDate)} PAUSED · ${createdCount} Created · 1 Needs Review · ${Math.max(0,readyRows.length-index-1)} Remaining`;
+            if(msg){msg.className="danger";msg.textContent=`DATE PROCESSING PAUSED on ${row.client_name} — ${row.service_location}. The record is now in Needs Review. Reason: ${error.message}`}
+            return;
+          }
+          await new Promise(resolve=>setTimeout(resolve,750));
+        }
+        await reloadWorkOrderQueue();
+        if(progress)progress.textContent=`${dateLabel(serviceDate)} COMPLETE · ${createdCount} work order${createdCount===1?"":"s"} created in Skimmer.`;
+        if(msg){msg.className="status";msg.textContent=`${dateLabel(serviceDate,true)} processing complete. ${createdCount} READY work order${createdCount===1?" was":"s were"} created successfully.`}
+      }finally{batchProcessing=false;activeBatchDate="";renderWorkOrderQueue()}
     }
 
     async function reloadWorkOrderQueue(){
@@ -794,21 +786,18 @@
     }
 
     async function setQueueStatus(id,status){
-      if(!queueOperator())return;
-
-      const {error}=await db.rpc("set_annual_filter_work_order_queue_status",{
-        p_id:id,
-        p_status:status,
-        p_skimmer_work_order_id:null,
-        p_last_error:null
-      });
-
-      if(error){
-        alert(error.message);
-        return;
+      if(!queueOperator()||batchProcessing)return;
+      const row=workOrderQueueData.find(item=>item.id===id); if(!row)return;
+      let lastError=null;
+      if(status==="HOLD"){
+        const reason=prompt(`Hold reason for ${row.client_name} — ${row.service_location}:`,row.last_error||"");
+        if(reason===null)return; lastError=reason.trim()||"Manually placed on hold.";
       }
-
-      await reloadWorkOrderQueue();
+      if(status==="SKIPPED"){
+        if(!confirm(`Skip / exclude this Annual Filter work order?\n\n${row.client_name}\n${row.service_location}\n${dateLabel(row.service_date)}`))return;
+      }
+      const {error}=await db.rpc("set_annual_filter_work_order_queue_status",{p_id:id,p_status:status,p_skimmer_work_order_id:status==="READY"?null:(row.skimmer_work_order_id||null),p_last_error:lastError});
+      if(error){alert(error.message);return} await reloadWorkOrderQueue();
     }
 
     async function markQueueCreated(id){
