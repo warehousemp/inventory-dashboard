@@ -2701,8 +2701,13 @@
             </div>
 
             <div class="transaction-field">
-              <label for="transactionPoNumber">PO #:</label>
-              <input id="transactionPoNumber" type="text" placeholder="Search all or part of a PO number" autocomplete="off">
+              <label for="transactionPoNumber">Purchase PO #:</label>
+              <input id="transactionPoNumber" type="text" placeholder="Search all or part of a purchase PO number" autocomplete="off">
+            </div>
+
+            <div class="transaction-field">
+              <label for="transactionWorkOrderIssued">Work Order / PO # Issued:</label>
+              <input id="transactionWorkOrderIssued" type="text" placeholder="Search all or part of a work order / issued PO #" autocomplete="off">
             </div>
 
             <div class="transaction-field">
@@ -2765,11 +2770,11 @@
               <th>Total Value</th>
               <th>Location</th>
               <th>Vendor</th>
-              <th>PO #</th>
+              <th>Purchase PO #</th>
               <th>Inventory Source</th>
               <th>UAG Batch #</th>
               <th>Issued To</th>
-              <th>Work Order</th>
+              <th>Work Order / PO # Issued</th>
               <th>Client</th>
               <th>Notes</th>
             </tr>
@@ -3609,6 +3614,7 @@ function getTransactionFilterValues() {
     vendorName: document.getElementById('transactionVendorName')?.value.trim() || '',
     serialNumber: document.getElementById('transactionSerialNumber')?.value.trim() || '',
     poNumber: document.getElementById('transactionPoNumber')?.value.trim() || '',
+    workOrderIssued: document.getElementById('transactionWorkOrderIssued')?.value.trim() || '',
     uagLotNumber: document.getElementById('transactionUagLotNumber')?.value.trim() || '',
     classCode: document.getElementById('transactionClassCodeFilter')?.value || 'ALL',
     transactionType: document.getElementById('transactionTypeFilter')?.value || 'ALL'
@@ -3790,6 +3796,10 @@ async function fetchTransactionLogRows() {
       query = query.ilike('po_number', `%${filters.poNumber}%`);
     }
 
+    if (filters.workOrderIssued) {
+      query = query.ilike('work_order', `%${filters.workOrderIssued}%`);
+    }
+
     if (filters.uagLotNumber) {
       query = query.ilike('batch_code', `%${filters.uagLotNumber}%`);
     }
@@ -3941,7 +3951,8 @@ function updateTransactionLogSummary() {
     `Client: ${filters.clientName || 'All Clients'}\n` +
     `Vendor: ${filters.vendorName || 'All Vendors'}\n` +
     `Serial Number: ${filters.serialNumber || 'All Serial Numbers'}\n` +
-    `PO #: ${filters.poNumber || 'All PO Numbers'}\n` +
+    `Purchase PO #: ${filters.poNumber || 'All Purchase PO Numbers'}\n` +
+    `Work Order / PO # Issued: ${filters.workOrderIssued || 'All Work Orders / Issued POs'}\n` +
     `UAG Batch #: ${filters.uagLotNumber || 'All UAG Batches'}\n`;
 
   if (!transactionLogData || transactionLogData.length === 0) {
@@ -4032,7 +4043,7 @@ async function exportTransactionLogCSV() {
   const startDate = filters.startDate || 'all_dates';
   const endDate = filters.endDate || 'all_dates';
 
-  let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,STATUS,CLASS CODE,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PO NUMBER,INVENTORY SOURCE,UAG BATCH NUMBER,CLIENT NAME,WORK ORDER,ISSUED TO,NOTES,ID\n';
+  let csv = 'CREATED AT,TRANSACTION TYPE,TRANSACTION LABEL,STATUS,CLASS CODE,PART NUMBER,DESCRIPTION,SERIAL NUMBER,QUANTITY,UNIT COST,TOTAL VALUE,LOCATION NAME,VENDOR NAME,PURCHASE PO NUMBER,INVENTORY SOURCE,UAG BATCH NUMBER,CLIENT NAME,WORK ORDER / PO # ISSUED,ISSUED TO,NOTES,ID\n';
 
   transactionLogData.forEach(row => {
     const transactionDate = getFirstValue(row, ['created_at', 'transaction_date', 'transaction_at']);
@@ -4070,7 +4081,8 @@ async function exportTransactionLogCSV() {
     filters.clientName ? `client_${cleanFilename(filters.clientName)}` : '',
     filters.vendorName ? `vendor_${cleanFilename(filters.vendorName)}` : '',
     filters.serialNumber ? `serial_${cleanFilename(filters.serialNumber)}` : '',
-    filters.poNumber ? `po_${cleanFilename(filters.poNumber)}` : '',
+    filters.poNumber ? `purchase_po_${cleanFilename(filters.poNumber)}` : '',
+    filters.workOrderIssued ? `work_order_po_issued_${cleanFilename(filters.workOrderIssued)}` : '',
     filters.uagLotNumber ? `uag_batch_${cleanFilename(filters.uagLotNumber)}` : '',
     cleanFilename(startDate),
     'to',
@@ -4088,6 +4100,7 @@ function clearTransactionLogFilters() {
   document.getElementById('transactionVendorName').value = '';
   document.getElementById('transactionSerialNumber').value = '';
   document.getElementById('transactionPoNumber').value = '';
+  document.getElementById('transactionWorkOrderIssued').value = '';
   document.getElementById('transactionUagLotNumber').value = '';
   document.getElementById('transactionClassCodeFilter').value = 'ALL';
   document.getElementById('transactionTypeFilter').value = 'ALL';
