@@ -842,6 +842,38 @@
         grid-template-columns: 1fr;
       }
     }
+  
+    .invoice-overview-meta {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 4px 0 12px;
+      color: #667085;
+      font-size: 12px;
+    }
+
+    .invoice-overview-meta strong {
+      color: var(--header);
+      font-size: 13px;
+    }
+
+    .metric-grid.four {
+      grid-template-columns: repeat(4, minmax(210px, 1fr));
+    }
+
+    @media (max-width: 1200px) {
+      .metric-grid.four {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .metric-grid.four {
+        grid-template-columns: 1fr;
+      }
+    }
+
   </style>
 </head>
 
@@ -952,131 +984,44 @@
         <div class="section-heading">
           <div>
             <h2 class="section-title">Completed Invoice Revenue — Client Mix</h2>
-            <p class="section-description" id="invoiceMixDescription">Historical Skimmer invoice reporting. This section only reports through the latest imported invoice date and never treats the current week as complete.</p>
+            <p class="section-description" id="invoiceMixDescription">High-level view of the latest completed Skimmer invoice week. Detailed invoice review and imports are available on Service Revenue Analysis.</p>
           </div>
-          <div class="invoice-freshness">
-            <span>Invoice Data Through:</span>
-            <strong id="invoiceDataThrough">—</strong>
-            <span id="invoiceLastImport">Last import: —</span>
-          </div>
+          <a class="section-link" href="service-revenue-analysis.html">Open Service Revenue Analysis →</a>
         </div>
 
-        <div class="filter-panel invoice-mix-filter-panel">
-          <div class="filter-field">
-            <label for="invoiceMixPeriodFilter">Completed Reporting Period</label>
-            <select id="invoiceMixPeriodFilter" onchange="handleInvoiceMixPeriodChange()">
-              <option value="last_completed_week" selected>Last Completed Week</option>
-              <option value="last_4_weeks">Last 4 Completed Weeks</option>
-              <option value="mtd">Month to Date — Through Imported Data</option>
-              <option value="last_month">Previous Month</option>
-              <option value="qtd">Quarter to Date — Through Imported Data</option>
-              <option value="last_quarter">Previous Quarter</option>
-              <option value="fytd">Fiscal Year to Date — Through Imported Data</option>
-              <option value="custom">Custom Completed Period</option>
-            </select>
-          </div>
-
-          <div class="filter-field">
-            <label for="invoiceMixStartDate">Start Date</label>
-            <input id="invoiceMixStartDate" type="date" disabled>
-          </div>
-
-          <div class="filter-field">
-            <label for="invoiceMixEndDate">End Date</label>
-            <input id="invoiceMixEndDate" type="date" disabled>
-          </div>
-
-          <button class="primary-button" id="runInvoiceMixButton" type="button" onclick="loadSelectedInvoiceMixPeriod()">RUN PERIOD</button>
+        <div class="invoice-overview-meta">
+          <span>Completed period: <strong id="invoiceMixPeriodLabel">—</strong></span>
+          <span>Invoice data through: <strong id="invoiceDataThrough">—</strong></span>
+          <span id="invoiceLastImport">Last import: —</span>
         </div>
 
-        <div class="metric-grid five">
+        <div class="metric-grid four">
           <article class="metric-card">
             <div class="metric-label">Service Invoice Revenue</div>
             <div class="metric-value" id="invoiceMixTotalRevenue">$0.00</div>
-            <div class="metric-sub">Existing Route + Non-Route qualifying Service revenue</div>
+            <div class="metric-sub">Qualifying Existing Route + Non-Route Service revenue</div>
           </article>
 
           <article class="metric-card">
-            <div class="metric-label">Existing Route Client Revenue</div>
-            <div class="metric-value" id="invoiceMixExistingRevenue">$0.00</div>
-            <div class="metric-sub" id="invoiceMixExistingPercent">0.0% of classified Service invoice revenue</div>
+            <div class="metric-label">Existing Route Client Mix</div>
+            <div class="metric-value" id="invoiceMixExistingPercent">0.0%</div>
+            <div class="metric-sub"><strong id="invoiceMixExistingRevenue">$0.00</strong> of classified Service invoice revenue</div>
           </article>
 
           <article class="metric-card">
-            <div class="metric-label">Non-Route Client Revenue</div>
-            <div class="metric-value" id="invoiceMixNonRouteRevenue">$0.00</div>
-            <div class="metric-sub" id="invoiceMixNonRoutePercent">0.0% of classified Service invoice revenue</div>
+            <div class="metric-label">Non-Route Client Mix</div>
+            <div class="metric-value" id="invoiceMixNonRoutePercent">0.0%</div>
+            <div class="metric-sub"><strong id="invoiceMixNonRouteRevenue">$0.00</strong> of classified Service invoice revenue</div>
           </article>
 
           <article class="metric-card">
-            <div class="metric-label">Route Cleaning Excluded</div>
-            <div class="metric-value" id="invoiceMixRecurringExcluded">$0.00</div>
-            <div class="metric-sub" id="invoiceMixRecurringCount">0 normal recurring Route Cleaning invoices excluded</div>
-          </article>
-
-          <article class="metric-card" id="invoiceMixUnmatchedCard">
             <div class="metric-label">Unmatched / Review</div>
             <div class="metric-value" id="invoiceMixUnmatchedSales">$0.00</div>
             <div class="metric-sub" id="invoiceMixUnmatchedCount">0 invoices requiring review</div>
-            <button class="invoice-review-button" id="invoiceMixReviewButton" type="button" onclick="scrollToUnmatchedInvoiceReview()" hidden>Review unmatched invoices ↓</button>
           </article>
         </div>
 
-        <div id="invoiceMixStatus" class="invoice-mix-status">Waiting for invoice reporting data...</div>
-
-        <div class="invoice-review-panel" id="invoiceUnmatchedReviewPanel" hidden>
-          <div class="invoice-review-heading">
-            <div>
-              <h3>Unmatched Invoice Review</h3>
-              <p>These invoices could not be confidently matched to an active Skimmer customer by normalized service address. They are excluded from Existing Route vs. Non-Route revenue until reviewed so the dashboard does not guess.</p>
-            </div>
-            <div class="invoice-review-summary" id="invoiceUnmatchedReviewSummary">0 invoices</div>
-          </div>
-          <div class="invoice-review-table-wrap">
-            <table class="invoice-review-table">
-              <thead>
-                <tr>
-                  <th>Invoice #</th>
-                  <th>Date</th>
-                  <th>Customer</th>
-                  <th>Service Location</th>
-                  <th>Status</th>
-                  <th class="amount">Invoice Total</th>
-                </tr>
-              </thead>
-              <tbody id="invoiceUnmatchedReviewBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="invoice-import-panel" id="skimmerInvoiceImportPanel" hidden>
-          <h3>Import Skimmer Invoices</h3>
-          <div class="section-description">
-            ADMIN and SYSTEM_ADMIN can upload the weekly Skimmer Invoices CSV here. Invoice # updates existing records instead of creating duplicates. Route Cleaning invoices are identified from the Skimmer customer rate snapshot and excluded from Service revenue.
-          </div>
-          <div class="invoice-import-grid">
-            <div class="filter-field">
-              <label for="skimmerInvoiceImportFile">Skimmer Invoices CSV</label>
-              <input id="skimmerInvoiceImportFile" type="file" accept=".csv,text/csv" hidden>
-              <div
-                id="skimmerInvoiceDropZone"
-                class="invoice-drop-zone"
-                role="button"
-                tabindex="0"
-                aria-label="Drop Skimmer Invoices CSV here or click to browse"
-              >
-                <div>
-                  <div class="invoice-drop-title">Drop Skimmer Invoices CSV Here</div>
-                  <div class="invoice-drop-subtitle">Drag and drop the weekly <strong>Invoices.csv</strong> file here, or click this box to browse.</div>
-                  <div class="invoice-import-note" id="skimmerInvoiceImportFileNote">No file selected.</div>
-                </div>
-              </div>
-            </div>
-            <button class="primary-button" id="skimmerInvoiceImportButton" type="button" onclick="importSkimmerInvoicesCsv()">IMPORT INVOICES</button>
-          </div>
-          <div id="skimmerInvoiceImportMessage" class="invoice-import-message"></div>
-          <div id="skimmerInvoiceImportResult" class="invoice-import-result"></div>
-        </div>
+        <div id="invoiceMixStatus" class="invoice-mix-status">Waiting for completed invoice reporting data...</div>
       </section>
 
       <section class="section">
@@ -1255,6 +1200,7 @@
               <tbody>
                 <tr><td>Assessments</td><td>client_mechanical_assessment_tracking_view</td></tr>
                 <tr><td>Revenue</td><td>Revenue summary and goal RPCs</td></tr>
+                <tr><td>Invoice Client Mix</td><td>client_services_invoice_client_mix_reporting_view</td></tr>
                 <tr><td>Inventory</td><td>inventory_fifo_vs_current_valuation_view</td></tr>
                 <tr><td>Serialized Value</td><td>inventory_part_lookup_view</td></tr>
                 <tr><td>UAG</td><td>uag_bulk_batch_summary_all_view</td></tr>
@@ -1310,8 +1256,6 @@ window.addEventListener('load', async () => {
   if (!hasAccess) return;
 
   initializeRevenuePeriod();
-  initializeInvoiceMixControls();
-  updateSkimmerInvoiceImportVisibility();
   await refreshDashboard();
 });
 
@@ -1528,8 +1472,29 @@ async function loadInvoiceClientMixSection() {
     return;
   }
 
-  updateInvoiceMixDateInputs(document.getElementById('invoiceMixPeriodFilter')?.value || 'last_completed_week');
-  await loadSelectedInvoiceMixPeriod();
+  const dataDate = parseDateISO(invoiceDataThroughDate);
+  const completedWeek = getWeekRange(dataDate);
+  const startDate = completedWeek.startDate;
+  const endDate = invoiceDataThroughDate;
+
+  setText('invoiceMixPeriodLabel', `${formatDate(startDate)} – ${formatDate(endDate)}`);
+  setText(
+    'invoiceMixDescription',
+    `High-level view of the latest completed Skimmer invoice week (${formatDate(startDate)} – ${formatDate(endDate)}). Open Service Revenue Analysis for invoice detail, unmatched review, historical periods, and imports.`
+  );
+  setInvoiceMixStatus('Loading latest completed invoice client mix...');
+
+  const { data, error } = await client.rpc(INVOICE_MIX_SUMMARY_RPC, {
+    p_start_date: startDate,
+    p_end_date: endDate
+  });
+
+  if (error) {
+    setInvoiceMixUnavailable('Unable to load completed invoice client mix: ' + error.message);
+    throw error;
+  }
+
+  renderInvoiceClientMix(data, startDate, endDate);
 }
 
 async function loadInvoiceDataMetadata() {
@@ -1740,20 +1705,18 @@ function renderInvoiceClientMix(data, startDate, endDate) {
 
   setText('invoiceMixTotalRevenue', formatCurrency(classified));
   setText('invoiceMixExistingRevenue', formatCurrency(existing));
-  setText('invoiceMixExistingPercent', `${existingPct.toFixed(1)}% of classified Service invoice revenue`);
+  setText('invoiceMixExistingPercent', `${existingPct.toFixed(1)}%`);
   setText('invoiceMixNonRouteRevenue', formatCurrency(nonRoute));
-  setText('invoiceMixNonRoutePercent', `${nonRoutePct.toFixed(1)}% of classified Service invoice revenue`);
-  setText('invoiceMixRecurringExcluded', formatCurrency(recurringExcluded));
-  setText('invoiceMixRecurringCount', `${formatNumber(recurringCount)} normal recurring Route Cleaning invoice${recurringCount === 1 ? '' : 's'} excluded`);
+  setText('invoiceMixNonRoutePercent', `${nonRoutePct.toFixed(1)}%`);
   setText('invoiceMixUnmatchedSales', formatCurrency(unmatchedSales));
   setText('invoiceMixUnmatchedCount', `${formatNumber(unmatchedCount)} invoice${unmatchedCount === 1 ? '' : 's'} requiring review`);
 
   const unmatchedNote = unmatchedCount > 0
-    ? ` ${formatNumber(unmatchedCount)} unmatched invoice${unmatchedCount === 1 ? '' : 's'} totaling ${formatCurrency(unmatchedSales)} are excluded until reviewed.`
-    : ' No unmatched invoices are affecting this period.';
+    ? `${formatNumber(unmatchedCount)} unmatched invoice${unmatchedCount === 1 ? '' : 's'} totaling ${formatCurrency(unmatchedSales)} require review.`
+    : 'No unmatched invoices require review.';
 
   setInvoiceMixStatus(
-    `${formatDate(startDate)} – ${formatDate(endDate)}: ${formatCurrency(existing)} Existing Route (${existingPct.toFixed(1)}%) vs. ${formatCurrency(nonRoute)} Non-Route (${nonRoutePct.toFixed(1)}%).${unmatchedNote}`,
+    `${formatDate(startDate)} – ${formatDate(endDate)}: ${formatCurrency(existing)} Existing Route (${existingPct.toFixed(1)}%) vs. ${formatCurrency(nonRoute)} Non-Route (${nonRoutePct.toFixed(1)}%). ${formatNumber(recurringCount)} recurring Route Cleaning invoice${recurringCount === 1 ? '' : 's'} totaling ${formatCurrency(recurringExcluded)} excluded. ${unmatchedNote}`,
     unmatchedCount > 0 ? 'warning' : 'success'
   );
 }
@@ -1801,18 +1764,13 @@ function renderUnmatchedInvoiceReview(rows, startDate, endDate) {
 
 function setInvoiceMixUnavailable(message) {
   setText('invoiceMixTotalRevenue', 'Unavailable');
-  setText('invoiceMixExistingRevenue', 'Unavailable');
-  setText('invoiceMixNonRouteRevenue', 'Unavailable');
-  setText('invoiceMixRecurringExcluded', 'Unavailable');
+  setText('invoiceMixExistingRevenue', '—');
+  setText('invoiceMixExistingPercent', '—');
+  setText('invoiceMixNonRouteRevenue', '—');
+  setText('invoiceMixNonRoutePercent', '—');
   setText('invoiceMixUnmatchedSales', 'Unavailable');
-  setText('invoiceMixExistingPercent', 'Completed invoice data unavailable');
-  setText('invoiceMixNonRoutePercent', 'Completed invoice data unavailable');
-  setText('invoiceMixRecurringCount', '—');
   setText('invoiceMixUnmatchedCount', '—');
-  const reviewButton = document.getElementById('invoiceMixReviewButton');
-  const reviewPanel = document.getElementById('invoiceUnmatchedReviewPanel');
-  if (reviewButton) reviewButton.hidden = true;
-  if (reviewPanel) reviewPanel.hidden = true;
+  setText('invoiceMixPeriodLabel', '—');
   setInvoiceMixStatus(message || 'Completed invoice data unavailable.', 'warning');
 }
 
