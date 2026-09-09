@@ -155,6 +155,11 @@
           label: 'Callback Tracking',
           href: 'callback-tracking.html',
           roles: ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'Service Revenue Analysis',
+          href: 'service-revenue-analysis.html',
+          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
