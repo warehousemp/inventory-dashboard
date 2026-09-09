@@ -874,6 +874,85 @@
       }
     }
 
+  
+    .summary-reporting-controls {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+
+    .summary-controls-title {
+      margin: 0 0 12px;
+      color: var(--header);
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .summary-controls-note {
+      margin-bottom: 16px;
+      padding: 13px 15px;
+      border: 1px solid #bbf7d0;
+      border-radius: 9px;
+      background: #ecfdf3;
+      color: #075985;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .summary-reporting-controls .filter-panel {
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .summary-controls-grid {
+      grid-template-columns: minmax(260px, 1.1fr) minmax(190px, .9fr) minmax(190px, .9fr) minmax(220px, 1.1fr);
+    }
+
+    .summary-refresh-button {
+      width: 100%;
+    }
+
+    .quick-period-buttons {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(120px, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .quick-period-button {
+      min-height: 40px;
+      border: 1px solid var(--header);
+      border-radius: 8px;
+      background: var(--header);
+      color: #ffffff;
+      padding: 9px 11px;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .quick-period-button.active {
+      box-shadow: inset 0 0 0 2px #ffffff, 0 0 0 2px var(--header);
+    }
+
+    @media (max-width: 1450px) {
+      .quick-period-buttons { grid-template-columns: repeat(4, minmax(140px, 1fr)); }
+    }
+
+    @media (max-width: 900px) {
+      .summary-controls-grid { grid-template-columns: 1fr 1fr; }
+      .quick-period-buttons { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+    }
+
+    @media (max-width: 600px) {
+      .summary-controls-grid,
+      .quick-period-buttons { grid-template-columns: 1fr; }
+    }
+
   </style>
 </head>
 
@@ -984,13 +1063,61 @@
         <div class="section-heading">
           <div>
             <h2 class="section-title">Completed Invoice Revenue — Client Mix</h2>
-            <p class="section-description" id="invoiceMixDescription">High-level view of the latest completed Skimmer invoice week. Detailed invoice review and imports are available on Service Revenue Analysis.</p>
+            <p class="section-description" id="invoiceMixDescription">High-level completed invoice revenue view. Use the controls below to review historical imported periods; detailed invoice review and imports remain on Service Revenue Analysis.</p>
           </div>
           <a class="section-link" href="service-revenue-analysis.html">Open Service Revenue Analysis →</a>
         </div>
 
+        <div class="summary-reporting-controls">
+          <h3 class="summary-controls-title">Summary Reporting Controls</h3>
+
+          <div class="summary-controls-note">
+            These controls update the Service Manager invoice revenue summary cards below.
+            Reporting is based on completed imported invoice data, so Today, Yesterday, and This Week are intentionally excluded.
+          </div>
+
+          <div class="filter-panel summary-controls-grid">
+            <div class="filter-field">
+              <label for="invoiceDashboardPeriod">Period</label>
+              <select id="invoiceDashboardPeriod" onchange="handleInvoiceDashboardPeriodChange()">
+                <option value="last_completed_week" selected>Last Week</option>
+                <option value="last_4_weeks">Last 4 Weeks</option>
+                <option value="mtd">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="qtd">This Quarter</option>
+                <option value="last_quarter">Last Quarter</option>
+                <option value="fytd">This Fiscal Year</option>
+                <option value="custom">Custom Range</option>
+              </select>
+            </div>
+
+            <div class="filter-field">
+              <label for="invoiceDashboardStartDate">Start Date</label>
+              <input id="invoiceDashboardStartDate" type="date" disabled>
+            </div>
+
+            <div class="filter-field">
+              <label for="invoiceDashboardEndDate">End Date</label>
+              <input id="invoiceDashboardEndDate" type="date" disabled>
+            </div>
+
+            <button class="primary-button summary-refresh-button" id="invoiceDashboardRefreshButton" type="button" onclick="loadInvoiceClientMixSection()">REFRESH SUMMARY</button>
+          </div>
+
+          <div class="quick-period-buttons" aria-label="Quick invoice reporting periods">
+            <button type="button" class="quick-period-button active" data-invoice-period="last_completed_week" onclick="selectInvoiceDashboardQuickPeriod('last_completed_week')">Last Week</button>
+            <button type="button" class="quick-period-button" data-invoice-period="last_4_weeks" onclick="selectInvoiceDashboardQuickPeriod('last_4_weeks')">Last 4 Weeks</button>
+            <button type="button" class="quick-period-button" data-invoice-period="mtd" onclick="selectInvoiceDashboardQuickPeriod('mtd')">This Month</button>
+            <button type="button" class="quick-period-button" data-invoice-period="last_month" onclick="selectInvoiceDashboardQuickPeriod('last_month')">Last Month</button>
+            <button type="button" class="quick-period-button" data-invoice-period="qtd" onclick="selectInvoiceDashboardQuickPeriod('qtd')">This Quarter</button>
+            <button type="button" class="quick-period-button" data-invoice-period="last_quarter" onclick="selectInvoiceDashboardQuickPeriod('last_quarter')">Last Quarter</button>
+            <button type="button" class="quick-period-button" data-invoice-period="fytd" onclick="selectInvoiceDashboardQuickPeriod('fytd')">This Fiscal Year</button>
+            <button type="button" class="quick-period-button" data-invoice-period="custom" onclick="selectInvoiceDashboardQuickPeriod('custom')">Custom Range</button>
+          </div>
+        </div>
+
         <div class="invoice-overview-meta">
-          <span>Completed period: <strong id="invoiceMixPeriodLabel">—</strong></span>
+          <span>Selected period: <strong id="invoiceMixPeriodLabel">—</strong></span>
           <span>Invoice data through: <strong id="invoiceDataThrough">—</strong></span>
           <span id="invoiceLastImport">Last import: —</span>
         </div>
@@ -1472,17 +1599,34 @@ async function loadInvoiceClientMixSection() {
     return;
   }
 
-  const dataDate = parseDateISO(invoiceDataThroughDate);
-  const completedWeek = getWeekRange(dataDate);
-  const startDate = completedWeek.startDate;
-  const endDate = invoiceDataThroughDate;
+  const periodKey = document.getElementById('invoiceDashboardPeriod')?.value || 'last_completed_week';
+  updateInvoiceDashboardDateInputs(periodKey);
+
+  const startDate = document.getElementById('invoiceDashboardStartDate')?.value || '';
+  const endDate = document.getElementById('invoiceDashboardEndDate')?.value || '';
+
+  if (!startDate || !endDate) {
+    setInvoiceMixUnavailable('Select both a start date and end date.');
+    return;
+  }
+
+  if (startDate > endDate) {
+    setInvoiceMixUnavailable('Start date cannot be after end date.');
+    return;
+  }
+
+  if (endDate > invoiceDataThroughDate) {
+    setInvoiceMixUnavailable(`Invoice reporting is only available through ${formatDate(invoiceDataThroughDate)}.`);
+    return;
+  }
 
   setText('invoiceMixPeriodLabel', `${formatDate(startDate)} – ${formatDate(endDate)}`);
   setText(
     'invoiceMixDescription',
-    `High-level view of the latest completed Skimmer invoice week (${formatDate(startDate)} – ${formatDate(endDate)}). Open Service Revenue Analysis for invoice detail, unmatched review, historical periods, and imports.`
+    `High-level completed invoice revenue for ${formatDate(startDate)} – ${formatDate(endDate)}. Open Service Revenue Analysis for invoice detail, classification review, historical imports, and supporting line items.`
   );
-  setInvoiceMixStatus('Loading latest completed invoice client mix...');
+
+  setInvoiceMixStatus('Loading completed invoice client mix...');
 
   const { data, error } = await client.rpc(INVOICE_MIX_SUMMARY_RPC, {
     p_start_date: startDate,
@@ -1495,6 +1639,107 @@ async function loadInvoiceClientMixSection() {
   }
 
   renderInvoiceClientMix(data, startDate, endDate);
+}
+
+function handleInvoiceDashboardPeriodChange() {
+  if (!invoiceDataThroughDate) return;
+  const key = document.getElementById('invoiceDashboardPeriod')?.value || 'last_completed_week';
+  updateInvoiceDashboardDateInputs(key);
+  updateInvoiceDashboardQuickButtons(key);
+}
+
+async function selectInvoiceDashboardQuickPeriod(periodKey) {
+  if (!invoiceDataThroughDate) return;
+
+  const select = document.getElementById('invoiceDashboardPeriod');
+  if (select) select.value = periodKey;
+
+  updateInvoiceDashboardDateInputs(periodKey);
+  updateInvoiceDashboardQuickButtons(periodKey);
+
+  if (periodKey === 'custom') {
+    document.getElementById('invoiceDashboardStartDate')?.focus();
+    return;
+  }
+
+  await loadInvoiceClientMixSection();
+}
+
+function updateInvoiceDashboardQuickButtons(periodKey) {
+  document.querySelectorAll('.quick-period-button[data-invoice-period]').forEach(button => {
+    button.classList.toggle('active', button.dataset.invoicePeriod === periodKey);
+  });
+}
+
+function updateInvoiceDashboardDateInputs(periodKey) {
+  const startInput = document.getElementById('invoiceDashboardStartDate');
+  const endInput = document.getElementById('invoiceDashboardEndDate');
+  if (!startInput || !endInput || !invoiceDataThroughDate) return;
+
+  const isCustom = periodKey === 'custom';
+  startInput.disabled = !isCustom;
+  endInput.disabled = !isCustom;
+  startInput.max = invoiceDataThroughDate;
+  endInput.max = invoiceDataThroughDate;
+
+  if (isCustom) {
+    if (!startInput.value || startInput.value > invoiceDataThroughDate) {
+      startInput.value = getInvoiceDashboardPeriodRange('last_completed_week').startDate;
+    }
+    if (!endInput.value || endInput.value > invoiceDataThroughDate) {
+      endInput.value = invoiceDataThroughDate;
+    }
+    return;
+  }
+
+  const range = getInvoiceDashboardPeriodRange(periodKey);
+  startInput.value = range.startDate;
+  endInput.value = range.endDate;
+}
+
+function getInvoiceDashboardPeriodRange(periodKey) {
+  const dataDate = parseDateISO(invoiceDataThroughDate);
+  const dataWeek = getWeekRange(dataDate);
+
+  if (periodKey === 'last_completed_week') {
+    return { startDate: dataWeek.startDate, endDate: invoiceDataThroughDate };
+  }
+
+  if (periodKey === 'last_4_weeks') {
+    return {
+      startDate: toDateISO(addDays(parseDateISO(dataWeek.startDate), -21)),
+      endDate: invoiceDataThroughDate
+    };
+  }
+
+  if (periodKey === 'mtd') {
+    return {
+      startDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth(), 1)),
+      endDate: invoiceDataThroughDate
+    };
+  }
+
+  if (periodKey === 'last_month') {
+    return {
+      startDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth() - 1, 1)),
+      endDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth(), 0))
+    };
+  }
+
+  if (periodKey === 'last_quarter') {
+    const currentQuarter = getFiscalQuarterRange(dataDate);
+    return getFiscalQuarterRange(addDays(parseDateISO(currentQuarter.startDate), -1));
+  }
+
+  if (periodKey === 'fytd') {
+    const fiscalStartYear = dataDate.getMonth() >= 6 ? dataDate.getFullYear() : dataDate.getFullYear() - 1;
+    return {
+      startDate: toDateISO(new Date(fiscalStartYear, 6, 1)),
+      endDate: invoiceDataThroughDate
+    };
+  }
+
+  return getFiscalQuarterRange(dataDate, true);
 }
 
 async function loadInvoiceDataMetadata() {
