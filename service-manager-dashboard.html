@@ -312,6 +312,96 @@
       opacity: 0.92;
     }
 
+    .invoice-freshness {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .invoice-freshness strong {
+      color: var(--header);
+      font-size: 13px;
+    }
+
+    .invoice-mix-filter-panel {
+      grid-template-columns: minmax(250px, 1fr) minmax(150px, 0.55fr) minmax(150px, 0.55fr) auto;
+    }
+
+    .invoice-mix-status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: white;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .invoice-mix-status.warning {
+      background: var(--warning-soft);
+      border-color: #fed7aa;
+      color: #9a3412;
+    }
+
+    .invoice-mix-status.success {
+      background: var(--success-soft);
+      border-color: #bbf7d0;
+      color: #14532d;
+    }
+
+    .invoice-import-panel {
+      margin-top: 14px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #ffffff;
+    }
+
+    .invoice-import-panel[hidden] {
+      display: none !important;
+    }
+
+    .invoice-import-panel h3 {
+      margin: 0 0 7px;
+      color: var(--header);
+      font-size: 16px;
+    }
+
+    .invoice-import-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin-top: 12px;
+    }
+
+    .invoice-import-note {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .invoice-import-message {
+      margin-top: 10px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .invoice-import-message.error { color: var(--danger); }
+    .invoice-import-message.success { color: var(--success); }
+    .invoice-import-message.info { color: var(--header); }
+
+    .invoice-import-result {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
     .metric-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(210px, 1fr));
@@ -320,10 +410,6 @@
 
     .metric-grid.five {
       grid-template-columns: repeat(5, minmax(190px, 1fr));
-    }
-
-    .metric-grid.six {
-      grid-template-columns: repeat(6, minmax(175px, 1fr));
     }
 
     .metric-card {
@@ -541,16 +627,14 @@
 
     @media (max-width: 1380px) {
       .metric-grid,
-      .metric-grid.five,
-      .metric-grid.six {
+      .metric-grid.five {
         grid-template-columns: repeat(3, minmax(210px, 1fr));
       }
     }
 
     @media (max-width: 1060px) {
       .metric-grid,
-      .metric-grid.five,
-      .metric-grid.six {
+      .metric-grid.five {
         grid-template-columns: repeat(2, minmax(210px, 1fr));
       }
 
@@ -581,7 +665,6 @@
 
       .metric-grid,
       .metric-grid.five,
-      .metric-grid.six,
       .filter-panel {
         grid-template-columns: 1fr;
       }
@@ -598,6 +681,13 @@
         align-items: flex-start;
       }
     }
+
+    @media (max-width: 820px) {
+      .invoice-mix-filter-panel,
+      .invoice-import-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 
@@ -609,7 +699,7 @@
     <header class="header-bar">
       <div>
         <div class="header-title">Molinari Pools – Service Manager Dashboard</div>
-        <div class="header-subtitle">Service production, Route Sales Opportunities, route operations, inventory, and PPV payroll overview</div>
+        <div class="header-subtitle">Service production, route operations, inventory, and PPV payroll overview</div>
       </div>
       <div class="header-actions">
         <button id="refreshDashboardButton" class="header-button" type="button" onclick="refreshDashboard()">REFRESH DASHBOARD</button>
@@ -704,61 +794,96 @@
         </div>
       </section>
 
-      <section class="section" id="rsoDashboardSection">
+      <section class="section" id="invoiceClientMixSection">
         <div class="section-heading">
           <div>
-            <h2 class="section-title">Route Sales Opportunities</h2>
-            <p class="section-description">Quarterly pre-authorization tracking for Route Tech and Route Tech Leader opportunities. This data is not payroll.</p>
+            <h2 class="section-title">Completed Invoice Revenue — Client Mix</h2>
+            <p class="section-description" id="invoiceMixDescription">Historical Skimmer invoice reporting. This section only reports through the latest imported invoice date and never treats the current week as complete.</p>
           </div>
-          <a class="section-link hidden" id="rsoTrackingLink" href="rso-tracking.html">Open RSO Tracking →</a>
+          <div class="invoice-freshness">
+            <span>Invoice Data Through:</span>
+            <strong id="invoiceDataThrough">—</strong>
+            <span id="invoiceLastImport">Last import: —</span>
+          </div>
         </div>
 
-        <div class="filter-panel" style="grid-template-columns:minmax(320px,1fr) auto;">
+        <div class="filter-panel invoice-mix-filter-panel">
           <div class="filter-field">
-            <label for="rsoQuarterSelect">Tracking Quarter</label>
-            <select id="rsoQuarterSelect" onchange="renderSelectedRsoSummary()">
-              <option value="">Loading tracking quarters...</option>
+            <label for="invoiceMixPeriodFilter">Completed Reporting Period</label>
+            <select id="invoiceMixPeriodFilter" onchange="handleInvoiceMixPeriodChange()">
+              <option value="last_completed_week" selected>Last Completed Week</option>
+              <option value="last_4_weeks">Last 4 Completed Weeks</option>
+              <option value="mtd">Month to Date — Through Imported Data</option>
+              <option value="last_month">Previous Month</option>
+              <option value="qtd">Quarter to Date — Through Imported Data</option>
+              <option value="last_quarter">Previous Quarter</option>
+              <option value="fytd">Fiscal Year to Date — Through Imported Data</option>
+              <option value="custom">Custom Completed Period</option>
             </select>
           </div>
-          <button class="primary-button" id="refreshRsoButton" type="button" onclick="loadRsoQuarterSummary()">REFRESH RSO DATA</button>
+
+          <div class="filter-field">
+            <label for="invoiceMixStartDate">Start Date</label>
+            <input id="invoiceMixStartDate" type="date" disabled>
+          </div>
+
+          <div class="filter-field">
+            <label for="invoiceMixEndDate">End Date</label>
+            <input id="invoiceMixEndDate" type="date" disabled>
+          </div>
+
+          <button class="primary-button" id="runInvoiceMixButton" type="button" onclick="loadSelectedInvoiceMixPeriod()">RUN PERIOD</button>
         </div>
 
-        <div class="metric-grid six">
+        <div class="metric-grid five">
           <article class="metric-card">
-            <div class="metric-label">Total Generated</div>
-            <div class="metric-value" id="rsoTotalGenerated">$0.00</div>
-            <div class="metric-sub" id="rsoTotalGeneratedSub">0 opportunities</div>
+            <div class="metric-label">Service Invoice Revenue</div>
+            <div class="metric-value" id="invoiceMixTotalRevenue">$0.00</div>
+            <div class="metric-sub">Existing Route + Non-Route qualifying Service revenue</div>
           </article>
 
           <article class="metric-card">
-            <div class="metric-label">Approved</div>
-            <div class="metric-value" id="rsoApprovedValue">$0.00</div>
-            <div class="metric-sub" id="rsoApprovedSub">0 · $0.00 tracking commission</div>
+            <div class="metric-label">Existing Route Client Revenue</div>
+            <div class="metric-value" id="invoiceMixExistingRevenue">$0.00</div>
+            <div class="metric-sub" id="invoiceMixExistingPercent">0.0% of classified Service invoice revenue</div>
           </article>
 
           <article class="metric-card">
-            <div class="metric-label">Sent Pipeline</div>
-            <div class="metric-value" id="rsoSentValue">$0.00</div>
-            <div class="metric-sub" id="rsoSentSub">0 · $0.00 potential commission</div>
+            <div class="metric-label">Non-Route Client Revenue</div>
+            <div class="metric-value" id="invoiceMixNonRouteRevenue">$0.00</div>
+            <div class="metric-sub" id="invoiceMixNonRoutePercent">0.0% of classified Service invoice revenue</div>
           </article>
 
           <article class="metric-card">
-            <div class="metric-label">Rejected</div>
-            <div class="metric-value" id="rsoRejectedValue">$0.00</div>
-            <div class="metric-sub" id="rsoRejectedSub">0 opportunities</div>
+            <div class="metric-label">Route Cleaning Excluded</div>
+            <div class="metric-value" id="invoiceMixRecurringExcluded">$0.00</div>
+            <div class="metric-sub" id="invoiceMixRecurringCount">0 normal recurring Route Cleaning invoices excluded</div>
           </article>
 
           <article class="metric-card">
-            <div class="metric-label">Expired</div>
-            <div class="metric-value" id="rsoExpiredValue">$0.00</div>
-            <div class="metric-sub" id="rsoExpiredSub">0 opportunities</div>
+            <div class="metric-label">Unmatched / Review</div>
+            <div class="metric-value" id="invoiceMixUnmatchedSales">$0.00</div>
+            <div class="metric-sub" id="invoiceMixUnmatchedCount">0 invoices requiring review</div>
           </article>
+        </div>
 
-          <article class="metric-card">
-            <div class="metric-label">Approval Rate</div>
-            <div class="metric-value" id="rsoApprovalRate">0.0%</div>
-            <div class="metric-sub">Approved opportunities ÷ total generated</div>
-          </article>
+        <div id="invoiceMixStatus" class="invoice-mix-status">Waiting for invoice reporting data...</div>
+
+        <div class="invoice-import-panel" id="skimmerInvoiceImportPanel" hidden>
+          <h3>Import Skimmer Invoices</h3>
+          <div class="section-description">
+            ADMIN and SYSTEM_ADMIN can upload the weekly Skimmer Invoices CSV here. Invoice # updates existing records instead of creating duplicates. Route Cleaning invoices are identified from the Skimmer customer rate snapshot and excluded from Service revenue.
+          </div>
+          <div class="invoice-import-grid">
+            <div class="filter-field">
+              <label for="skimmerInvoiceImportFile">Skimmer Invoices CSV</label>
+              <input id="skimmerInvoiceImportFile" type="file" accept=".csv,text/csv">
+              <div class="invoice-import-note" id="skimmerInvoiceImportFileNote">No file selected.</div>
+            </div>
+            <button class="primary-button" id="skimmerInvoiceImportButton" type="button" onclick="importSkimmerInvoicesCsv()">IMPORT INVOICES</button>
+          </div>
+          <div id="skimmerInvoiceImportMessage" class="invoice-import-message"></div>
+          <div id="skimmerInvoiceImportResult" class="invoice-import-result"></div>
         </div>
       </section>
 
@@ -796,27 +921,6 @@
             <div class="metric-value" id="assessmentReviewCount">0</div>
             <div class="metric-sub">Missing assignment/customer match or flagged review status</div>
           </article>
-        </div>
-      </section>
-
-      <section class="section" id="routeRevenueDashboardSection">
-        <div class="section-heading">
-          <div>
-            <h2 class="section-title">Assigned Route Revenue</h2>
-            <p class="section-description" id="routeRevenueDescription">Annualized value of current Route Assignments PDF clients using Service History rates; approved $0 accounts are verified by Annual Filter Planning tags.</p>
-          </div>
-          <a class="section-link" href="route-assignment-validation.html">Open Route Assignment Validation →</a>
-        </div>
-        <div class="metric-grid five">
-          <article class="metric-card"><div class="metric-label">Monthly Route Revenue</div><div class="metric-value" id="routeMonthlyRevenue">$0.00</div><div class="metric-sub" id="routeRevenueSourceWeek">No report loaded</div></article>
-          <article class="metric-card"><div class="metric-label">Annualized Route Revenue</div><div class="metric-value" id="routeAnnualRevenue">$0.00</div><div class="metric-sub">Unique assigned client/location monthly rates × 12</div></article>
-          <article class="metric-card"><div class="metric-label">Assigned Stops</div><div class="metric-value" id="routeAssignedStops">0</div><div class="metric-sub">Latest Route Assignments PDF</div></article>
-          <article class="metric-card"><div class="metric-label">Assigned Client Locations</div><div class="metric-value" id="routeAssignedLocations">0</div><div class="metric-sub">Unique customer/location records</div></article>
-          <article class="metric-card"><div class="metric-label">Missing Revenue</div><div class="metric-value" id="routeMissingRevenue">0</div><div class="metric-sub">Zero or missing rates, excluding approved $0 customer tags</div></article>
-        </div>
-        <div class="split-layout" style="margin-top:14px;">
-          <div class="panel"><h3>Route Tech Route Value</h3><p class="panel-subtitle">Current assignment value ranked by annualized revenue.</p><div style="overflow:auto;"><table class="source-table"><thead><tr><th>Route Tech</th><th>Leader</th><th>Stops</th><th>Monthly</th><th>Annualized</th></tr></thead><tbody id="dashboardRouteTechRevenueBody"><tr><td colspan="5">Loading...</td></tr></tbody></table></div></div>
-          <div class="panel"><h3>Route Tech Leader Value</h3><p class="panel-subtitle">Leader route plus assigned Route Tech routes.</p><div style="overflow:auto;"><table class="source-table"><thead><tr><th>Leader</th><th>RTs</th><th>Stops</th><th>Annualized</th></tr></thead><tbody id="dashboardRouteLeaderRevenueBody"><tr><td colspan="4">Loading...</td></tr></tbody></table></div></div>
         </div>
       </section>
 
@@ -959,8 +1063,6 @@
               <tbody>
                 <tr><td>Assessments</td><td>client_mechanical_assessment_tracking_view</td></tr>
                 <tr><td>Revenue</td><td>Revenue summary and goal RPCs</td></tr>
-                <tr><td>Route Sales Opportunities</td><td>get_rso_service_manager_quarterly_summary</td></tr>
-                <tr><td>Assigned Route Revenue</td><td>route_assignment_revenue_by_tech_view and route_assignment_revenue_by_leader_view</td></tr>
                 <tr><td>Inventory</td><td>inventory_fifo_vs_current_valuation_view</td></tr>
                 <tr><td>Serialized Value</td><td>inventory_part_lookup_view</td></tr>
                 <tr><td>UAG</td><td>uag_bulk_batch_summary_all_view</td></tr>
@@ -982,24 +1084,26 @@ const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const ALLOWED_ROLES = ['SYSTEM_ADMIN', 'ADMIN', 'SERVICE'];
+const ALLOWED_ROLES = ['SYSTEM_ADMIN', 'ADMIN', 'SERVICE_MANAGER'];
 
 const REVENUE_SUMMARY_RPC = 'get_client_services_revenue_transaction_summary';
 const REVENUE_GOAL_RPC = 'get_client_services_revenue_goal_targets';
+const INVOICE_MIX_SUMMARY_RPC = 'get_client_services_invoice_mix_summary';
+const INVOICE_IMPORT_RPC = 'import_client_services_skimmer_invoices';
+const INVOICE_REPORTING_VIEW = 'client_services_invoice_client_mix_reporting_view';
 const MECHANICAL_ASSESSMENT_VIEW = 'client_mechanical_assessment_tracking_view';
 const INVENTORY_VALUATION_VIEW = 'inventory_fifo_vs_current_valuation_view';
 const SERIALIZED_VALUATION_VIEW = 'inventory_part_lookup_view';
 const UAG_SUMMARY_VIEW = 'uag_bulk_batch_summary_all_view';
 const PPV_PAY_PERIODS_TABLE = 'ppv_pay_periods';
 const PPV_SUMMARY_VIEW = 'ppv_live_pay_period_summary_view';
-const RSO_SUMMARY_RPC = 'get_rso_service_manager_quarterly_summary';
-const ROUTE_REVENUE_TECH_VIEW = 'route_assignment_revenue_by_tech_view';
-const ROUTE_REVENUE_LEADER_VIEW = 'route_assignment_revenue_by_leader_view';
 
 let currentProfile = null;
 let currentSession = null;
 let currentPayPeriods = [];
-let currentRsoQuarters = [];
+let invoiceDataThroughDate = '';
+let invoiceLastImportAt = '';
+let invoiceLastImportFile = '';
 
 const dashboardAttention = {
   assessmentPending: 0,
@@ -1013,6 +1117,8 @@ window.addEventListener('load', async () => {
   if (!hasAccess) return;
 
   initializeRevenuePeriod();
+  initializeInvoiceMixControls();
+  updateSkimmerInvoiceImportVisibility();
   await refreshDashboard();
 });
 
@@ -1076,17 +1182,13 @@ async function enforceDashboardAccess() {
 
   if (!ALLOWED_ROLES.includes(profile.role)) {
     showAccessGate(
-      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profile.role}\n\nThis page requires SYSTEM_ADMIN, ADMIN, or SERVICE access.`,
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profile.role}\n\nThis page requires SYSTEM_ADMIN, ADMIN, or SERVICE_MANAGER access.`,
       'danger'
     );
     return false;
   }
 
   currentProfile = profile;
-  document.getElementById('rsoTrackingLink')?.classList.toggle(
-    'hidden',
-    !['ADMIN', 'SYSTEM_ADMIN'].includes(profile.role)
-  );
   showDashboardContent();
   return true;
 }
@@ -1123,9 +1225,8 @@ async function refreshDashboard() {
 
   const results = await Promise.allSettled([
     loadSelectedRevenuePeriod(),
+    loadInvoiceClientMixSection(),
     loadMechanicalAssessmentSummary(),
-    loadRouteRevenueSummary(),
-    loadRsoQuarterSummary(),
     loadInventorySummary(),
     loadUagSummary(),
     loadPayPeriodsAndSummary()
@@ -1148,6 +1249,448 @@ async function refreshDashboard() {
   if (refreshButton) {
     refreshButton.disabled = false;
     refreshButton.textContent = 'REFRESH DASHBOARD';
+  }
+}
+
+function initializeInvoiceMixControls() {
+  const filter = document.getElementById('invoiceMixPeriodFilter');
+  if (filter) filter.value = 'last_completed_week';
+
+  const fileInput = document.getElementById('skimmerInvoiceImportFile');
+  if (fileInput && !fileInput.dataset.bound) {
+    fileInput.dataset.bound = 'true';
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files?.[0];
+      setText('skimmerInvoiceImportFileNote', file ? `${file.name} (${file.size.toLocaleString()} bytes)` : 'No file selected.');
+      setText('skimmerInvoiceImportResult', '');
+      setInvoiceImportMessage('', '');
+    });
+  }
+}
+
+function updateSkimmerInvoiceImportVisibility() {
+  const panel = document.getElementById('skimmerInvoiceImportPanel');
+  if (!panel) return;
+  panel.hidden = !['ADMIN', 'SYSTEM_ADMIN'].includes(String(currentProfile?.role || ''));
+}
+
+async function loadInvoiceClientMixSection() {
+  const metadataLoaded = await loadInvoiceDataMetadata();
+
+  if (!metadataLoaded || !invoiceDataThroughDate) {
+    setInvoiceMixUnavailable('No Skimmer invoice data has been imported yet.');
+    return;
+  }
+
+  updateInvoiceMixDateInputs(document.getElementById('invoiceMixPeriodFilter')?.value || 'last_completed_week');
+  await loadSelectedInvoiceMixPeriod();
+}
+
+async function loadInvoiceDataMetadata() {
+  const [throughResponse, importResponse] = await Promise.all([
+    client
+      .from(INVOICE_REPORTING_VIEW)
+      .select('invoice_date')
+      .order('invoice_date', { ascending: false })
+      .limit(1),
+    client
+      .from(INVOICE_REPORTING_VIEW)
+      .select('source_file_name,last_imported_at')
+      .order('last_imported_at', { ascending: false })
+      .limit(1)
+  ]);
+
+  if (throughResponse.error) {
+    setInvoiceMixUnavailable('Unable to determine the latest imported invoice date: ' + throughResponse.error.message);
+    throw throughResponse.error;
+  }
+
+  if (importResponse.error) {
+    setInvoiceMixUnavailable('Unable to determine the latest invoice import: ' + importResponse.error.message);
+    throw importResponse.error;
+  }
+
+  invoiceDataThroughDate = throughResponse.data?.[0]?.invoice_date || '';
+  invoiceLastImportAt = importResponse.data?.[0]?.last_imported_at || '';
+  invoiceLastImportFile = importResponse.data?.[0]?.source_file_name || '';
+
+  const startInput = document.getElementById('invoiceMixStartDate');
+  const endInput = document.getElementById('invoiceMixEndDate');
+  if (startInput) startInput.max = invoiceDataThroughDate || '';
+  if (endInput) endInput.max = invoiceDataThroughDate || '';
+
+  setText('invoiceDataThrough', invoiceDataThroughDate ? formatDate(invoiceDataThroughDate) : 'No data');
+
+  if (invoiceLastImportAt) {
+    const importedAt = new Date(invoiceLastImportAt);
+    const importText = Number.isNaN(importedAt.getTime())
+      ? String(invoiceLastImportAt)
+      : importedAt.toLocaleString('en-US');
+    setText('invoiceLastImport', `Last import: ${importText}${invoiceLastImportFile ? ` · ${invoiceLastImportFile}` : ''}`);
+  } else {
+    setText('invoiceLastImport', 'Last import: —');
+  }
+
+  return Boolean(invoiceDataThroughDate);
+}
+
+function handleInvoiceMixPeriodChange() {
+  if (!invoiceDataThroughDate) return;
+  const periodKey = document.getElementById('invoiceMixPeriodFilter')?.value || 'last_completed_week';
+  updateInvoiceMixDateInputs(periodKey);
+  if (periodKey !== 'custom') loadSelectedInvoiceMixPeriod();
+}
+
+function updateInvoiceMixDateInputs(periodKey) {
+  const startInput = document.getElementById('invoiceMixStartDate');
+  const endInput = document.getElementById('invoiceMixEndDate');
+  if (!startInput || !endInput || !invoiceDataThroughDate) return;
+
+  const isCustom = periodKey === 'custom';
+  startInput.disabled = !isCustom;
+  endInput.disabled = !isCustom;
+  startInput.max = invoiceDataThroughDate;
+  endInput.max = invoiceDataThroughDate;
+
+  if (!isCustom) {
+    const range = getInvoiceMixPeriodRange(periodKey);
+    startInput.value = range.startDate;
+    endInput.value = range.endDate;
+  } else {
+    if (!startInput.value || startInput.value > invoiceDataThroughDate) {
+      startInput.value = getInvoiceMixPeriodRange('last_completed_week').startDate;
+    }
+    if (!endInput.value || endInput.value > invoiceDataThroughDate) {
+      endInput.value = invoiceDataThroughDate;
+    }
+  }
+}
+
+function getInvoiceMixPeriodRange(periodKey) {
+  const dataDate = parseDateISO(invoiceDataThroughDate);
+  const dataThrough = invoiceDataThroughDate;
+  const dataWeek = getWeekRange(dataDate);
+
+  if (periodKey === 'last_completed_week') {
+    return { startDate: dataWeek.startDate, endDate: dataThrough };
+  }
+
+  if (periodKey === 'last_4_weeks') {
+    return {
+      startDate: toDateISO(addDays(parseDateISO(dataWeek.startDate), -21)),
+      endDate: dataThrough
+    };
+  }
+
+  if (periodKey === 'mtd') {
+    return {
+      startDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth(), 1)),
+      endDate: dataThrough
+    };
+  }
+
+  if (periodKey === 'last_month') {
+    return {
+      startDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth() - 1, 1)),
+      endDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth(), 0))
+    };
+  }
+
+  if (periodKey === 'last_quarter') {
+    const currentQuarter = getFiscalQuarterRange(dataDate);
+    return getFiscalQuarterRange(addDays(parseDateISO(currentQuarter.startDate), -1));
+  }
+
+  if (periodKey === 'fytd') {
+    const fiscalStartYear = dataDate.getMonth() >= 6 ? dataDate.getFullYear() : dataDate.getFullYear() - 1;
+    return {
+      startDate: toDateISO(new Date(fiscalStartYear, 6, 1)),
+      endDate: dataThrough
+    };
+  }
+
+  return getFiscalQuarterRange(dataDate, true);
+}
+
+async function loadSelectedInvoiceMixPeriod() {
+  if (!invoiceDataThroughDate) {
+    setInvoiceMixUnavailable('No imported invoice data is available.');
+    return;
+  }
+
+  const periodKey = document.getElementById('invoiceMixPeriodFilter')?.value || 'last_completed_week';
+  const startInput = document.getElementById('invoiceMixStartDate');
+  const endInput = document.getElementById('invoiceMixEndDate');
+
+  if (periodKey !== 'custom') updateInvoiceMixDateInputs(periodKey);
+
+  const startDate = startInput?.value || '';
+  const endDate = endInput?.value || '';
+
+  if (!startDate || !endDate) {
+    setInvoiceMixUnavailable('Select both a start date and end date.');
+    return;
+  }
+
+  if (startDate > endDate) {
+    setInvoiceMixUnavailable('Invoice reporting start date cannot be after the end date.');
+    return;
+  }
+
+  if (endDate > invoiceDataThroughDate) {
+    setInvoiceMixUnavailable(`Invoice reporting is only available through ${formatDate(invoiceDataThroughDate)}.`);
+    return;
+  }
+
+  setText(
+    'invoiceMixDescription',
+    `${formatDate(startDate)} – ${formatDate(endDate)} completed invoice reporting. Data is capped at the latest imported invoice date: ${formatDate(invoiceDataThroughDate)}.`
+  );
+  setInvoiceMixStatus('Loading completed invoice client mix...');
+
+  const button = document.getElementById('runInvoiceMixButton');
+  if (button) button.disabled = true;
+
+  try {
+    const { data, error } = await client.rpc(INVOICE_MIX_SUMMARY_RPC, {
+      p_start_date: startDate,
+      p_end_date: endDate
+    });
+
+    if (error) throw error;
+    renderInvoiceClientMix(data, startDate, endDate);
+  } catch (error) {
+    setInvoiceMixUnavailable('Unable to load completed invoice client mix: ' + (error?.message || error));
+    throw error;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function renderInvoiceClientMix(data, startDate, endDate) {
+  const row = Array.isArray(data) ? (data[0] || {}) : (data || {});
+  const existing = numberValue(row.existing_route_revenue);
+  const nonRoute = numberValue(row.non_route_revenue);
+  const classified = numberValue(row.classified_revenue || (existing + nonRoute));
+  const existingPct = numberValue(row.existing_route_pct);
+  const nonRoutePct = numberValue(row.non_route_pct);
+  const recurringExcluded = numberValue(row.recurring_route_sales_excluded);
+  const recurringCount = numberValue(row.recurring_route_invoice_count);
+  const unmatchedCount = numberValue(row.unmatched_invoice_count);
+  const unmatchedSales = numberValue(row.unmatched_invoice_sales);
+
+  setText('invoiceMixTotalRevenue', formatCurrency(classified));
+  setText('invoiceMixExistingRevenue', formatCurrency(existing));
+  setText('invoiceMixExistingPercent', `${existingPct.toFixed(1)}% of classified Service invoice revenue`);
+  setText('invoiceMixNonRouteRevenue', formatCurrency(nonRoute));
+  setText('invoiceMixNonRoutePercent', `${nonRoutePct.toFixed(1)}% of classified Service invoice revenue`);
+  setText('invoiceMixRecurringExcluded', formatCurrency(recurringExcluded));
+  setText('invoiceMixRecurringCount', `${formatNumber(recurringCount)} normal recurring Route Cleaning invoice${recurringCount === 1 ? '' : 's'} excluded`);
+  setText('invoiceMixUnmatchedSales', formatCurrency(unmatchedSales));
+  setText('invoiceMixUnmatchedCount', `${formatNumber(unmatchedCount)} invoice${unmatchedCount === 1 ? '' : 's'} requiring review`);
+
+  const unmatchedNote = unmatchedCount > 0
+    ? ` ${formatNumber(unmatchedCount)} unmatched invoice${unmatchedCount === 1 ? '' : 's'} totaling ${formatCurrency(unmatchedSales)} are excluded until reviewed.`
+    : ' No unmatched invoices are affecting this period.';
+
+  setInvoiceMixStatus(
+    `${formatDate(startDate)} – ${formatDate(endDate)}: ${formatCurrency(existing)} Existing Route (${existingPct.toFixed(1)}%) vs. ${formatCurrency(nonRoute)} Non-Route (${nonRoutePct.toFixed(1)}%).${unmatchedNote}`,
+    unmatchedCount > 0 ? 'warning' : 'success'
+  );
+}
+
+function setInvoiceMixUnavailable(message) {
+  setText('invoiceMixTotalRevenue', 'Unavailable');
+  setText('invoiceMixExistingRevenue', 'Unavailable');
+  setText('invoiceMixNonRouteRevenue', 'Unavailable');
+  setText('invoiceMixRecurringExcluded', 'Unavailable');
+  setText('invoiceMixUnmatchedSales', 'Unavailable');
+  setText('invoiceMixExistingPercent', 'Completed invoice data unavailable');
+  setText('invoiceMixNonRoutePercent', 'Completed invoice data unavailable');
+  setText('invoiceMixRecurringCount', '—');
+  setText('invoiceMixUnmatchedCount', '—');
+  setInvoiceMixStatus(message || 'Completed invoice data unavailable.', 'warning');
+}
+
+function setInvoiceMixStatus(message, type = '') {
+  const element = document.getElementById('invoiceMixStatus');
+  if (!element) return;
+  element.textContent = message;
+  element.className = 'invoice-mix-status' + (type ? ` ${type}` : '');
+}
+
+function setInvoiceImportMessage(type, message) {
+  const element = document.getElementById('skimmerInvoiceImportMessage');
+  if (!element) return;
+  element.className = 'invoice-import-message' + (type ? ` ${type}` : '');
+  element.textContent = message || '';
+}
+
+function normalizeCsvHeader(value) {
+  return String(value || '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function parseCsvText(csvText) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < csvText.length; i += 1) {
+    const char = csvText[i];
+    const next = csvText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        field += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      row.push(field);
+      field = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') i += 1;
+      row.push(field);
+      if (row.some(value => String(value).trim() !== '')) rows.push(row);
+      row = [];
+      field = '';
+      continue;
+    }
+
+    field += char;
+  }
+
+  row.push(field);
+  if (row.some(value => String(value).trim() !== '')) rows.push(row);
+  return rows;
+}
+
+function findCsvColumn(headerMap, aliases) {
+  for (const alias of aliases) {
+    const normalized = normalizeCsvHeader(alias);
+    if (headerMap.has(normalized)) return headerMap.get(normalized);
+  }
+  return -1;
+}
+
+function buildSkimmerInvoiceImportRows(csvText) {
+  const parsed = parseCsvText(csvText);
+  if (parsed.length < 2) throw new Error('The invoice CSV does not contain any data rows.');
+
+  const headers = parsed[0].map(normalizeCsvHeader);
+  const map = new Map(headers.map((header, index) => [header, index]));
+  const required = {
+    invoiceNumber: findCsvColumn(map, ['invoice #', 'invoice number']),
+    customer: findCsvColumn(map, ['customer', 'customer name']),
+    location: findCsvColumn(map, ['location', 'service location', 'service address']),
+    city: findCsvColumn(map, ['city', 'location city']),
+    state: findCsvColumn(map, ['state', 'location state']),
+    invoiceDate: findCsvColumn(map, ['invoice date', 'date']),
+    balance: findCsvColumn(map, ['balance']),
+    status: findCsvColumn(map, ['status', 'invoice status']),
+    subtotal: findCsvColumn(map, ['subtotal']),
+    tax: findCsvColumn(map, ['tax']),
+    totalSales: findCsvColumn(map, ['total sales', 'total'])
+  };
+
+  const labels = {
+    invoiceNumber: 'Invoice #',
+    customer: 'Customer',
+    location: 'Location',
+    city: 'City',
+    state: 'State',
+    invoiceDate: 'Invoice Date',
+    balance: 'Balance',
+    status: 'Status',
+    subtotal: 'Subtotal',
+    tax: 'Tax',
+    totalSales: 'Total Sales'
+  };
+
+  const missing = Object.entries(required)
+    .filter(([, index]) => index < 0)
+    .map(([key]) => labels[key]);
+
+  if (missing.length) {
+    throw new Error(`Required invoice column(s) not found: ${missing.join(', ')}.`);
+  }
+
+  return parsed.slice(1).map(values => ({
+    'Invoice #': String(values[required.invoiceNumber] || '').trim(),
+    'Customer': String(values[required.customer] || '').trim(),
+    'Location': String(values[required.location] || '').trim(),
+    'City': String(values[required.city] || '').trim(),
+    'State': String(values[required.state] || '').trim(),
+    'Invoice Date': String(values[required.invoiceDate] || '').trim(),
+    'Balance': String(values[required.balance] || '').trim(),
+    'Status': String(values[required.status] || '').trim(),
+    'Subtotal': String(values[required.subtotal] || '').trim(),
+    'Tax': String(values[required.tax] || '').trim(),
+    'Total Sales': String(values[required.totalSales] || '').trim()
+  })).filter(row => row['Invoice #'] && row['Invoice Date']);
+}
+
+async function importSkimmerInvoicesCsv() {
+  if (!['ADMIN', 'SYSTEM_ADMIN'].includes(String(currentProfile?.role || ''))) {
+    setInvoiceImportMessage('error', 'Only ADMIN or SYSTEM_ADMIN users can import Skimmer invoices.');
+    return;
+  }
+
+  const input = document.getElementById('skimmerInvoiceImportFile');
+  const file = input?.files?.[0];
+  if (!file) {
+    setInvoiceImportMessage('error', 'Select the Skimmer Invoices CSV first.');
+    return;
+  }
+
+  const button = document.getElementById('skimmerInvoiceImportButton');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'IMPORTING...';
+  }
+
+  try {
+    const rows = buildSkimmerInvoiceImportRows(await file.text());
+    if (!rows.length) throw new Error('No valid invoice rows were found.');
+
+    setInvoiceImportMessage('info', `Importing ${rows.length.toLocaleString()} invoice row(s)...`);
+
+    const response = await client.rpc(INVOICE_IMPORT_RPC, {
+      p_file_name: file.name,
+      p_rows: rows
+    });
+
+    if (response.error) throw response.error;
+
+    const result = Array.isArray(response.data) ? (response.data[0] || {}) : (response.data || {});
+    const summaryText =
+      `${numberValue(result.source_record_count || rows.length).toLocaleString()} rows processed · ` +
+      `${numberValue(result.inserted_record_count).toLocaleString()} new · ` +
+      `${numberValue(result.updated_record_count).toLocaleString()} updated · ` +
+      `${numberValue(result.existing_route_count).toLocaleString()} Existing Route · ` +
+      `${numberValue(result.non_route_count).toLocaleString()} Non-Route · ` +
+      `${numberValue(result.recurring_route_count).toLocaleString()} recurring Route Cleaning excluded · ` +
+      `${numberValue(result.unmatched_count).toLocaleString()} unmatched.`;
+
+    setText('skimmerInvoiceImportResult', summaryText);
+    setInvoiceImportMessage('success', 'Skimmer invoice import completed successfully.');
+    await loadInvoiceClientMixSection();
+  } catch (error) {
+    console.error('Skimmer invoice import failed:', error);
+    setInvoiceImportMessage('error', 'Unable to import Skimmer invoices: ' + (error?.message || error));
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'IMPORT INVOICES';
+    }
   }
 }
 
@@ -1429,108 +1972,6 @@ function setRevenueUnavailable(message) {
   setText('revenueLastUpdatedSub', 'Unable to load revenue data');
 }
 
-async function loadRsoQuarterSummary() {
-  const button = document.getElementById('refreshRsoButton');
-  const select = document.getElementById('rsoQuarterSelect');
-  const previousSelection = select?.value || '';
-
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'REFRESHING...';
-  }
-
-  try {
-    const { data, error } = await client.rpc(RSO_SUMMARY_RPC);
-
-    if (error) throw error;
-
-    currentRsoQuarters = Array.isArray(data) ? data : [];
-
-    if (!currentRsoQuarters.length) {
-      setRsoUnavailable('No tracking quarters are available.');
-      return;
-    }
-
-    if (select) {
-      select.replaceChildren();
-
-      currentRsoQuarters.forEach(row => {
-        const key = getRsoQuarterKey(row);
-        const label = `FY${row.fiscal_year} ${row.fiscal_quarter} · ${formatDate(row.quarter_start_date)}–${formatDate(row.quarter_end_date)} · ${row.tracking_status}`;
-        select.add(new Option(label, key));
-      });
-
-      const selectedRow = currentRsoQuarters.find(row => getRsoQuarterKey(row) === previousSelection)
-        || currentRsoQuarters.find(row => row.tracking_status === 'OPEN')
-        || currentRsoQuarters[0];
-
-      select.value = getRsoQuarterKey(selectedRow);
-    }
-
-    renderSelectedRsoSummary();
-  } catch (error) {
-    console.error('Unable to load Route Sales Opportunities summary:', error);
-    setRsoUnavailable(error?.message || 'Route Sales Opportunities summary is unavailable.');
-    throw error;
-  } finally {
-    if (button) {
-      button.disabled = false;
-      button.textContent = 'REFRESH RSO DATA';
-    }
-  }
-}
-
-function renderSelectedRsoSummary() {
-  const selectedKey = document.getElementById('rsoQuarterSelect')?.value || '';
-  const row = currentRsoQuarters.find(item => getRsoQuarterKey(item) === selectedKey)
-    || currentRsoQuarters.find(item => item.tracking_status === 'OPEN')
-    || currentRsoQuarters[0];
-
-  if (!row) {
-    setRsoUnavailable('No tracking quarter is selected.');
-    return;
-  }
-
-  const totalCount = numberValue(row.total_opportunities);
-  const approvedCount = numberValue(row.approved_count);
-  const sentCount = numberValue(row.sent_count);
-  const rejectedCount = numberValue(row.rejected_count);
-  const expiredCount = numberValue(row.expired_count);
-
-  setText('rsoTotalGenerated', formatCurrency(row.total_generated));
-  setText('rsoTotalGeneratedSub', `${formatNumber(totalCount)} ${totalCount === 1 ? 'opportunity' : 'opportunities'}`);
-  setText('rsoApprovedValue', formatCurrency(row.approved_value));
-  setText('rsoApprovedSub', `${formatNumber(approvedCount)} · ${formatCurrency(row.approved_commission)} tracking commission`);
-  setText('rsoSentValue', formatCurrency(row.sent_value));
-  setText('rsoSentSub', `${formatNumber(sentCount)} · ${formatCurrency(row.sent_pipeline_commission)} potential commission`);
-  setText('rsoRejectedValue', formatCurrency(row.rejected_value));
-  setText('rsoRejectedSub', `${formatNumber(rejectedCount)} ${rejectedCount === 1 ? 'opportunity' : 'opportunities'}`);
-  setText('rsoExpiredValue', formatCurrency(row.expired_value));
-  setText('rsoExpiredSub', `${formatNumber(expiredCount)} ${expiredCount === 1 ? 'opportunity' : 'opportunities'}`);
-  setText('rsoApprovalRate', `${(numberValue(row.approval_rate) * 100).toFixed(1)}%`);
-}
-
-function getRsoQuarterKey(row) {
-  return `${row?.fiscal_year || ''}-${row?.fiscal_quarter || ''}-${row?.quarter_start_date || ''}`;
-}
-
-function setRsoUnavailable(message) {
-  currentRsoQuarters = [];
-  const select = document.getElementById('rsoQuarterSelect');
-
-  if (select) {
-    select.replaceChildren(new Option('RSO summary unavailable', ''));
-  }
-
-  ['rsoTotalGenerated', 'rsoApprovedValue', 'rsoSentValue', 'rsoRejectedValue', 'rsoExpiredValue', 'rsoApprovalRate']
-    .forEach(id => setText(id, 'Unavailable'));
-  setText('rsoTotalGeneratedSub', message || 'Unable to load Route Sales Opportunities.');
-  setText('rsoApprovedSub', 'Read-only pre-authorization tracking');
-  setText('rsoSentSub', 'Read-only pre-authorization tracking');
-  setText('rsoRejectedSub', 'Read-only pre-authorization tracking');
-  setText('rsoExpiredSub', 'Read-only pre-authorization tracking');
-}
-
 async function loadMechanicalAssessmentSummary() {
   const { data, error } = await client
     .from(MECHANICAL_ASSESSMENT_VIEW)
@@ -1606,46 +2047,6 @@ function assessmentNeedsReview(row) {
   return !String(customer || '').trim()
     || !String(assignedTech || '').trim()
     || ['MULTIPLE_TECHS', 'NO_CUSTOMER_MATCH', 'NEEDS_REVIEW'].includes(matchStatus);
-}
-
-async function loadRouteRevenueSummary() {
-  try {
-    const { error: rateRefreshError } = await client.rpc('refresh_route_assignment_service_history_rates');
-    if (rateRefreshError) throw rateRefreshError;
-    const { data: snapshots, error: snapshotError } = await client.from('ppv_route_balance_snapshots')
-      .select('id,effective_date').neq('status','VOIDED').order('effective_date',{ascending:false}).order('updated_at',{ascending:false}).limit(1);
-    if (snapshotError) throw snapshotError;
-    const snapshot = snapshots?.[0];
-    if (!snapshot) throw new Error('No Route Assignment report has been imported.');
-    const [techResponse,leaderResponse] = await Promise.all([
-      client.from(ROUTE_REVENUE_TECH_VIEW).select('*').eq('snapshot_id',snapshot.id).order('annualized_route_revenue',{ascending:false}),
-      client.from(ROUTE_REVENUE_LEADER_VIEW).select('*').eq('snapshot_id',snapshot.id).order('route_tech_leader_code')
-    ]);
-    if (techResponse.error) throw techResponse.error;
-    if (leaderResponse.error) throw leaderResponse.error;
-    const techRows = techResponse.data || [];
-    const leaderRows = leaderResponse.data || [];
-    const totals = techRows.reduce((a,r)=>({monthly:a.monthly+numberValue(r.monthly_route_revenue),annual:a.annual+numberValue(r.annualized_route_revenue),stops:a.stops+numberValue(r.assigned_stops_pdf),locations:a.locations+numberValue(r.assigned_client_locations),missing:a.missing+numberValue(r.missing_revenue_locations)}),{monthly:0,annual:0,stops:0,locations:0,missing:0});
-    setText('routeMonthlyRevenue',formatCurrency(totals.monthly));
-    setText('routeAnnualRevenue',formatCurrency(totals.annual));
-    setText('routeAssignedStops',formatNumber(totals.stops));
-    setText('routeAssignedLocations',formatNumber(totals.locations));
-    setText('routeMissingRevenue',formatNumber(totals.missing));
-    const source=techRows[0];
-    setText('routeRevenueSourceWeek',source?`Route Friday ${formatDate(snapshot.effective_date)} | Service History rates through ${formatDate(source.service_week_end)}`:`Route Friday ${formatDate(snapshot.effective_date)}`);
-    document.getElementById('dashboardRouteTechRevenueBody').innerHTML=techRows.length?techRows.map(r=>`<tr><td><strong>${escapeDashboardHtml(r.route_code)} - ${escapeDashboardHtml(r.route_tech_name)}</strong></td><td>${escapeDashboardHtml(r.route_tech_leader_code||'-')} - ${escapeDashboardHtml(r.route_tech_leader_name||'Unassigned')}</td><td>${formatNumber(r.assigned_stops_pdf)}</td><td>${formatCurrency(r.monthly_route_revenue)}</td><td><strong>${formatCurrency(r.annualized_route_revenue)}</strong></td></tr>`).join(''):'<tr><td colspan="5">No route revenue data found.</td></tr>';
-    document.getElementById('dashboardRouteLeaderRevenueBody').innerHTML=leaderRows.length?leaderRows.map(r=>`<tr><td><strong>${escapeDashboardHtml(r.route_tech_leader_code||'-')} - ${escapeDashboardHtml(r.route_tech_leader_name||'Unassigned')}</strong></td><td>${formatNumber(r.route_tech_count)}</td><td>${formatNumber(r.assigned_stops_pdf)}</td><td><strong>${formatCurrency(r.annualized_team_revenue)}</strong></td></tr>`).join(''):'<tr><td colspan="4">No leader revenue data found.</td></tr>';
-  } catch(error) {
-    ['routeMonthlyRevenue','routeAnnualRevenue','routeAssignedStops','routeAssignedLocations','routeMissingRevenue'].forEach(id=>setText(id,'Unavailable'));
-    setText('routeRevenueSourceWeek',error.message||'Route revenue source unavailable');
-    document.getElementById('dashboardRouteTechRevenueBody').innerHTML='<tr><td colspan="5">Route revenue unavailable.</td></tr>';
-    document.getElementById('dashboardRouteLeaderRevenueBody').innerHTML='<tr><td colspan="4">Route revenue unavailable.</td></tr>';
-    throw error;
-  }
-}
-
-function escapeDashboardHtml(value) {
-  return String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
 
 async function loadInventorySummary() {
