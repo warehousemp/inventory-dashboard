@@ -379,8 +379,53 @@
       margin-top: 12px;
     }
 
+    .invoice-drop-zone {
+      min-height: 92px;
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+      outline: none;
+    }
+
+    .invoice-drop-zone:hover,
+    .invoice-drop-zone:focus-visible {
+      border-color: var(--header);
+      background: #f1f5f9;
+    }
+
+    .invoice-drop-zone.dragover {
+      border-color: var(--header);
+      background: #eaf4fb;
+      transform: translateY(-1px);
+    }
+
+    .invoice-drop-zone.has-file {
+      border-style: solid;
+      background: var(--success-soft);
+    }
+
+    .invoice-drop-title {
+      color: var(--header);
+      font-weight: 800;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .invoice-drop-subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
     .invoice-import-note {
-      margin-top: 5px;
+      margin-top: 7px;
       color: var(--muted);
       font-size: 12px;
     }
@@ -877,8 +922,20 @@
           <div class="invoice-import-grid">
             <div class="filter-field">
               <label for="skimmerInvoiceImportFile">Skimmer Invoices CSV</label>
-              <input id="skimmerInvoiceImportFile" type="file" accept=".csv,text/csv">
-              <div class="invoice-import-note" id="skimmerInvoiceImportFileNote">No file selected.</div>
+              <input id="skimmerInvoiceImportFile" type="file" accept=".csv,text/csv" hidden>
+              <div
+                id="skimmerInvoiceDropZone"
+                class="invoice-drop-zone"
+                role="button"
+                tabindex="0"
+                aria-label="Drop Skimmer Invoices CSV here or click to browse"
+              >
+                <div>
+                  <div class="invoice-drop-title">Drop Skimmer Invoices CSV Here</div>
+                  <div class="invoice-drop-subtitle">Drag and drop the weekly <strong>Invoices.csv</strong> file here, or click this box to browse.</div>
+                  <div class="invoice-import-note" id="skimmerInvoiceImportFileNote">No file selected.</div>
+                </div>
+              </div>
             </div>
             <button class="primary-button" id="skimmerInvoiceImportButton" type="button" onclick="importSkimmerInvoicesCsv()">IMPORT INVOICES</button>
           </div>
@@ -1104,6 +1161,7 @@ let currentPayPeriods = [];
 let invoiceDataThroughDate = '';
 let invoiceLastImportAt = '';
 let invoiceLastImportFile = '';
+let selectedSkimmerInvoiceFile = null;
 
 const dashboardAttention = {
   assessmentPending: 0,
@@ -1257,13 +1315,66 @@ function initializeInvoiceMixControls() {
   if (filter) filter.value = 'last_completed_week';
 
   const fileInput = document.getElementById('skimmerInvoiceImportFile');
+  const dropZone = document.getElementById('skimmerInvoiceDropZone');
+
+  const selectInvoiceFile = file => {
+    if (!file) {
+      selectedSkimmerInvoiceFile = null;
+      setText('skimmerInvoiceImportFileNote', 'No file selected.');
+      dropZone?.classList.remove('has-file');
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      selectedSkimmerInvoiceFile = null;
+      setText('skimmerInvoiceImportFileNote', 'Only CSV files are accepted.');
+      dropZone?.classList.remove('has-file');
+      setInvoiceImportMessage('error', 'Please use the Skimmer Invoices CSV export.');
+      return;
+    }
+
+    selectedSkimmerInvoiceFile = file;
+    setText('skimmerInvoiceImportFileNote', `${file.name} (${file.size.toLocaleString()} bytes) ready to import.`);
+    dropZone?.classList.add('has-file');
+    setText('skimmerInvoiceImportResult', '');
+    setInvoiceImportMessage('', '');
+  };
+
   if (fileInput && !fileInput.dataset.bound) {
     fileInput.dataset.bound = 'true';
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files?.[0];
-      setText('skimmerInvoiceImportFileNote', file ? `${file.name} (${file.size.toLocaleString()} bytes)` : 'No file selected.');
-      setText('skimmerInvoiceImportResult', '');
-      setInvoiceImportMessage('', '');
+    fileInput.addEventListener('change', () => selectInvoiceFile(fileInput.files?.[0] || null));
+  }
+
+  if (dropZone && !dropZone.dataset.bound) {
+    dropZone.dataset.bound = 'true';
+
+    dropZone.addEventListener('click', () => fileInput?.click());
+    dropZone.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        fileInput?.click();
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, event => {
+        event.preventDefault();
+        event.stopPropagation();
+        dropZone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, event => {
+        event.preventDefault();
+        event.stopPropagation();
+        dropZone.classList.remove('dragover');
+      });
+    });
+
+    dropZone.addEventListener('drop', event => {
+      const file = event.dataTransfer?.files?.[0] || null;
+      selectInvoiceFile(file);
     });
   }
 }
@@ -1645,9 +1756,9 @@ async function importSkimmerInvoicesCsv() {
   }
 
   const input = document.getElementById('skimmerInvoiceImportFile');
-  const file = input?.files?.[0];
+  const file = selectedSkimmerInvoiceFile || input?.files?.[0];
   if (!file) {
-    setInvoiceImportMessage('error', 'Select the Skimmer Invoices CSV first.');
+    setInvoiceImportMessage('error', 'Drop or select the Skimmer Invoices CSV first.');
     return;
   }
 
@@ -1682,6 +1793,10 @@ async function importSkimmerInvoicesCsv() {
 
     setText('skimmerInvoiceImportResult', summaryText);
     setInvoiceImportMessage('success', 'Skimmer invoice import completed successfully.');
+    selectedSkimmerInvoiceFile = null;
+    if (input) input.value = '';
+    document.getElementById('skimmerInvoiceDropZone')?.classList.remove('has-file');
+    setText('skimmerInvoiceImportFileNote', 'Import complete. Drop the next weekly Invoices.csv here when ready.');
     await loadInvoiceClientMixSection();
   } catch (error) {
     console.error('Skimmer invoice import failed:', error);
