@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Service Revenue Analysis - Molinari Pools</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="shared-navigation.css">
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Molinari Operations">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    :root {
+      --nav: #062f4f;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --success: #15803d;
+      --success-soft: #ecfdf3;
+      --warning: #b45309;
+      --warning-soft: #fff7ed;
+      --danger: #b91c1c;
+      --danger-soft: #fef2f2;
+      --info-soft: #eef6ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .hidden { display: none !important; }
+
+    .page-shell {
+      min-height: 100vh;
+      width: 100%;
+      overflow-x: hidden;
+    }
+
+    .header-bar {
+      background: var(--header);
+      color: white;
+      padding: 18px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: .2px;
+    }
+
+    .header-subtitle {
+      margin-top: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      opacity: .84;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .header-button, .header-link {
+      border: 1px solid rgba(255,255,255,.28);
+      border-radius: 8px;
+      background: rgba(255,255,255,.14);
+      color: white;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .header-button:hover, .header-link:hover {
+      background: rgba(255,255,255,.22);
+    }
+
+    .access-layout {
+      max-width: 680px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .access-card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      border: 1px solid #e6edf3;
+      box-shadow: 0 6px 18px rgba(0,0,0,.08);
+    }
+
+    .access-card h2 {
+      margin: 0 0 16px;
+      color: var(--header);
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .access-actions a, .access-actions button {
+      min-width: 160px;
+      border: 0;
+      border-radius: 8px;
+      padding: 12px 18px;
+      background: var(--header);
+      color: white;
+      text-decoration: none;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .access-actions .danger-button { background: var(--danger); }
+
+    .status-note, .warning-note, .danger-note {
+      padding: 12px 14px;
+      border-radius: 9px;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-line;
+    }
+
+    .status-note { background: var(--success-soft); color: var(--success); border: 1px solid #bbf7d0; }
+    .warning-note { background: var(--warning-soft); color: var(--warning); border: 1px solid #fed7aa; }
+    .danger-note { background: var(--danger-soft); color: var(--danger); border: 1px solid #fecaca; }
+
+    .content {
+      padding: 24px 28px 40px;
+      max-width: 1900px;
+      margin: 0 auto;
+    }
+
+    .page-status {
+      margin-bottom: 18px;
+      border: 1px solid #bfdbfe;
+      background: var(--info-soft);
+      color: #1d4ed8;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13px;
+    }
+
+    .page-status.success {
+      background: var(--success-soft);
+      border-color: #bbf7d0;
+      color: var(--success);
+    }
+
+    .page-status.warning {
+      background: var(--warning-soft);
+      border-color: #fed7aa;
+      color: var(--warning);
+    }
+
+    .page-status.error {
+      background: var(--danger-soft);
+      border-color: #fecaca;
+      color: var(--danger);
+    }
+
+    .section {
+      margin-bottom: 26px;
+    }
+
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      margin: 0;
+      color: var(--header);
+      font-size: 22px;
+      font-weight: 900;
+    }
+
+    .section-description {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .freshness {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .freshness strong {
+      color: var(--header);
+      font-size: 13px;
+    }
+
+    .panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .filter-panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: minmax(260px, 1.5fr) minmax(180px, .8fr) minmax(180px, .8fr) auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .filter-field {
+      min-width: 0;
+    }
+
+    .filter-field label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--header);
+      text-transform: uppercase;
+      letter-spacing: .25px;
+    }
+
+    .filter-field input,
+    .filter-field select {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 9px 11px;
+      background: white;
+    }
+
+    .primary-button {
+      border: 0;
+      border-radius: 8px;
+      background: var(--header);
+      color: white;
+      padding: 12px 18px;
+      font-weight: 900;
+      min-height: 46px;
+      white-space: nowrap;
+    }
+
+    .primary-button:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(190px, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .metric-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 17px;
+      min-height: 154px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .metric-label {
+      color: #5f6b85;
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .25px;
+    }
+
+    .metric-value {
+      margin-top: 10px;
+      color: #003f67;
+      font-size: 31px;
+      font-weight: 900;
+      line-height: 1.05;
+    }
+
+    .metric-sub {
+      margin-top: auto;
+      padding-top: 16px;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .metric-percent {
+      display: block;
+      margin-top: 7px;
+      color: var(--header);
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1.15;
+    }
+
+    .mix-bar {
+      margin-top: 14px;
+      background: #e5edf4;
+      height: 18px;
+      border-radius: 999px;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .mix-existing, .mix-non-route {
+      min-width: 0;
+      height: 100%;
+      transition: width .2s ease;
+    }
+
+    .mix-existing { background: #1aa3b0; }
+    .mix-non-route { background: #b45309; }
+
+    .mix-legend {
+      display: flex;
+      gap: 22px;
+      flex-wrap: wrap;
+      margin-top: 9px;
+      font-size: 12px;
+      color: #475569;
+    }
+
+    .legend-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+
+    .dot-existing { background: #1aa3b0; }
+    .dot-non-route { background: #b45309; }
+
+    .analysis-status {
+      margin-top: 14px;
+      border-radius: 9px;
+      padding: 11px 13px;
+      font-size: 13px;
+      line-height: 1.45;
+      background: var(--info-soft);
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .analysis-status.success {
+      background: var(--success-soft);
+      color: var(--success);
+      border-color: #bbf7d0;
+    }
+
+    .analysis-status.warning {
+      background: var(--warning-soft);
+      color: var(--warning);
+      border-color: #fed7aa;
+    }
+
+    .table-toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, .8fr) minmax(180px, .65fr) minmax(280px, 1.2fr) auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    .table-summary {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      align-self: center;
+      justify-self: end;
+      padding-bottom: 12px;
+      text-align: right;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: 620px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1080px;
+      background: white;
+    }
+
+    th, td {
+      padding: 10px 11px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: top;
+      font-size: 12px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #eef4f8;
+      color: var(--header);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .2px;
+    }
+
+    td.amount, th.amount { text-align: right; }
+
+    .segment-pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-weight: 900;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .segment-existing {
+      background: #e6f7f8;
+      color: #087783;
+    }
+
+    .segment-nonroute {
+      background: #fff7ed;
+      color: #9a4b08;
+    }
+
+    .segment-unmatched {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+
+    .segment-recurring {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .pagination-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .secondary-button {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: white;
+      color: var(--header);
+      padding: 8px 12px;
+      font-weight: 800;
+    }
+
+    .secondary-button:disabled {
+      opacity: .45;
+      cursor: default;
+    }
+
+    .review-panel {
+      border: 1px solid #fed7aa;
+      background: #fffaf4;
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .review-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .review-title {
+      margin: 0;
+      color: var(--header);
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .review-summary {
+      color: var(--warning);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .import-panel h3 {
+      margin: 0 0 6px;
+      color: var(--header);
+      font-size: 18px;
+    }
+
+    .import-grid {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .drop-zone {
+      min-height: 112px;
+      border: 2px dashed #9fb4c5;
+      border-radius: 12px;
+      background: #f8fbfd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 18px;
+      transition: .15s ease;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .drop-zone:hover,
+    .drop-zone:focus,
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      background: #edfafa;
+    }
+
+    .drop-zone.has-file {
+      border-color: var(--success);
+      background: var(--success-soft);
+    }
+
+    .drop-title {
+      color: var(--header);
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .drop-subtitle, .import-note {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .import-message, .import-result {
+      margin-top: 10px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .import-message.error { color: var(--danger); }
+    .import-message.success { color: var(--success); }
+    .import-message.info { color: #1d4ed8; }
+
+    .history-wrap {
+      overflow: auto;
+      max-height: 360px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+    }
+
+    .history-wrap table { min-width: 950px; }
+
+    .empty-state {
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1200px) {
+      .metric-grid { grid-template-columns: repeat(2, minmax(220px, 1fr)); }
+      .filter-panel, .table-toolbar { grid-template-columns: 1fr 1fr; }
+      .table-summary { justify-self: start; padding-bottom: 0; }
+    }
+
+    @media (max-width: 760px) {
+      .header-bar { padding: 16px; }
+      .content { padding: 18px 14px 34px; }
+      .metric-grid, .filter-panel, .table-toolbar, .import-grid { grid-template-columns: 1fr; }
+      .metric-grid { gap: 10px; }
+      .metric-card { min-height: 135px; }
+      .section-title { font-size: 20px; }
+      .header-actions { width: 100%; }
+      .header-button, .header-link { flex: 1 1 auto; text-align: center; }
+      .table-summary { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+<div class="page-shell">
+  <header class="header-bar">
+    <div>
+      <div class="header-title">Molinari Pools – Service Revenue Analysis</div>
+      <div class="header-subtitle">Completed Skimmer invoice revenue, client mix, recurring Route Cleaning exclusions, and exception review</div>
+    </div>
+    <div class="header-actions">
+      <a class="header-link" href="service-manager-dashboard.html">SERVICE MANAGER DASHBOARD</a>
+      <button id="refreshPageButton" class="header-button" type="button" onclick="refreshPage()">REFRESH DATA</button>
+    </div>
+  </header>
+
+  <div id="accessGate" class="access-layout">
+    <div class="access-card">
+      <h2>Service Revenue Analysis Access Required</h2>
+      <div id="accessMessage" class="warning-note">Checking access...</div>
+      <div class="access-actions">
+        <a href="login.html">GO TO LOGIN</a>
+        <a href="service-manager-dashboard.html">SERVICE MANAGER DASHBOARD</a>
+        <button class="danger-button" type="button" onclick="appLogout()">LOGOUT</button>
+      </div>
+    </div>
+  </div>
+
+  <main id="pageContent" class="content hidden">
+    <div id="pageStatus" class="page-status">Loading Service Revenue Analysis...</div>
+
+    <section class="section">
+      <div class="section-heading">
+        <div>
+          <h2 class="section-title">Completed Invoice Revenue — Client Mix</h2>
+          <div id="periodDescription" class="section-description">
+            Revenue analysis uses completed Skimmer invoice data and never extends past the latest imported invoice date.
+          </div>
+        </div>
+        <div class="freshness">
+          <span>Invoice Data Through:</span>
+          <strong id="invoiceDataThrough">—</strong>
+          <span id="invoiceLastImport">Last import: —</span>
+        </div>
+      </div>
+
+      <div class="filter-panel">
+        <div class="filter-field">
+          <label for="periodFilter">Completed Reporting Period</label>
+          <select id="periodFilter" onchange="handlePeriodChange()">
+            <option value="last_completed_week" selected>Last Completed Week</option>
+            <option value="last_4_weeks">Last 4 Completed Weeks</option>
+            <option value="mtd">Month to Date — Through Imported Data</option>
+            <option value="last_month">Previous Month</option>
+            <option value="qtd">Quarter to Date — Through Imported Data</option>
+            <option value="last_quarter">Previous Quarter</option>
+            <option value="fytd">Fiscal Year to Date — Through Imported Data</option>
+            <option value="custom">Custom Completed Period</option>
+          </select>
+        </div>
+        <div class="filter-field">
+          <label for="startDate">Start Date</label>
+          <input id="startDate" type="date" disabled>
+        </div>
+        <div class="filter-field">
+          <label for="endDate">End Date</label>
+          <input id="endDate" type="date" disabled>
+        </div>
+        <button class="primary-button" id="runPeriodButton" type="button" onclick="loadSelectedPeriod()">RUN PERIOD</button>
+      </div>
+
+      <div class="metric-grid">
+        <article class="metric-card">
+          <div class="metric-label">Service Invoice Revenue</div>
+          <div class="metric-value" id="totalServiceRevenue">$0.00</div>
+          <div class="metric-sub">Existing Route + Non-Route qualifying Service invoice revenue</div>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-label">Existing Route Client Revenue</div>
+          <div class="metric-value" id="existingRouteRevenue">$0.00</div>
+          <div class="metric-sub"><span class="metric-percent" id="existingRoutePercent">0.0%</span>of classified Service invoice revenue</div>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-label">Non-Route Client Revenue</div>
+          <div class="metric-value" id="nonRouteRevenue">$0.00</div>
+          <div class="metric-sub"><span class="metric-percent" id="nonRoutePercent">0.0%</span>of classified Service invoice revenue</div>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-label">Route Cleaning Excluded</div>
+          <div class="metric-value" id="routeCleaningExcluded">$0.00</div>
+          <div class="metric-sub" id="routeCleaningExcludedCount">0 normal recurring Route Cleaning invoices excluded</div>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-label">Unmatched / Review</div>
+          <div class="metric-value" id="unmatchedSales">$0.00</div>
+          <div class="metric-sub" id="unmatchedCount">0 invoices requiring review</div>
+        </article>
+      </div>
+
+      <div class="panel" style="margin-top:14px;">
+        <div class="mix-bar" aria-label="Existing Route versus Non-Route revenue mix">
+          <div id="existingMixBar" class="mix-existing" style="width:0%"></div>
+          <div id="nonRouteMixBar" class="mix-non-route" style="width:0%"></div>
+        </div>
+        <div class="mix-legend">
+          <span><span class="legend-dot dot-existing"></span><strong id="existingLegend">Existing Route 0.0%</strong></span>
+          <span><span class="legend-dot dot-non-route"></span><strong id="nonRouteLegend">Non-Route 0.0%</strong></span>
+        </div>
+      </div>
+
+      <div id="analysisStatus" class="analysis-status">Loading completed invoice client mix...</div>
+    </section>
+
+    <section class="section">
+      <div class="section-heading">
+        <div>
+          <h2 class="section-title">Invoice Detail</h2>
+          <div class="section-description">Drill into the invoices behind the client-mix totals. Recurring Route Cleaning invoices remain visible here but are excluded from Service revenue.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="table-toolbar">
+          <div class="filter-field">
+            <label for="segmentFilter">Revenue Classification</label>
+            <select id="segmentFilter" onchange="applyInvoiceFilters()">
+              <option value="ALL">All Invoices</option>
+              <option value="QUALIFYING">Qualifying Service Revenue</option>
+              <option value="EXISTING_ROUTE">Existing Route Client Revenue</option>
+              <option value="NON_ROUTE">Non-Route Client Revenue</option>
+              <option value="RECURRING">Route Cleaning Excluded</option>
+              <option value="UNMATCHED">Unmatched / Review</option>
+            </select>
+          </div>
+
+          <div class="filter-field">
+            <label for="statusFilter">Invoice Status</label>
+            <select id="statusFilter" onchange="applyInvoiceFilters()">
+              <option value="">All Statuses</option>
+            </select>
+          </div>
+
+          <div class="filter-field">
+            <label for="invoiceSearch">Search</label>
+            <input id="invoiceSearch" type="search" placeholder="Invoice #, customer, or service address" oninput="applyInvoiceFilters()">
+          </div>
+
+          <div class="table-summary" id="invoiceTableSummary">0 invoices</div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Invoice #</th>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Service Location</th>
+                <th>Classification</th>
+                <th>Status</th>
+                <th class="amount">Invoice Total</th>
+                <th class="amount">Service Revenue</th>
+              </tr>
+            </thead>
+            <tbody id="invoiceDetailBody"></tbody>
+          </table>
+        </div>
+
+        <div class="pagination">
+          <div id="invoicePageInfo">Page 1 of 1</div>
+          <div class="pagination-actions">
+            <button class="secondary-button" id="previousPageButton" type="button" onclick="changeInvoicePage(-1)">PREVIOUS</button>
+            <button class="secondary-button" id="nextPageButton" type="button" onclick="changeInvoicePage(1)">NEXT</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="unmatchedReviewSection">
+      <div class="review-panel">
+        <div class="review-header">
+          <div>
+            <h2 class="review-title">Unmatched Invoice Review</h2>
+            <div class="section-description">These invoices could not be confidently matched to the Skimmer customer master. Their dollars are excluded from Existing Route vs. Non-Route Service revenue until reviewed.</div>
+          </div>
+          <div id="unmatchedReviewSummary" class="review-summary">0 invoices</div>
+        </div>
+
+        <div class="table-wrap" style="max-height:420px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Invoice #</th>
+                <th>Date</th>
+                <th>Customer</th>
+                <th>Service Location</th>
+                <th>Status</th>
+                <th class="amount">Invoice Total</th>
+              </tr>
+            </thead>
+            <tbody id="unmatchedReviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section import-panel" id="invoiceImportPanel" hidden>
+      <div class="section-heading">
+        <div>
+          <h2 class="section-title">Import Skimmer Invoices</h2>
+          <div class="section-description">ADMIN and SYSTEM_ADMIN can upload the weekly Skimmer Invoices CSV. Invoice # updates existing records instead of creating duplicates.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="import-grid">
+          <div class="filter-field">
+            <label for="invoiceFileInput">Skimmer Invoices CSV</label>
+            <input id="invoiceFileInput" type="file" accept=".csv,text/csv" hidden>
+            <div id="invoiceDropZone" class="drop-zone" role="button" tabindex="0" aria-label="Drop Skimmer Invoices CSV here or click to browse">
+              <div>
+                <div class="drop-title">Drop Skimmer Invoices CSV Here</div>
+                <div class="drop-subtitle">Drag and drop the weekly <strong>Invoices.csv</strong> file here, or click this box to browse.</div>
+                <div class="import-note" id="invoiceFileNote">No file selected.</div>
+              </div>
+            </div>
+          </div>
+          <button class="primary-button" id="invoiceImportButton" type="button" onclick="importInvoicesCsv()">IMPORT INVOICES</button>
+        </div>
+        <div id="invoiceImportMessage" class="import-message"></div>
+        <div id="invoiceImportResult" class="import-result"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-heading">
+        <div>
+          <h2 class="section-title">Invoice Import History</h2>
+          <div class="section-description">Recent weekly invoice imports and classification results.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="history-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Imported</th>
+                <th>File</th>
+                <th>Invoice Dates</th>
+                <th class="amount">Rows</th>
+                <th class="amount">Existing Route</th>
+                <th class="amount">Non-Route</th>
+                <th class="amount">Route Cleaning</th>
+                <th class="amount">Unmatched</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="importHistoryBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="shared-navigation.js"></script>
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const ALLOWED_ROLES = ['SYSTEM_ADMIN', 'ADMIN', 'SERVICE_MANAGER'];
+const INVOICE_MIX_SUMMARY_RPC = 'get_client_services_invoice_mix_summary';
+const INVOICE_IMPORT_RPC = 'import_client_services_skimmer_invoices';
+const INVOICE_REPORTING_VIEW = 'client_services_invoice_client_mix_reporting_view';
+const INVOICE_BATCH_TABLE = 'client_services_skimmer_invoice_import_batches';
+
+let currentProfile = null;
+let currentSession = null;
+let invoiceDataThroughDate = '';
+let invoiceLastImportAt = '';
+let invoiceLastImportFile = '';
+let selectedInvoiceFile = null;
+
+let periodInvoiceRows = [];
+let filteredInvoiceRows = [];
+let currentInvoicePage = 1;
+const INVOICE_PAGE_SIZE = 50;
+
+window.addEventListener('load', async () => {
+  const hasAccess = await enforcePageAccess();
+  if (!hasAccess) return;
+
+  initializeImportDropZone();
+  updateImportVisibility();
+  await refreshPage();
+});
+
+function showAccessGate(message, type = 'warning') {
+  const gate = document.getElementById('accessGate');
+  const content = document.getElementById('pageContent');
+  const box = document.getElementById('accessMessage');
+
+  gate?.classList.remove('hidden');
+  content?.classList.add('hidden');
+
+  if (box) {
+    box.className =
+      type === 'danger' ? 'danger-note' :
+      type === 'success' ? 'status-note' :
+      'warning-note';
+    box.textContent = message;
+  }
+}
+
+function showPageContent() {
+  document.getElementById('accessGate')?.classList.add('hidden');
+  document.getElementById('pageContent')?.classList.remove('hidden');
+}
+
+async function enforcePageAccess() {
+  showAccessGate('Checking Service Revenue Analysis access...');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session?.user) {
+    showAccessGate('You must be logged in to access Service Revenue Analysis.', 'danger');
+    return false;
+  }
+
+  currentSession = session;
+
+  const { data: profile, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showAccessGate('Login found, but the user profile could not be loaded: ' + profileError.message, 'danger');
+    return false;
+  }
+
+  if (!profile || profile.active !== true) {
+    showAccessGate('This user profile is inactive or unavailable. Contact an administrator.', 'danger');
+    return false;
+  }
+
+  if (!ALLOWED_ROLES.includes(profile.role)) {
+    showAccessGate(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profile.role}\n\nThis page requires SERVICE_MANAGER, ADMIN, or SYSTEM_ADMIN access.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentProfile = profile;
+  showPageContent();
+  return true;
+}
+
+async function appLogout() {
+  try {
+    await client.auth.signOut();
+  } catch (error) {
+    console.error('Logout error:', error);
+  }
+  window.location.href = 'login.html';
+}
+
+function setPageStatus(message, type = '') {
+  const element = document.getElementById('pageStatus');
+  if (!element) return;
+  element.textContent = message;
+  element.className = 'page-status' + (type ? ` ${type}` : '');
+}
+
+function setAnalysisStatus(message, type = '') {
+  const element = document.getElementById('analysisStatus');
+  if (!element) return;
+  element.textContent = message;
+  element.className = 'analysis-status' + (type ? ` ${type}` : '');
+}
+
+async function refreshPage() {
+  const button = document.getElementById('refreshPageButton');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'REFRESHING...';
+  }
+
+  setPageStatus('Refreshing Service Revenue Analysis...');
+
+  try {
+    const metadataReady = await loadInvoiceMetadata();
+    if (!metadataReady) {
+      setUnavailable('No Skimmer invoice data has been imported yet.');
+      await loadImportHistory();
+      setPageStatus('No invoice data has been imported yet.', 'warning');
+      return;
+    }
+
+    updatePeriodDateInputs(document.getElementById('periodFilter')?.value || 'last_completed_week');
+    await Promise.all([
+      loadSelectedPeriod(),
+      loadImportHistory()
+    ]);
+
+    setPageStatus(`Service Revenue Analysis refreshed successfully at ${new Date().toLocaleString()}.`, 'success');
+  } catch (error) {
+    console.error('Service Revenue Analysis refresh failed:', error);
+    setPageStatus('Unable to refresh Service Revenue Analysis: ' + (error?.message || error), 'error');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'REFRESH DATA';
+    }
+  }
+}
+
+async function loadInvoiceMetadata() {
+  const [throughResponse, importResponse] = await Promise.all([
+    client
+      .from(INVOICE_REPORTING_VIEW)
+      .select('invoice_date')
+      .order('invoice_date', { ascending: false })
+      .limit(1),
+    client
+      .from(INVOICE_REPORTING_VIEW)
+      .select('source_file_name,last_imported_at')
+      .order('last_imported_at', { ascending: false })
+      .limit(1)
+  ]);
+
+  if (throughResponse.error) throw throughResponse.error;
+  if (importResponse.error) throw importResponse.error;
+
+  invoiceDataThroughDate = throughResponse.data?.[0]?.invoice_date || '';
+  invoiceLastImportAt = importResponse.data?.[0]?.last_imported_at || '';
+  invoiceLastImportFile = importResponse.data?.[0]?.source_file_name || '';
+
+  document.getElementById('startDate').max = invoiceDataThroughDate || '';
+  document.getElementById('endDate').max = invoiceDataThroughDate || '';
+
+  setText('invoiceDataThrough', invoiceDataThroughDate ? formatDate(invoiceDataThroughDate) : 'No data');
+
+  if (invoiceLastImportAt) {
+    const importedAt = new Date(invoiceLastImportAt);
+    const importText = Number.isNaN(importedAt.getTime())
+      ? String(invoiceLastImportAt)
+      : importedAt.toLocaleString('en-US');
+    setText('invoiceLastImport', `Last import: ${importText}${invoiceLastImportFile ? ` · ${invoiceLastImportFile}` : ''}`);
+  } else {
+    setText('invoiceLastImport', 'Last import: —');
+  }
+
+  return Boolean(invoiceDataThroughDate);
+}
+
+function handlePeriodChange() {
+  if (!invoiceDataThroughDate) return;
+  const key = document.getElementById('periodFilter')?.value || 'last_completed_week';
+  updatePeriodDateInputs(key);
+  if (key !== 'custom') loadSelectedPeriod();
+}
+
+function updatePeriodDateInputs(periodKey) {
+  const startInput = document.getElementById('startDate');
+  const endInput = document.getElementById('endDate');
+  if (!startInput || !endInput || !invoiceDataThroughDate) return;
+
+  const isCustom = periodKey === 'custom';
+  startInput.disabled = !isCustom;
+  endInput.disabled = !isCustom;
+  startInput.max = invoiceDataThroughDate;
+  endInput.max = invoiceDataThroughDate;
+
+  if (!isCustom) {
+    const range = getPeriodRange(periodKey);
+    startInput.value = range.startDate;
+    endInput.value = range.endDate;
+  } else {
+    if (!startInput.value || startInput.value > invoiceDataThroughDate) {
+      startInput.value = getPeriodRange('last_completed_week').startDate;
+    }
+    if (!endInput.value || endInput.value > invoiceDataThroughDate) {
+      endInput.value = invoiceDataThroughDate;
+    }
+  }
+}
+
+function getPeriodRange(periodKey) {
+  const dataDate = parseDateISO(invoiceDataThroughDate);
+  const dataThrough = invoiceDataThroughDate;
+  const dataWeek = getWeekRange(dataDate);
+
+  if (periodKey === 'last_completed_week') {
+    return { startDate: dataWeek.startDate, endDate: dataThrough };
+  }
+
+  if (periodKey === 'last_4_weeks') {
+    return {
+      startDate: toDateISO(addDays(parseDateISO(dataWeek.startDate), -21)),
+      endDate: dataThrough
+    };
+  }
+
+  if (periodKey === 'mtd') {
+    return {
+      startDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth(), 1)),
+      endDate: dataThrough
+    };
+  }
+
+  if (periodKey === 'last_month') {
+    return {
+      startDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth() - 1, 1)),
+      endDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth(), 0))
+    };
+  }
+
+  if (periodKey === 'last_quarter') {
+    const currentQuarter = getFiscalQuarterRange(dataDate);
+    return getFiscalQuarterRange(addDays(parseDateISO(currentQuarter.startDate), -1));
+  }
+
+  if (periodKey === 'fytd') {
+    const fiscalStartYear = dataDate.getMonth() >= 6 ? dataDate.getFullYear() : dataDate.getFullYear() - 1;
+    return {
+      startDate: toDateISO(new Date(fiscalStartYear, 6, 1)),
+      endDate: dataThrough
+    };
+  }
+
+  return getFiscalQuarterRange(dataDate, true);
+}
+
+async function loadSelectedPeriod() {
+  if (!invoiceDataThroughDate) {
+    setUnavailable('No imported invoice data is available.');
+    return;
+  }
+
+  const periodKey = document.getElementById('periodFilter')?.value || 'last_completed_week';
+  if (periodKey !== 'custom') updatePeriodDateInputs(periodKey);
+
+  const startDate = document.getElementById('startDate')?.value || '';
+  const endDate = document.getElementById('endDate')?.value || '';
+
+  if (!startDate || !endDate) {
+    setUnavailable('Select both a start date and end date.');
+    return;
+  }
+
+  if (startDate > endDate) {
+    setUnavailable('Start date cannot be after the end date.');
+    return;
+  }
+
+  if (endDate > invoiceDataThroughDate) {
+    setUnavailable(`Invoice reporting is only available through ${formatDate(invoiceDataThroughDate)}.`);
+    return;
+  }
+
+  setText(
+    'periodDescription',
+    `${formatDate(startDate)} – ${formatDate(endDate)} completed invoice reporting. Data is capped at ${formatDate(invoiceDataThroughDate)}.`
+  );
+
+  setAnalysisStatus('Loading completed invoice revenue analysis...');
+
+  const button = document.getElementById('runPeriodButton');
+  if (button) button.disabled = true;
+
+  try {
+    const [summaryResponse, detailRows] = await Promise.all([
+      client.rpc(INVOICE_MIX_SUMMARY_RPC, {
+        p_start_date: startDate,
+        p_end_date: endDate
+      }),
+      fetchAllInvoiceRows(startDate, endDate)
+    ]);
+
+    if (summaryResponse.error) throw summaryResponse.error;
+
+    periodInvoiceRows = detailRows;
+    renderSummary(summaryResponse.data, startDate, endDate);
+    populateStatusFilter(periodInvoiceRows);
+    renderUnmatchedReview(periodInvoiceRows.filter(row => row.client_segment === 'UNMATCHED'), startDate, endDate);
+
+    currentInvoicePage = 1;
+    applyInvoiceFilters();
+  } catch (error) {
+    setUnavailable('Unable to load completed invoice revenue analysis: ' + (error?.message || error));
+    throw error;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function fetchAllInvoiceRows(startDate, endDate) {
+  const allRows = [];
+  const pageSize = 1000;
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await client
+      .from(INVOICE_REPORTING_VIEW)
+      .select('invoice_number,invoice_date,customer_name,location_address,client_segment,match_method,match_review_required,route_rate_snapshot,route_rate_type_snapshot,recurring_route_cleaning,invoice_status,total_sales,service_revenue_amount,source_file_name,last_imported_at')
+      .gte('invoice_date', startDate)
+      .lte('invoice_date', endDate)
+      .order('invoice_date', { ascending: true })
+      .order('invoice_number', { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+
+    const rows = data || [];
+    allRows.push(...rows);
+
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return allRows;
+}
+
+function renderSummary(data, startDate, endDate) {
+  const row = Array.isArray(data) ? (data[0] || {}) : (data || {});
+  const existing = numberValue(row.existing_route_revenue);
+  const nonRoute = numberValue(row.non_route_revenue);
+  const classified = numberValue(row.classified_revenue || (existing + nonRoute));
+  const existingPct = numberValue(row.existing_route_pct);
+  const nonRoutePct = numberValue(row.non_route_pct);
+  const recurringExcluded = numberValue(row.recurring_route_sales_excluded);
+  const recurringCount = numberValue(row.recurring_route_invoice_count);
+  const unmatchedCount = numberValue(row.unmatched_invoice_count);
+  const unmatchedSales = numberValue(row.unmatched_invoice_sales);
+
+  setText('totalServiceRevenue', formatCurrency(classified));
+  setText('existingRouteRevenue', formatCurrency(existing));
+  setText('existingRoutePercent', `${existingPct.toFixed(1)}%`);
+  setText('nonRouteRevenue', formatCurrency(nonRoute));
+  setText('nonRoutePercent', `${nonRoutePct.toFixed(1)}%`);
+  setText('routeCleaningExcluded', formatCurrency(recurringExcluded));
+  setText('routeCleaningExcludedCount', `${formatNumber(recurringCount)} normal recurring Route Cleaning invoice${recurringCount === 1 ? '' : 's'} excluded`);
+  setText('unmatchedSales', formatCurrency(unmatchedSales));
+  setText('unmatchedCount', `${formatNumber(unmatchedCount)} invoice${unmatchedCount === 1 ? '' : 's'} requiring review`);
+
+  document.getElementById('existingMixBar').style.width = `${Math.max(0, Math.min(100, existingPct))}%`;
+  document.getElementById('nonRouteMixBar').style.width = `${Math.max(0, Math.min(100, nonRoutePct))}%`;
+  setText('existingLegend', `Existing Route ${existingPct.toFixed(1)}%`);
+  setText('nonRouteLegend', `Non-Route ${nonRoutePct.toFixed(1)}%`);
+
+  const unmatchedNote = unmatchedCount > 0
+    ? ` ${formatNumber(unmatchedCount)} unmatched invoice${unmatchedCount === 1 ? '' : 's'} totaling ${formatCurrency(unmatchedSales)} remain excluded until reviewed.`
+    : ' No unmatched invoices are affecting this period.';
+
+  setAnalysisStatus(
+    `${formatDate(startDate)} – ${formatDate(endDate)}: ${formatCurrency(existing)} Existing Route (${existingPct.toFixed(1)}%) vs. ${formatCurrency(nonRoute)} Non-Route (${nonRoutePct.toFixed(1)}%).${unmatchedNote}`,
+    unmatchedCount > 0 ? 'warning' : 'success'
+  );
+}
+
+function populateStatusFilter(rows) {
+  const select = document.getElementById('statusFilter');
+  if (!select) return;
+
+  const current = select.value;
+  const statuses = [...new Set(rows.map(row => String(row.invoice_status || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+
+  select.innerHTML = '<option value="">All Statuses</option>' +
+    statuses.map(status => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join('');
+
+  if (statuses.includes(current)) select.value = current;
+}
+
+function applyInvoiceFilters() {
+  const segment = document.getElementById('segmentFilter')?.value || 'ALL';
+  const status = String(document.getElementById('statusFilter')?.value || '').trim().toLowerCase();
+  const search = String(document.getElementById('invoiceSearch')?.value || '').trim().toLowerCase();
+
+  filteredInvoiceRows = periodInvoiceRows.filter(row => {
+    let segmentMatch = true;
+
+    if (segment === 'QUALIFYING') {
+      segmentMatch = row.client_segment !== 'UNMATCHED' && !row.recurring_route_cleaning && numberValue(row.service_revenue_amount) !== 0;
+    } else if (segment === 'EXISTING_ROUTE') {
+      segmentMatch = row.client_segment === 'EXISTING_ROUTE' && !row.recurring_route_cleaning && numberValue(row.service_revenue_amount) !== 0;
+    } else if (segment === 'NON_ROUTE') {
+      segmentMatch = row.client_segment === 'NON_ROUTE' && !row.recurring_route_cleaning && numberValue(row.service_revenue_amount) !== 0;
+    } else if (segment === 'RECURRING') {
+      segmentMatch = Boolean(row.recurring_route_cleaning);
+    } else if (segment === 'UNMATCHED') {
+      segmentMatch = row.client_segment === 'UNMATCHED';
+    }
+
+    if (!segmentMatch) return false;
+
+    if (status && String(row.invoice_status || '').trim().toLowerCase() !== status) return false;
+
+    if (search) {
+      const haystack = [
+        row.invoice_number,
+        row.customer_name,
+        row.location_address
+      ].map(value => String(value || '').toLowerCase()).join(' ');
+      if (!haystack.includes(search)) return false;
+    }
+
+    return true;
+  });
+
+  const pageCount = Math.max(1, Math.ceil(filteredInvoiceRows.length / INVOICE_PAGE_SIZE));
+  if (currentInvoicePage > pageCount) currentInvoicePage = pageCount;
+  if (currentInvoicePage < 1) currentInvoicePage = 1;
+
+  renderInvoiceDetailTable();
+}
+
+function renderInvoiceDetailTable() {
+  const body = document.getElementById('invoiceDetailBody');
+  const summary = document.getElementById('invoiceTableSummary');
+  if (!body || !summary) return;
+
+  const totalInvoiceSales = filteredInvoiceRows.reduce((sum, row) => sum + numberValue(row.total_sales), 0);
+  const totalServiceRevenue = filteredInvoiceRows.reduce((sum, row) => sum + numberValue(row.service_revenue_amount), 0);
+
+  summary.textContent =
+    `${formatNumber(filteredInvoiceRows.length)} invoice${filteredInvoiceRows.length === 1 ? '' : 's'} · ` +
+    `${formatCurrency(totalInvoiceSales)} invoice total · ${formatCurrency(totalServiceRevenue)} Service revenue`;
+
+  if (!filteredInvoiceRows.length) {
+    body.innerHTML = '<tr><td colspan="8" class="empty-state">No invoices match the selected filters.</td></tr>';
+    updatePagination();
+    return;
+  }
+
+  const start = (currentInvoicePage - 1) * INVOICE_PAGE_SIZE;
+  const pageRows = filteredInvoiceRows.slice(start, start + INVOICE_PAGE_SIZE);
+
+  body.innerHTML = pageRows.map(row => {
+    const segment = getInvoiceClassification(row);
+    return `
+      <tr>
+        <td><strong>${escapeHtml(row.invoice_number || '—')}</strong></td>
+        <td>${escapeHtml(formatDate(row.invoice_date))}</td>
+        <td>${escapeHtml(row.customer_name || '—')}</td>
+        <td>${escapeHtml(row.location_address || '—')}</td>
+        <td><span class="segment-pill ${segment.className}">${escapeHtml(segment.label)}</span></td>
+        <td>${escapeHtml(row.invoice_status || '—')}</td>
+        <td class="amount"><strong>${escapeHtml(formatCurrency(numberValue(row.total_sales)))}</strong></td>
+        <td class="amount"><strong>${escapeHtml(formatCurrency(numberValue(row.service_revenue_amount)))}</strong></td>
+      </tr>
+    `;
+  }).join('');
+
+  updatePagination();
+}
+
+function getInvoiceClassification(row) {
+  if (row.client_segment === 'UNMATCHED') {
+    return { label: 'UNMATCHED', className: 'segment-unmatched' };
+  }
+
+  if (row.recurring_route_cleaning) {
+    return { label: 'ROUTE CLEANING EXCLUDED', className: 'segment-recurring' };
+  }
+
+  if (row.client_segment === 'EXISTING_ROUTE') {
+    return { label: 'EXISTING ROUTE', className: 'segment-existing' };
+  }
+
+  if (row.client_segment === 'NON_ROUTE') {
+    return { label: 'NON-ROUTE', className: 'segment-nonroute' };
+  }
+
+  return { label: row.client_segment || '—', className: 'segment-recurring' };
+}
+
+function changeInvoicePage(delta) {
+  const pageCount = Math.max(1, Math.ceil(filteredInvoiceRows.length / INVOICE_PAGE_SIZE));
+  currentInvoicePage = Math.max(1, Math.min(pageCount, currentInvoicePage + delta));
+  renderInvoiceDetailTable();
+  document.querySelector('.table-wrap')?.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updatePagination() {
+  const pageCount = Math.max(1, Math.ceil(filteredInvoiceRows.length / INVOICE_PAGE_SIZE));
+  setText('invoicePageInfo', `Page ${currentInvoicePage} of ${pageCount}`);
+  document.getElementById('previousPageButton').disabled = currentInvoicePage <= 1;
+  document.getElementById('nextPageButton').disabled = currentInvoicePage >= pageCount;
+}
+
+function renderUnmatchedReview(rows, startDate, endDate) {
+  const body = document.getElementById('unmatchedReviewBody');
+  const summary = document.getElementById('unmatchedReviewSummary');
+  if (!body || !summary) return;
+
+  const items = Array.isArray(rows) ? rows : [];
+  const total = items.reduce((sum, row) => sum + numberValue(row.total_sales), 0);
+
+  summary.textContent = `${formatNumber(items.length)} invoice${items.length === 1 ? '' : 's'} · ${formatCurrency(total)} · ${formatDate(startDate)} – ${formatDate(endDate)}`;
+
+  if (!items.length) {
+    body.innerHTML = '<tr><td colspan="6" class="empty-state">No unmatched invoices for this reporting period.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = items.map(row => `
+    <tr>
+      <td><strong>${escapeHtml(row.invoice_number || '—')}</strong></td>
+      <td>${escapeHtml(formatDate(row.invoice_date))}</td>
+      <td>${escapeHtml(row.customer_name || '—')}</td>
+      <td>${escapeHtml(row.location_address || '—')}</td>
+      <td>${escapeHtml(row.invoice_status || '—')}</td>
+      <td class="amount"><strong>${escapeHtml(formatCurrency(numberValue(row.total_sales)))}</strong></td>
+    </tr>
+  `).join('');
+}
+
+async function loadImportHistory() {
+  const { data, error } = await client
+    .from(INVOICE_BATCH_TABLE)
+    .select('source_file_name,source_start_date,source_end_date,total_rows,existing_route_rows,non_route_rows,unmatched_rows,recurring_route_rows,import_status,imported_at')
+    .order('imported_at', { ascending: false })
+    .limit(20);
+
+  if (error) throw error;
+
+  const body = document.getElementById('importHistoryBody');
+  if (!body) return;
+
+  const rows = data || [];
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="9" class="empty-state">No invoice import history is available.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows.map(row => {
+    const imported = row.imported_at ? new Date(row.imported_at) : null;
+    const importedText = imported && !Number.isNaN(imported.getTime()) ? imported.toLocaleString('en-US') : '—';
+    const rangeText = row.source_start_date && row.source_end_date
+      ? `${formatDate(row.source_start_date)} – ${formatDate(row.source_end_date)}`
+      : '—';
+
+    return `
+      <tr>
+        <td>${escapeHtml(importedText)}</td>
+        <td><strong>${escapeHtml(row.source_file_name || '—')}</strong></td>
+        <td>${escapeHtml(rangeText)}</td>
+        <td class="amount">${escapeHtml(formatNumber(numberValue(row.total_rows)))}</td>
+        <td class="amount">${escapeHtml(formatNumber(numberValue(row.existing_route_rows)))}</td>
+        <td class="amount">${escapeHtml(formatNumber(numberValue(row.non_route_rows)))}</td>
+        <td class="amount">${escapeHtml(formatNumber(numberValue(row.recurring_route_rows)))}</td>
+        <td class="amount">${escapeHtml(formatNumber(numberValue(row.unmatched_rows)))}</td>
+        <td>${escapeHtml(row.import_status || '—')}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function updateImportVisibility() {
+  const panel = document.getElementById('invoiceImportPanel');
+  if (!panel) return;
+  panel.hidden = !['ADMIN', 'SYSTEM_ADMIN'].includes(String(currentProfile?.role || ''));
+}
+
+function initializeImportDropZone() {
+  const fileInput = document.getElementById('invoiceFileInput');
+  const dropZone = document.getElementById('invoiceDropZone');
+
+  const selectFile = file => {
+    if (!file) {
+      selectedInvoiceFile = null;
+      setText('invoiceFileNote', 'No file selected.');
+      dropZone?.classList.remove('has-file');
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      selectedInvoiceFile = null;
+      setText('invoiceFileNote', 'Only CSV files are accepted.');
+      dropZone?.classList.remove('has-file');
+      setImportMessage('error', 'Please use the Skimmer Invoices CSV export.');
+      return;
+    }
+
+    selectedInvoiceFile = file;
+    setText('invoiceFileNote', `${file.name} (${file.size.toLocaleString()} bytes) ready to import.`);
+    dropZone?.classList.add('has-file');
+    setText('invoiceImportResult', '');
+    setImportMessage('', '');
+  };
+
+  fileInput?.addEventListener('change', () => selectFile(fileInput.files?.[0] || null));
+
+  dropZone?.addEventListener('click', () => fileInput?.click());
+  dropZone?.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      fileInput?.click();
+    }
+  });
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropZone?.addEventListener(eventName, event => {
+      event.preventDefault();
+      event.stopPropagation();
+      dropZone.classList.add('dragover');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropZone?.addEventListener(eventName, event => {
+      event.preventDefault();
+      event.stopPropagation();
+      dropZone.classList.remove('dragover');
+    });
+  });
+
+  dropZone?.addEventListener('drop', event => {
+    selectFile(event.dataTransfer?.files?.[0] || null);
+  });
+}
+
+function setImportMessage(type, message) {
+  const element = document.getElementById('invoiceImportMessage');
+  if (!element) return;
+  element.className = 'import-message' + (type ? ` ${type}` : '');
+  element.textContent = message || '';
+}
+
+function normalizeCsvHeader(value) {
+  return String(value || '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function parseCsvText(csvText) {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < csvText.length; i += 1) {
+    const char = csvText[i];
+    const next = csvText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        field += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      row.push(field);
+      field = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') i += 1;
+      row.push(field);
+      if (row.some(value => String(value).trim() !== '')) rows.push(row);
+      row = [];
+      field = '';
+      continue;
+    }
+
+    field += char;
+  }
+
+  row.push(field);
+  if (row.some(value => String(value).trim() !== '')) rows.push(row);
+  return rows;
+}
+
+function findCsvColumn(headerMap, aliases) {
+  for (const alias of aliases) {
+    const normalized = normalizeCsvHeader(alias);
+    if (headerMap.has(normalized)) return headerMap.get(normalized);
+  }
+  return -1;
+}
+
+function buildInvoiceImportRows(csvText) {
+  const parsed = parseCsvText(csvText);
+  if (parsed.length < 2) throw new Error('The invoice CSV does not contain any data rows.');
+
+  const headers = parsed[0].map(normalizeCsvHeader);
+  const map = new Map(headers.map((header, index) => [header, index]));
+
+  const required = {
+    invoiceNumber: findCsvColumn(map, ['invoice #', 'invoice number']),
+    customer: findCsvColumn(map, ['customer', 'customer name']),
+    location: findCsvColumn(map, ['location', 'service location', 'service address']),
+    city: findCsvColumn(map, ['city', 'location city']),
+    state: findCsvColumn(map, ['state', 'location state']),
+    invoiceDate: findCsvColumn(map, ['invoice date', 'date']),
+    balance: findCsvColumn(map, ['balance']),
+    status: findCsvColumn(map, ['status', 'invoice status']),
+    subtotal: findCsvColumn(map, ['subtotal']),
+    tax: findCsvColumn(map, ['tax']),
+    totalSales: findCsvColumn(map, ['total sales', 'total'])
+  };
+
+  const labels = {
+    invoiceNumber: 'Invoice #',
+    customer: 'Customer',
+    location: 'Location',
+    city: 'City',
+    state: 'State',
+    invoiceDate: 'Invoice Date',
+    balance: 'Balance',
+    status: 'Status',
+    subtotal: 'Subtotal',
+    tax: 'Tax',
+    totalSales: 'Total Sales'
+  };
+
+  const missing = Object.entries(required)
+    .filter(([, index]) => index < 0)
+    .map(([key]) => labels[key]);
+
+  if (missing.length) {
+    throw new Error(`Required invoice column(s) not found: ${missing.join(', ')}.`);
+  }
+
+  return parsed.slice(1).map(values => ({
+    'Invoice #': String(values[required.invoiceNumber] || '').trim(),
+    'Customer': String(values[required.customer] || '').trim(),
+    'Location': String(values[required.location] || '').trim(),
+    'City': String(values[required.city] || '').trim(),
+    'State': String(values[required.state] || '').trim(),
+    'Invoice Date': String(values[required.invoiceDate] || '').trim(),
+    'Balance': String(values[required.balance] || '').trim(),
+    'Status': String(values[required.status] || '').trim(),
+    'Subtotal': String(values[required.subtotal] || '').trim(),
+    'Tax': String(values[required.tax] || '').trim(),
+    'Total Sales': String(values[required.totalSales] || '').trim()
+  })).filter(row => row['Invoice #'] && row['Invoice Date']);
+}
+
+async function importInvoicesCsv() {
+  if (!['ADMIN', 'SYSTEM_ADMIN'].includes(String(currentProfile?.role || ''))) {
+    setImportMessage('error', 'Only ADMIN or SYSTEM_ADMIN users can import Skimmer invoices.');
+    return;
+  }
+
+  const input = document.getElementById('invoiceFileInput');
+  const file = selectedInvoiceFile || input?.files?.[0];
+
+  if (!file) {
+    setImportMessage('error', 'Drop or select the Skimmer Invoices CSV first.');
+    return;
+  }
+
+  const button = document.getElementById('invoiceImportButton');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'IMPORTING...';
+  }
+
+  try {
+    const rows = buildInvoiceImportRows(await file.text());
+    if (!rows.length) throw new Error('No valid invoice rows were found.');
+
+    setImportMessage('info', `Importing ${rows.length.toLocaleString()} invoice row(s)...`);
+
+    const response = await client.rpc(INVOICE_IMPORT_RPC, {
+      p_file_name: file.name,
+      p_rows: rows
+    });
+
+    if (response.error) throw response.error;
+
+    const result = Array.isArray(response.data) ? (response.data[0] || {}) : (response.data || {});
+    const summaryText =
+      `${numberValue(result.source_record_count || rows.length).toLocaleString()} rows processed · ` +
+      `${numberValue(result.inserted_record_count).toLocaleString()} new · ` +
+      `${numberValue(result.updated_record_count).toLocaleString()} updated · ` +
+      `${numberValue(result.existing_route_count).toLocaleString()} Existing Route · ` +
+      `${numberValue(result.non_route_count).toLocaleString()} Non-Route · ` +
+      `${numberValue(result.recurring_route_count).toLocaleString()} recurring Route Cleaning excluded · ` +
+      `${numberValue(result.unmatched_count).toLocaleString()} unmatched.`;
+
+    setText('invoiceImportResult', summaryText);
+    setImportMessage('success', 'Skimmer invoice import completed successfully.');
+
+    selectedInvoiceFile = null;
+    if (input) input.value = '';
+    document.getElementById('invoiceDropZone')?.classList.remove('has-file');
+    setText('invoiceFileNote', 'Import complete. Drop the next weekly Invoices.csv here when ready.');
+
+    await refreshPage();
+  } catch (error) {
+    console.error('Skimmer invoice import failed:', error);
+    setImportMessage('error', 'Unable to import Skimmer invoices: ' + (error?.message || error));
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'IMPORT INVOICES';
+    }
+  }
+}
+
+function setUnavailable(message) {
+  setText('totalServiceRevenue', 'Unavailable');
+  setText('existingRouteRevenue', 'Unavailable');
+  setText('existingRoutePercent', '—');
+  setText('nonRouteRevenue', 'Unavailable');
+  setText('nonRoutePercent', '—');
+  setText('routeCleaningExcluded', 'Unavailable');
+  setText('routeCleaningExcludedCount', '—');
+  setText('unmatchedSales', 'Unavailable');
+  setText('unmatchedCount', '—');
+  document.getElementById('existingMixBar').style.width = '0%';
+  document.getElementById('nonRouteMixBar').style.width = '0%';
+  setText('existingLegend', 'Existing Route —');
+  setText('nonRouteLegend', 'Non-Route —');
+  setAnalysisStatus(message || 'Invoice data unavailable.', 'warning');
+}
+
+function getWeekRange(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = d.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = addDays(d, mondayOffset);
+  const friday = addDays(monday, 4);
+  return {
+    startDate: toDateISO(monday),
+    endDate: toDateISO(friday)
+  };
+}
+
+function getFiscalQuarterRange(date, capEnd = false) {
+  const month = date.getMonth();
+  let startMonth;
+
+  if (month >= 6 && month <= 8) startMonth = 6;
+  else if (month >= 9 && month <= 11) startMonth = 9;
+  else if (month >= 0 && month <= 2) startMonth = 0;
+  else startMonth = 3;
+
+  const startYear = (startMonth === 0 || startMonth === 3) && month >= 9
+    ? date.getFullYear() + 1
+    : date.getFullYear();
+
+  const start = new Date(startYear, startMonth, 1);
+  const end = new Date(startYear, startMonth + 3, 0);
+
+  return {
+    startDate: toDateISO(start),
+    endDate: capEnd ? invoiceDataThroughDate : toDateISO(end)
+  };
+}
+
+function parseDateISO(value) {
+  const [year, month, day] = String(value).split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toDateISO(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function addDays(date, days) {
+  const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+function formatDate(value) {
+  if (!value) return '—';
+  const date = parseDateISO(String(value).slice(0, 10));
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatCurrency(value) {
+  return numberValue(value).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function formatNumber(value) {
+  return numberValue(value).toLocaleString('en-US', { maximumFractionDigits: 0 });
+}
+
+function numberValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+  if (element) element.textContent = value;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+</script>
+</body>
+</html>
