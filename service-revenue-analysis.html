@@ -641,6 +641,32 @@
       .header-button, .header-link { flex: 1 1 auto; text-align: center; }
       .table-summary { text-align: left; }
     }
+  
+    .import-grid.revenue-reports {
+      grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr) auto;
+      align-items: end;
+    }
+
+    @media (max-width: 1150px) {
+      .import-grid.revenue-reports {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .import-grid.revenue-reports .primary-button {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .import-grid.revenue-reports {
+        grid-template-columns: 1fr;
+      }
+
+      .import-grid.revenue-reports .primary-button {
+        grid-column: auto;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -731,9 +757,9 @@
         </article>
 
         <article class="metric-card">
-          <div class="metric-label">Route Cleaning Excluded</div>
+          <div class="metric-label">Pool Service Excluded</div>
           <div class="metric-value" id="routeCleaningExcluded">$0.00</div>
-          <div class="metric-sub" id="routeCleaningExcludedCount">0 normal recurring Route Cleaning invoices excluded</div>
+          <div class="metric-sub" id="routeCleaningExcludedCount">0 Pool Service invoices excluded</div>
         </article>
 
         <article class="metric-card">
@@ -761,7 +787,7 @@
       <div class="section-heading">
         <div>
           <h2 class="section-title">Invoice Detail</h2>
-          <div class="section-description">Drill into the invoices behind the client-mix totals. Recurring Route Cleaning invoices remain visible here but are excluded from Service revenue.</div>
+          <div class="section-description">Drill into the invoices behind the client-mix totals. Pool Service invoices remain visible here but are excluded from Service revenue.</div>
         </div>
       </div>
 
@@ -772,10 +798,12 @@
             <select id="segmentFilter" onchange="applyInvoiceFilters()">
               <option value="ALL">All Invoices</option>
               <option value="QUALIFYING">Qualifying Service Revenue</option>
-              <option value="EXISTING_ROUTE">Existing Route Client Revenue</option>
-              <option value="NON_ROUTE">Non-Route Client Revenue</option>
-              <option value="RECURRING">Route Cleaning Excluded</option>
-              <option value="UNMATCHED">Unmatched / Review</option>
+              <option value="EXISTING_ROUTE">Existing Route Service Revenue</option>
+              <option value="NON_ROUTE">Non-Route Service Revenue</option>
+              <option value="POOL_SERVICE">Pool Service — Excluded</option>
+              <option value="PGP">PGP Revenue — Excluded</option>
+              <option value="PROJECTS">Projects Revenue — Excluded</option>
+              <option value="REVIEW">Classification Review</option>
             </select>
           </div>
 
@@ -827,7 +855,7 @@
         <div class="review-header">
           <div>
             <h2 class="review-title">Unmatched Invoice Review</h2>
-            <div class="section-description">These invoices could not be confidently matched to the Skimmer customer master. Their dollars are excluded from Existing Route vs. Non-Route Service revenue until reviewed.</div>
+            <div class="section-description">This queue is reserved for invoices that still need revenue classification or Service-client review after the Line Items report is applied.</div>
           </div>
           <div id="unmatchedReviewSummary" class="review-summary">0 invoices</div>
         </div>
@@ -853,25 +881,42 @@
     <section class="section import-panel" id="invoiceImportPanel" hidden>
       <div class="section-heading">
         <div>
-          <h2 class="section-title">Import Skimmer Invoices</h2>
-          <div class="section-description">ADMIN and SYSTEM_ADMIN can upload the weekly Skimmer Invoices CSV. Invoice # updates existing records instead of creating duplicates.</div>
+          <h2 class="section-title">Import Weekly Skimmer Revenue Reports</h2>
+          <div class="section-description">ADMIN and SYSTEM_ADMIN upload both Skimmer Invoice Detail CSV reports for the same custom date range. Invoices.csv supplies the financial totals; Line Items.csv supplies the revenue classification.</div>
         </div>
       </div>
 
       <div class="panel">
-        <div class="import-grid">
+        <div class="import-grid revenue-reports">
           <div class="filter-field">
-            <label for="invoiceFileInput">Skimmer Invoices CSV</label>
+            <label for="invoiceFileInput">1. Invoices.csv</label>
             <input id="invoiceFileInput" type="file" accept=".csv,text/csv" hidden>
             <div id="invoiceDropZone" class="drop-zone" role="button" tabindex="0" aria-label="Drop Skimmer Invoices CSV here or click to browse">
               <div>
-                <div class="drop-title">Drop Skimmer Invoices CSV Here</div>
-                <div class="drop-subtitle">Drag and drop the weekly <strong>Invoices.csv</strong> file here, or click this box to browse.</div>
-                <div class="import-note" id="invoiceFileNote">No file selected.</div>
+                <div class="drop-title">Drop Invoices.csv Here</div>
+                <div class="drop-subtitle">Skimmer → Reports → Invoice Reports → Invoice Details → Invoices → Custom Date Range → Export → CSV</div>
+                <div class="import-note" id="invoiceFileNote">No Invoices.csv selected.</div>
               </div>
             </div>
           </div>
-          <button class="primary-button" id="invoiceImportButton" type="button" onclick="importInvoicesCsv()">IMPORT INVOICES</button>
+
+          <div class="filter-field">
+            <label for="lineItemsFileInput">2. Line Items.csv</label>
+            <input id="lineItemsFileInput" type="file" accept=".csv,text/csv" hidden>
+            <div id="lineItemsDropZone" class="drop-zone" role="button" tabindex="0" aria-label="Drop Skimmer Line Items CSV here or click to browse">
+              <div>
+                <div class="drop-title">Drop Line Items.csv Here</div>
+                <div class="drop-subtitle">Skimmer → Reports → Invoice Reports → Invoice Details → Line Items → Custom Date Range → Export → CSV</div>
+                <div class="import-note" id="lineItemsFileNote">No Line Items.csv selected.</div>
+              </div>
+            </div>
+          </div>
+
+          <button class="primary-button" id="invoiceImportButton" type="button" onclick="importWeeklyRevenueReports()">IMPORT BOTH REPORTS</button>
+        </div>
+
+        <div class="import-note" style="margin-top:12px;">
+          The two files must cover the same custom date range and the same invoice set. The system imports <strong>Invoices.csv first</strong>, then joins <strong>Line Items.csv</strong> by Invoice # to classify Pool Service, Service, PGP, Projects, and review items.
         </div>
         <div id="invoiceImportMessage" class="import-message"></div>
         <div id="invoiceImportResult" class="import-result"></div>
@@ -881,8 +926,8 @@
     <section class="section">
       <div class="section-heading">
         <div>
-          <h2 class="section-title">Invoice Import History</h2>
-          <div class="section-description">Recent weekly invoice imports and classification results.</div>
+          <h2 class="section-title">Revenue Report Import History</h2>
+          <div class="section-description">Recent Invoices.csv and Line Items.csv imports for the weekly revenue workflow.</div>
         </div>
       </div>
 
@@ -891,14 +936,12 @@
           <table>
             <thead>
               <tr>
+                <th>Report</th>
                 <th>Imported</th>
                 <th>File</th>
                 <th>Invoice Dates</th>
                 <th class="amount">Rows</th>
-                <th class="amount">Existing Route</th>
-                <th class="amount">Non-Route</th>
-                <th class="amount">Route Cleaning</th>
-                <th class="amount">Unmatched</th>
+                <th>Result Summary</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -920,8 +963,10 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const ALLOWED_ROLES = ['SYSTEM_ADMIN', 'ADMIN', 'SERVICE_MANAGER'];
 const INVOICE_MIX_SUMMARY_RPC = 'get_client_services_invoice_mix_summary';
 const INVOICE_IMPORT_RPC = 'import_client_services_skimmer_invoices';
+const LINE_ITEM_IMPORT_RPC = 'import_client_services_skimmer_invoice_line_items';
 const INVOICE_REPORTING_VIEW = 'client_services_invoice_client_mix_reporting_view';
 const INVOICE_BATCH_TABLE = 'client_services_skimmer_invoice_import_batches';
+const LINE_ITEM_BATCH_TABLE = 'client_services_skimmer_invoice_line_item_import_batches';
 
 let currentProfile = null;
 let currentSession = null;
@@ -929,6 +974,7 @@ let invoiceDataThroughDate = '';
 let invoiceLastImportAt = '';
 let invoiceLastImportFile = '';
 let selectedInvoiceFile = null;
+let selectedLineItemsFile = null;
 
 let periodInvoiceRows = [];
 let filteredInvoiceRows = [];
@@ -1241,7 +1287,7 @@ async function loadSelectedPeriod() {
     periodInvoiceRows = detailRows;
     renderSummary(summaryResponse.data, startDate, endDate);
     populateStatusFilter(periodInvoiceRows);
-    renderUnmatchedReview(periodInvoiceRows.filter(row => row.client_segment === 'UNMATCHED'), startDate, endDate);
+    renderUnmatchedReview(periodInvoiceRows.filter(row => (row.revenue_stream === 'SERVICE' && row.client_segment === 'UNMATCHED') || row.revenue_stream === 'REVIEW'), startDate, endDate);
 
     currentInvoicePage = 1;
     applyInvoiceFilters();
@@ -1261,7 +1307,7 @@ async function fetchAllInvoiceRows(startDate, endDate) {
   while (true) {
     const { data, error } = await client
       .from(INVOICE_REPORTING_VIEW)
-      .select('invoice_number,invoice_date,customer_name,location_address,client_segment,match_method,match_review_required,route_rate_snapshot,route_rate_type_snapshot,recurring_route_cleaning,invoice_status,total_sales,service_revenue_amount,source_file_name,last_imported_at')
+      .select('invoice_number,invoice_date,customer_name,location_address,client_segment,match_method,match_review_required,route_rate_snapshot,route_rate_type_snapshot,recurring_route_cleaning,invoice_status,total_sales,service_revenue_amount,source_file_name,last_imported_at,excluded_from_service_revenue,service_revenue_exclusion_reason,revenue_stream,revenue_stream_source,line_items_imported_at')
       .gte('invoice_date', startDate)
       .lte('invoice_date', endDate)
       .order('invoice_date', { ascending: true })
@@ -1298,7 +1344,7 @@ function renderSummary(data, startDate, endDate) {
   setText('nonRouteRevenue', formatCurrency(nonRoute));
   setText('nonRoutePercent', `${nonRoutePct.toFixed(1)}%`);
   setText('routeCleaningExcluded', formatCurrency(recurringExcluded));
-  setText('routeCleaningExcludedCount', `${formatNumber(recurringCount)} normal recurring Route Cleaning invoice${recurringCount === 1 ? '' : 's'} excluded`);
+  setText('routeCleaningExcludedCount', `${formatNumber(recurringCount)} Pool Service invoice${recurringCount === 1 ? '' : 's'} excluded`);
   setText('unmatchedSales', formatCurrency(unmatchedSales));
   setText('unmatchedCount', `${formatNumber(unmatchedCount)} invoice${unmatchedCount === 1 ? '' : 's'} requiring review`);
 
@@ -1340,15 +1386,19 @@ function applyInvoiceFilters() {
     let segmentMatch = true;
 
     if (segment === 'QUALIFYING') {
-      segmentMatch = row.client_segment !== 'UNMATCHED' && !row.recurring_route_cleaning && numberValue(row.service_revenue_amount) !== 0;
+      segmentMatch = row.revenue_stream === 'SERVICE' && row.client_segment !== 'UNMATCHED';
     } else if (segment === 'EXISTING_ROUTE') {
-      segmentMatch = row.client_segment === 'EXISTING_ROUTE' && !row.recurring_route_cleaning && numberValue(row.service_revenue_amount) !== 0;
+      segmentMatch = row.revenue_stream === 'SERVICE' && row.client_segment === 'EXISTING_ROUTE';
     } else if (segment === 'NON_ROUTE') {
-      segmentMatch = row.client_segment === 'NON_ROUTE' && !row.recurring_route_cleaning && numberValue(row.service_revenue_amount) !== 0;
-    } else if (segment === 'RECURRING') {
-      segmentMatch = Boolean(row.recurring_route_cleaning);
-    } else if (segment === 'UNMATCHED') {
-      segmentMatch = row.client_segment === 'UNMATCHED';
+      segmentMatch = row.revenue_stream === 'SERVICE' && row.client_segment === 'NON_ROUTE';
+    } else if (segment === 'POOL_SERVICE') {
+      segmentMatch = row.revenue_stream === 'POOL_SERVICE';
+    } else if (segment === 'PGP') {
+      segmentMatch = row.revenue_stream === 'PGP';
+    } else if (segment === 'PROJECTS') {
+      segmentMatch = row.revenue_stream === 'PROJECTS';
+    } else if (segment === 'REVIEW') {
+      segmentMatch = row.revenue_stream === 'REVIEW' || (row.revenue_stream === 'SERVICE' && row.client_segment === 'UNMATCHED');
     }
 
     if (!segmentMatch) return false;
@@ -1415,12 +1465,45 @@ function renderInvoiceDetailTable() {
 }
 
 function getInvoiceClassification(row) {
+  if (row.revenue_stream === 'POOL_SERVICE') {
+    return { label: 'POOL SERVICE — EXCLUDED', className: 'segment-recurring' };
+  }
+
+  if (row.revenue_stream === 'PGP') {
+    return { label: 'PGP REVENUE — EXCLUDED', className: 'segment-recurring' };
+  }
+
+  if (row.revenue_stream === 'PROJECTS') {
+    return { label: 'PROJECTS REVENUE — EXCLUDED', className: 'segment-recurring' };
+  }
+
+  if (row.revenue_stream === 'REVIEW') {
+    return { label: 'CLASSIFICATION REVIEW', className: 'segment-unmatched' };
+  }
+
+  if (row.revenue_stream === 'SERVICE' && row.client_segment === 'EXISTING_ROUTE') {
+    return { label: 'SERVICE — EXISTING ROUTE', className: 'segment-existing' };
+  }
+
+  if (row.revenue_stream === 'SERVICE' && row.client_segment === 'NON_ROUTE') {
+    return { label: 'SERVICE — NON-ROUTE', className: 'segment-nonroute' };
+  }
+
+  if (row.revenue_stream === 'SERVICE' && row.client_segment === 'UNMATCHED') {
+    return { label: 'SERVICE — CLIENT REVIEW', className: 'segment-unmatched' };
+  }
+
+  if (row.excluded_from_service_revenue) {
+    const reason = String(row.service_revenue_exclusion_reason || 'Non-Service Revenue').trim();
+    return { label: `${reason.toUpperCase()} — EXCLUDED`, className: 'segment-recurring' };
+  }
+
   if (row.client_segment === 'UNMATCHED') {
     return { label: 'UNMATCHED', className: 'segment-unmatched' };
   }
 
   if (row.recurring_route_cleaning) {
-    return { label: 'ROUTE CLEANING EXCLUDED', className: 'segment-recurring' };
+    return { label: 'POOL SERVICE — EXCLUDED', className: 'segment-recurring' };
   }
 
   if (row.client_segment === 'EXISTING_ROUTE') {
@@ -1476,25 +1559,54 @@ function renderUnmatchedReview(rows, startDate, endDate) {
 }
 
 async function loadImportHistory() {
-  const { data, error } = await client
-    .from(INVOICE_BATCH_TABLE)
-    .select('source_file_name,source_start_date,source_end_date,total_rows,existing_route_rows,non_route_rows,unmatched_rows,recurring_route_rows,import_status,imported_at')
-    .order('imported_at', { ascending: false })
-    .limit(20);
+  const [invoiceResponse, lineItemResponse] = await Promise.all([
+    client
+      .from(INVOICE_BATCH_TABLE)
+      .select('source_file_name,source_start_date,source_end_date,total_rows,existing_route_rows,non_route_rows,unmatched_rows,recurring_route_rows,import_status,imported_at')
+      .order('imported_at', { ascending: false })
+      .limit(20),
+    client
+      .from(LINE_ITEM_BATCH_TABLE)
+      .select('source_file_name,source_start_date,source_end_date,total_rows,invoice_count,pool_service_rows,service_rows,pgp_rows,projects_rows,review_rows,import_status,imported_at')
+      .order('imported_at', { ascending: false })
+      .limit(20)
+  ]);
 
-  if (error) throw error;
+  if (invoiceResponse.error) throw invoiceResponse.error;
+  if (lineItemResponse.error) throw lineItemResponse.error;
+
+  const items = [
+    ...(invoiceResponse.data || []).map(row => ({
+      reportType: 'Invoices',
+      ...row,
+      resultSummary:
+        `${formatNumber(numberValue(row.existing_route_rows))} Existing Route · ` +
+        `${formatNumber(numberValue(row.non_route_rows))} Non-Route · ` +
+        `${formatNumber(numberValue(row.recurring_route_rows))} Pool Service candidates · ` +
+        `${formatNumber(numberValue(row.unmatched_rows))} unmatched`
+    })),
+    ...(lineItemResponse.data || []).map(row => ({
+      reportType: 'Line Items',
+      ...row,
+      resultSummary:
+        `${formatNumber(numberValue(row.invoice_count))} invoices · ` +
+        `${formatNumber(numberValue(row.pool_service_rows))} Pool Service lines · ` +
+        `${formatNumber(numberValue(row.service_rows))} Service lines · ` +
+        `${formatNumber(numberValue(row.pgp_rows))} PGP lines · ` +
+        `${formatNumber(numberValue(row.projects_rows))} Projects lines · ` +
+        `${formatNumber(numberValue(row.review_rows))} supporting/review lines`
+    }))
+  ].sort((a, b) => new Date(b.imported_at || 0) - new Date(a.imported_at || 0)).slice(0, 30);
 
   const body = document.getElementById('importHistoryBody');
   if (!body) return;
 
-  const rows = data || [];
-
-  if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="9" class="empty-state">No invoice import history is available.</td></tr>';
+  if (!items.length) {
+    body.innerHTML = '<tr><td colspan="7" class="empty-state">No revenue report import history is available.</td></tr>';
     return;
   }
 
-  body.innerHTML = rows.map(row => {
+  body.innerHTML = items.map(row => {
     const imported = row.imported_at ? new Date(row.imported_at) : null;
     const importedText = imported && !Number.isNaN(imported.getTime()) ? imported.toLocaleString('en-US') : '—';
     const rangeText = row.source_start_date && row.source_end_date
@@ -1503,14 +1615,12 @@ async function loadImportHistory() {
 
     return `
       <tr>
+        <td><strong>${escapeHtml(row.reportType)}</strong></td>
         <td>${escapeHtml(importedText)}</td>
         <td><strong>${escapeHtml(row.source_file_name || '—')}</strong></td>
         <td>${escapeHtml(rangeText)}</td>
         <td class="amount">${escapeHtml(formatNumber(numberValue(row.total_rows)))}</td>
-        <td class="amount">${escapeHtml(formatNumber(numberValue(row.existing_route_rows)))}</td>
-        <td class="amount">${escapeHtml(formatNumber(numberValue(row.non_route_rows)))}</td>
-        <td class="amount">${escapeHtml(formatNumber(numberValue(row.recurring_route_rows)))}</td>
-        <td class="amount">${escapeHtml(formatNumber(numberValue(row.unmatched_rows)))}</td>
+        <td>${escapeHtml(row.resultSummary || '—')}</td>
         <td>${escapeHtml(row.import_status || '—')}</td>
       </tr>
     `;
@@ -1524,27 +1634,45 @@ function updateImportVisibility() {
 }
 
 function initializeImportDropZone() {
-  const fileInput = document.getElementById('invoiceFileInput');
-  const dropZone = document.getElementById('invoiceDropZone');
+  setupRevenueReportDropZone({
+    inputId: 'invoiceFileInput',
+    dropZoneId: 'invoiceDropZone',
+    noteId: 'invoiceFileNote',
+    expectedName: 'Invoices.csv',
+    setter: file => { selectedInvoiceFile = file; }
+  });
+
+  setupRevenueReportDropZone({
+    inputId: 'lineItemsFileInput',
+    dropZoneId: 'lineItemsDropZone',
+    noteId: 'lineItemsFileNote',
+    expectedName: 'Line Items.csv',
+    setter: file => { selectedLineItemsFile = file; }
+  });
+}
+
+function setupRevenueReportDropZone({ inputId, dropZoneId, noteId, expectedName, setter }) {
+  const fileInput = document.getElementById(inputId);
+  const dropZone = document.getElementById(dropZoneId);
 
   const selectFile = file => {
     if (!file) {
-      selectedInvoiceFile = null;
-      setText('invoiceFileNote', 'No file selected.');
+      setter(null);
+      setText(noteId, `No ${expectedName} selected.`);
       dropZone?.classList.remove('has-file');
       return;
     }
 
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      selectedInvoiceFile = null;
-      setText('invoiceFileNote', 'Only CSV files are accepted.');
+      setter(null);
+      setText(noteId, 'Only CSV files are accepted.');
       dropZone?.classList.remove('has-file');
-      setImportMessage('error', 'Please use the Skimmer Invoices CSV export.');
+      setImportMessage('error', `Please use the Skimmer ${expectedName} CSV export.`);
       return;
     }
 
-    selectedInvoiceFile = file;
-    setText('invoiceFileNote', `${file.name} (${file.size.toLocaleString()} bytes) ready to import.`);
+    setter(file);
+    setText(noteId, `${file.name} (${file.size.toLocaleString()} bytes) ready.`);
     dropZone?.classList.add('has-file');
     setText('invoiceImportResult', '');
     setImportMessage('', '');
@@ -1701,65 +1829,220 @@ function buildInvoiceImportRows(csvText) {
   })).filter(row => row['Invoice #'] && row['Invoice Date']);
 }
 
-async function importInvoicesCsv() {
+function buildLineItemImportRows(csvText) {
+  const parsed = parseCsvText(csvText);
+  if (parsed.length < 2) throw new Error('The Line Items CSV does not contain any data rows.');
+
+  const headers = parsed[0].map(normalizeCsvHeader);
+  const map = new Map(headers.map((header, index) => [header, index]));
+
+  const required = {
+    invoiceNumber: findCsvColumn(map, ['invoice #', 'invoice number']),
+    customer: findCsvColumn(map, ['customer', 'customer name']),
+    location: findCsvColumn(map, ['location', 'service location', 'service address']),
+    invoiceDate: findCsvColumn(map, ['invoice date', 'date']),
+    item: findCsvColumn(map, ['item', 'item name']),
+    description: findCsvColumn(map, ['description']),
+    category: findCsvColumn(map, ['category']),
+    qty: findCsvColumn(map, ['qty', 'quantity']),
+    unitRate: findCsvColumn(map, ['unit rate', 'rate']),
+    amount: findCsvColumn(map, ['amount'])
+  };
+
+  const labels = {
+    invoiceNumber: 'Invoice #',
+    customer: 'Customer',
+    location: 'Location',
+    invoiceDate: 'Invoice Date',
+    item: 'Item',
+    description: 'Description',
+    category: 'Category',
+    qty: 'Qty',
+    unitRate: 'Unit Rate',
+    amount: 'Amount'
+  };
+
+  const missing = Object.entries(required)
+    .filter(([, index]) => index < 0)
+    .map(([key]) => labels[key]);
+
+  if (missing.length) {
+    throw new Error(`Required Line Items column(s) not found: ${missing.join(', ')}.`);
+  }
+
+  return parsed.slice(1).map(values => ({
+    'Invoice #': String(values[required.invoiceNumber] || '').trim(),
+    'Customer': String(values[required.customer] || '').trim(),
+    'Location': String(values[required.location] || '').trim(),
+    'Invoice Date': String(values[required.invoiceDate] || '').trim(),
+    'Item': String(values[required.item] || '').trim(),
+    'Description': String(values[required.description] || '').trim(),
+    'Category': String(values[required.category] || '').trim(),
+    'Qty': String(values[required.qty] || '').trim(),
+    'Unit Rate': String(values[required.unitRate] || '').trim(),
+    'Amount': String(values[required.amount] || '').trim()
+  })).filter(row => row['Invoice #'] && row['Invoice Date']);
+}
+
+function getReportInvoiceSet(rows) {
+  return new Set(rows.map(row => String(row['Invoice #'] || '').trim()).filter(Boolean));
+}
+
+function getReportDateRange(rows) {
+  const dates = rows
+    .map(row => normalizeImportedDate(row['Invoice Date']))
+    .filter(Boolean)
+    .sort();
+
+  return {
+    startDate: dates[0] || '',
+    endDate: dates[dates.length - 1] || ''
+  };
+}
+
+function normalizeImportedDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (match) {
+    const [, month, day, year] = match;
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return toDateISO(parsed);
+}
+
+function validatePairedRevenueReports(invoiceRows, lineItemRows) {
+  const invoiceSet = getReportInvoiceSet(invoiceRows);
+  const lineItemSet = getReportInvoiceSet(lineItemRows);
+
+  const missingLineItems = [...invoiceSet].filter(value => !lineItemSet.has(value));
+  const extraLineItems = [...lineItemSet].filter(value => !invoiceSet.has(value));
+
+  const invoiceRange = getReportDateRange(invoiceRows);
+  const lineItemRange = getReportDateRange(lineItemRows);
+
+  if (invoiceRange.startDate !== lineItemRange.startDate || invoiceRange.endDate !== lineItemRange.endDate) {
+    throw new Error(
+      `The two reports do not cover the same invoice date range. ` +
+      `Invoices.csv: ${invoiceRange.startDate || 'unknown'} – ${invoiceRange.endDate || 'unknown'}; ` +
+      `Line Items.csv: ${lineItemRange.startDate || 'unknown'} – ${lineItemRange.endDate || 'unknown'}.`
+    );
+  }
+
+  if (missingLineItems.length || extraLineItems.length) {
+    const parts = [];
+    if (missingLineItems.length) parts.push(`${missingLineItems.length} invoice(s) are missing from Line Items.csv`);
+    if (extraLineItems.length) parts.push(`${extraLineItems.length} invoice(s) appear only in Line Items.csv`);
+    throw new Error(`The two reports do not contain the same Invoice # set: ${parts.join('; ')}.`);
+  }
+
+  return {
+    invoiceCount: invoiceSet.size,
+    startDate: invoiceRange.startDate,
+    endDate: invoiceRange.endDate
+  };
+}
+
+async function importWeeklyRevenueReports() {
   if (!['ADMIN', 'SYSTEM_ADMIN'].includes(String(currentProfile?.role || ''))) {
-    setImportMessage('error', 'Only ADMIN or SYSTEM_ADMIN users can import Skimmer invoices.');
+    setImportMessage('error', 'Only ADMIN or SYSTEM_ADMIN users can import the weekly Skimmer revenue reports.');
     return;
   }
 
-  const input = document.getElementById('invoiceFileInput');
-  const file = selectedInvoiceFile || input?.files?.[0];
+  const invoiceInput = document.getElementById('invoiceFileInput');
+  const lineItemsInput = document.getElementById('lineItemsFileInput');
+  const invoiceFile = selectedInvoiceFile || invoiceInput?.files?.[0];
+  const lineItemsFile = selectedLineItemsFile || lineItemsInput?.files?.[0];
 
-  if (!file) {
-    setImportMessage('error', 'Drop or select the Skimmer Invoices CSV first.');
+  if (!invoiceFile || !lineItemsFile) {
+    setImportMessage('error', 'Drop both Invoices.csv and Line Items.csv before importing.');
     return;
   }
 
   const button = document.getElementById('invoiceImportButton');
   if (button) {
     button.disabled = true;
-    button.textContent = 'IMPORTING...';
+    button.textContent = 'IMPORTING BOTH...';
   }
 
   try {
-    const rows = buildInvoiceImportRows(await file.text());
-    if (!rows.length) throw new Error('No valid invoice rows were found.');
+    const [invoiceText, lineItemsText] = await Promise.all([
+      invoiceFile.text(),
+      lineItemsFile.text()
+    ]);
 
-    setImportMessage('info', `Importing ${rows.length.toLocaleString()} invoice row(s)...`);
+    const invoiceRows = buildInvoiceImportRows(invoiceText);
+    const lineItemRows = buildLineItemImportRows(lineItemsText);
 
-    const response = await client.rpc(INVOICE_IMPORT_RPC, {
-      p_file_name: file.name,
-      p_rows: rows
+    if (!invoiceRows.length) throw new Error('No valid invoice rows were found in Invoices.csv.');
+    if (!lineItemRows.length) throw new Error('No valid line-item rows were found in Line Items.csv.');
+
+    const validation = validatePairedRevenueReports(invoiceRows, lineItemRows);
+
+    setImportMessage(
+      'info',
+      `Validated ${validation.invoiceCount.toLocaleString()} invoices for ${validation.startDate} – ${validation.endDate}. Importing Invoices.csv first...`
+    );
+
+    const invoiceResponse = await client.rpc(INVOICE_IMPORT_RPC, {
+      p_file_name: invoiceFile.name,
+      p_rows: invoiceRows
     });
+    if (invoiceResponse.error) throw invoiceResponse.error;
 
-    if (response.error) throw response.error;
+    setImportMessage(
+      'info',
+      `Invoices.csv imported. Classifying ${lineItemRows.length.toLocaleString()} Line Items.csv row(s)...`
+    );
 
-    const result = Array.isArray(response.data) ? (response.data[0] || {}) : (response.data || {});
+    const lineItemResponse = await client.rpc(LINE_ITEM_IMPORT_RPC, {
+      p_file_name: lineItemsFile.name,
+      p_rows: lineItemRows
+    });
+    if (lineItemResponse.error) throw lineItemResponse.error;
+
+    const invoiceResult = Array.isArray(invoiceResponse.data) ? (invoiceResponse.data[0] || {}) : (invoiceResponse.data || {});
+    const lineResult = Array.isArray(lineItemResponse.data) ? (lineItemResponse.data[0] || {}) : (lineItemResponse.data || {});
+
     const summaryText =
-      `${numberValue(result.source_record_count || rows.length).toLocaleString()} rows processed · ` +
-      `${numberValue(result.inserted_record_count).toLocaleString()} new · ` +
-      `${numberValue(result.updated_record_count).toLocaleString()} updated · ` +
-      `${numberValue(result.existing_route_count).toLocaleString()} Existing Route · ` +
-      `${numberValue(result.non_route_count).toLocaleString()} Non-Route · ` +
-      `${numberValue(result.recurring_route_count).toLocaleString()} recurring Route Cleaning excluded · ` +
-      `${numberValue(result.unmatched_count).toLocaleString()} unmatched.`;
+      `Invoices: ${numberValue(invoiceResult.source_record_count || invoiceRows.length).toLocaleString()} rows · ` +
+      `${numberValue(invoiceResult.inserted_record_count).toLocaleString()} new · ` +
+      `${numberValue(invoiceResult.updated_record_count).toLocaleString()} updated. ` +
+      `Line Items: ${numberValue(lineResult.source_record_count || lineItemRows.length).toLocaleString()} rows across ` +
+      `${numberValue(lineResult.invoice_record_count || validation.invoiceCount).toLocaleString()} invoices · ` +
+      `${numberValue(lineResult.pool_service_count).toLocaleString()} Pool Service lines · ` +
+      `${numberValue(lineResult.service_count).toLocaleString()} Service lines · ` +
+      `${numberValue(lineResult.pgp_count).toLocaleString()} PGP lines · ` +
+      `${numberValue(lineResult.projects_count).toLocaleString()} Projects lines · ` +
+      `${numberValue(lineResult.review_count).toLocaleString()} supporting/review lines.`;
 
     setText('invoiceImportResult', summaryText);
-    setImportMessage('success', 'Skimmer invoice import completed successfully.');
+    setImportMessage('success', 'Both weekly Skimmer revenue reports imported and joined successfully by Invoice #.');
 
     selectedInvoiceFile = null;
-    if (input) input.value = '';
+    selectedLineItemsFile = null;
+    if (invoiceInput) invoiceInput.value = '';
+    if (lineItemsInput) lineItemsInput.value = '';
+
     document.getElementById('invoiceDropZone')?.classList.remove('has-file');
-    setText('invoiceFileNote', 'Import complete. Drop the next weekly Invoices.csv here when ready.');
+    document.getElementById('lineItemsDropZone')?.classList.remove('has-file');
+    setText('invoiceFileNote', 'Import complete. Ready for the next weekly Invoices.csv.');
+    setText('lineItemsFileNote', 'Import complete. Ready for the next weekly Line Items.csv.');
 
     await refreshPage();
   } catch (error) {
-    console.error('Skimmer invoice import failed:', error);
-    setImportMessage('error', 'Unable to import Skimmer invoices: ' + (error?.message || error));
+    console.error('Weekly Skimmer revenue report import failed:', error);
+    setImportMessage('error', 'Unable to import the weekly revenue reports: ' + (error?.message || error));
   } finally {
     if (button) {
       button.disabled = false;
-      button.textContent = 'IMPORT INVOICES';
+      button.textContent = 'IMPORT BOTH REPORTS';
     }
   }
 }
