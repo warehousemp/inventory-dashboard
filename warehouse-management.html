@@ -3246,7 +3246,7 @@
 <h3>Print Shelf Labels — Avery 5163</h3>
 <div class="warning-note">
       Print one 2&quot; × 4&quot; label for each active part that has a Main Warehouse Shelf Location assigned.
-      Labels are sorted by Shelf Location, then Part Number. Quantity and cost are intentionally excluded so the physical shelf label remains valid as inventory changes.
+      Labels are sorted by Shelf Location, then Part Number. Maximum Stock uses the part's Reorder Point; Minimum Stock is calculated as 20% of Maximum Stock, rounded to the nearest whole number (Max 1 = Min 0).
     </div>
 <div class="shelf-label-actions">
 <div>
@@ -7750,6 +7750,42 @@ async function loadShelfLabelData(forceRefresh = false) {
   const activePartNumbers = new Set(
     (partsData || []).map(part => String(part.part_number || '').trim().toUpperCase()).filter(Boolean)
   );
+
+  // Shelf labels use the part master Reorder Point as Maximum Stock.
+  // Minimum Stock is calculated at print time as 20% of Maximum Stock.
+  const reorderPointByPartNumber = new Map();
+  let partMasterFrom = 0;
+  const partMasterBatchSize = 1000;
+
+  while (true) {
+    const { data: partMasterRows, error: partMasterError } = await client
+      .from('parts')
+      .select('part_number,reorder_point')
+      .eq('active', true)
+      .range(partMasterFrom, partMasterFrom + partMasterBatchSize - 1);
+
+    if (partMasterError) {
+      throw partMasterError;
+    }
+
+    if (!partMasterRows || partMasterRows.length === 0) {
+      break;
+    }
+
+    partMasterRows.forEach(part => {
+      const normalizedPartNumber = String(part?.part_number || '').trim().toUpperCase();
+      if (normalizedPartNumber) {
+        reorderPointByPartNumber.set(normalizedPartNumber, Number(part?.reorder_point || 0));
+      }
+    });
+
+    if (partMasterRows.length < partMasterBatchSize) {
+      break;
+    }
+
+    partMasterFrom += partMasterBatchSize;
+  }
+
   let rows = [];
   let from = 0;
   const batchSize = 1000;
@@ -7792,7 +7828,10 @@ async function loadShelfLabelData(forceRefresh = false) {
     const key = `${normalizedPartNumber}||${shelfCode}`;
 
     if (!deduped.has(key)) {
-      deduped.set(key, row);
+      deduped.set(key, {
+        ...row,
+        maximum_stock: reorderPointByPartNumber.get(normalizedPartNumber) ?? 0
+      });
     }
   });
 
@@ -7866,9 +7905,12 @@ function writeAvery5163LabelsToWindow(printWindow, rows, startPosition = 1, prin
         const partNumber = String(row.part_number || '').trim();
         const description = String(row.description || '').trim();
         const category = String(row.category || row.cycle_count_category || '').trim();
+        const maximumStockRaw = Number(row.maximum_stock ?? row.reorder_point ?? 0);
+        const maximumStock = Math.max(0, Math.round(Number.isFinite(maximumStockRaw) ? maximumStockRaw : 0));
+        const minimumStock = maximumStock === 1 ? 0 : Math.max(0, Math.round(maximumStock * 0.20));
         const assignmentLine = `${shelfCode} - ${partNumber}`;
         const assignmentClass = assignmentLine.length > 34 ? 'assignment-line compact' : 'assignment-line';
-        const descriptionClass = description.length > 72 ? 'description compact' : 'description';
+        const descriptionClass = description.length > 86 ? 'description compact' : 'description';
 
         return `
           <div class="label">
@@ -7880,6 +7922,10 @@ function writeAvery5163LabelsToWindow(printWindow, rows, startPosition = 1, prin
             <div class="label-content">
               <div class="${assignmentClass}">${escapeHTML(assignmentLine)}</div>
               <div class="${descriptionClass}">${escapeHTML(description || 'No description on file')}</div>
+              <div class="stock-levels">
+                <span>MIN STOCK: ${minimumStock}</span>
+                <span>MAX STOCK: ${maximumStock}</span>
+              </div>
             </div>
             <div class="label-footer">${escapeHTML(category)}</div>
           </div>
@@ -7948,7 +7994,7 @@ function writeAvery5163LabelsToWindow(printWindow, rows, startPosition = 1, prin
     padding: 0.02in 0;
   }
   .assignment-line {
-    font-size: 24pt;
+    font-size: 22pt;
     line-height: 1.02;
     font-weight: 900;
     letter-spacing: 0.01em;
@@ -7957,19 +8003,34 @@ function writeAvery5163LabelsToWindow(printWindow, rows, startPosition = 1, prin
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .assignment-line.compact { font-size: 20pt; }
+  .assignment-line.compact { font-size: 18pt; }
   .description {
-    font-size: 20pt;
-    line-height: 1.02;
-    font-weight: 900;
-    margin-top: 0.07in;
+    font-size: 11.5pt;
+    line-height: 1.08;
+    font-weight: 800;
+    margin-top: 0.055in;
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow-wrap: anywhere;
+    text-transform: uppercase;
   }
-  .description.compact { font-size: 17pt; line-height: 1.02; }
+  .description.compact { font-size: 10pt; line-height: 1.05; }
+  .stock-levels {
+    margin-top: 0.075in;
+    padding: 0.055in 0.08in;
+    border-top: 0.8pt solid #9ca3af;
+    border-bottom: 0.8pt solid #9ca3af;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.12in;
+    font-size: 10.5pt;
+    line-height: 1;
+    font-weight: 900;
+    white-space: nowrap;
+  }
   .label-footer {
     min-height: 0.13in;
     padding-top: 0.045in;
@@ -9149,6 +9210,19 @@ function calculateCalendarDaysBetween(startValue, endValue = new Date()) {
   return Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function formatDateOnly(value) {
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
 
 function getCycleCountSessionType(row) {
   return normalizeCycleCountRequirementValue(row?.cycle_count_category) === WHOLE_LOCATION_CYCLE_COUNT_CATEGORY
