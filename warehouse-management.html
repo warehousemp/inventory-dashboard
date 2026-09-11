@@ -7725,6 +7725,7 @@ const SHELF_LABEL_PRINT_ABBREVIATIONS = {
   'PGP (BAY 2)': 'PGP',
   'PROJECTS (BAY 4)': 'PRO',
   'BAY 6 PVC CONSUMABLES': 'CON',
+  'CONSUMABLES (BAY 6)': 'CON',
   'ROUTE TECH SUPPLIES': 'RTS'
 };
 
@@ -7924,7 +7925,15 @@ function writeAvery5163LabelsToWindow(printWindow, rows, startPosition = 1, prin
         const maximumStock = Math.max(0, Math.round(Number.isFinite(maximumStockRaw) ? maximumStockRaw : 0));
         const minimumStock = maximumStock === 1 ? 0 : Math.max(0, Math.round(maximumStock * 0.20));
         const assignmentLine = `${shelfCode} - ${partNumber}`;
-        const assignmentClass = assignmentLine.length > 34 ? 'assignment-line compact' : 'assignment-line';
+        let assignmentSizeClass = '';
+        if (assignmentLine.length >= 28) {
+          assignmentSizeClass = ' wrap';
+        } else if (assignmentLine.length >= 22) {
+          assignmentSizeClass = ' extra-compact';
+        } else if (assignmentLine.length >= 16) {
+          assignmentSizeClass = ' compact';
+        }
+        const assignmentClass = `assignment-line${assignmentSizeClass}`;
         const descriptionClass = description.length > 86 ? 'description compact' : 'description';
 
         return `
@@ -8012,13 +8021,22 @@ function writeAvery5163LabelsToWindow(printWindow, rows, startPosition = 1, prin
     font-size: 22pt;
     line-height: 1.02;
     font-weight: 900;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.005em;
     color: #111827;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
   }
-  .assignment-line.compact { font-size: 18pt; }
+  .assignment-line.compact { font-size: 17pt; letter-spacing: 0; }
+  .assignment-line.extra-compact { font-size: 14pt; letter-spacing: 0; }
+  .assignment-line.wrap {
+    font-size: 12pt;
+    line-height: 1.02;
+    letter-spacing: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
   .description {
     font-size: 11.5pt;
     line-height: 1.08;
