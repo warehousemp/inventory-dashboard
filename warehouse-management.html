@@ -7811,6 +7811,10 @@ async function loadShelfLabelData(forceRefresh = false) {
   const chemicalCatalogByChemicalId = new Map();
   const chemicalTargetByChemicalId = new Map();
 
+  // PGP (Bay 2) bulk-label filtering is based on CURRENT Main Warehouse stock.
+  // If the part is physically on hand, its label belongs in Print All / Print Selected Shelf.
+  // Individual label printing remains available regardless of quantity.
+
   const { data: chemicalCatalogRows, error: chemicalCatalogError } = await client
     .from('chem_catalog')
     .select('id,code,chemical_name,part_id,purchased_unit,issuing_unit,active')
@@ -7985,11 +7989,16 @@ async function loadShelfLabelData(forceRefresh = false) {
         ? chemicalTargetByChemicalId.get(String(chemicalCatalog.id))
         : null;
       const isChemicalLabel = shelfCode === 'CHEMICAL STORAGE';
+      const isPgpLabel = shelfCode === 'PGP (BAY 2)';
+      const pgpCurrentInventory = Number(row?.main_warehouse_quantity_on_hand || 0);
       const standardMaximumStock = Number(partMaster?.reorder_point || 0);
 
       deduped.set(key, {
         ...row,
         is_chemical_label: isChemicalLabel,
+        is_pgp_label: isPgpLabel,
+        pgp_current_inventory: pgpCurrentInventory,
+        pgp_has_inventory: Boolean(isPgpLabel && Number.isFinite(pgpCurrentInventory) && pgpCurrentInventory > 0),
         unit_type: isChemicalLabel
           ? String(chemicalCatalog?.purchased_unit || partMaster?.unit_of_measure || 'each').trim()
           : '',
@@ -8313,9 +8322,7 @@ async function printShelfLabelRows(rows, startPosition, printTitle, printWindow)
 async function printAllShelfLabels() {
   const printWindow = createShelfLabelPrintWindow();
 
-  if (!printWindow) {
-    return;
-  }
+  if (!printWindow) return;
 
   setShelfLabelPrintStatus('Loading all active assigned shelf labels...');
 
@@ -8323,31 +8330,39 @@ async function printAllShelfLabels() {
     const allRows = await loadShelfLabelData(true);
     let skippedChemicalNoUsage = 0;
     let includedChemicalWithUsage = 0;
+    let skippedPgpNoInventory = 0;
+    let includedPgpWithInventory = 0;
 
     const rows = allRows.filter(row => {
-      const isChemicalLabel = Boolean(row?.is_chemical_label) || getShelfLabelShelfCode(row) === 'CHEMICAL STORAGE';
+      const shelfCode = getShelfLabelShelfCode(row);
+      const isChemicalLabel = Boolean(row?.is_chemical_label) || shelfCode === 'CHEMICAL STORAGE';
+      const isPgpLabel = Boolean(row?.is_pgp_label) || shelfCode === 'PGP (BAY 2)';
 
-      if (!isChemicalLabel) {
-        return true;
+      if (isChemicalLabel) {
+        if (row?.chemical_has_usage === true) {
+          includedChemicalWithUsage += 1;
+          return true;
+        }
+        skippedChemicalNoUsage += 1;
+        return false;
       }
 
-      // HARD RULE FOR PRINT ALL:
-      // A Chemical Storage label is included only when that exact chemical has
-      // recorded Daily Chemical Issuance in the active usage window.
-      // Do not infer this from reorder_point or from a fallback stock value.
-      if (row?.chemical_has_usage === true) {
-        includedChemicalWithUsage += 1;
-        return true;
+      if (isPgpLabel) {
+        if (row?.pgp_has_inventory === true) {
+          includedPgpWithInventory += 1;
+          return true;
+        }
+        skippedPgpNoInventory += 1;
+        return false;
       }
 
-      skippedChemicalNoUsage += 1;
-      return false;
+      return true;
     });
 
     if (!rows || rows.length === 0) {
       if (printWindow && !printWindow.closed) printWindow.close();
       setShelfLabelPrintStatus(
-        `No labels qualified for Print All. Chemical labels skipped for no usage: ${formatNumber(skippedChemicalNoUsage)}.`
+        `No labels qualified for Print All. Chemical labels skipped for no usage: ${formatNumber(skippedChemicalNoUsage)}. PGP labels skipped for zero inventory: ${formatNumber(skippedPgpNoInventory)}.`
       );
       return;
     }
@@ -8355,19 +8370,14 @@ async function printAllShelfLabels() {
     const pageCount = getShelfLabelPageCount(rows.length, 1);
     writeAvery5163LabelsToWindow(printWindow, rows, 1, 'All Main Warehouse Shelf Labels');
     setShelfLabelPrintStatus(
-      `All Main Warehouse Shelf Labels prepared successfully.
-` +
-      `Labels: ${formatNumber(rows.length)}
-` +
-      `Chemical labels included (usage found): ${formatNumber(includedChemicalWithUsage)}
-` +
-      `Chemical labels skipped (no usage): ${formatNumber(skippedChemicalNoUsage)}
-` +
-      `Avery 5163 Sheet(s): ${formatNumber(pageCount)}
-` +
-      `Starting Position: 1
-
-` +
+      `All Main Warehouse Shelf Labels prepared successfully.\n` +
+      `Labels: ${formatNumber(rows.length)}\n` +
+      `Chemical labels included (usage found): ${formatNumber(includedChemicalWithUsage)}\n` +
+      `Chemical labels skipped (no usage): ${formatNumber(skippedChemicalNoUsage)}\n` +
+      `PGP labels included (inventory on hand): ${formatNumber(includedPgpWithInventory)}\n` +
+      `PGP labels skipped (zero inventory): ${formatNumber(skippedPgpNoInventory)}\n` +
+      `Avery 5163 Sheet(s): ${formatNumber(pageCount)}\n` +
+      `Starting Position: 1\n\n` +
       `Print using Letter paper and Actual Size / 100% scaling.`
     );
   } catch (error) {
@@ -8387,10 +8397,7 @@ async function printSelectedShelfLocationLabels() {
   }
 
   const printWindow = createShelfLabelPrintWindow();
-
-  if (!printWindow) {
-    return;
-  }
+  if (!printWindow) return;
 
   const startPosition = getShelfLabelStartPosition();
   setShelfLabelPrintStatus(`Loading labels assigned to Shelf Location ${shelfCode}...`);
@@ -8399,24 +8406,33 @@ async function printSelectedShelfLocationLabels() {
     const shelfRows = (await loadShelfLabelData(true)).filter(row => getShelfLabelShelfCode(row) === shelfCode);
     let skippedChemicalNoUsage = 0;
     let includedChemicalWithUsage = 0;
+    let skippedPgpNoInventory = 0;
+    let includedPgpWithInventory = 0;
 
     const rows = shelfRows.filter(row => {
-      const isChemicalLabel = Boolean(row?.is_chemical_label) || getShelfLabelShelfCode(row) === 'CHEMICAL STORAGE';
+      const rowShelfCode = getShelfLabelShelfCode(row);
+      const isChemicalLabel = Boolean(row?.is_chemical_label) || rowShelfCode === 'CHEMICAL STORAGE';
+      const isPgpLabel = Boolean(row?.is_pgp_label) || rowShelfCode === 'PGP (BAY 2)';
 
-      if (!isChemicalLabel) {
-        return true;
+      if (isChemicalLabel) {
+        if (row?.chemical_has_usage === true) {
+          includedChemicalWithUsage += 1;
+          return true;
+        }
+        skippedChemicalNoUsage += 1;
+        return false;
       }
 
-      // SAME HARD RULE AS PRINT ALL:
-      // For Chemical Storage, include the label only when that exact chemical
-      // has recorded Daily Chemical Issuance in the active usage window.
-      if (row?.chemical_has_usage === true) {
-        includedChemicalWithUsage += 1;
-        return true;
+      if (isPgpLabel) {
+        if (row?.pgp_has_inventory === true) {
+          includedPgpWithInventory += 1;
+          return true;
+        }
+        skippedPgpNoInventory += 1;
+        return false;
       }
 
-      skippedChemicalNoUsage += 1;
-      return false;
+      return true;
     });
 
     if (!rows || rows.length === 0) {
@@ -8425,20 +8441,30 @@ async function printSelectedShelfLocationLabels() {
         setShelfLabelPrintStatus(
           `No Chemical Storage labels qualified for selected-shelf printing. Chemical labels skipped for no usage: ${formatNumber(skippedChemicalNoUsage)}.`
         );
+      } else if (shelfCode === 'PGP (BAY 2)') {
+        setShelfLabelPrintStatus(
+          `No PGP (BAY 2) labels qualified for selected-shelf printing. PGP labels skipped for zero inventory: ${formatNumber(skippedPgpNoInventory)}.`
+        );
       } else {
         setShelfLabelPrintStatus('No assigned shelf labels matched that selection.');
       }
       return;
     }
 
-    if (shelfCode === 'CHEMICAL STORAGE') {
+    if (shelfCode === 'CHEMICAL STORAGE' || shelfCode === 'PGP (BAY 2)') {
       const pageCount = getShelfLabelPageCount(rows.length, startPosition);
       writeAvery5163LabelsToWindow(printWindow, rows, startPosition, `Shelf ${shelfCode} Labels`);
+
+      const usageSummary = shelfCode === 'CHEMICAL STORAGE'
+        ? `Chemical labels included (usage found): ${formatNumber(includedChemicalWithUsage)}\n` +
+          `Chemical labels skipped (no usage): ${formatNumber(skippedChemicalNoUsage)}\n`
+        : `PGP labels included (inventory on hand): ${formatNumber(includedPgpWithInventory)}\n` +
+          `PGP labels skipped (zero inventory): ${formatNumber(skippedPgpNoInventory)}\n`;
+
       setShelfLabelPrintStatus(
         `Shelf ${shelfCode} Labels prepared successfully.\n` +
         `Labels: ${formatNumber(rows.length)}\n` +
-        `Chemical labels included (usage found): ${formatNumber(includedChemicalWithUsage)}\n` +
-        `Chemical labels skipped (no usage): ${formatNumber(skippedChemicalNoUsage)}\n` +
+        usageSummary +
         `Avery 5163 Sheet(s): ${formatNumber(pageCount)}\n` +
         `Starting Position: ${formatNumber(startPosition)}\n\n` +
         `Print using Letter paper and Actual Size / 100% scaling.`
