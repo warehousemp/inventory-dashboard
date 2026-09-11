@@ -8313,7 +8313,21 @@ async function printAllShelfLabels() {
   setShelfLabelPrintStatus('Loading all active assigned shelf labels...');
 
   try {
-    const rows = await loadShelfLabelData(true);
+    const rows = (await loadShelfLabelData(true)).filter(row => {
+      const isChemicalLabel = Boolean(row?.is_chemical_label) || getShelfLabelShelfCode(row) === 'CHEMICAL STORAGE';
+
+      if (!isChemicalLabel) {
+        return true;
+      }
+
+      const maximumStockRaw = Number(row?.maximum_stock ?? 0);
+      const maximumStock = Number.isFinite(maximumStockRaw) ? Math.max(0, Math.round(maximumStockRaw)) : 0;
+
+      // Print All should skip chemical shelf labels that have no usage-based stock target.
+      // Individual and selected-shelf printing remain unchanged so those labels can still be printed when needed.
+      return maximumStock > 0;
+    });
+
     await printShelfLabelRows(rows, 1, 'All Main Warehouse Shelf Labels', printWindow);
   } catch (error) {
     if (!printWindow.closed) printWindow.close();
