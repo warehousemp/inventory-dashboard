@@ -182,7 +182,7 @@
         {
           label: 'Performance Hub',
           href: 'performance-hub.html',
-          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'Route Assignment Validation',
