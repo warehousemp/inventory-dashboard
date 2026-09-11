@@ -3246,7 +3246,7 @@
 <h3>Print Shelf Labels — Avery 5163</h3>
 <div class="warning-note">
       Print one 2&quot; × 4&quot; label for each active part that has a Main Warehouse Shelf Location assigned.
-      Labels are sorted by Shelf Location, then Part Number. Maximum Stock uses the part's Reorder Point; Minimum Stock is calculated as 20% of Maximum Stock, rounded to the nearest whole number (Max 1 = Min 0).
+      Labels are sorted by Shelf Location, then Part Number. Standard parts use the part's Reorder Point as Maximum Stock. Chemical Storage labels use a rolling 5-week Daily Chemical Issuance rate to set a 20-business-day Maximum Stock target and also show the purchasing Unit Type. Minimum Stock is 20% of Maximum Stock, rounded to the nearest whole number (Max 1 = Min 0).
     </div>
 <div class="shelf-label-actions">
 <div>
@@ -7767,16 +7767,17 @@ async function loadShelfLabelData(forceRefresh = false) {
     (partsData || []).map(part => String(part.part_number || '').trim().toUpperCase()).filter(Boolean)
   );
 
-  // Shelf labels use the part master Reorder Point as Maximum Stock.
-  // Minimum Stock is calculated at print time as 20% of Maximum Stock.
-  const reorderPointByPartNumber = new Map();
+  // Standard shelf labels use the part master Reorder Point as Maximum Stock.
+  // Chemical Storage labels use Daily Chemical Issuance to calculate a rolling
+  // 20-business-day Maximum Stock target. Minimum Stock remains 20% of Maximum.
+  const partMasterByPartNumber = new Map();
   let partMasterFrom = 0;
   const partMasterBatchSize = 1000;
 
   while (true) {
     const { data: partMasterRows, error: partMasterError } = await client
       .from('parts')
-      .select('part_number,reorder_point')
+      .select('id,part_number,reorder_point,unit_of_measure')
       .eq('active', true)
       .range(partMasterFrom, partMasterFrom + partMasterBatchSize - 1);
 
@@ -7791,7 +7792,11 @@ async function loadShelfLabelData(forceRefresh = false) {
     partMasterRows.forEach(part => {
       const normalizedPartNumber = String(part?.part_number || '').trim().toUpperCase();
       if (normalizedPartNumber) {
-        reorderPointByPartNumber.set(normalizedPartNumber, Number(part?.reorder_point || 0));
+        partMasterByPartNumber.set(normalizedPartNumber, {
+          id: part?.id || null,
+          reorder_point: Number(part?.reorder_point || 0),
+          unit_of_measure: String(part?.unit_of_measure || '').trim()
+        });
       }
     });
 
@@ -7800,6 +7805,135 @@ async function loadShelfLabelData(forceRefresh = false) {
     }
 
     partMasterFrom += partMasterBatchSize;
+  }
+
+  const chemicalCatalogByPartId = new Map();
+  const chemicalCatalogByChemicalId = new Map();
+  const chemicalTargetByChemicalId = new Map();
+
+  const { data: chemicalCatalogRows, error: chemicalCatalogError } = await client
+    .from('chem_catalog')
+    .select('id,code,chemical_name,part_id,purchased_unit,issuing_unit,active')
+    .eq('active', true);
+
+  if (chemicalCatalogError) {
+    throw chemicalCatalogError;
+  }
+
+  (chemicalCatalogRows || []).forEach(chemical => {
+    if (chemical?.id) {
+      chemicalCatalogByChemicalId.set(String(chemical.id), chemical);
+    }
+    if (chemical?.part_id) {
+      chemicalCatalogByPartId.set(String(chemical.part_id), chemical);
+    }
+  });
+
+  // Use the latest posted Chemical Tracking date as the end of the rolling window
+  // so labels printed early in the day do not count an incomplete current day.
+  const { data: latestIssueRows, error: latestIssueError } = await client
+    .from('chem_issue_report_v')
+    .select('issue_date')
+    .eq('status', 'POSTED')
+    .order('issue_date', { ascending: false })
+    .limit(1);
+
+  if (latestIssueError) {
+    throw latestIssueError;
+  }
+
+  if (latestIssueRows && latestIssueRows.length > 0 && latestIssueRows[0]?.issue_date) {
+    const toDateString = date => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const latestIssueDate = new Date(`${latestIssueRows[0].issue_date}T12:00:00`);
+    const windowStartDate = new Date(latestIssueDate);
+    windowStartDate.setDate(windowStartDate.getDate() - 34);
+
+    let businessDayCount = 0;
+    const cursor = new Date(windowStartDate);
+    while (cursor <= latestIssueDate) {
+      const weekday = cursor.getDay();
+      if (weekday !== 0 && weekday !== 6) {
+        businessDayCount += 1;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    let chemicalIssueRows = [];
+    let chemicalIssueFrom = 0;
+    const chemicalIssueBatchSize = 1000;
+    const windowStart = toDateString(windowStartDate);
+    const windowEnd = toDateString(latestIssueDate);
+
+    while (true) {
+      const { data: issueRows, error: issueRowsError } = await client
+        .from('chem_issue_report_v')
+        .select('chemical_id,issue_date,purchased_quantity,issued_unit_count')
+        .eq('status', 'POSTED')
+        .gte('issue_date', windowStart)
+        .lte('issue_date', windowEnd)
+        .range(chemicalIssueFrom, chemicalIssueFrom + chemicalIssueBatchSize - 1);
+
+      if (issueRowsError) {
+        throw issueRowsError;
+      }
+
+      if (!issueRows || issueRows.length === 0) {
+        break;
+      }
+
+      chemicalIssueRows = chemicalIssueRows.concat(issueRows);
+
+      if (issueRows.length < chemicalIssueBatchSize) {
+        break;
+      }
+
+      chemicalIssueFrom += chemicalIssueBatchSize;
+    }
+
+    const purchasedQtyByChemicalId = new Map();
+    chemicalIssueRows.forEach(row => {
+      const chemicalId = String(row?.chemical_id || '');
+      const chemicalCatalog = chemicalCatalogByChemicalId.get(chemicalId);
+      // Chlorine is purchased by the gallon into a bulk tank, while route issuance
+      // is tracked in 2.5-gallon jugs. Convert historical and current issuance to gallons
+      // so the Chemical Storage Min/Max target is expressed in the purchasing unit.
+      const purchasedQuantity = String(chemicalCatalog?.code || '').toUpperCase() === 'CHLORINE'
+        ? Number(row?.issued_unit_count || 0) * 2.5
+        : Number(row?.purchased_quantity || 0);
+      if (!chemicalId || !Number.isFinite(purchasedQuantity) || purchasedQuantity <= 0) {
+        return;
+      }
+      purchasedQtyByChemicalId.set(
+        chemicalId,
+        (purchasedQtyByChemicalId.get(chemicalId) || 0) + purchasedQuantity
+      );
+    });
+
+    if (businessDayCount > 0) {
+      purchasedQtyByChemicalId.forEach((totalPurchasedQuantity, chemicalId) => {
+        const averagePerBusinessDay = totalPurchasedQuantity / businessDayCount;
+        const maximumStock = averagePerBusinessDay > 0
+          ? Math.max(1, Math.ceil(averagePerBusinessDay * 20))
+          : 0;
+        const minimumStock = maximumStock === 1
+          ? 0
+          : Math.max(0, Math.round(maximumStock * 0.20));
+
+        chemicalTargetByChemicalId.set(chemicalId, {
+          maximum_stock: maximumStock,
+          minimum_stock: minimumStock,
+          average_per_business_day: averagePerBusinessDay,
+          window_start: windowStart,
+          window_end: windowEnd
+        });
+      });
+    }
   }
 
   let rows = [];
@@ -7844,9 +7978,30 @@ async function loadShelfLabelData(forceRefresh = false) {
     const key = `${normalizedPartNumber}||${shelfCode}`;
 
     if (!deduped.has(key)) {
+      const partMaster = partMasterByPartNumber.get(normalizedPartNumber) || {};
+      const partId = String(row?.part_id || partMaster?.id || '');
+      const chemicalCatalog = partId ? chemicalCatalogByPartId.get(partId) : null;
+      const chemicalTarget = chemicalCatalog?.id
+        ? chemicalTargetByChemicalId.get(String(chemicalCatalog.id))
+        : null;
+      const isChemicalLabel = shelfCode === 'CHEMICAL STORAGE';
+      const standardMaximumStock = Number(partMaster?.reorder_point || 0);
+
       deduped.set(key, {
         ...row,
-        maximum_stock: reorderPointByPartNumber.get(normalizedPartNumber) ?? 0
+        is_chemical_label: isChemicalLabel,
+        unit_type: isChemicalLabel
+          ? String(chemicalCatalog?.purchased_unit || partMaster?.unit_of_measure || 'each').trim()
+          : '',
+        chemical_name: chemicalCatalog?.chemical_name || '',
+        maximum_stock: isChemicalLabel && chemicalTarget
+          ? chemicalTarget.maximum_stock
+          : standardMaximumStock,
+        minimum_stock: isChemicalLabel && chemicalTarget
+          ? chemicalTarget.minimum_stock
+          : null,
+        chemical_stock_window_start: chemicalTarget?.window_start || null,
+        chemical_stock_window_end: chemicalTarget?.window_end || null
       });
     }
   });
@@ -7923,7 +8078,14 @@ function writeAvery5163LabelsToWindow(printWindow, rows, startPosition = 1, prin
         const category = String(row.category || row.cycle_count_category || '').trim();
         const maximumStockRaw = Number(row.maximum_stock ?? row.reorder_point ?? 0);
         const maximumStock = Math.max(0, Math.round(Number.isFinite(maximumStockRaw) ? maximumStockRaw : 0));
-        const minimumStock = maximumStock === 1 ? 0 : Math.max(0, Math.round(maximumStock * 0.20));
+        const minimumStockRaw = row.minimum_stock === null || row.minimum_stock === undefined
+          ? Number.NaN
+          : Number(row.minimum_stock);
+        const minimumStock = Number.isFinite(minimumStockRaw)
+          ? Math.max(0, Math.round(minimumStockRaw))
+          : (maximumStock === 1 ? 0 : Math.max(0, Math.round(maximumStock * 0.20)));
+        const isChemicalLabel = Boolean(row.is_chemical_label) || getShelfLabelShelfCode(row) === 'CHEMICAL STORAGE';
+        const unitType = String(row.unit_type || '').trim();
         const assignmentLine = `${shelfCode} - ${partNumber}`;
         let assignmentSizeClass = '';
         if (assignmentLine.length >= 28) {
@@ -7946,6 +8108,7 @@ function writeAvery5163LabelsToWindow(printWindow, rows, startPosition = 1, prin
             <div class="label-content">
               <div class="${assignmentClass}">${escapeHTML(assignmentLine)}</div>
               <div class="${descriptionClass}">${escapeHTML(description || 'No description on file')}</div>
+              ${isChemicalLabel ? `<div class="chemical-unit-type">UNIT TYPE: ${escapeHTML(unitType || 'EACH')}</div>` : ''}
               <div class="stock-levels">
                 <span>MIN STOCK: ${minimumStock}</span>
                 <span>MAX STOCK: ${maximumStock}</span>
@@ -8050,6 +8213,16 @@ function writeAvery5163LabelsToWindow(printWindow, rows, startPosition = 1, prin
     text-transform: uppercase;
   }
   .description.compact { font-size: 10pt; line-height: 1.05; }
+  .chemical-unit-type {
+    margin-top: 0.045in;
+    font-size: 8.5pt;
+    line-height: 1;
+    font-weight: 800;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .stock-levels {
     margin-top: 0.075in;
     padding: 0.055in 0.08in;
