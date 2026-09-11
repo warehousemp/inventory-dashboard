@@ -7994,6 +7994,13 @@ async function loadShelfLabelData(forceRefresh = false) {
           ? String(chemicalCatalog?.purchased_unit || partMaster?.unit_of_measure || 'each').trim()
           : '',
         chemical_name: chemicalCatalog?.chemical_name || '',
+        // Explicit usage flag for Chemical Storage labels. Print All uses this flag
+        // instead of inferring usage from reorder_point / calculated stock values.
+        chemical_has_usage: Boolean(
+          isChemicalLabel &&
+          chemicalTarget &&
+          Number(chemicalTarget.average_per_business_day || 0) > 0
+        ),
         maximum_stock: isChemicalLabel && chemicalTarget
           ? chemicalTarget.maximum_stock
           : standardMaximumStock,
@@ -8313,22 +8320,56 @@ async function printAllShelfLabels() {
   setShelfLabelPrintStatus('Loading all active assigned shelf labels...');
 
   try {
-    const rows = (await loadShelfLabelData(true)).filter(row => {
+    const allRows = await loadShelfLabelData(true);
+    let skippedChemicalNoUsage = 0;
+    let includedChemicalWithUsage = 0;
+
+    const rows = allRows.filter(row => {
       const isChemicalLabel = Boolean(row?.is_chemical_label) || getShelfLabelShelfCode(row) === 'CHEMICAL STORAGE';
 
       if (!isChemicalLabel) {
         return true;
       }
 
-      const maximumStockRaw = Number(row?.maximum_stock ?? 0);
-      const maximumStock = Number.isFinite(maximumStockRaw) ? Math.max(0, Math.round(maximumStockRaw)) : 0;
+      // HARD RULE FOR PRINT ALL:
+      // A Chemical Storage label is included only when that exact chemical has
+      // recorded Daily Chemical Issuance in the active usage window.
+      // Do not infer this from reorder_point or from a fallback stock value.
+      if (row?.chemical_has_usage === true) {
+        includedChemicalWithUsage += 1;
+        return true;
+      }
 
-      // Print All should skip chemical shelf labels that have no usage-based stock target.
-      // Individual and selected-shelf printing remain unchanged so those labels can still be printed when needed.
-      return maximumStock > 0;
+      skippedChemicalNoUsage += 1;
+      return false;
     });
 
-    await printShelfLabelRows(rows, 1, 'All Main Warehouse Shelf Labels', printWindow);
+    if (!rows || rows.length === 0) {
+      if (printWindow && !printWindow.closed) printWindow.close();
+      setShelfLabelPrintStatus(
+        `No labels qualified for Print All. Chemical labels skipped for no usage: ${formatNumber(skippedChemicalNoUsage)}.`
+      );
+      return;
+    }
+
+    const pageCount = getShelfLabelPageCount(rows.length, 1);
+    writeAvery5163LabelsToWindow(printWindow, rows, 1, 'All Main Warehouse Shelf Labels');
+    setShelfLabelPrintStatus(
+      `All Main Warehouse Shelf Labels prepared successfully.
+` +
+      `Labels: ${formatNumber(rows.length)}
+` +
+      `Chemical labels included (usage found): ${formatNumber(includedChemicalWithUsage)}
+` +
+      `Chemical labels skipped (no usage): ${formatNumber(skippedChemicalNoUsage)}
+` +
+      `Avery 5163 Sheet(s): ${formatNumber(pageCount)}
+` +
+      `Starting Position: 1
+
+` +
+      `Print using Letter paper and Actual Size / 100% scaling.`
+    );
   } catch (error) {
     if (!printWindow.closed) printWindow.close();
     setShelfLabelPrintStatus('Unable to load shelf labels: ' + error.message);
