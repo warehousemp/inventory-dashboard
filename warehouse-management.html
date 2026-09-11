@@ -8396,7 +8396,56 @@ async function printSelectedShelfLocationLabels() {
   setShelfLabelPrintStatus(`Loading labels assigned to Shelf Location ${shelfCode}...`);
 
   try {
-    const rows = (await loadShelfLabelData(true)).filter(row => getShelfLabelShelfCode(row) === shelfCode);
+    const shelfRows = (await loadShelfLabelData(true)).filter(row => getShelfLabelShelfCode(row) === shelfCode);
+    let skippedChemicalNoUsage = 0;
+    let includedChemicalWithUsage = 0;
+
+    const rows = shelfRows.filter(row => {
+      const isChemicalLabel = Boolean(row?.is_chemical_label) || getShelfLabelShelfCode(row) === 'CHEMICAL STORAGE';
+
+      if (!isChemicalLabel) {
+        return true;
+      }
+
+      // SAME HARD RULE AS PRINT ALL:
+      // For Chemical Storage, include the label only when that exact chemical
+      // has recorded Daily Chemical Issuance in the active usage window.
+      if (row?.chemical_has_usage === true) {
+        includedChemicalWithUsage += 1;
+        return true;
+      }
+
+      skippedChemicalNoUsage += 1;
+      return false;
+    });
+
+    if (!rows || rows.length === 0) {
+      if (printWindow && !printWindow.closed) printWindow.close();
+      if (shelfCode === 'CHEMICAL STORAGE') {
+        setShelfLabelPrintStatus(
+          `No Chemical Storage labels qualified for selected-shelf printing. Chemical labels skipped for no usage: ${formatNumber(skippedChemicalNoUsage)}.`
+        );
+      } else {
+        setShelfLabelPrintStatus('No assigned shelf labels matched that selection.');
+      }
+      return;
+    }
+
+    if (shelfCode === 'CHEMICAL STORAGE') {
+      const pageCount = getShelfLabelPageCount(rows.length, startPosition);
+      writeAvery5163LabelsToWindow(printWindow, rows, startPosition, `Shelf ${shelfCode} Labels`);
+      setShelfLabelPrintStatus(
+        `Shelf ${shelfCode} Labels prepared successfully.\n` +
+        `Labels: ${formatNumber(rows.length)}\n` +
+        `Chemical labels included (usage found): ${formatNumber(includedChemicalWithUsage)}\n` +
+        `Chemical labels skipped (no usage): ${formatNumber(skippedChemicalNoUsage)}\n` +
+        `Avery 5163 Sheet(s): ${formatNumber(pageCount)}\n` +
+        `Starting Position: ${formatNumber(startPosition)}\n\n` +
+        `Print using Letter paper and Actual Size / 100% scaling.`
+      );
+      return;
+    }
+
     await printShelfLabelRows(rows, startPosition, `Shelf ${shelfCode} Labels`, printWindow);
   } catch (error) {
     if (!printWindow.closed) printWindow.close();
