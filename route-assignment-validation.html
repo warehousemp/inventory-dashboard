@@ -162,6 +162,7 @@
           <li>Select <strong>Route Assignments</strong>.</li>
           <li>Open <strong>More Options</strong>.</li>
           <li>Change the date to <strong>next week Friday</strong>.</li>
+          <li>Click <strong>Expand All</strong> so all route assignment details are visible.</li>
           <li>Click the <strong>Print</strong> button in the upper-right corner above the map.</li>
           <li>Choose <strong>Print to PDF</strong> and save the PDF on your Desktop. Include the Friday date in the filename when possible, such as <strong>2026_0828 Route Assignments.pdf</strong>.</li>
           <li>Drag and drop the saved PDF into the box on this page.</li>
@@ -351,14 +352,19 @@
       try {
         const {data:sessionData,error:sessionError} = await client.auth.getSession();
         if (sessionError) throw sessionError;
+
         if (!sessionData?.session?.user) {
           showAccessGate('Sign in with an authorized Molinari Pools account to continue.');
           return;
         }
 
         const {data:profile,error:profileError} = await client.from('user_profiles')
-          .select('id,full_name,role,active').eq('id',sessionData.session.user.id).maybeSingle();
+          .select('id,full_name,role,active')
+          .eq('id',sessionData.session.user.id)
+          .maybeSingle();
+
         if (profileError) throw profileError;
+
         if (!profile?.active || !VIEW_ROLES.includes(profile.role)) {
           showAccessGate('Your account does not have access to Route Assignment Validation.');
           return;
@@ -366,16 +372,25 @@
 
         currentProfile = profile;
         canImport = IMPORT_ROLES.includes(profile.role);
+
         $('dropZone').classList.toggle('hidden',!canImport);
         $('viewerOnlyBox').classList.toggle('hidden',canImport);
         $('roleModeLabel').textContent = canImport ? 'PDF import access' : 'View-only access';
+
         showPage();
 
-        await loadRoster();
-        await loadSnapshots();
+        try {
+          setStatus('Loading saved Route Assignment reports...','working',20);
+          await loadRoster();
+          await loadSnapshots();
+        } catch (loadError) {
+          console.error(loadError);
+          renderReport();
+          setStatus(loadError.message || 'You have access, but the Route Assignment report data could not load. Please refresh or try again later.','error');
+        }
       } catch (error) {
         console.error(error);
-        showAccessGate(error.message || 'Unable to load Route Assignment Validation.');
+        showAccessGate(error.message || 'Unable to verify Route Assignment Validation access.');
       }
     }
 
@@ -392,11 +407,15 @@
         .select('id,effective_date,snapshot_name,status,notes,source_file_name,source_page_count,parsed_assignment_count,imported_at,created_at,updated_at')
         .neq('status','VOIDED')
         .order('effective_date',{ascending:false})
-        .order('updated_at',{ascending:false});
+        .order('updated_at',{ascending:false})
+        .limit(25);
+
       if (error) throw error;
+
       snapshots = data || [];
 
       const select = $('snapshotSelect');
+
       if (!snapshots.length) {
         select.innerHTML = '<option value="">No saved reports</option>';
         currentSnapshot = null;
@@ -413,6 +432,7 @@
       const chosenId = preferredId && snapshots.some(snapshot => snapshot.id === preferredId)
         ? preferredId
         : snapshots[0].id;
+
       select.value = chosenId;
       await loadSnapshot(chosenId);
     }
@@ -436,16 +456,43 @@
     }
 
     async function loadRouteRevenue(snapshotId) {
-      const {error:rateRefreshError} = await client.rpc('refresh_route_assignment_service_history_rates');
-      if (rateRefreshError) throw rateRefreshError;
-      const [techResponse,leaderResponse] = await Promise.all([
-        client.from('route_assignment_revenue_by_tech_view').select('*').eq('snapshot_id',snapshotId).order('route_code'),
-        client.from('route_assignment_revenue_by_leader_view').select('*').eq('snapshot_id',snapshotId).order('route_tech_leader_code')
-      ]);
-      if (techResponse.error) throw techResponse.error;
-      if (leaderResponse.error) throw leaderResponse.error;
-      currentTechRevenue = techResponse.data || [];
-      currentLeaderRevenue = leaderResponse.data || [];
+      currentTechRevenue = [];
+      currentLeaderRevenue = [];
+
+      try {
+        const {error:rateRefreshError} = await client.rpc('refresh_route_assignment_service_history_rates');
+        if (rateRefreshError) {
+          console.warn('Revenue rate refresh skipped:', rateRefreshError);
+        }
+      } catch (refreshError) {
+        console.warn('Revenue rate refresh timed out or failed:', refreshError);
+      }
+
+      try {
+        const [techResponse,leaderResponse] = await Promise.all([
+          client.from('route_assignment_revenue_by_tech_view')
+            .select('*')
+            .eq('snapshot_id',snapshotId)
+            .order('route_code')
+            .limit(100),
+          client.from('route_assignment_revenue_by_leader_view')
+            .select('*')
+            .eq('snapshot_id',snapshotId)
+            .order('route_tech_leader_code')
+            .limit(50)
+        ]);
+
+        if (techResponse.error) throw techResponse.error;
+        if (leaderResponse.error) throw leaderResponse.error;
+
+        currentTechRevenue = techResponse.data || [];
+        currentLeaderRevenue = leaderResponse.data || [];
+      } catch (revenueError) {
+        console.error(revenueError);
+        currentTechRevenue = [];
+        currentLeaderRevenue = [];
+        setStatus('Route Assignment report loaded, but revenue data timed out. The route balance table is still available.','error');
+      }
     }
 
     function formatCurrency(value) {
