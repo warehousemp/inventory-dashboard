@@ -539,7 +539,15 @@
         const reason=row.last_error||(status==="HOLD"?"Manually placed on hold. Review before returning this record to READY.":"Automation stopped and requires review.");
         let actions='<span class="queue-note">View only</span>';
         if(queueOperator()){
-          actions=`<button class="btn-primary" type="button" onclick='setQueueStatus(${JSON.stringify(row.id)},"READY")'>RETURN TO READY</button>`;
+          const linkedWo=String(row.skimmer_work_order_id||"").trim();
+          const possibleSave=/save was submitted once|one-shot save lock|save already submitted/i.test(reason);
+          if(linkedWo){
+            actions=`<button class="btn-success" type="button" onclick='restoreQueueCreated(${JSON.stringify(row.id)})'>RESTORE CREATED (WO ${esc(linkedWo)})</button>`;
+          }else if(possibleSave){
+            actions=`<button class="btn-success" type="button" onclick='markQueueCreated(${JSON.stringify(row.id)})'>MARK CREATED</button>`;
+          }else{
+            actions=`<button class="btn-primary" type="button" onclick='setQueueStatus(${JSON.stringify(row.id)},"READY")'>RETURN TO READY</button>`;
+          }
           if(status!=="HOLD")actions+=` <button class="btn-warning" type="button" onclick='setQueueStatus(${JSON.stringify(row.id)},"HOLD")'>KEEP ON HOLD</button>`;
           actions+=` <button class="btn-danger" type="button" onclick='setQueueStatus(${JSON.stringify(row.id)},"SKIPPED")'>SKIP / EXCLUDE</button>`;
         }
@@ -584,11 +592,14 @@
         let actions=`<button class="btn-secondary" type="button" onclick='copyQueueWorkNeeded(${JSON.stringify(row.id)})'>COPY WORK NEEDED</button>`;
 
         if(queueOperator()){
-          if(row.queue_status==="READY"){
+          const linkedWo=String(row.skimmer_work_order_id||"").trim();
+          if(row.queue_status==="READY" && !linkedWo){
             actions+=` <button class="btn-primary" type="button" onclick='createSkimmerWorkOrder(${JSON.stringify(row.id)})'>CREATE IN SKIMMER</button>`;
           }
           if(row.queue_status!=="CREATED"){
-            actions+=` <button class="btn-success" type="button" onclick='markQueueCreated(${JSON.stringify(row.id)})'>MARK CREATED</button>`;
+            actions+=linkedWo
+              ? ` <button class="btn-success" type="button" onclick='restoreQueueCreated(${JSON.stringify(row.id)})'>RESTORE CREATED</button>`
+              : ` <button class="btn-success" type="button" onclick='markQueueCreated(${JSON.stringify(row.id)})'>MARK CREATED</button>`;
           }
           if(row.queue_status!=="HOLD"){
             actions+=` <button class="btn-warning" type="button" onclick='setQueueStatus(${JSON.stringify(row.id)},"HOLD")'>HOLD</button>`;
@@ -678,7 +689,7 @@
       }
     }
 
-    function skimmerPayloadForRow(row){return{queue_id:row.id,queue_status:row.queue_status,client_name:row.client_name,service_location:row.service_location,service_date:row.service_date,route_tech:row.route_tech,work_order_type:row.work_order_type,work_needed:row.work_needed,total_billable_to_client:row.total_billable_to_client,filter_system_summary:row.filter_system_summary,filter_quantity:row.filter_quantity,oring_quantity:row.oring_quantity}}
+    function skimmerPayloadForRow(row){return{queue_id:row.id,queue_status:row.queue_status,skimmer_work_order_id:row.skimmer_work_order_id||null,client_name:row.client_name,service_location:row.service_location,service_date:row.service_date,route_tech:row.route_tech,work_order_type:row.work_order_type,work_needed:row.work_needed,total_billable_to_client:row.total_billable_to_client,filter_system_summary:row.filter_system_summary,filter_quantity:row.filter_quantity,oring_quantity:row.oring_quantity}}
 
     async function markQueueError(row,errorMessage,workOrderId=null){
       const {error}=await db.rpc("set_annual_filter_work_order_queue_status",{p_id:row.id,p_status:"ERROR",p_skimmer_work_order_id:workOrderId||null,p_last_error:String(errorMessage||"Skimmer automation stopped and requires review.")});
@@ -686,14 +697,41 @@
     }
 
     async function sendQueueRowToSkimmer(row){
-      if(!row||String(row.queue_status||"").toUpperCase()!=="READY")throw new Error("Only READY queue items can be sent to Skimmer.");
+      if(!row)throw new Error("Queue item not found.");
+
+      // Re-read the live database row immediately before any Skimmer action.
+      // This prevents a stale browser view from resubmitting a record that was
+      // already created or manually reconciled in another tab/session.
+      const {data:fresh,error:freshError}=await db.from("annual_filter_skimmer_work_order_queue").select("*").eq("id",row.id).single();
+      if(freshError)throw new Error(`Unable to re-check the queue record before Skimmer processing: ${freshError.message}`);
+      if(!fresh)throw new Error("Queue item no longer exists.");
+
+      const freshStatus=String(fresh.queue_status||"").toUpperCase();
+      const linkedWo=String(fresh.skimmer_work_order_id||"").trim();
+
+      if(freshStatus==="CREATED"){
+        return {ok:true,stage:"already-created-in-database",workOrderId:linkedWo||null};
+      }
+
+      // Hard stop against duplicates: if the database already knows a Skimmer WO,
+      // restore CREATED and never send another Save request to Skimmer.
+      if(linkedWo){
+        const {error:restoreError}=await db.rpc("set_annual_filter_work_order_queue_status",{
+          p_id:fresh.id,p_status:"CREATED",p_skimmer_work_order_id:linkedWo,p_last_error:null
+        });
+        if(restoreError)throw new Error(`This record is already linked to Skimmer WO ${linkedWo}, but CREATED could not be restored: ${restoreError.message}`);
+        return {ok:true,stage:"restored-existing-database-work-order",workOrderId:linkedWo};
+      }
+
+      if(freshStatus!=="READY")throw new Error("Only READY queue items can be sent to Skimmer.");
+
       let result=null;
-      try{result=await skimmerExtensionRequest("CREATE_TEST_WORK_ORDER",skimmerPayloadForRow(row),330000)}
-      catch(error){await markQueueError(row,error.message,null);throw error}
-      const {error:statusError}=await db.rpc("set_annual_filter_work_order_queue_status",{p_id:row.id,p_status:"CREATED",p_skimmer_work_order_id:result.workOrderId||null,p_last_error:null});
+      try{result=await skimmerExtensionRequest("CREATE_TEST_WORK_ORDER",skimmerPayloadForRow(fresh),330000)}
+      catch(error){await markQueueError(fresh,error.message,null);throw error}
+      const {error:statusError}=await db.rpc("set_annual_filter_work_order_queue_status",{p_id:fresh.id,p_status:"CREATED",p_skimmer_work_order_id:result.workOrderId||null,p_last_error:null});
       if(statusError){
         const reviewMessage=`Skimmer Save completed, but the Annual Filter queue could not be marked CREATED automatically: ${statusError.message}. Do not retry this record until the Skimmer work order is verified.`;
-        await markQueueError(row,reviewMessage,result.workOrderId||null); throw new Error(reviewMessage);
+        await markQueueError(fresh,reviewMessage,result.workOrderId||null); throw new Error(reviewMessage);
       }
       return result;
     }
@@ -788,6 +826,14 @@
     async function setQueueStatus(id,status){
       if(!queueOperator()||batchProcessing)return;
       const row=workOrderQueueData.find(item=>item.id===id); if(!row)return;
+      if(status==="READY" && String(row.skimmer_work_order_id||"").trim()){
+        alert(`This record is already linked to Skimmer Work Order ${row.skimmer_work_order_id}. It cannot be returned to READY. Use RESTORE CREATED instead.`);
+        return;
+      }
+      if(status==="READY" && /save was submitted once|one-shot save lock|save already submitted/i.test(String(row.last_error||""))){
+        alert("Skimmer may already contain this work order because Save was previously submitted. Verify Scheduled Work Orders and use MARK CREATED with the existing Work Order ID. This record cannot be returned to READY because that could create a duplicate.");
+        return;
+      }
       let lastError=null;
       if(status==="HOLD"){
         const reason=prompt(`Hold reason for ${row.client_name} — ${row.service_location}:`,row.last_error||"");
@@ -798,6 +844,22 @@
       }
       const {error}=await db.rpc("set_annual_filter_work_order_queue_status",{p_id:id,p_status:status,p_skimmer_work_order_id:status==="READY"?null:(row.skimmer_work_order_id||null),p_last_error:lastError});
       if(error){alert(error.message);return} await reloadWorkOrderQueue();
+    }
+
+    async function restoreQueueCreated(id){
+      if(!queueOperator()||batchProcessing)return;
+      const row=workOrderQueueData.find(item=>item.id===id); if(!row)return;
+      const workOrderId=String(row.skimmer_work_order_id||"").trim();
+      if(!workOrderId){alert("No Skimmer Work Order ID is linked to this queue record.");return}
+
+      const {error}=await db.rpc("set_annual_filter_work_order_queue_status",{
+        p_id:id,
+        p_status:"CREATED",
+        p_skimmer_work_order_id:workOrderId,
+        p_last_error:null
+      });
+      if(error){alert(error.message);return}
+      await reloadWorkOrderQueue();
     }
 
     async function markQueueCreated(id){
