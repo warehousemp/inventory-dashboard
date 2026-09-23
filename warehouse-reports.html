@@ -1707,6 +1707,8 @@
     .filter-import-table td,
     .filter-forecast-table th,
     .filter-forecast-table td,
+    .filter-pull-list-table th,
+    .filter-pull-list-table td,
     .filter-staging-table th,
     .filter-staging-table td,
     .filter-checklist-table th,
@@ -1728,6 +1730,39 @@
     .filter-import-table th:nth-child(10), .filter-import-table td:nth-child(10) { width: 260px; }
 
     .filter-forecast-table { min-width: 1650px; }
+
+    .filter-pull-list-table {
+      min-width: 620px;
+      table-layout: fixed;
+    }
+
+    .filter-pull-list-table th:nth-child(1),
+    .filter-pull-list-table td:nth-child(1) {
+      width: 22%;
+      font-weight: 900;
+    }
+
+    .filter-pull-list-table th:nth-child(2),
+    .filter-pull-list-table td:nth-child(2) {
+      width: 53%;
+      font-weight: 900;
+    }
+
+    .filter-pull-list-table th:nth-child(3),
+    .filter-pull-list-table td:nth-child(3) {
+      width: 25%;
+      text-align: center;
+      font-weight: 900;
+    }
+
+    .filter-pull-list-filter td:first-child {
+      color: #0b3c5d;
+    }
+
+    .filter-pull-list-oring td:first-child {
+      color: #166534;
+    }
+
     .filter-staging-table { min-width: 760px; table-layout: fixed; }
     .filter-staging-table th:nth-child(1), .filter-staging-table td:nth-child(1) { width: 34%; font-weight: 800; }
     .filter-staging-table th:nth-child(2), .filter-staging-table td:nth-child(2) { width: 16%; text-align: center; font-weight: 800; }
@@ -3250,7 +3285,24 @@
         Select filters and load the Warehouse filter and O-ring staging quantities.
       </div>
 
-      <h3>Staging Summary</h3>
+      <h3>Warehouse Pull List</h3>
+      <div class="status-note">
+        Consolidated filters and O-rings to pull from inventory for the selected changeout date, day, and Route Tech filters. Quantities are grouped by the actual Warehouse part number.
+      </div>
+      <div class="count-table-wrapper">
+        <table class="filter-pull-list-table">
+          <thead>
+            <tr>
+              <th>Item Type</th>
+              <th>Part #</th>
+              <th>QTY to Pull</th>
+            </tr>
+          </thead>
+          <tbody id="filterPullListBody"><tr><td colspan="3">Load filter and O-ring requirements.</td></tr></tbody>
+        </table>
+      </div>
+
+      <h3>Staging List</h3>
       <div class="count-table-wrapper">
         <table class="filter-staging-table">
           <thead>
@@ -6248,13 +6300,15 @@ async function loadFilterRouteTechOptions() {
 async function loadRouteTechFilterReports() {
   const selections = getFilterReportSelections();
   const summary = document.getElementById('filterRouteTechSummary');
+  const pullListBody = document.getElementById('filterPullListBody');
   const stagingBody = document.getElementById('filterStagingBody');
   const billingBody = document.getElementById('filterCSCBillingBody');
   const billingSummary = document.getElementById('filterCSCBillingSummary');
 
-  if (!summary || !stagingBody || !billingBody || !billingSummary) return;
+  if (!summary || !pullListBody || !stagingBody || !billingBody || !billingSummary) return;
 
   summary.textContent = `Loading ${selections.serviceDateLabel} filter requirements for ${selections.routeTechLabel}...`;
+  pullListBody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
   stagingBody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
   billingBody.innerHTML = '<tr><td colspan="11">Loading...</td></tr>';
   billingSummary.textContent = 'Loading CSC billing data...';
@@ -6323,6 +6377,7 @@ async function loadRouteTechFilterReports() {
 
     const message = stagingError?.message || checklistError?.message || billingError?.message || 'Unable to load filter reports.';
     summary.textContent = message;
+    pullListBody.innerHTML = `<tr><td colspan="3">${escapeHTML(message)}</td></tr>`;
     stagingBody.innerHTML = `<tr><td colspan="4">${escapeHTML(message)}</td></tr>`;
     billingBody.innerHTML = `<tr><td colspan="11">${escapeHTML(message)}</td></tr>`;
     billingSummary.textContent = message;
@@ -6334,6 +6389,7 @@ async function loadRouteTechFilterReports() {
   filterCSCBillingData = sortFilterChecklistRows(billing || []);
 
   populateCSCBillingClientList();
+  renderFilterPullList();
   renderFilterStagingTable();
   renderCSCBillingTable();
   renderCSCBillingClientQuoteSummary();
@@ -6393,6 +6449,66 @@ function getScheduledClientCountForRoute(serviceDate, routeTech) {
       .map(row => `${row.client_name || ''}|${row.service_location || ''}`)
   );
   return clients.size;
+}
+
+function buildFilterPullList(rows = filterStagingData) {
+  const totals = new Map();
+
+  function addPullItem(itemType, partNumber, quantity) {
+    const part = String(partNumber || 'TBD').trim() || 'TBD';
+    const key = `${itemType}|${part}`;
+    const current = totals.get(key) || {
+      item_type: itemType,
+      part_number: part,
+      quantity_to_pull: 0
+    };
+
+    current.quantity_to_pull += Number(quantity || 0);
+    totals.set(key, current);
+  }
+
+  (rows || []).forEach(row => {
+    addPullItem('FILTER', row.hurricane_part_number, row.quantity_to_stage);
+    addPullItem('O-RING', row.oring_part_number, row.oring_quantity_to_stage);
+  });
+
+  return [...totals.values()].sort((a, b) => {
+    const typeOrder = { FILTER: 1, 'O-RING': 2 };
+
+    return (typeOrder[a.item_type] || 99) - (typeOrder[b.item_type] || 99)
+      || String(a.part_number || '').localeCompare(String(b.part_number || ''));
+  });
+}
+
+function renderFilterPullList() {
+  const body = document.getElementById('filterPullListBody');
+
+  if (!body) {
+    return;
+  }
+
+  const pullRows = buildFilterPullList(filterStagingData);
+  body.innerHTML = '';
+
+  if (!pullRows.length) {
+    body.innerHTML = '<tr><td colspan="3">No filter/O-ring pull requirements found for the selected filters.</td></tr>';
+    return;
+  }
+
+  pullRows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.className = row.item_type === 'FILTER'
+      ? 'filter-pull-list-filter'
+      : 'filter-pull-list-oring';
+
+    tr.innerHTML = `
+      <td>${escapeHTML(row.item_type)}</td>
+      <td>${escapeHTML(row.part_number)}</td>
+      <td>${formatNumber(row.quantity_to_pull)}</td>
+    `;
+
+    body.appendChild(tr);
+  });
 }
 
 function renderFilterStagingTable() {
@@ -6831,9 +6947,18 @@ function printRouteTechStagingReport() {
 
   const selections = getFilterReportSelections();
   const sortedRows = sortFilterStagingRows(filterStagingData);
+  const pullRows = buildFilterPullList(sortedRows);
   const totalFilters = sortedRows.reduce((sum, row) => sum + Number(row.quantity_to_stage || 0), 0);
   const totalOrings = sortedRows.reduce((sum, row) => sum + Number(row.oring_quantity_to_stage || 0), 0);
   const routeTechCount = new Set(sortedRows.map(row => row.route_tech).filter(Boolean)).size;
+
+  const pullRowsHtml = pullRows.map(row => `
+    <tr>
+      <td class="strong">${escapeHTML(row.item_type)}</td>
+      <td class="strong">${escapeHTML(row.part_number)}</td>
+      <td class="num strong">${formatNumber(row.quantity_to_pull)}</td>
+    </tr>
+  `).join('');
 
   let rowsHtml = '';
   let lastServiceDate = null;
@@ -6875,18 +7000,54 @@ function printRouteTechStagingReport() {
 <html><head>
 <title>Annual Filter & O-Ring Staging Report - ${escapeHTML(selections.serviceDateLabel)}</title>
 <style>
-body{font-family:Arial,sans-serif;color:#111;margin:18px}h1{font-size:20px;margin:0 0 6px}.meta{font-size:11px;margin-bottom:12px;line-height:1.5}table{width:100%;border-collapse:collapse;font-size:9px}th,td{border:1px solid #555;padding:5px;vertical-align:top}th{background:#eee}.num{text-align:center}.strong{font-weight:800}.day-header td{background:#dbeafe;color:#0b3c5d;font-size:12px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;padding:7px;page-break-after:avoid}.route-header td{background:#ecfdf3;color:#166534;font-size:10px;font-weight:900;padding:6px 10px;page-break-after:avoid}@page{size:landscape;margin:.35in}
+body{font-family:Arial,sans-serif;color:#111;margin:18px}
+h1{font-size:20px;margin:0 0 6px}
+h2{font-size:15px;margin:16px 0 7px;color:#0b3c5d}
+.meta{font-size:11px;margin-bottom:12px;line-height:1.5}
+table{width:100%;border-collapse:collapse;font-size:9px}
+th,td{border:1px solid #555;padding:5px;vertical-align:top}
+th{background:#eee}
+.num{text-align:center}
+.strong{font-weight:800}
+.pull-list{margin-bottom:18px}
+.pull-list th,.pull-list td{font-size:10px}
+.day-header td{background:#dbeafe;color:#0b3c5d;font-size:12px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;padding:7px;page-break-after:avoid}
+.route-header td{background:#ecfdf3;color:#166534;font-size:10px;font-weight:900;padding:6px 10px;page-break-after:avoid}
+@page{size:landscape;margin:.35in}
 </style></head><body>
 <h1>Annual Filter &amp; O-Ring Warehouse Staging Report</h1>
 <div class="meta"><strong>Changeout Date:</strong> ${escapeHTML(selections.serviceDateLabel)} &nbsp;&nbsp; <strong>Day:</strong> ${escapeHTML(selections.serviceDayName)} &nbsp;&nbsp; <strong>Route Tech:</strong> ${escapeHTML(selections.routeTechLabel)} &nbsp;&nbsp; <strong>Route Techs Included:</strong> ${formatNumber(routeTechCount)} &nbsp;&nbsp; <strong>Total Filters:</strong> ${formatNumber(totalFilters)} &nbsp;&nbsp; <strong>Total O-Rings:</strong> ${formatNumber(totalOrings)}</div>
-<table><thead><tr><th>Hurricane Part #</th><th>QTY to Stage</th><th>O-Ring Part #</th><th>QTY to Stage</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+
+<h2>WAREHOUSE PULL LIST</h2>
+<table class="pull-list">
+  <thead>
+    <tr>
+      <th>Item Type</th>
+      <th>Part #</th>
+      <th>QTY to Pull</th>
+    </tr>
+  </thead>
+  <tbody>${pullRowsHtml}</tbody>
+</table>
+
+<h2>STAGING LIST</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Hurricane Part #</th>
+      <th>QTY to Stage</th>
+      <th>O-Ring Part #</th>
+      <th>QTY to Stage</th>
+    </tr>
+  </thead>
+  <tbody>${rowsHtml}</tbody>
+</table>
 </body></html>`);
 
   printWindow.document.close();
   printWindow.focus();
   printWindow.print();
 }
-
 
 function getVarianceClass(value) {
   const number = Number(value || 0);
