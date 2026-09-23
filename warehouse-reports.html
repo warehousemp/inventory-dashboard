@@ -1975,13 +1975,60 @@
     .filter-inline-actions .filter-action-buttons {
       grid-column: 1 / -1;
       display: grid;
-      grid-template-columns: repeat(4, minmax(170px, 1fr));
+      grid-template-columns: repeat(3, minmax(170px, 1fr));
       gap: 10px;
     }
 
     .filter-inline-actions button {
       width: 100%;
       margin: 0;
+    }
+
+    #issueFilterInventoryBtn {
+      min-width: 230px;
+      font-weight: 900;
+    }
+
+    #issueFilterInventoryBtn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .filter-inventory-status-badge {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    .filter-inventory-status-issued {
+      background: #ecfdf3;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+
+    .filter-inventory-status-open {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+    }
+
+    .filter-inventory-status-reversed {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      color: #475569;
+    }
+
+    .filter-inventory-action-btn {
+      width: auto !important;
+      min-width: 92px;
+      margin: 0 !important;
+      padding: 7px 10px;
+      font-size: 11px;
     }
 
     .filter-day-header-row td,
@@ -3278,11 +3325,46 @@
         <div class="filter-action-buttons">
           <button class="report-btn" onclick="loadRouteTechFilterReports()">LOAD STAGING REQUIREMENTS</button>
           <button class="transfer-btn" onclick="printRouteTechStagingReport()">PRINT STAGING REPORT</button>
+          <button
+            id="issueFilterInventoryBtn"
+            class="receive-btn"
+            type="button"
+            onclick="issueSelectedFilterChangeoutInventory()"
+            disabled
+          >
+            SELECT ONE DATE TO ISSUE
+          </button>
         </div>
       </div>
 
       <div id="filterRouteTechSummary" class="session-id-box">
         Select filters and load the Warehouse filter and O-ring staging quantities.
+      </div>
+
+      <div id="filterInventoryIssueStatus" class="session-id-box" style="margin-top:10px;">
+        Inventory Status: Select one Changeout Service Date to view issuance readiness.
+      </div>
+
+      <div id="filterInventoryIssueClientStatus" class="count-table-wrapper" style="margin-top:10px; display:none;">
+        <table class="filter-staging-table">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Service Location</th>
+              <th>Route Tech</th>
+              <th>Filter System</th>
+              <th>Item</th>
+              <th>Warehouse Part #</th>
+              <th>Qty</th>
+              <th>Status</th>
+              <th>Issued By / At</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="filterInventoryIssueClientStatusBody">
+            <tr><td colspan="10">Select one Changeout Service Date.</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <h3>Warehouse Pull List</h3>
@@ -3408,6 +3490,8 @@ let filterStagingData = [];
 let filterChecklistData = [];
 let filterCSCBillingData = [];
 let filterCSCBillingClientSearch = '';
+let filterInventoryIssueReadiness = null;
+let filterInventoryIssueStatusData = [];
 let missingFilterTagWorklistData = [];
 let annualFilterPlanningLoaded = false;
 
@@ -6414,6 +6498,435 @@ async function loadRouteTechFilterReports() {
     `Total O-Rings to Stage: ${formatNumber(totalOringQty)}`;
 
   updateCSCBillingSummary();
+  await loadFilterInventoryIssueStatus();
+}
+
+function canManageFilterInventoryIssuance() {
+  return ['SYSTEM_ADMIN', 'ADMIN', 'WAREHOUSE'].includes(
+    String(currentWarehouseProfile?.role || '').toUpperCase()
+  );
+}
+
+function getFilterServiceDayNumberFromDate(serviceDate) {
+  const match = String(serviceDate || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const date = new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    12, 0, 0
+  );
+
+  const jsDay = date.getDay();
+  return jsDay === 0 ? 7 : jsDay;
+}
+
+function filterIssueSelectionHasDayMismatch() {
+  const selections = getFilterReportSelections();
+  if (!selections.serviceDate || selections.serviceDate === 'ALL' || !selections.serviceDayNumber) {
+    return false;
+  }
+
+  return getFilterServiceDayNumberFromDate(selections.serviceDate) !== selections.serviceDayNumber;
+}
+
+function setFilterIssueButtonState() {
+  const button = document.getElementById('issueFilterInventoryBtn');
+  if (!button) return;
+
+  const selections = getFilterReportSelections();
+  const hasOneDate = selections.serviceDate && selections.serviceDate !== 'ALL';
+  const authorized = canManageFilterInventoryIssuance();
+  const readiness = filterInventoryIssueReadiness;
+  const dayMismatch = filterIssueSelectionHasDayMismatch();
+
+  let disabled = true;
+  let label = 'ISSUE PULLED INVENTORY';
+
+  if (!authorized) {
+    label = 'WAREHOUSE / ADMIN ONLY';
+  } else if (!hasOneDate) {
+    label = 'SELECT ONE DATE TO ISSUE';
+  } else if (dayMismatch) {
+    label = 'DATE / DAY FILTER MISMATCH';
+  } else if (readiness?.fully_issued) {
+    label = 'INVENTORY ALREADY ISSUED';
+  } else if (readiness?.can_issue) {
+    disabled = false;
+    const filterQty = Number(readiness.remaining_filter_qty || 0);
+    const oringQty = Number(readiness.remaining_oring_qty || 0);
+    label = `ISSUE PULLED INVENTORY (${formatNumber(filterQty)} FILTERS / ${formatNumber(oringQty)} O-RINGS)`;
+  } else if (readiness) {
+    label = 'REVIEW INVENTORY BEFORE ISSUING';
+  }
+
+  button.disabled = disabled;
+  button.textContent = label;
+}
+
+function formatFilterIssueDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString();
+}
+
+async function loadFilterInventoryIssueStatus() {
+  const statusBox = document.getElementById('filterInventoryIssueStatus');
+  const detailWrapper = document.getElementById('filterInventoryIssueClientStatus');
+  const detailBody = document.getElementById('filterInventoryIssueClientStatusBody');
+
+  if (!statusBox || !detailWrapper || !detailBody) return;
+
+  const selections = getFilterReportSelections();
+  filterInventoryIssueReadiness = null;
+  filterInventoryIssueStatusData = [];
+
+  if (!selections.serviceDate || selections.serviceDate === 'ALL') {
+    statusBox.textContent =
+      'Inventory Status: Select one Changeout Service Date before issuing inventory.';
+    detailWrapper.style.display = 'none';
+    detailBody.innerHTML = '<tr><td colspan="10">Select one Changeout Service Date.</td></tr>';
+    setFilterIssueButtonState();
+    return;
+  }
+
+  if (filterIssueSelectionHasDayMismatch()) {
+    statusBox.textContent =
+      'Inventory Status: The selected Day of Week does not match the selected Changeout Service Date. Change Day of Week to All Service Days or select the matching day before issuing inventory.';
+    detailWrapper.style.display = 'none';
+    detailBody.innerHTML = '<tr><td colspan="10">Changeout date and Day of Week filters do not match.</td></tr>';
+    setFilterIssueButtonState();
+    return;
+  }
+
+  statusBox.textContent = 'Loading inventory issuance status...';
+  detailWrapper.style.display = 'block';
+  detailBody.innerHTML = '<tr><td colspan="10">Loading...</td></tr>';
+
+  const routeTechParam = selections.routeTech === 'ALL'
+    ? null
+    : selections.routeTech;
+
+  const { data: readiness, error: readinessError } = await client.rpc(
+    'get_annual_filter_changeout_issue_readiness',
+    {
+      p_service_date: selections.serviceDate,
+      p_route_tech: routeTechParam
+    }
+  );
+
+  if (readinessError) {
+    statusBox.textContent =
+      'Unable to load inventory readiness: ' + readinessError.message;
+    detailBody.innerHTML =
+      `<tr><td colspan="10">${escapeHTML(readinessError.message)}</td></tr>`;
+    setFilterIssueButtonState();
+    return;
+  }
+
+  filterInventoryIssueReadiness = readiness || null;
+
+  let statusQuery = client
+    .from('annual_filter_changeout_issue_status_view')
+    .select('*')
+    .eq('service_date', selections.serviceDate)
+    .order('route_tech', { ascending: true })
+    .order('client_name', { ascending: true })
+    .order('service_location', { ascending: true })
+    .order('filter_system_name', { ascending: true })
+    .order('item_type', { ascending: true });
+
+  if (selections.routeTech !== 'ALL') {
+    statusQuery = statusQuery.eq('route_tech', selections.routeTech);
+  }
+
+  const { data: statusRows, error: statusError } = await statusQuery;
+
+  if (statusError) {
+    statusBox.textContent =
+      'Inventory readiness loaded, but client issuance status could not be loaded: ' +
+      statusError.message;
+    detailBody.innerHTML =
+      `<tr><td colspan="10">${escapeHTML(statusError.message)}</td></tr>`;
+    setFilterIssueButtonState();
+    return;
+  }
+
+  filterInventoryIssueStatusData = statusRows || [];
+  renderFilterInventoryIssueStatus();
+  setFilterIssueButtonState();
+}
+
+function renderFilterInventoryIssueStatus() {
+  const statusBox = document.getElementById('filterInventoryIssueStatus');
+  const detailWrapper = document.getElementById('filterInventoryIssueClientStatus');
+  const detailBody = document.getElementById('filterInventoryIssueClientStatusBody');
+  const readiness = filterInventoryIssueReadiness;
+
+  if (!statusBox || !detailWrapper || !detailBody) return;
+
+  if (!readiness) {
+    statusBox.textContent = 'Inventory issuance status is unavailable.';
+    detailWrapper.style.display = 'none';
+    return;
+  }
+
+  const shortages = Array.isArray(readiness.shortages)
+    ? readiness.shortages
+    : [];
+  const missingMappings = Array.isArray(readiness.missing_mappings)
+    ? readiness.missing_mappings
+    : [];
+
+  const headline = readiness.fully_issued
+    ? 'ISSUED'
+    : readiness.can_issue
+      ? 'READY TO ISSUE'
+      : 'REVIEW REQUIRED';
+
+  let message =
+    `Inventory Status: ${headline}\n` +
+    `Changeout Date: ${getFilterServiceDateLabel(readiness.service_date)}\n` +
+    `Client Assignments: ${formatNumber(readiness.assignment_count)}\n` +
+    `Filter Qty — Total: ${formatNumber(readiness.total_filter_qty)} | Remaining: ${formatNumber(readiness.remaining_filter_qty)}\n` +
+    `O-Ring Qty — Total: ${formatNumber(readiness.total_oring_qty)} | Remaining: ${formatNumber(readiness.remaining_oring_qty)}\n` +
+    `Item Lines Issued: ${formatNumber(readiness.issued_item_line_count)} of ${formatNumber(readiness.item_line_count)}\n` +
+    `Source: ${readiness.source_location_name || 'Main Warehouse'}`;
+
+  if (shortages.length) {
+    message += '\n\nSHORTAGES:';
+    shortages.forEach(row => {
+      message +=
+        `\n• ${row.part_number}: Need ${formatNumber(row.required_quantity)}, ` +
+        `Available ${formatNumber(row.available_quantity)}, ` +
+        `Short ${formatNumber(row.shortage_quantity)}`;
+    });
+  }
+
+  if (missingMappings.length) {
+    message += '\n\nMISSING PART MAPPINGS:';
+    missingMappings.forEach(row => {
+      message +=
+        `\n• ${row.client_name} — ${row.filter_system_name} — ` +
+        `${row.item_type} — ${row.part_number || 'TBD'}`;
+    });
+  }
+
+  statusBox.textContent = message;
+  detailWrapper.style.display = 'block';
+  detailBody.innerHTML = '';
+
+  if (!filterInventoryIssueStatusData.length) {
+    detailBody.innerHTML =
+      '<tr><td colspan="10">No client inventory requirements found for this selection.</td></tr>';
+    return;
+  }
+
+  filterInventoryIssueStatusData.forEach(row => {
+    const isIssued = row.inventory_status === 'ISSUED';
+    const isReversed = row.inventory_status === 'REVERSED';
+    const canReverse = isIssued && canManageFilterInventoryIssuance();
+
+    const statusLabel = isIssued
+      ? 'ISSUED'
+      : isReversed
+        ? 'REVERSED'
+        : 'NOT ISSUED';
+
+    const statusClass = isIssued
+      ? 'filter-inventory-status-issued'
+      : isReversed
+        ? 'filter-inventory-status-reversed'
+        : 'filter-inventory-status-open';
+
+    const issuedInfo = isIssued || isReversed
+      ? `${escapeHTML(row.issued_by_name || '')}<br>${escapeHTML(formatFilterIssueDateTime(row.issued_at))}`
+      : '—';
+
+    const actionHtml = canReverse
+      ? `<button
+           class="danger-btn filter-inventory-action-btn"
+           type="button"
+           onclick="reverseFilterInventoryIssue('${escapeJS(row.issue_line_id)}')"
+         >
+           REVERSE
+         </button>`
+      : '—';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHTML(row.client_name || '')}</td>
+      <td>${escapeHTML(row.service_location || '')}</td>
+      <td>${escapeHTML(row.route_tech || '')}</td>
+      <td>${escapeHTML(row.filter_system_name || '')}</td>
+      <td>${escapeHTML(row.item_type === 'O_RING' ? 'O-Ring' : 'Filter')}</td>
+      <td><strong>${escapeHTML(row.part_number || 'TBD')}</strong></td>
+      <td>${formatNumber(row.quantity_required)}</td>
+      <td><span class="filter-inventory-status-badge ${statusClass}">${escapeHTML(statusLabel)}</span></td>
+      <td>${issuedInfo}</td>
+      <td>${actionHtml}</td>
+    `;
+    detailBody.appendChild(tr);
+  });
+}
+
+async function issueSelectedFilterChangeoutInventory() {
+  const selections = getFilterReportSelections();
+  const statusBox = document.getElementById('filterInventoryIssueStatus');
+  const button = document.getElementById('issueFilterInventoryBtn');
+
+  if (!canManageFilterInventoryIssuance()) {
+    alert('Only SYSTEM_ADMIN, ADMIN, or WAREHOUSE users can issue annual filter inventory.');
+    return;
+  }
+
+  if (!selections.serviceDate || selections.serviceDate === 'ALL') {
+    alert('Select one Changeout Service Date before issuing inventory.');
+    return;
+  }
+
+  if (filterIssueSelectionHasDayMismatch()) {
+    alert('The selected Day of Week does not match the Changeout Service Date. Select All Service Days or the matching day before issuing.');
+    return;
+  }
+
+  if (!filterInventoryIssueReadiness) {
+    await loadFilterInventoryIssueStatus();
+  }
+
+  if (filterInventoryIssueReadiness?.fully_issued) {
+    alert('The selected filter changeout inventory has already been issued.');
+    return;
+  }
+
+  if (!filterInventoryIssueReadiness?.can_issue) {
+    alert(
+      'This selection is not ready to issue. Review the inventory status for shortages or missing part mappings.'
+    );
+    return;
+  }
+
+  const routeTechLabel = selections.routeTech === 'ALL'
+    ? 'ALL ROUTE TECHS'
+    : selections.routeTech;
+
+  const filterQty = Number(filterInventoryIssueReadiness.remaining_filter_qty || 0);
+  const oringQty = Number(filterInventoryIssueReadiness.remaining_oring_qty || 0);
+
+  const confirmed = window.confirm(
+    `ISSUE PULLED INVENTORY?\n\n` +
+    `Changeout Date: ${selections.serviceDateLabel}\n` +
+    `Route Tech: ${routeTechLabel}\n` +
+    `Filters: ${formatNumber(filterQty)}\n` +
+    `O-Rings: ${formatNumber(oringQty)}\n\n` +
+    `This will relieve these parts from Main Warehouse inventory and record the issue to each client.\n\n` +
+    `Continue?`
+  );
+
+  if (!confirmed) return;
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'ISSUING INVENTORY...';
+  }
+
+  if (statusBox) {
+    statusBox.textContent =
+      `Issuing pulled inventory for ${selections.serviceDateLabel}...`;
+  }
+
+  const { data, error } = await client.rpc(
+    'issue_annual_filter_changeout_inventory',
+    {
+      p_service_date: selections.serviceDate,
+      p_route_tech: selections.routeTech === 'ALL'
+        ? null
+        : selections.routeTech
+    }
+  );
+
+  if (error) {
+    if (statusBox) {
+      statusBox.textContent = 'Inventory issue failed: ' + error.message;
+    }
+    alert('Inventory was NOT issued.\n\n' + error.message);
+    await loadFilterInventoryIssueStatus();
+    return;
+  }
+
+  const result = data || {};
+
+  if (result.already_issued) {
+    alert('All selected filter/O-ring inventory was already issued.');
+  } else {
+    alert(
+      `Inventory issued successfully.\n\n` +
+      `Filters Issued: ${formatNumber(result.filter_quantity_issued)}\n` +
+      `O-Rings Issued: ${formatNumber(result.oring_quantity_issued)}\n` +
+      `Inventory Issue Lines: ${formatNumber(result.inventory_issue_lines)}\n` +
+      `Issued By: ${result.issued_by || ''}`
+    );
+  }
+
+  await loadRouteTechFilterReports();
+}
+
+async function reverseFilterInventoryIssue(issueLineId) {
+  if (!canManageFilterInventoryIssuance()) {
+    alert('Only SYSTEM_ADMIN, ADMIN, or WAREHOUSE users can reverse annual filter inventory.');
+    return;
+  }
+
+  const row = filterInventoryIssueStatusData.find(
+    item => String(item.issue_line_id || '') === String(issueLineId || '')
+  );
+
+  if (!row || row.inventory_status !== 'ISSUED') {
+    alert('This item is not currently issued.');
+    return;
+  }
+
+  const reason = window.prompt(
+    `Reverse this inventory issue?\n\n` +
+    `Client: ${row.client_name || ''}\n` +
+    `Part: ${row.part_number || ''}\n` +
+    `Qty: ${formatNumber(row.quantity_required)}\n\n` +
+    `Enter the reversal reason:`
+  );
+
+  if (!reason || !reason.trim()) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Confirm reversal for ${row.part_number} — Qty ${formatNumber(row.quantity_required)}?\n\n` +
+    `The quantity will be restored to Main Warehouse inventory.`
+  );
+
+  if (!confirmed) return;
+
+  const { data, error } = await client.rpc(
+    'reverse_annual_filter_changeout_issue',
+    {
+      p_issue_line_id: issueLineId,
+      p_reversal_reason: reason.trim()
+    }
+  );
+
+  if (error) {
+    alert('Reversal failed.\n\n' + error.message);
+    return;
+  }
+
+  alert(
+    `Inventory issue reversed successfully.\n\n` +
+    `Part: ${data?.part_number || row.part_number}\n` +
+    `Qty Returned: ${formatNumber(data?.quantity_reversed || row.quantity_required)}`
+  );
+
+  await loadRouteTechFilterReports();
 }
 
 function appendFilterDayHeader(body, dayName, colspan) {
