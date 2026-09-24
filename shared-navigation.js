@@ -160,6 +160,11 @@
           label: 'Service Revenue Analysis',
           href: 'service-revenue-analysis.html',
           roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'RouteSafe Partner Management',
+          href: 'routesafe-partner-management.html',
+          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
