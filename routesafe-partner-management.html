@@ -131,6 +131,11 @@ button{
   margin-top:8px;
 }
 
+.quarter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px;padding:12px 14px;background:white;border:1px solid var(--line);border-radius:10px}
+.quarter-bar label{margin:0}
+.quarter-bar select{width:auto;min-width:170px}
+.quarter-note{font-size:12px;color:var(--muted)}
+
 /* TABS */
 
 .tabs{
@@ -413,6 +418,11 @@ Export Commission Detail
 
 </div>
 
+<div class="quarter-bar">
+<label for="dashboardQuarter">Compensation Quarter</label>
+<select id="dashboardQuarter" onchange="onDashboardQuarterChange()"></select>
+<span class="quarter-note">Enrollment spiffs and revenue commissions are tracked and paid quarterly.</span>
+</div>
 
 <section class="grid">
 
@@ -432,12 +442,12 @@ Export Commission Detail
 </div>
 
 <div class="card">
-<div class="metric-label">Elena Enrollment Spiffs</div>
+<div id="mSpiffsLabel" class="metric-label">Enrollment Spiffs — Current Quarter</div>
 <div id="mSpiffs" class="metric-value">—</div>
 </div>
 
 <div class="card">
-<div class="metric-label">Elena Revenue Commission</div>
+<div id="mCommissionLabel" class="metric-label">Revenue Commission — Current Quarter</div>
 <div id="mCommission" class="metric-value">—</div>
 </div>
 
@@ -615,13 +625,14 @@ Commissions are reviewed and paid quarterly.
 <tr>
 <th>Quarter</th>
 <th>Partner</th>
-<th>Qualified Enrollment</th>
-<th class="money">Lifetime Eligible Revenue</th>
-<th class="money">Revenue Above $10K</th>
-<th class="money">Elena 1%</th>
-<th class="money">$25 Spiff</th>
-<th class="money">Total Incentive</th>
+<th class="money">Quarterly Eligible Revenue</th>
+<th class="money">Lifetime Revenue Before Quarter</th>
+<th class="money">Commissionable This Quarter</th>
+<th class="money">1% Commission</th>
+<th class="money">$25 Enrollment Spiff</th>
+<th class="money">Total Due</th>
 <th>Status</th>
+<th>Paid Date</th>
 </tr>
 
 </thead>
@@ -776,16 +787,6 @@ Close
 <input id="p_qualified_date" type="date">
 </div>
 
-<div>
-<label>Elena $25 Spiff Status</label>
-
-<select id="p_spiff_status">
-<option>ACCRUED</option>
-<option>APPROVED</option>
-<option>PAID</option>
-</select>
-
-</div>
 
 <div class="full">
 
@@ -1018,19 +1019,6 @@ ineligible amounts.
 
 </div>
 
-<div>
-
-<label>Elena Commission Status</label>
-
-<select id="r_commission_status">
-
-<option>ACCRUED</option>
-<option>APPROVED</option>
-<option>PAID</option>
-
-</select>
-
-</div>
 
 <div class="full">
 
@@ -1088,6 +1076,8 @@ let currentProfile = null;
 
 let partners = [];
 let referrals = [];
+let commissionLedgers = [];
+let commissionLines = [];
 
 const ALLOWED_ROLES = [
   'SERVICE_MANAGER',
@@ -1213,6 +1203,40 @@ function quarterOf(value){
   return `FY${year} Q4`;
 }
 
+function parseQuarterKey(key){
+  const m=String(key||'').match(/^FY(\d{4}) (Q[1-4])$/);
+  return m ? {fiscalYear:Number(m[1]), quarter:m[2]} : null;
+}
+
+function currentQuarterKey(){ return quarterOf(new Date()); }
+
+function quarterBounds(key){
+  const p=parseQuarterKey(key);
+  if(!p) return null;
+  const fy=p.fiscalYear;
+  const map={Q1:[fy-1,6,fy-1,8],Q2:[fy-1,9,fy-1,11],Q3:[fy,0,fy,2],Q4:[fy,3,fy,5]};
+  const a=map[p.quarter];
+  const start=new Date(a[0],a[1],1,0,0,0,0);
+  const end=new Date(a[2],a[3]+1,1,0,0,0,0);
+  return {start,end};
+}
+
+function referralRevenueDate(row){
+  if(row.customer_paid_date) return new Date(row.customer_paid_date+'T12:00:00');
+  if(row.status==='PAID' && row.referral_at) return new Date(row.referral_at);
+  return null;
+}
+
+function availableQuarterKeys(){
+  const keys=new Set([currentQuarterKey()]);
+  partners.forEach(p=>{ if(p.qualified_enrollment_date) keys.add(quarterOf(p.qualified_enrollment_date+'T12:00:00')); });
+  referrals.forEach(r=>{ const d=referralRevenueDate(r); if(d) keys.add(quarterOf(d)); });
+  commissionLedgers.forEach(l=>keys.add(`FY${l.fiscal_year} ${l.quarter}`));
+  return [...keys].sort((a,b)=>{
+    const pa=parseQuarterKey(a), pb=parseQuarterKey(b);
+    return (pb.fiscalYear*10+Number(pb.quarter.slice(1)))-(pa.fiscalYear*10+Number(pa.quarter.slice(1)));
+  });
+}
 
 /* =========================================================
    ACCESS CONTROL
@@ -1318,7 +1342,9 @@ async function loadAll(){
 
   const [
     partnerResult,
-    referralResult
+    referralResult,
+    ledgerResult,
+    lineResult
   ] =
   await Promise.all([
 
@@ -1333,7 +1359,10 @@ async function loadAll(){
     .order(
       'referral_at',
       {ascending:false}
-    )
+    ),
+
+    db.from('routesafe_quarterly_commissions').select('*').order('fiscal_year',{ascending:false}),
+    db.from('routesafe_quarterly_commission_lines').select('*')
 
   ]);
 
@@ -1360,6 +1389,8 @@ async function loadAll(){
 
   referrals =
   referralResult.data || [];
+  commissionLedgers = ledgerResult.error ? [] : (ledgerResult.data || []);
+  commissionLines = lineResult.error ? [] : (lineResult.data || []);
 
   populatePartnerSelect();
 
@@ -1734,227 +1765,99 @@ function renderReferrals(){
 
 
 /* =========================================================
-   ELENA INCENTIVE CALCULATION
+   QUARTERLY INCENTIVE CALCULATION
 ========================================================= */
 
-function commissionRowsData(){
-
-  return partners.map(
-    partner => {
-
-      const partnerReferrals =
-      referrals.filter(
-        row =>
-        row.partner_id===
-        partner.id
-      );
-
-      const lifetimeRevenue =
-      partnerReferrals.reduce(
-        (sum,row) =>
-        sum +
-        Number(
-          row.eligible_collected_revenue ||
-          0
-        ),
-        0
-      );
-
-      const revenueAboveThreshold =
-      Math.max(
-        0,
-        lifetimeRevenue - 10000
-      );
-
-      const revenueCommission =
-      revenueAboveThreshold * .01;
-
-      const enrollmentSpiff =
-      partner.qualified_enrollment
-      ? 25
-      : 0;
-
-      const quarter =
-      quarterOf(
-        partner.qualified_enrollment_date ||
-        partner.agreement_effective_date ||
-        new Date()
-      );
-
-      const commissionStatuses =
-      partnerReferrals
-      .map(
-        row =>
-        row.elena_commission_status
-      )
-      .filter(Boolean);
-
-      let status='ACCRUED';
-
-      if(
-        commissionStatuses.length &&
-        commissionStatuses.every(
-          s => s==='PAID'
-        ) &&
-        (
-          !enrollmentSpiff ||
-          partner.elena_spiff_status==='PAID'
-        )
-      ){
-
-        status='PAID';
-
-      }
-      else if(
-        commissionStatuses.includes(
-          'APPROVED'
-        ) ||
-        partner.elena_spiff_status==='APPROVED'
-      ){
-
-        status='APPROVED';
-      }
-
-      return {
-
-        partner,
-        lifetimeRevenue,
-        revenueAboveThreshold,
-        revenueCommission,
-        enrollmentSpiff,
-        total:
-          revenueCommission +
-          enrollmentSpiff,
-        quarter,
-        status
-      };
-    }
-  );
+function computedQuarterRows(key){
+  const bounds=quarterBounds(key);
+  if(!bounds) return [];
+  return partners.map(partner=>{
+    const partnerPaid=referrals
+      .filter(r=>r.partner_id===partner.id)
+      .map(r=>({row:r,date:referralRevenueDate(r)}))
+      .filter(x=>x.date);
+    const before=partnerPaid.filter(x=>x.date<bounds.start)
+      .reduce((sum,x)=>sum+Number(x.row.eligible_collected_revenue||0),0);
+    const quarterly=partnerPaid.filter(x=>x.date>=bounds.start && x.date<bounds.end)
+      .reduce((sum,x)=>sum+Number(x.row.eligible_collected_revenue||0),0);
+    const thresholdRemaining=Math.max(0,10000-before);
+    const commissionable=Math.max(0,quarterly-thresholdRemaining);
+    const commission=Math.round(commissionable*.01*100)/100;
+    const enrolled=!!partner.qualified_enrollment && !!partner.qualified_enrollment_date &&
+      new Date(partner.qualified_enrollment_date+'T12:00:00')>=bounds.start &&
+      new Date(partner.qualified_enrollment_date+'T12:00:00')<bounds.end;
+    const spiff=enrolled?25:0;
+    return {partner,quarter:key,quarterlyRevenue:quarterly,lifetimeBefore:before,commissionable,revenueCommission:commission,enrollmentSpiff:spiff,total:commission+spiff,status:'ACCRUED',paidDate:null};
+  }).filter(r=>r.quarterlyRevenue>0 || r.enrollmentSpiff>0);
 }
 
+function commissionRowsData(key){
+  const parsed=parseQuarterKey(key);
+  const ledger=parsed && commissionLedgers.find(l=>Number(l.fiscal_year)===parsed.fiscalYear && l.quarter===parsed.quarter && l.employee_name==='Elena');
+  if(ledger){
+    const lines=commissionLines.filter(x=>x.ledger_id===ledger.id);
+    if(lines.length){
+      return lines.map(line=>({
+        partner:partners.find(p=>p.id===line.partner_id)||{partner_name:'Unknown Partner',partner_code:''},
+        quarter:key,
+        quarterlyRevenue:Number(line.quarterly_eligible_revenue||0),
+        lifetimeBefore:Number(line.lifetime_revenue_before_quarter||0),
+        commissionable:Number(line.commissionable_revenue||0),
+        revenueCommission:Number(line.revenue_commission||0),
+        enrollmentSpiff:Number(line.enrollment_spiff||0),
+        total:Number(line.total_incentive||0),
+        status:ledger.status,
+        paidDate:ledger.paid_date
+      }));
+    }
+  }
+  return computedQuarterRows(key);
+}
 
-/* =========================================================
-   COMMISSION TABLE
-========================================================= */
+function selectedQuarter(){ return $('dashboardQuarter').value || currentQuarterKey(); }
 
 function renderCommissions(){
-
-  const quarter =
-  $('quarterFilter').value;
-
-  const status =
-  $('commissionStatus').value;
-
-  const rows =
-  commissionRowsData()
-  .filter(
-    row =>
-    (
-      !quarter ||
-      row.quarter===quarter
-    )
-    &&
-    (
-      !status ||
-      row.status===status
-    )
-  );
-
-  $('commissionRows').innerHTML =
-
-  rows.map(
-    row => `
-
+  const quarter=$('quarterFilter').value || selectedQuarter();
+  const status=$('commissionStatus').value;
+  const rows=commissionRowsData(quarter).filter(row=>!status || row.status===status);
+  $('commissionRows').innerHTML=rows.map(row=>`
     <tr>
-
-    <td>
-    ${esc(row.quarter)}
-    </td>
-
-    <td>
-
-    <b>
-    ${esc(
-      row.partner.partner_name
-    )}
-    </b>
-
-    <br>
-
-    ${esc(
-      row.partner.partner_code
-    )}
-
-    </td>
-
-    <td>
-
-    ${
-      row.partner.qualified_enrollment
-      ?
-      `Yes — ${
-        dateOnly(
-          row.partner
-          .qualified_enrollment_date
-        )
-      }`
-      :
-      'No'
-    }
-
-    </td>
-
-    <td class="money">
-    ${money(
-      row.lifetimeRevenue
-    )}
-    </td>
-
-    <td class="money">
-    ${money(
-      row.revenueAboveThreshold
-    )}
-    </td>
-
-    <td class="money">
-    ${money(
-      row.revenueCommission
-    )}
-    </td>
-
-    <td class="money">
-    ${money(
-      row.enrollmentSpiff
-    )}
-    </td>
-
-    <td class="money">
-
-    <b>
-    ${money(row.total)}
-    </b>
-
-    </td>
-
-    <td>
-    ${badge(row.status)}
-    </td>
-
-    </tr>
-
-    `
-
-  ).join('')
-
-  ||
-
-  `<tr>
-  <td colspan="9">
-  No commission records found.
-  </td>
-  </tr>`;
+      <td>${esc(row.quarter)}</td>
+      <td><b>${esc(row.partner.partner_name)}</b><br>${esc(row.partner.partner_code||'')}</td>
+      <td class="money">${money(row.quarterlyRevenue)}</td>
+      <td class="money">${money(row.lifetimeBefore)}</td>
+      <td class="money">${money(row.commissionable)}</td>
+      <td class="money">${money(row.revenueCommission)}</td>
+      <td class="money">${money(row.enrollmentSpiff)}</td>
+      <td class="money"><b>${money(row.total)}</b></td>
+      <td>${badge(row.status)}</td>
+      <td>${dateOnly(row.paidDate)}</td>
+    </tr>`).join('') || `<tr><td colspan="10">No commission activity for ${esc(quarter)}.</td></tr>`;
 }
 
+async function syncQuarterLedger(key){
+  const parsed=parseQuarterKey(key);
+  if(!parsed) return;
+  let ledger=commissionLedgers.find(l=>Number(l.fiscal_year)===parsed.fiscalYear && l.quarter===parsed.quarter && l.employee_name==='Elena');
+  if(ledger && ledger.status==='PAID') return; // paid quarters are locked historical records
+  if(!ledger){
+    const {data,error}=await db.from('routesafe_quarterly_commissions').insert({employee_name:'Elena',fiscal_year:parsed.fiscalYear,quarter:parsed.quarter,status:'ACCRUED',created_by:currentUser.id,updated_by:currentUser.id}).select().single();
+    if(error){ console.error(error); return; }
+    ledger=data; commissionLedgers.push(data);
+  }
+  const rows=computedQuarterRows(key);
+  for(const row of rows){
+    const payload={ledger_id:ledger.id,partner_id:row.partner.id,quarterly_eligible_revenue:row.quarterlyRevenue,lifetime_revenue_before_quarter:row.lifetimeBefore,commissionable_revenue:row.commissionable,revenue_commission:row.revenueCommission,enrollment_spiff:row.enrollmentSpiff,total_incentive:row.total,updated_at:new Date().toISOString()};
+    const {error}=await db.from('routesafe_quarterly_commission_lines').upsert(payload,{onConflict:'ledger_id,partner_id'});
+    if(error) console.error(error);
+  }
+}
+
+function onDashboardQuarterChange(){
+  $('quarterFilter').value=selectedQuarter();
+  renderCommissions();
+  renderMetrics();
+}
 
 /* =========================================================
    ROUTE PROTECTION
@@ -2079,70 +1982,21 @@ function renderProtection(){
 ========================================================= */
 
 function renderMetrics(){
-
-  const activePartners =
-  partners.filter(
-    p =>
-    p.status==='ACTIVE'
-  ).length;
-
-  const revenue =
-  referrals.reduce(
-    (sum,row) =>
-    sum +
-    Number(
-      row.eligible_collected_revenue ||
-      0
-    ),
-    0
-  );
-
-  const partnerRewards =
-  referrals.reduce(
-    (sum,row) =>
-    sum +
-    Number(
-      row.partner_reward_amount ||
-      0
-    ),
-    0
-  );
-
-  const commissions =
-  commissionRowsData();
-
-  const spiffs =
-  commissions.reduce(
-    (sum,row) =>
-    sum +
-    row.enrollmentSpiff,
-    0
-  );
-
-  const elenaCommission =
-  commissions.reduce(
-    (sum,row) =>
-    sum +
-    row.revenueCommission,
-    0
-  );
-
-  $('mPartners').textContent =
-  activePartners;
-
-  $('mRevenue').textContent =
-  money(revenue);
-
-  $('mPartnerPay').textContent =
-  money(partnerRewards);
-
-  $('mSpiffs').textContent =
-  money(spiffs);
-
-  $('mCommission').textContent =
-  money(elenaCommission);
+  const activePartners=partners.filter(p=>p.status==='ACTIVE').length;
+  const revenue=referrals.reduce((sum,row)=>sum+Number(row.eligible_collected_revenue||0),0);
+  const partnerRewards=referrals.reduce((sum,row)=>sum+Number(row.partner_reward_amount||0),0);
+  const q=selectedQuarter();
+  const rows=commissionRowsData(q);
+  const spiffs=rows.reduce((sum,row)=>sum+row.enrollmentSpiff,0);
+  const commission=rows.reduce((sum,row)=>sum+row.revenueCommission,0);
+  $('mPartners').textContent=activePartners;
+  $('mRevenue').textContent=money(revenue);
+  $('mPartnerPay').textContent=money(partnerRewards);
+  $('mSpiffsLabel').textContent=`Enrollment Spiffs — ${q}`;
+  $('mCommissionLabel').textContent=`Revenue Commission — ${q}`;
+  $('mSpiffs').textContent=money(spiffs);
+  $('mCommission').textContent=money(commission);
 }
-
 
 /* =========================================================
    DROPDOWNS
@@ -2176,33 +2030,13 @@ function populatePartnerSelect(){
 
 
 function populateQuarters(){
-
-  const quarters =
-  [
-    ...new Set(
-      commissionRowsData()
-      .map(row => row.quarter)
-    )
-  ]
-  .sort()
-  .reverse();
-
-  $('quarterFilter').innerHTML =
-
-  `<option value="">
-  All Quarters
-  </option>`
-
-  +
-
-  quarters.map(
-    q =>
-    `<option value="${esc(q)}">
-    ${esc(q)}
-    </option>`
-  ).join('');
+  const quarters=availableQuarterKeys();
+  const current=currentQuarterKey();
+  $('dashboardQuarter').innerHTML=quarters.map(q=>`<option value="${esc(q)}">${esc(q)}</option>`).join('');
+  $('quarterFilter').innerHTML=quarters.map(q=>`<option value="${esc(q)}">${esc(q)}</option>`).join('');
+  $('dashboardQuarter').value=quarters.includes(current)?current:quarters[0];
+  $('quarterFilter').value=$('dashboardQuarter').value;
 }
-
 
 /* =========================================================
    PARTNER MODAL
@@ -2272,10 +2106,6 @@ function editPartner(id){
 
   $('p_qualified_date').value=
   p.qualified_enrollment_date || '';
-
-  $('p_spiff_status').value=
-  p.elena_spiff_status ||
-  'ACCRUED';
 
   $('p_notes').value=
   p.notes || '';
@@ -2404,10 +2234,6 @@ function editReferral(id){
   row.partner_reward_paid_date ||
   '';
 
-  $('r_commission_status').value=
-  row.elena_commission_status ||
-  'ACCRUED';
-
   $('r_notes').value=
   row.notes || '';
 
@@ -2493,9 +2319,6 @@ $('partnerForm')
       qualified_enrollment_date:
       $('p_qualified_date').value
       || null,
-
-      elena_spiff_status:
-      $('p_spiff_status').value,
 
       notes:
       $('p_notes')
@@ -2648,9 +2471,6 @@ $('refForm')
       $('r_reward_paid').value
       || null,
 
-      elena_commission_status:
-      $('r_commission_status').value,
-
       notes:
       $('r_notes')
       .value
@@ -2757,87 +2577,16 @@ document
 ========================================================= */
 
 function exportCSV(){
-
-  const rows=[
-
-    [
-      'Partner',
-      'Partner Code',
-      'Qualified Enrollment',
-      'Lifetime Eligible Revenue',
-      'Revenue Above $10,000',
-      'Elena 1% Commission',
-      '$25 Enrollment Spiff',
-      'Total Elena Incentive',
-      'Status'
-    ]
-
-  ];
-
-  commissionRowsData()
-  .forEach(
-    row => {
-
-      rows.push([
-
-        row.partner.partner_name,
-
-        row.partner.partner_code,
-
-        row.partner.qualified_enrollment
-        ? 'Yes'
-        : 'No',
-
-        row.lifetimeRevenue,
-
-        row.revenueAboveThreshold,
-
-        row.revenueCommission,
-
-        row.enrollmentSpiff,
-
-        row.total,
-
-        row.status
-
-      ]);
-    }
-  );
-
-  const csv =
-  rows.map(
-    row =>
-    row.map(
-      value =>
-      `"${String(value ?? '')
-      .replaceAll('"','""')}"`
-    )
-    .join(',')
-  )
-  .join('\n');
-
-  const blob =
-  new Blob(
-    [csv],
-    {type:'text/csv'}
-  );
-
-  const link =
-  document.createElement('a');
-
-  link.href =
-  URL.createObjectURL(blob);
-
-  link.download =
-  'RouteSafe_Commission_Tracking.csv';
-
-  link.click();
-
-  URL.revokeObjectURL(
-    link.href
-  );
+  const q=$('quarterFilter').value || selectedQuarter();
+  const rows=[['Quarter','Partner','Partner Code','Quarterly Eligible Revenue','Lifetime Revenue Before Quarter','Commissionable Revenue This Quarter','1% Commission','$25 Enrollment Spiff','Total Due','Status','Paid Date']];
+  commissionRowsData(q).forEach(row=>rows.push([q,row.partner.partner_name,row.partner.partner_code,row.quarterlyRevenue,row.lifetimeBefore,row.commissionable,row.revenueCommission,row.enrollmentSpiff,row.total,row.status,row.paidDate||'']));
+  const csv=rows.map(row=>row.map(value=>`"${String(value??'').replaceAll('"','""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const link=document.createElement('a');
+  link.href=URL.createObjectURL(blob);
+  link.download=`RouteSafe_Commission_${q.replace(' ','_')}.csv`;
+  link.click(); URL.revokeObjectURL(link.href);
 }
-
 
 /* =========================================================
    INITIALIZE
@@ -2852,6 +2601,11 @@ function exportCSV(){
     return;
 
   await loadAll();
+  await syncQuarterLedger(currentQuarterKey());
+  const [lr,xr]=await Promise.all([db.from('routesafe_quarterly_commissions').select('*'),db.from('routesafe_quarterly_commission_lines').select('*')]);
+  if(!lr.error) commissionLedgers=lr.data||[];
+  if(!xr.error) commissionLines=xr.data||[];
+  renderAll();
 
 })();
 
