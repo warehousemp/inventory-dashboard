@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Service Opportunity & Incentive Management | Molinari Pools</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -13,7 +14,7 @@
   --navy-dark:#0a2945;
   --blue:#2f6fa5;
   --bg:#eef3f7;
-  --white:#fff;
+  --white:#ffffff;
   --line:#d8e0e8;
   --text:#17212b;
   --muted:#687786;
@@ -22,7 +23,9 @@
   --red:#b42318;
 }
 
-*{box-sizing:border-box}
+*{
+  box-sizing:border-box;
+}
 
 body{
   margin:0;
@@ -57,6 +60,7 @@ body{
 .hero p{
   margin:0;
   color:#dce8f2;
+  line-height:1.4;
 }
 
 .tag{
@@ -96,7 +100,7 @@ button{
 }
 
 .danger{
-  background:#fff;
+  background:white;
   color:var(--red);
   border:1px solid #efc4c0;
 }
@@ -178,34 +182,39 @@ button{
   color:white;
 }
 
-.section-nav{
+.tabs{
   display:flex;
-  gap:6px;
-  flex-wrap:wrap;
-  margin:4px 0 0;
+  gap:4px;
+  border-bottom:1px solid var(--line);
+  overflow:auto;
 }
 
-.section-tab{
-  background:#dde6ee;
-  color:#526272;
-  padding:12px 17px;
-  border-radius:9px 9px 0 0;
+.tab{
+  background:transparent;
+  color:var(--muted);
+  padding:11px 15px;
+  border-radius:8px 8px 0 0;
+  white-space:nowrap;
 }
 
-.section-tab.active{
-  background:var(--navy);
-  color:white;
+.tab.active{
+  background:white;
+  color:var(--navy);
+  border:1px solid var(--line);
+  border-bottom-color:white;
+  margin-bottom:-1px;
 }
 
-.section-panel{
+.panel{
   display:none;
   background:white;
   border:1px solid var(--line);
-  border-radius:0 12px 12px 12px;
+  border-top:0;
+  border-radius:0 0 12px 12px;
   padding:18px;
 }
 
-.section-panel.active{
+.panel.active{
   display:block;
 }
 
@@ -222,6 +231,7 @@ button{
   color:var(--muted);
   padding:10px 14px;
   border-radius:7px 7px 0 0;
+  white-space:nowrap;
 }
 
 .subtab.active{
@@ -229,8 +239,13 @@ button{
   color:var(--navy);
 }
 
-.subpanel{display:none}
-.subpanel.active{display:block}
+.subpanel{
+  display:none;
+}
+
+.subpanel.active{
+  display:block;
+}
 
 .section-title{
   display:flex;
@@ -250,6 +265,7 @@ button{
   margin:0;
   color:var(--muted);
   font-size:13px;
+  line-height:1.35;
 }
 
 .filters{
@@ -270,8 +286,13 @@ textarea{
   background:white;
 }
 
-.filters input{max-width:340px}
-.filters select{max-width:230px}
+.filters input{
+  max-width:340px;
+}
+
+.filters select{
+  max-width:230px;
+}
 
 .table-wrap{
   overflow:auto;
@@ -313,6 +334,7 @@ tr:hover td{
   border-radius:999px;
   font-size:11px;
   font-weight:800;
+  white-space:nowrap;
 }
 
 .good{
@@ -394,7 +416,7 @@ tr:hover td{
   align-items:center;
   justify-content:center;
   padding:20px;
-  z-index:100;
+  z-index:10000;
 }
 
 .modal.show{
@@ -455,21 +477,37 @@ label{
 }
 
 @media(max-width:1150px){
-  .grid{grid-template-columns:repeat(2,1fr)}
-  .summary-grid{grid-template-columns:repeat(3,1fr)}
+  .grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+  .summary-grid{
+    grid-template-columns:repeat(3,1fr);
+  }
 }
 
 @media(max-width:700px){
-  .page{padding:10px}
-  .hero{flex-direction:column;align-items:flex-start}
+  .page{
+    padding:10px;
+  }
+
+  .hero{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
   .grid,
   .summary-grid,
-  .form-grid{grid-template-columns:1fr}
+  .form-grid{
+    grid-template-columns:1fr;
+  }
 }
 </style>
 </head>
 
 <body>
+
+<div id="sharedNavigation"></div>
 
 <div class="page">
 
@@ -477,8 +515,8 @@ label{
   <div>
     <h1>Service Opportunity & Incentive Management</h1>
     <p>
-      RouteSafe partnerships, Service opportunities, renovation referrals
-      and quarterly incentive tracking.
+      RouteSafe partnerships, Service opportunities, renovation referrals,
+      route protection, partner rewards, and quarterly incentive tracking.
     </p>
   </div>
 
@@ -488,258 +526,115 @@ label{
 </section>
 
 <div class="toolbar">
-
-  <button
-    class="primary"
-    onclick="openPartner()">
-    + RouteSafe Partner
-  </button>
-
-  <button
-    class="primary"
-    onclick="openReferral()">
-    + RouteSafe Referral
-  </button>
-
-  <button
-    class="primary"
-    onclick="openServiceOpportunity()">
-    + Small Project / Specialty Service
-  </button>
-
-  <button
-    class="primary"
-    onclick="openRenovation()">
-    + Renovation Referral
-  </button>
-
-  <button
-    class="secondary"
-    onclick="loadAll()">
-    Refresh
-  </button>
-
+  <button class="primary" onclick="openPartner()">+ RouteSafe Partner</button>
+  <button class="primary" onclick="openReferral()">+ RouteSafe Referral</button>
+  <button class="primary" onclick="openServiceOpportunity()">+ Small Project / Specialty</button>
+  <button class="primary" onclick="openRenovation()">+ Renovation Referral</button>
+  <button class="secondary" onclick="loadAll()">Refresh</button>
+  <button class="secondary" onclick="exportQuarterCSV()">Export Quarter Detail</button>
 </div>
 
 <div class="quarter-bar">
-
-  <label for="dashboardQuarter">
-    Compensation Quarter
-  </label>
-
-  <select
-    id="dashboardQuarter"
-    onchange="changeQuarter()">
-  </select>
-
+  <label for="dashboardQuarter">Compensation Quarter</label>
+  <select id="dashboardQuarter" onchange="changeQuarter()"></select>
   <span class="quarter-note">
-    Quarterly incentive reporting uses Molinari's July 1 – June 30 fiscal year.
+    Molinari fiscal year: July 1 – June 30.
   </span>
-
 </div>
 
 <section class="grid">
 
   <div class="card">
-    <div class="metric-label">
-      Active RouteSafe Partners
-    </div>
-    <div id="mPartners" class="metric-value">
-      —
-    </div>
-    <div class="metric-sub">
-      Current active Partner network
-    </div>
+    <div class="metric-label">Active RouteSafe Partners</div>
+    <div id="mPartners" class="metric-value">—</div>
+    <div class="metric-sub">Current active Partner network</div>
   </div>
 
   <div class="card">
-    <div class="metric-label">
-      RouteSafe Revenue
-    </div>
-    <div id="mRouteRevenue" class="metric-value">
-      —
-    </div>
-    <div class="metric-sub">
-      Eligible collected revenue this quarter
-    </div>
+    <div class="metric-label">RouteSafe Revenue</div>
+    <div id="mRouteRevenue" class="metric-value">—</div>
+    <div class="metric-sub">Eligible collected revenue this quarter</div>
   </div>
 
   <div class="card">
-    <div class="metric-label">
-      Small Projects / Specialty Revenue
-    </div>
-    <div id="mServiceRevenue" class="metric-value">
-      —
-    </div>
-    <div class="metric-sub">
-      Eligible collected revenue this quarter
-    </div>
+    <div class="metric-label">Small Projects / Specialty Revenue</div>
+    <div id="mServiceRevenue" class="metric-value">—</div>
+    <div class="metric-sub">Eligible collected revenue this quarter</div>
   </div>
 
   <div class="card">
-    <div class="metric-label">
-      Renovation Revenue
-    </div>
-    <div id="mRenoRevenue" class="metric-value">
-      —
-    </div>
-    <div class="metric-sub">
-      Eligible collected renovation revenue this quarter
-    </div>
+    <div class="metric-label">Renovation Revenue</div>
+    <div id="mRenoRevenue" class="metric-value">—</div>
+    <div class="metric-sub">Eligible collected renovation revenue this quarter</div>
   </div>
 
   <div class="card">
-    <div class="metric-label">
-      RouteSafe Incentive
-    </div>
-    <div id="mRouteIncentive" class="metric-value">
-      —
-    </div>
-    <div class="metric-sub">
-      $25 enrollments + eligible 1%
-    </div>
+    <div class="metric-label">RouteSafe Incentive</div>
+    <div id="mRouteIncentive" class="metric-value">—</div>
+    <div class="metric-sub">$25 enrollments + eligible 1%</div>
   </div>
 
   <div class="card">
-    <div class="metric-label">
-      Small Projects / Specialty 2%
-    </div>
-    <div id="mServiceIncentive" class="metric-value">
-      —
-    </div>
-    <div class="metric-sub">
-      Quarterly incentive
-    </div>
+    <div class="metric-label">Small Projects / Specialty 2%</div>
+    <div id="mServiceIncentive" class="metric-value">—</div>
+    <div class="metric-sub">Quarterly incentive</div>
   </div>
 
   <div class="card">
-    <div class="metric-label">
-      Renovation Incentive
-    </div>
-    <div id="mRenoIncentive" class="metric-value">
-      —
-    </div>
-    <div class="metric-sub">
-      Finder fees + eligible 0.5%
-    </div>
+    <div class="metric-label">Renovation Incentive</div>
+    <div id="mRenoIncentive" class="metric-value">—</div>
+    <div class="metric-sub">Finder fees + eligible 0.5%</div>
   </div>
 
   <div class="card total-card">
-    <div class="metric-label">
-      Total Quarterly Incentive
-    </div>
-    <div id="mTotalIncentive" class="metric-value">
-      —
-    </div>
-    <div class="metric-sub">
-      Combined incentive for selected quarter
-    </div>
+    <div class="metric-label">Total Quarterly Incentive</div>
+    <div id="mTotalIncentive" class="metric-value">—</div>
+    <div class="metric-sub">Combined incentive for selected quarter</div>
   </div>
 
 </section>
 
-<div class="section-nav">
-
-  <button
-    class="section-tab active"
-    data-section="routesafe">
-    RouteSafe
-  </button>
-
-  <button
-    class="section-tab"
-    data-section="serviceOpportunities">
-    Small Projects & Specialty Services
-  </button>
-
-  <button
-    class="section-tab"
-    data-section="renovations">
-    Renovation Opportunity Referrals
-  </button>
-
-  <button
-    class="section-tab"
-    data-section="compensation">
-    Quarterly Incentive Summary
-  </button>
-
+<div class="tabs">
+  <button class="tab active" data-tab="routesafe">RouteSafe</button>
+  <button class="tab" data-tab="serviceOpportunities">Small Projects & Specialty Services</button>
+  <button class="tab" data-tab="renovations">Renovation Opportunity Referrals</button>
+  <button class="tab" data-tab="compensation">Quarterly Incentive Summary</button>
 </div>
 
-<!-- =====================================================
-     ROUTESAFE
-===================================================== -->
-
-<section
-  id="routesafe"
-  class="section-panel active">
+<section id="routesafe" class="panel active">
 
   <div class="section-title">
     <div>
       <h2>RouteSafe Partner Program</h2>
       <p>
-        Partner enrollment, repair referrals, rewards and route protection.
+        Partner enrollment, repair referrals, collected revenue, partner rewards,
+        and 24-month route protection.
       </p>
     </div>
   </div>
 
   <div class="subtabs">
-
-    <button
-      class="subtab active"
-      data-group="route"
-      data-sub="routePartners">
-      Partners
-    </button>
-
-    <button
-      class="subtab"
-      data-group="route"
-      data-sub="routeReferrals">
-      Referrals & Jobs
-    </button>
-
-    <button
-      class="subtab"
-      data-group="route"
-      data-sub="routeProtection">
-      Route Protection
-    </button>
-
+    <button class="subtab active" data-sub="routePartners">Partners</button>
+    <button class="subtab" data-sub="routeReferrals">Referrals & Jobs</button>
+    <button class="subtab" data-sub="routeProtection">Route Protection</button>
   </div>
 
-  <div
-    id="routePartners"
-    class="subpanel active">
+  <div id="routePartners" class="subpanel active">
 
     <div class="filters">
+      <input id="partnerSearch" placeholder="Search partner, code, phone or email..." oninput="renderPartners()">
 
-      <input
-        id="partnerSearch"
-        placeholder="Search partner, code, phone or email..."
-        oninput="renderPartners()">
-
-      <select
-        id="partnerStatus"
-        onchange="renderPartners()">
-
-        <option value="">
-          All Statuses
-        </option>
-
+      <select id="partnerStatus" onchange="renderPartners()">
+        <option value="">All Statuses</option>
         <option>PROSPECT</option>
         <option>PENDING</option>
         <option>ACTIVE</option>
         <option>INACTIVE</option>
-
       </select>
-
     </div>
 
     <div class="table-wrap">
-
       <table>
-
         <thead>
           <tr>
             <th>Partner</th>
@@ -755,32 +650,18 @@ label{
         </thead>
 
         <tbody id="partnerRows"></tbody>
-
       </table>
-
     </div>
 
   </div>
 
-  <div
-    id="routeReferrals"
-    class="subpanel">
+  <div id="routeReferrals" class="subpanel">
 
     <div class="filters">
+      <input id="refSearch" placeholder="Search customer, address, job or partner..." oninput="renderReferrals()">
 
-      <input
-        id="refSearch"
-        placeholder="Search customer, address, job or partner..."
-        oninput="renderReferrals()">
-
-      <select
-        id="refStatus"
-        onchange="renderReferrals()">
-
-        <option value="">
-          All Job Statuses
-        </option>
-
+      <select id="refStatus" onchange="renderReferrals()">
+        <option value="">All Job Statuses</option>
         <option>REFERRED</option>
         <option>SCHEDULED</option>
         <option>QUOTED</option>
@@ -789,15 +670,11 @@ label{
         <option>PAID</option>
         <option>CANCELED</option>
         <option>INELIGIBLE</option>
-
       </select>
-
     </div>
 
     <div class="table-wrap">
-
       <table>
-
         <thead>
           <tr>
             <th>Referral Date</th>
@@ -814,33 +691,21 @@ label{
         </thead>
 
         <tbody id="refRows"></tbody>
-
       </table>
-
     </div>
 
   </div>
 
-  <div
-    id="routeProtection"
-    class="subpanel">
+  <div id="routeProtection" class="subpanel">
 
     <div class="notice">
-
       <b>Route Protection:</b>
-
-      A properly registered referred address is protected for
-      24 months from the most recent referred job.
-
-      A new referral at the protected address resets the
-      24-month protection period.
-
+      A properly registered referred address is protected for 24 months from the most recent referred job.
+      A new referral at the protected address resets the 24-month protection period.
     </div>
 
     <div class="table-wrap">
-
       <table>
-
         <thead>
           <tr>
             <th>Partner</th>
@@ -853,88 +718,43 @@ label{
         </thead>
 
         <tbody id="protectionRows"></tbody>
-
       </table>
-
     </div>
 
   </div>
 
 </section>
 
-<!-- =====================================================
-     SMALL PROJECTS / SPECIALTY
-===================================================== -->
-
-<section
-  id="serviceOpportunities"
-  class="section-panel">
+<section id="serviceOpportunities" class="panel">
 
   <div class="section-title">
-
     <div>
-
-      <h2>
-        Small Projects & Specialty Services
-      </h2>
-
+      <h2>Small Projects & Specialty Services</h2>
       <p>
-        Track Service-generated opportunities, sales,
-        collected revenue and the 2% incentive.
+        Track Service-generated opportunities, sold amounts, collected revenue,
+        completed work, and the 2% incentive.
       </p>
-
     </div>
 
-    <button
-      class="primary"
-      onclick="openServiceOpportunity()">
-      + Add Opportunity
-    </button>
-
+    <button class="primary" onclick="openServiceOpportunity()">+ Add Opportunity</button>
   </div>
 
   <div class="notice">
-
     <b>Incentive:</b>
-
-    2% of eligible collected revenue from qualifying
-    Small Projects and Specialty Services.
-
+    2% of eligible collected revenue from qualifying Small Projects and Specialty Services.
   </div>
 
   <div class="filters">
+    <input id="serviceSearch" placeholder="Search client, address, quote, job or description..." oninput="renderServiceOpportunities()">
 
-    <input
-      id="serviceSearch"
-      placeholder="Search client, address, quote, job or description..."
-      oninput="renderServiceOpportunities()">
-
-    <select
-      id="serviceTypeFilter"
-      onchange="renderServiceOpportunities()">
-
-      <option value="">
-        All Types
-      </option>
-
-      <option value="SMALL_PROJECT">
-        Small Project
-      </option>
-
-      <option value="SPECIALTY_SERVICE">
-        Specialty Service
-      </option>
-
+    <select id="serviceTypeFilter" onchange="renderServiceOpportunities()">
+      <option value="">All Types</option>
+      <option value="SMALL_PROJECT">Small Project</option>
+      <option value="SPECIALTY_SERVICE">Specialty Service</option>
     </select>
 
-    <select
-      id="serviceStatusFilter"
-      onchange="renderServiceOpportunities()">
-
-      <option value="">
-        All Statuses
-      </option>
-
+    <select id="serviceStatusFilter" onchange="renderServiceOpportunities()">
+      <option value="">All Statuses</option>
       <option>OPPORTUNITY</option>
       <option>QUOTED</option>
       <option>APPROVED</option>
@@ -942,17 +762,12 @@ label{
       <option>PAID</option>
       <option>CANCELED</option>
       <option>INELIGIBLE</option>
-
     </select>
-
   </div>
 
   <div class="table-wrap">
-
     <table>
-
       <thead>
-
         <tr>
           <th>Date</th>
           <th>Type</th>
@@ -960,79 +775,46 @@ label{
           <th>Description</th>
           <th>Quote / Job</th>
           <th>Status</th>
+          <th>Completed</th>
           <th>Paid Date</th>
           <th class="money">Sold Amount</th>
           <th class="money">Eligible Collected</th>
           <th class="money">2% Incentive</th>
           <th></th>
         </tr>
-
       </thead>
 
       <tbody id="serviceRows"></tbody>
-
     </table>
-
   </div>
 
 </section>
 
-<!-- =====================================================
-     RENOVATION
-===================================================== -->
-
-<section
-  id="renovations"
-  class="section-panel">
+<section id="renovations" class="panel">
 
   <div class="section-title">
-
     <div>
-
-      <h2>
-        Renovation Opportunity Referrals
-      </h2>
-
+      <h2>Renovation Opportunity Referrals</h2>
       <p>
-        Track qualified renovation opportunities,
-        signed contracts, collected revenue and incentives.
+        Track qualified renovation opportunities, signed contracts,
+        completed projects, collected revenue, finder fees, and the 0.5% incentive.
       </p>
-
     </div>
 
-    <button
-      class="primary"
-      onclick="openRenovation()">
-      + Add Renovation Referral
-    </button>
-
+    <button class="primary" onclick="openRenovation()">+ Add Renovation Referral</button>
   </div>
 
   <div class="notice">
-
     <b>Incentive:</b>
-
-    $100 qualified-opportunity finder fee when the opportunity
-    results in a signed contract, plus 0.5% of eligible collected
-    renovation revenue.
-
+    $100 per qualified renovation opportunity that results in a signed contract,
+    plus 0.5% of eligible collected renovation revenue after completion/payment.
   </div>
 
   <div class="filters">
+    <input id="renoSearch" placeholder="Search client, address, project or job..." oninput="renderRenovations()">
 
-    <input
-      id="renoSearch"
-      placeholder="Search client, address, project or job..."
-      oninput="renderRenovations()">
-
-    <select
-      id="renoStatusFilter"
-      onchange="renderRenovations()">
-
-      <option value="">
-        All Statuses
-      </option>
-
+    <select id="renoStatusFilter" onchange="renderRenovations()">
+      <option value="">All Statuses</option>
       <option>REFERRED</option>
       <option>QUALIFIED</option>
       <option>CONTRACT_SIGNED</option>
@@ -1041,17 +823,12 @@ label{
       <option>PAID</option>
       <option>CANCELED</option>
       <option>INELIGIBLE</option>
-
     </select>
-
   </div>
 
   <div class="table-wrap">
-
     <table>
-
       <thead>
-
         <tr>
           <th>Referral Date</th>
           <th>Client / Address</th>
@@ -1059,134 +836,76 @@ label{
           <th>Project / Job</th>
           <th>Status</th>
           <th>Signed Contract</th>
+          <th>Completed</th>
+          <th>Paid Date</th>
           <th class="money">Contract Amount</th>
           <th class="money">Eligible Collected</th>
-          <th class="money">Finder Fee</th>
+          <th class="money">$100 Fee</th>
           <th class="money">0.5%</th>
           <th class="money">Total Incentive</th>
           <th></th>
         </tr>
-
       </thead>
 
       <tbody id="renoRows"></tbody>
-
     </table>
-
   </div>
 
 </section>
 
-<!-- =====================================================
-     QUARTERLY SUMMARY
-===================================================== -->
-
-<section
-  id="compensation"
-  class="section-panel">
+<section id="compensation" class="panel">
 
   <div class="section-title">
-
     <div>
-
-      <h2>
-        Quarterly Incentive Summary
-      </h2>
-
-      <p id="quarterSummaryTitle">
-        —
-      </p>
-
+      <h2>Quarterly Incentive Summary</h2>
+      <p id="quarterSummaryTitle">—</p>
     </div>
-
   </div>
 
   <div class="summary-grid">
 
     <div class="summary-box">
-      <div class="summary-label">
-        RouteSafe Enrollment Spiffs
-      </div>
-      <div
-        id="qRouteSpiffs"
-        class="summary-value">
-        $0.00
-      </div>
+      <div class="summary-label">RouteSafe Enrollment Spiffs</div>
+      <div id="qRouteSpiffs" class="summary-value">$0.00</div>
     </div>
 
     <div class="summary-box">
-      <div class="summary-label">
-        RouteSafe 1%
-      </div>
-      <div
-        id="qRouteCommission"
-        class="summary-value">
-        $0.00
-      </div>
+      <div class="summary-label">RouteSafe 1%</div>
+      <div id="qRouteCommission" class="summary-value">$0.00</div>
     </div>
 
     <div class="summary-box">
-      <div class="summary-label">
-        Small Projects / Specialty 2%
-      </div>
-      <div
-        id="qServiceCommission"
-        class="summary-value">
-        $0.00
-      </div>
+      <div class="summary-label">Small Projects / Specialty 2%</div>
+      <div id="qServiceCommission" class="summary-value">$0.00</div>
     </div>
 
     <div class="summary-box">
-      <div class="summary-label">
-        Renovation Finder Fees
-      </div>
-      <div
-        id="qRenoFees"
-        class="summary-value">
-        $0.00
-      </div>
+      <div class="summary-label">Renovation Finder Fees</div>
+      <div id="qRenoFees" class="summary-value">$0.00</div>
     </div>
 
     <div class="summary-box">
-      <div class="summary-label">
-        Renovation 0.5%
-      </div>
-      <div
-        id="qRenoCommission"
-        class="summary-value">
-        $0.00
-      </div>
+      <div class="summary-label">Renovation 0.5%</div>
+      <div id="qRenoCommission" class="summary-value">$0.00</div>
     </div>
 
     <div class="summary-box total">
-      <div class="summary-label">
-        Total Quarterly Incentive
-      </div>
-      <div
-        id="qGrandTotal"
-        class="summary-value">
-        $0.00
-      </div>
+      <div class="summary-label">Total Quarterly Incentive</div>
+      <div id="qGrandTotal" class="summary-value">$0.00</div>
     </div>
 
   </div>
 
   <div class="notice">
-
     <b>Quarterly Review:</b>
-
-    This section combines the three incentive programs.
-    Each underlying opportunity remains separately documented
-    so the calculation can be reviewed before quarterly payment.
-
+    This section combines RouteSafe, Small Projects / Specialty Services,
+    and Renovation incentives. Each underlying opportunity remains documented
+    separately for review before payment.
   </div>
 
   <div class="table-wrap">
-
     <table>
-
       <thead>
-
         <tr>
           <th>Program</th>
           <th>Source</th>
@@ -1195,852 +914,450 @@ label{
           <th class="money">Eligible Revenue</th>
           <th class="money">Incentive</th>
         </tr>
-
       </thead>
 
       <tbody id="quarterDetailRows"></tbody>
-
     </table>
-
   </div>
 
 </section>
 
 </div>
 
-<!-- =====================================================
-     PARTNER MODAL
-===================================================== -->
+<div id="partnerModal" class="modal">
+  <div class="modal-card">
 
-<div
-  id="partnerModal"
-  class="modal">
-
-<div class="modal-card">
-
-  <div class="modal-head">
-
-    <h2 id="partnerTitle">
-      Add RouteSafe Partner
-    </h2>
-
-    <button
-      class="secondary"
-      onclick="closeModal('partnerModal')">
-      Close
-    </button>
-
-  </div>
-
-  <form id="partnerForm">
-
-    <input
-      type="hidden"
-      id="p_id">
-
-    <div class="form-grid">
-
-      <div>
-        <label>Partner Business / Name *</label>
-        <input id="p_name" required>
-      </div>
-
-      <div>
-        <label>Partner Code *</label>
-        <input
-          id="p_code"
-          required
-          placeholder="RS-0001">
-      </div>
-
-      <div>
-        <label>Authorized Signer / Contact</label>
-        <input id="p_contact">
-      </div>
-
-      <div>
-        <label>Partner Status *</label>
-
-        <select id="p_status">
-          <option>PROSPECT</option>
-          <option>PENDING</option>
-          <option>ACTIVE</option>
-          <option>INACTIVE</option>
-        </select>
-
-      </div>
-
-      <div>
-        <label>Phone</label>
-        <input id="p_phone">
-      </div>
-
-      <div>
-        <label>Email</label>
-        <input
-          id="p_email"
-          type="email">
-      </div>
-
-      <div>
-        <label>Agreement Effective Date</label>
-        <input
-          id="p_effective"
-          type="date">
-      </div>
-
-      <div>
-        <label>Agreement Expiration Date</label>
-        <input
-          id="p_expiration"
-          type="date">
-      </div>
-
-      <div>
-        <label>W-9 / Vendor Setup</label>
-
-        <select id="p_vendor">
-          <option value="false">Not Complete</option>
-          <option value="true">Complete</option>
-        </select>
-
-      </div>
-
-      <div>
-        <label>Qualified RouteSafe Enrollment?</label>
-
-        <select id="p_qualified">
-          <option value="false">No</option>
-          <option value="true">Yes</option>
-        </select>
-
-      </div>
-
-      <div>
-        <label>Qualified Enrollment Date</label>
-        <input
-          id="p_qualified_date"
-          type="date">
-      </div>
-
-      <div class="full">
-
-        <label>Partner Notes</label>
-
-        <textarea
-          id="p_notes"
-          rows="4">
-        </textarea>
-
-      </div>
-
+    <div class="modal-head">
+      <h2 id="partnerTitle">Add RouteSafe Partner</h2>
+      <button class="secondary" onclick="closeModal('partnerModal')">Close</button>
     </div>
 
-    <div class="actions">
+    <form id="partnerForm">
+      <input type="hidden" id="p_id">
 
-      <button
-        type="button"
-        class="secondary"
-        onclick="closeModal('partnerModal')">
-        Cancel
-      </button>
+      <div class="form-grid">
 
-      <button
-        class="primary"
-        type="submit">
-        Save Partner
-      </button>
+        <div>
+          <label>Partner Business / Name *</label>
+          <input id="p_name" required>
+        </div>
 
-    </div>
+        <div>
+          <label>Partner Code *</label>
+          <input id="p_code" required placeholder="RS-0001">
+        </div>
 
-  </form>
+        <div>
+          <label>Authorized Signer / Contact</label>
+          <input id="p_contact">
+        </div>
 
-</div>
-</div>
+        <div>
+          <label>Partner Status *</label>
+          <select id="p_status">
+            <option>PROSPECT</option>
+            <option>PENDING</option>
+            <option>ACTIVE</option>
+            <option>INACTIVE</option>
+          </select>
+        </div>
 
-<!-- =====================================================
-     ROUTESAFE REFERRAL MODAL
-===================================================== -->
+        <div>
+          <label>Phone</label>
+          <input id="p_phone">
+        </div>
 
-<div
-  id="referralModal"
-  class="modal">
+        <div>
+          <label>Email</label>
+          <input id="p_email" type="email">
+        </div>
 
-<div class="modal-card">
+        <div>
+          <label>Agreement Effective Date</label>
+          <input id="p_effective" type="date">
+        </div>
 
-  <div class="modal-head">
+        <div>
+          <label>Agreement Expiration Date</label>
+          <input id="p_expiration" type="date">
+        </div>
 
-    <h2 id="refTitle">
-      Add RouteSafe Referral / Job
-    </h2>
+        <div>
+          <label>W-9 / Vendor Setup</label>
+          <select id="p_vendor">
+            <option value="false">Not Complete</option>
+            <option value="true">Complete</option>
+          </select>
+        </div>
 
-    <button
-      class="secondary"
-      onclick="closeModal('referralModal')">
-      Close
-    </button>
+        <div>
+          <label>Qualified RouteSafe Enrollment?</label>
+          <select id="p_qualified">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+        </div>
 
-  </div>
+        <div>
+          <label>Qualified Enrollment Date</label>
+          <input id="p_qualified_date" type="date">
+        </div>
 
-  <form id="refForm">
-
-    <input
-      type="hidden"
-      id="r_id">
-
-    <div class="form-grid">
-
-      <div>
-        <label>RouteSafe Partner *</label>
-        <select
-          id="r_partner"
-          required>
-        </select>
-      </div>
-
-      <div>
-        <label>Referral Date / Time *</label>
-        <input
-          id="r_date"
-          type="datetime-local"
-          required>
-      </div>
-
-      <div>
-        <label>Customer Name *</label>
-        <input
-          id="r_customer"
-          required>
-      </div>
-
-      <div>
-        <label>Customer Phone</label>
-        <input id="r_phone">
-      </div>
-
-      <div class="full">
-        <label>Service / Protected Address *</label>
-        <input
-          id="r_address"
-          required>
-      </div>
-
-      <div>
-        <label>Equipment Issue</label>
-        <input id="r_issue">
-      </div>
-
-      <div>
-        <label>Urgency</label>
-
-        <select id="r_urgency">
-          <option>ROUTINE</option>
-          <option>PRIORITY</option>
-          <option>URGENT</option>
-        </select>
-
-      </div>
-
-      <div>
-        <label>Job / Work Order #</label>
-        <input id="r_job">
-      </div>
-
-      <div>
-        <label>Invoice #</label>
-        <input id="r_invoice">
-      </div>
-
-      <div>
-        <label>Job Status *</label>
-
-        <select id="r_status">
-          <option>REFERRED</option>
-          <option>SCHEDULED</option>
-          <option>QUOTED</option>
-          <option>APPROVED</option>
-          <option>COMPLETED</option>
-          <option>PAID</option>
-          <option>CANCELED</option>
-          <option>INELIGIBLE</option>
-        </select>
-
-      </div>
-
-      <div>
-        <label>Reward Type</label>
-
-        <select id="r_type">
-
-          <option value="REPAIR_REPLACEMENT">
-            Repair / Replacement
-          </option>
-
-          <option value="DIAGNOSTIC_ONLY">
-            Diagnostic Only
-          </option>
-
-        </select>
-
-      </div>
-
-      <div>
-
-        <label>
-          Eligible Collected Revenue
-        </label>
-
-        <input
-          id="r_collected"
-          type="number"
-          min="0"
-          step=".01"
-          value="0">
-
-        <div class="help">
-          Enter only eligible collected revenue.
+        <div class="full">
+          <label>Partner Notes</label>
+          <textarea id="p_notes" rows="4"></textarea>
         </div>
 
       </div>
 
-      <div>
-        <label>Customer Paid-in-Full Date</label>
-        <input
-          id="r_paid_date"
-          type="date">
+      <div class="actions">
+        <button type="button" class="secondary" onclick="closeModal('partnerModal')">Cancel</button>
+        <button class="primary" type="submit">Save Partner</button>
       </div>
 
-      <div>
-        <label>Partner Reward Status</label>
-
-        <select id="r_reward_status">
-          <option>ACCRUED</option>
-          <option>APPROVED</option>
-          <option>PAID</option>
-          <option>NOT_ELIGIBLE</option>
-        </select>
-
-      </div>
-
-      <div>
-        <label>Partner Reward Paid Date</label>
-        <input
-          id="r_reward_paid"
-          type="date">
-      </div>
-
-      <div class="full">
-
-        <label>
-          Referral / Job Notes
-        </label>
-
-        <textarea
-          id="r_notes"
-          rows="4">
-        </textarea>
-
-      </div>
-
-    </div>
-
-    <div class="actions">
-
-      <button
-        type="button"
-        class="secondary"
-        onclick="closeModal('referralModal')">
-        Cancel
-      </button>
-
-      <button
-        class="primary"
-        type="submit">
-        Save Referral
-      </button>
-
-    </div>
-
-  </form>
-
-</div>
-</div>
-
-<!-- =====================================================
-     SMALL PROJECT / SPECIALTY MODAL
-===================================================== -->
-
-<div
-  id="serviceModal"
-  class="modal">
-
-<div class="modal-card">
-
-  <div class="modal-head">
-
-    <h2 id="serviceModalTitle">
-      Add Small Project / Specialty Service
-    </h2>
-
-    <button
-      class="secondary"
-      onclick="closeModal('serviceModal')">
-      Close
-    </button>
+    </form>
 
   </div>
+</div>
 
-  <form id="serviceForm">
+<div id="referralModal" class="modal">
+  <div class="modal-card">
 
-    <input
-      type="hidden"
-      id="s_id">
+    <div class="modal-head">
+      <h2 id="refTitle">Add RouteSafe Referral / Job</h2>
+      <button class="secondary" onclick="closeModal('referralModal')">Close</button>
+    </div>
 
-    <div class="form-grid">
+    <form id="refForm">
+      <input type="hidden" id="r_id">
 
-      <div>
+      <div class="form-grid">
 
-        <label>
-          Opportunity Type *
-        </label>
+        <div>
+          <label>RouteSafe Partner *</label>
+          <select id="r_partner" required></select>
+        </div>
 
-        <select id="s_type" required>
+        <div>
+          <label>Referral Date / Time *</label>
+          <input id="r_date" type="datetime-local" required>
+        </div>
 
-          <option value="SMALL_PROJECT">
-            Small Project
-          </option>
+        <div>
+          <label>Customer Name *</label>
+          <input id="r_customer" required>
+        </div>
 
-          <option value="SPECIALTY_SERVICE">
-            Specialty Service
-          </option>
+        <div>
+          <label>Customer Phone</label>
+          <input id="r_phone">
+        </div>
 
-        </select>
+        <div class="full">
+          <label>Service / Protected Address *</label>
+          <input id="r_address" required>
+        </div>
 
-      </div>
+        <div>
+          <label>Equipment Issue</label>
+          <input id="r_issue">
+        </div>
 
-      <div>
+        <div>
+          <label>Urgency</label>
+          <select id="r_urgency">
+            <option>ROUTINE</option>
+            <option>PRIORITY</option>
+            <option>URGENT</option>
+          </select>
+        </div>
 
-        <label>
-          Opportunity Date *
-        </label>
+        <div>
+          <label>Job / Work Order #</label>
+          <input id="r_job">
+        </div>
 
-        <input
-          id="s_date"
-          type="date"
-          required>
+        <div>
+          <label>Invoice #</label>
+          <input id="r_invoice">
+        </div>
 
-      </div>
+        <div>
+          <label>Job Status *</label>
+          <select id="r_status">
+            <option>REFERRED</option>
+            <option>SCHEDULED</option>
+            <option>QUOTED</option>
+            <option>APPROVED</option>
+            <option>COMPLETED</option>
+            <option>PAID</option>
+            <option>CANCELED</option>
+            <option>INELIGIBLE</option>
+          </select>
+        </div>
 
-      <div>
+        <div>
+          <label>Reward Type</label>
+          <select id="r_type">
+            <option value="REPAIR_REPLACEMENT">Repair / Replacement</option>
+            <option value="DIAGNOSTIC_ONLY">Diagnostic Only</option>
+          </select>
+        </div>
 
-        <label>
-          Client Name *
-        </label>
+        <div>
+          <label>Eligible Collected Revenue</label>
+          <input id="r_collected" type="number" min="0" step=".01" value="0">
+          <div class="help">Enter eligible collected revenue only.</div>
+        </div>
 
-        <input
-          id="s_client"
-          required>
+        <div>
+          <label>Customer Paid-in-Full Date</label>
+          <input id="r_paid_date" type="date">
+        </div>
 
-      </div>
+        <div>
+          <label>Partner Reward Status</label>
+          <select id="r_reward_status">
+            <option>ACCRUED</option>
+            <option>APPROVED</option>
+            <option>PAID</option>
+            <option>NOT_ELIGIBLE</option>
+          </select>
+        </div>
 
-      <div>
+        <div>
+          <label>Partner Reward Paid Date</label>
+          <input id="r_reward_paid" type="date">
+        </div>
 
-        <label>
-          Service Address
-        </label>
-
-        <input id="s_address">
-
-      </div>
-
-      <div class="full">
-
-        <label>
-          Opportunity / Service Description
-        </label>
-
-        <input id="s_description">
-
-      </div>
-
-      <div>
-
-        <label>
-          Quote #
-        </label>
-
-        <input id="s_quote">
-
-      </div>
-
-      <div>
-
-        <label>
-          Job #
-        </label>
-
-        <input id="s_job">
-
-      </div>
-
-      <div>
-
-        <label>
-          Status
-        </label>
-
-        <select id="s_status">
-          <option>OPPORTUNITY</option>
-          <option>QUOTED</option>
-          <option>APPROVED</option>
-          <option>COMPLETED</option>
-          <option>PAID</option>
-          <option>CANCELED</option>
-          <option>INELIGIBLE</option>
-        </select>
-
-      </div>
-
-      <div>
-
-        <label>
-          Sold Amount
-        </label>
-
-        <input
-          id="s_sold"
-          type="number"
-          min="0"
-          step=".01"
-          value="0">
-
-      </div>
-
-      <div>
-
-        <label>
-          Eligible Collected Revenue
-        </label>
-
-        <input
-          id="s_collected"
-          type="number"
-          min="0"
-          step=".01"
-          value="0">
-
-        <div class="help">
-          The 2% incentive is calculated from this amount.
+        <div class="full">
+          <label>Referral / Job Notes</label>
+          <textarea id="r_notes" rows="4"></textarea>
         </div>
 
       </div>
 
-      <div>
-
-        <label>
-          Completed Date
-        </label>
-
-        <input
-          id="s_completed"
-          type="date">
-
+      <div class="actions">
+        <button type="button" class="secondary" onclick="closeModal('referralModal')">Cancel</button>
+        <button class="primary" type="submit">Save Referral</button>
       </div>
 
-      <div>
-
-        <label>
-          Customer Paid Date
-        </label>
-
-        <input
-          id="s_paid"
-          type="date">
-
-      </div>
-
-      <div class="full">
-
-        <label>
-          Notes
-        </label>
-
-        <textarea
-          id="s_notes"
-          rows="4">
-        </textarea>
-
-      </div>
-
-    </div>
-
-    <div class="actions">
-
-      <button
-        type="button"
-        class="secondary"
-        onclick="closeModal('serviceModal')">
-        Cancel
-      </button>
-
-      <button
-        class="primary"
-        type="submit">
-        Save Opportunity
-      </button>
-
-    </div>
-
-  </form>
-
-</div>
-</div>
-
-<!-- =====================================================
-     RENOVATION MODAL
-===================================================== -->
-
-<div
-  id="renoModal"
-  class="modal">
-
-<div class="modal-card">
-
-  <div class="modal-head">
-
-    <h2 id="renoModalTitle">
-      Add Renovation Opportunity Referral
-    </h2>
-
-    <button
-      class="secondary"
-      onclick="closeModal('renoModal')">
-      Close
-    </button>
+    </form>
 
   </div>
+</div>
 
-  <form id="renoForm">
+<div id="serviceModal" class="modal">
+  <div class="modal-card">
 
-    <input
-      type="hidden"
-      id="n_id">
+    <div class="modal-head">
+      <h2 id="serviceModalTitle">Add Small Project / Specialty Service</h2>
+      <button class="secondary" onclick="closeModal('serviceModal')">Close</button>
+    </div>
 
-    <div class="form-grid">
+    <form id="serviceForm">
+      <input type="hidden" id="s_id">
 
-      <div>
+      <div class="form-grid">
 
-        <label>
-          Referral Date *
-        </label>
+        <div>
+          <label>Opportunity Type *</label>
+          <select id="s_type" required>
+            <option value="SMALL_PROJECT">Small Project</option>
+            <option value="SPECIALTY_SERVICE">Specialty Service</option>
+          </select>
+        </div>
 
-        <input
-          id="n_date"
-          type="date"
-          required>
+        <div>
+          <label>Opportunity Date *</label>
+          <input id="s_date" type="date" required>
+        </div>
 
-      </div>
+        <div>
+          <label>Client Name *</label>
+          <input id="s_client" required>
+        </div>
 
-      <div>
+        <div>
+          <label>Service Address</label>
+          <input id="s_address">
+        </div>
 
-        <label>
-          Client Name *
-        </label>
+        <div class="full">
+          <label>Opportunity / Service Description</label>
+          <input id="s_description">
+        </div>
 
-        <input
-          id="n_client"
-          required>
+        <div>
+          <label>Quote #</label>
+          <input id="s_quote">
+        </div>
 
-      </div>
+        <div>
+          <label>Job #</label>
+          <input id="s_job">
+        </div>
 
-      <div class="full">
+        <div>
+          <label>Status</label>
+          <select id="s_status">
+            <option>OPPORTUNITY</option>
+            <option>QUOTED</option>
+            <option>APPROVED</option>
+            <option>COMPLETED</option>
+            <option>PAID</option>
+            <option>CANCELED</option>
+            <option>INELIGIBLE</option>
+          </select>
+        </div>
 
-        <label>
-          Service Address
-        </label>
+        <div>
+          <label>Sold Amount</label>
+          <input id="s_sold" type="number" min="0" step=".01" value="0">
+        </div>
 
-        <input id="n_address">
+        <div>
+          <label>Eligible Collected Revenue</label>
+          <input id="s_collected" type="number" min="0" step=".01" value="0">
+          <div class="help">The 2% incentive is calculated from this amount.</div>
+        </div>
 
-      </div>
+        <div>
+          <label>Completed Date</label>
+          <input id="s_completed" type="date">
+        </div>
 
-      <div class="full">
+        <div>
+          <label>Customer Paid Date</label>
+          <input id="s_paid" type="date">
+        </div>
 
-        <label>
-          Renovation Opportunity
-        </label>
-
-        <input id="n_description">
-
-      </div>
-
-      <div>
-
-        <label>
-          Project Reference
-        </label>
-
-        <input
-          id="n_project"
-          placeholder="JobTread / Project reference">
-
-      </div>
-
-      <div>
-
-        <label>
-          Job #
-        </label>
-
-        <input id="n_job">
-
-      </div>
-
-      <div>
-
-        <label>
-          Status
-        </label>
-
-        <select id="n_status">
-          <option>REFERRED</option>
-          <option>QUALIFIED</option>
-          <option>CONTRACT_SIGNED</option>
-          <option>IN_PROGRESS</option>
-          <option>COMPLETED</option>
-          <option>PAID</option>
-          <option>CANCELED</option>
-          <option>INELIGIBLE</option>
-        </select>
-
-      </div>
-
-      <div>
-
-        <label>
-          Contract Amount
-        </label>
-
-        <input
-          id="n_contract"
-          type="number"
-          min="0"
-          step=".01"
-          value="0">
-
-      </div>
-
-      <div>
-
-        <label>
-          Signed Contract Date
-        </label>
-
-        <input
-          id="n_signed"
-          type="date">
-
-      </div>
-
-      <div>
-
-        <label>
-          Completed Date
-        </label>
-
-        <input
-          id="n_completed"
-          type="date">
-
-      </div>
-
-      <div>
-
-        <label>
-          Customer Paid Date
-        </label>
-
-        <input
-          id="n_paid"
-          type="date">
-
-      </div>
-
-      <div>
-
-        <label>
-          Eligible Collected Revenue
-        </label>
-
-        <input
-          id="n_collected"
-          type="number"
-          min="0"
-          step=".01"
-          value="0">
-
-      </div>
-
-      <div>
-
-        <label>
-          Qualified $100 Finder Fee?
-        </label>
-
-        <select id="n_finder">
-          <option value="false">No</option>
-          <option value="true">Yes</option>
-        </select>
-
-        <div class="help">
-          Use Yes when the qualified opportunity has resulted
-          in a signed contract.
+        <div class="full">
+          <label>Notes</label>
+          <textarea id="s_notes" rows="4"></textarea>
         </div>
 
       </div>
 
-      <div class="full">
+      <div class="actions">
+        <button type="button" class="secondary" onclick="closeModal('serviceModal')">Cancel</button>
+        <button class="primary" type="submit">Save Opportunity</button>
+      </div>
 
-        <label>
-          Notes
-        </label>
+    </form>
 
-        <textarea
-          id="n_notes"
-          rows="4">
-        </textarea>
+  </div>
+</div>
+
+<div id="renoModal" class="modal">
+  <div class="modal-card">
+
+    <div class="modal-head">
+      <h2 id="renoModalTitle">Add Renovation Opportunity Referral</h2>
+      <button class="secondary" onclick="closeModal('renoModal')">Close</button>
+    </div>
+
+    <form id="renoForm">
+      <input type="hidden" id="n_id">
+
+      <div class="form-grid">
+
+        <div>
+          <label>Referral Date *</label>
+          <input id="n_date" type="date" required>
+        </div>
+
+        <div>
+          <label>Client Name *</label>
+          <input id="n_client" required>
+        </div>
+
+        <div class="full">
+          <label>Service Address</label>
+          <input id="n_address">
+        </div>
+
+        <div class="full">
+          <label>Renovation Opportunity</label>
+          <input id="n_description">
+        </div>
+
+        <div>
+          <label>Project Reference</label>
+          <input id="n_project" placeholder="JobTread / Project reference">
+        </div>
+
+        <div>
+          <label>Job #</label>
+          <input id="n_job">
+        </div>
+
+        <div>
+          <label>Status</label>
+          <select id="n_status">
+            <option>REFERRED</option>
+            <option>QUALIFIED</option>
+            <option>CONTRACT_SIGNED</option>
+            <option>IN_PROGRESS</option>
+            <option>COMPLETED</option>
+            <option>PAID</option>
+            <option>CANCELED</option>
+            <option>INELIGIBLE</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Contract Amount</label>
+          <input id="n_contract" type="number" min="0" step=".01" value="0">
+        </div>
+
+        <div>
+          <label>Signed Contract Date</label>
+          <input id="n_signed" type="date">
+        </div>
+
+        <div>
+          <label>Completed Date</label>
+          <input id="n_completed" type="date">
+        </div>
+
+        <div>
+          <label>Customer Paid Date</label>
+          <input id="n_paid" type="date">
+        </div>
+
+        <div>
+          <label>Eligible Collected Revenue</label>
+          <input id="n_collected" type="number" min="0" step=".01" value="0">
+        </div>
+
+        <div>
+          <label>Qualified $100 Finder Fee?</label>
+          <select id="n_finder">
+            <option value="false">No</option>
+            <option value="true">Yes</option>
+          </select>
+          <div class="help">Use Yes when the qualified opportunity results in a signed contract.</div>
+        </div>
+
+        <div class="full">
+          <label>Notes</label>
+          <textarea id="n_notes" rows="4"></textarea>
+        </div>
 
       </div>
 
-    </div>
+      <div class="actions">
+        <button type="button" class="secondary" onclick="closeModal('renoModal')">Cancel</button>
+        <button class="primary" type="submit">Save Renovation Referral</button>
+      </div>
 
-    <div class="actions">
+    </form>
 
-      <button
-        type="button"
-        class="secondary"
-        onclick="closeModal('renoModal')">
-        Cancel
-      </button>
-
-      <button
-        class="primary"
-        type="submit">
-        Save Renovation Referral
-      </button>
-
-    </div>
-
-  </form>
-
-</div>
+  </div>
 </div>
 
 <script>
-
-/* =========================================================
-   SUPABASE
-========================================================= */
-
 const SUPABASE_URL =
 'https://icqkuhbhcennhhbbwqgo.supabase.co';
 
@@ -2069,10 +1386,6 @@ let renovations=[];
 
 let selectedQuarterKey='';
 
-/* =========================================================
-   HELPERS
-========================================================= */
-
 const $ =
 id =>
 document.getElementById(id);
@@ -2090,7 +1403,6 @@ new Intl.NumberFormat(
 );
 
 function esc(value){
-
   return String(
     value ?? ''
   )
@@ -2107,7 +1419,6 @@ function esc(value){
 }
 
 function dateOnly(value){
-
   if(!value)
     return '—';
 
@@ -2118,17 +1429,12 @@ function dateOnly(value){
 }
 
 function today(){
-
   return new Date()
   .toISOString()
   .slice(0,10);
 }
 
-function addMonths(
-  value,
-  months
-){
-
+function addMonths(value,months){
   const d =
   new Date(value);
 
@@ -2140,13 +1446,13 @@ function addMonths(
 }
 
 function badge(status){
-
   let css='neutral';
 
   if(
     status==='ACTIVE' ||
     status==='PAID' ||
     status==='COMPLETED' ||
+    status==='COMPLETE' ||
     status==='CONTRACT_SIGNED'
   ){
     css='good';
@@ -2179,30 +1485,16 @@ function badge(status){
 }
 
 function typeLabel(value){
-
-  if(
-    value==='SMALL_PROJECT'
-  )
+  if(value==='SMALL_PROJECT')
     return 'Small Project';
 
-  if(
-    value==='SPECIALTY_SERVICE'
-  )
+  if(value==='SPECIALTY_SERVICE')
     return 'Specialty Service';
 
   return value || '—';
 }
 
-/* =========================================================
-   FISCAL YEAR
-   Q1 JUL-SEP
-   Q2 OCT-DEC
-   Q3 JAN-MAR
-   Q4 APR-JUN
-========================================================= */
-
 function fiscalQuarterFromDate(value){
-
   const d =
   value instanceof Date
   ? value
@@ -2244,16 +1536,11 @@ function fiscalQuarterFromDate(value){
   };
 }
 
-function quarterKey(
-  fiscalYear,
-  quarter
-){
-
+function quarterKey(fiscalYear,quarter){
   return `FY${fiscalYear} ${quarter}`;
 }
 
 function parseQuarterKey(key){
-
   const match =
   /^FY(\d{4}) (Q[1-4])$/
   .exec(
@@ -2264,24 +1551,16 @@ function parseQuarterKey(key){
     return null;
 
   return {
-    fiscalYear:
-      Number(match[1]),
-    quarter:
-      match[2]
+    fiscalYear:Number(match[1]),
+    quarter:match[2]
   };
 }
 
-function quarterBounds(
-  fiscalYear,
-  quarter
-){
-
+function quarterBounds(fiscalYear,quarter){
   let start;
   let end;
 
-  if(
-    quarter==='Q1'
-  ){
+  if(quarter==='Q1'){
     start=
     new Date(
       fiscalYear-1,
@@ -2297,9 +1576,7 @@ function quarterBounds(
     );
   }
 
-  else if(
-    quarter==='Q2'
-  ){
+  else if(quarter==='Q2'){
     start=
     new Date(
       fiscalYear-1,
@@ -2315,9 +1592,7 @@ function quarterBounds(
     );
   }
 
-  else if(
-    quarter==='Q3'
-  ){
+  else if(quarter==='Q3'){
     start=
     new Date(
       fiscalYear,
@@ -2355,12 +1630,7 @@ function quarterBounds(
   };
 }
 
-function dateInQuarter(
-  value,
-  fiscalYear,
-  quarter
-){
-
+function dateInQuarter(value,fiscalYear,quarter){
   if(!value)
     return false;
 
@@ -2382,7 +1652,6 @@ function dateInQuarter(
 }
 
 function getCurrentQuarterKey(){
-
   const q =
   fiscalQuarterFromDate(
     new Date()
@@ -2395,7 +1664,6 @@ function getCurrentQuarterKey(){
 }
 
 function selectedQuarter(){
-
   return (
     parseQuarterKey(
       selectedQuarterKey
@@ -2407,12 +1675,7 @@ function selectedQuarter(){
   );
 }
 
-/* =========================================================
-   ACCESS
-========================================================= */
-
 async function guardAccess(){
-
   const {
     data:{user},
     error
@@ -2423,9 +1686,8 @@ async function guardAccess(){
     error ||
     !user
   ){
-
     denyAccess(
-      'Please sign in to access this page.'
+      'Please sign in to access Service Opportunity & Incentive Management.'
     );
 
     return false;
@@ -2453,7 +1715,6 @@ async function guardAccess(){
     !profile ||
     !profile.active
   ){
-
     denyAccess(
       'Your Molinari user profile is not active.'
     );
@@ -2468,9 +1729,8 @@ async function guardAccess(){
       profile.role
     )
   ){
-
     denyAccess(
-      'This page is restricted to Service Manager and above.'
+      'This page is restricted to Service Manager, Admin and System Admin.'
     );
 
     return false;
@@ -2480,9 +1740,7 @@ async function guardAccess(){
 }
 
 function denyAccess(message){
-
   document.body.innerHTML=`
-
     <div style="
       max-width:650px;
       margin:80px auto;
@@ -2501,20 +1759,13 @@ function denyAccess(message){
       <p>
         ${esc(message)}
       </p>
-
     </div>
   `;
 }
 
-/* =========================================================
-   LOAD DATA
-========================================================= */
-
 async function loadAll(){
-
   const results =
   await Promise.all([
-
     db
     .from('routesafe_partners')
     .select('*')
@@ -2529,9 +1780,7 @@ async function loadAll(){
     ),
 
     db
-    .from(
-      'service_incentive_opportunities'
-    )
+    .from('service_incentive_opportunities')
     .select('*')
     .order(
       'opportunity_date',
@@ -2539,27 +1788,27 @@ async function loadAll(){
     ),
 
     db
-    .from(
-      'renovation_opportunity_referrals'
-    )
+    .from('renovation_opportunity_referrals')
     .select('*')
     .order(
       'referral_date',
       {ascending:false}
     )
-
   ]);
 
-  const error =
+  const failed =
   results.find(
     result =>
     result.error
-  )?.error;
+  );
 
-  if(error){
+  if(failed){
+    console.error(
+      failed.error
+    );
 
     alert(
-      error.message
+      failed.error.message
     );
 
     return;
@@ -2577,38 +1826,27 @@ async function loadAll(){
   renovations=
   results[3].data || [];
 
-  if(
-    !selectedQuarterKey
-  ){
+  if(!selectedQuarterKey){
     selectedQuarterKey=
     getCurrentQuarterKey();
   }
 
   populatePartnerSelect();
   populateQuarterSelector();
-
   renderAll();
 }
 
 function renderAll(){
-
   renderPartners();
   renderReferrals();
   renderProtection();
-
   renderServiceOpportunities();
   renderRenovations();
-
   renderQuarterSummary();
   renderMetrics();
 }
 
-/* =========================================================
-   QUARTER SELECTOR
-========================================================= */
-
 function populateQuarterSelector(){
-
   const keys =
   new Set([
     getCurrentQuarterKey()
@@ -2616,35 +1854,33 @@ function populateQuarterSelector(){
 
   [
     ...referrals.map(
-      r =>
-      r.customer_paid_date ||
-      null
+      row =>
+      row.customer_paid_date
     ),
 
     ...serviceOpportunities.map(
-      r =>
-      r.customer_paid_date ||
-      null
+      row =>
+      row.customer_paid_date
     ),
 
     ...renovations.map(
-      r =>
-      r.customer_paid_date ||
-      r.signed_contract_date ||
-      null
+      row =>
+      row.customer_paid_date
+    ),
+
+    ...renovations.map(
+      row =>
+      row.signed_contract_date
     ),
 
     ...partners.map(
-      p =>
-      p.qualified_enrollment_date ||
-      null
+      row =>
+      row.qualified_enrollment_date
     )
-
   ]
   .filter(Boolean)
   .forEach(
     value => {
-
       const q =
       fiscalQuarterFromDate(
         value + 'T00:00:00'
@@ -2663,7 +1899,6 @@ function populateQuarterSelector(){
   [...keys]
   .sort(
     (a,b) => {
-
       const A =
       parseQuarterKey(a);
 
@@ -2696,7 +1931,6 @@ function populateQuarterSelector(){
   .innerHTML =
   sorted.map(
     key => `
-
       <option
         value="${esc(key)}"
         ${
@@ -2704,17 +1938,13 @@ function populateQuarterSelector(){
           ? 'selected'
           : ''
         }>
-
         ${esc(key)}
-
       </option>
-
     `
   ).join('');
 }
 
 function changeQuarter(){
-
   selectedQuarterKey=
   $('dashboardQuarter').value;
 
@@ -2722,25 +1952,27 @@ function changeQuarter(){
   renderQuarterSummary();
 }
 
-/* =========================================================
-   ROUTESAFE PARTNER STATS
-========================================================= */
-
 function partnerStats(partnerId){
-
   const rows =
   referrals.filter(
     row =>
     row.partner_id===partnerId
   );
 
-  return {
+  const collectedRows =
+  rows.filter(
+    row =>
+    !!row.customer_paid_date &&
+    row.status!=='CANCELED' &&
+    row.status!=='INELIGIBLE'
+  );
 
+  return {
     count:
     rows.length,
 
     revenue:
-    rows.reduce(
+    collectedRows.reduce(
       (sum,row) =>
       sum +
       Number(
@@ -2760,29 +1992,24 @@ function partnerStats(partnerId){
       ),
       0
     )
-
   };
 }
 
-/* =========================================================
-   ROUTESAFE PARTNERS
-========================================================= */
-
 function renderPartners(){
-
   const search =
-  $('partnerSearch')
-  .value
+  (
+    $('partnerSearch')?.value ||
+    ''
+  )
   .toLowerCase();
 
   const status =
-  $('partnerStatus')
-  .value;
+  $('partnerStatus')?.value ||
+  '';
 
   const filtered =
   partners.filter(
     partner => {
-
       const haystack = [
         partner.partner_name,
         partner.partner_code,
@@ -2805,143 +2032,83 @@ function renderPartners(){
   );
 
   $('partnerRows').innerHTML =
-
   filtered.map(
     partner => {
-
       const totals =
       partnerStats(
         partner.id
       );
 
       return `
+        <tr>
+          <td>
+            <b>${esc(partner.partner_name)}</b>
+            <br>
+            <span style="color:#687786">
+              ${esc(partner.contact_name || '')}
+            </span>
+          </td>
 
-      <tr>
+          <td>${esc(partner.partner_code)}</td>
 
-        <td>
+          <td>${badge(partner.status)}</td>
 
-          <b>
-            ${esc(
-              partner.partner_name
-            )}
-          </b>
+          <td>
+            ${dateOnly(partner.agreement_effective_date)}
+            <br>
+            <span style="color:#687786">
+              through ${dateOnly(partner.agreement_expiration_date)}
+            </span>
+          </td>
 
-          <br>
+          <td>
+            ${
+              partner.vendor_setup_complete
+              ? badge('COMPLETE')
+              : badge('PENDING')
+            }
+          </td>
 
-          <span style="color:#687786">
-            ${esc(
-              partner.contact_name ||
-              ''
-            )}
-          </span>
+          <td>${totals.count}</td>
 
-        </td>
+          <td class="money">${money(totals.revenue)}</td>
 
-        <td>
-          ${esc(
-            partner.partner_code
-          )}
-        </td>
+          <td class="money">${money(totals.rewards)}</td>
 
-        <td>
-          ${badge(
-            partner.status
-          )}
-        </td>
-
-        <td>
-
-          ${dateOnly(
-            partner.agreement_effective_date
-          )}
-
-          <br>
-
-          <span style="color:#687786">
-
-            through
-
-            ${dateOnly(
-              partner.agreement_expiration_date
-            )}
-
-          </span>
-
-        </td>
-
-        <td>
-
-          ${
-            partner.vendor_setup_complete
-            ? badge('COMPLETE')
-            : badge('PENDING')
-          }
-
-        </td>
-
-        <td>
-          ${totals.count}
-        </td>
-
-        <td class="money">
-          ${money(
-            totals.revenue
-          )}
-        </td>
-
-        <td class="money">
-          ${money(
-            totals.rewards
-          )}
-        </td>
-
-        <td>
-
-          <button
-            class="secondary"
-            onclick="editPartner('${partner.id}')">
-
-            Edit
-
-          </button>
-
-        </td>
-
-      </tr>
+          <td>
+            <button class="secondary" onclick="editPartner('${partner.id}')">
+              Edit
+            </button>
+          </td>
+        </tr>
       `;
     }
   ).join('')
-
   ||
-
   `
-  <tr>
-    <td colspan="9">
-      No RouteSafe Partners found.
-    </td>
-  </tr>
+    <tr>
+      <td colspan="9">
+        No RouteSafe Partners found.
+      </td>
+    </tr>
   `;
 }
 
-/* =========================================================
-   ROUTESAFE REFERRALS
-========================================================= */
-
 function renderReferrals(){
-
   const search =
-  $('refSearch')
-  .value
+  (
+    $('refSearch')?.value ||
+    ''
+  )
   .toLowerCase();
 
   const status =
-  $('refStatus')
-  .value;
+  $('refStatus')?.value ||
+  '';
 
   const filtered =
   referrals.filter(
     row => {
-
       const partner =
       partners.find(
         p =>
@@ -2971,10 +2138,8 @@ function renderReferrals(){
   );
 
   $('refRows').innerHTML =
-
   filtered.map(
     row => {
-
       const partner =
       partners.find(
         p =>
@@ -2982,160 +2147,96 @@ function renderReferrals(){
       );
 
       return `
+        <tr>
+          <td>
+            ${
+              new Date(
+                row.referral_at
+              )
+              .toLocaleDateString()
+            }
+          </td>
 
-      <tr>
+          <td>
+            <b>${esc(partner?.partner_name || '')}</b>
+            <br>
+            ${esc(partner?.partner_code || '')}
+          </td>
 
-        <td>
-          ${
-            new Date(
-              row.referral_at
-            )
-            .toLocaleDateString()
-          }
-        </td>
+          <td>
+            <b>${esc(row.customer_name)}</b>
+            <br>
+            <span style="color:#687786">
+              ${esc(row.service_address)}
+            </span>
+          </td>
 
-        <td>
+          <td>
+            ${esc(row.job_number || '—')}
+            <br>
+            <span style="color:#687786">
+              ${esc(row.invoice_number || '')}
+            </span>
+          </td>
 
-          <b>
-            ${esc(
-              partner?.partner_name ||
-              ''
-            )}
-          </b>
+          <td>${badge(row.status)}</td>
 
-          <br>
+          <td>${dateOnly(row.customer_paid_date)}</td>
 
-          ${esc(
-            partner?.partner_code ||
-            ''
-          )}
+          <td class="money">
+            ${money(row.eligible_collected_revenue)}
+          </td>
 
-        </td>
+          <td class="money">
+            ${money(row.partner_reward_amount)}
+          </td>
 
-        <td>
+          <td>
+            ${badge(row.partner_reward_status)}
+          </td>
 
-          <b>
-            ${esc(
-              row.customer_name
-            )}
-          </b>
-
-          <br>
-
-          <span style="color:#687786">
-            ${esc(
-              row.service_address
-            )}
-          </span>
-
-        </td>
-
-        <td>
-
-          ${esc(
-            row.job_number ||
-            '—'
-          )}
-
-          <br>
-
-          <span style="color:#687786">
-            ${esc(
-              row.invoice_number ||
-              ''
-            )}
-          </span>
-
-        </td>
-
-        <td>
-          ${badge(
-            row.status
-          )}
-        </td>
-
-        <td>
-          ${dateOnly(
-            row.customer_paid_date
-          )}
-        </td>
-
-        <td class="money">
-          ${money(
-            row.eligible_collected_revenue
-          )}
-        </td>
-
-        <td class="money">
-          ${money(
-            row.partner_reward_amount
-          )}
-        </td>
-
-        <td>
-          ${badge(
-            row.partner_reward_status
-          )}
-        </td>
-
-        <td>
-
-          <button
-            class="secondary"
-            onclick="editReferral('${row.id}')">
-
-            Edit
-
-          </button>
-
-        </td>
-
-      </tr>
+          <td>
+            <button class="secondary" onclick="editReferral('${row.id}')">
+              Edit
+            </button>
+          </td>
+        </tr>
       `;
     }
   ).join('')
-
   ||
-
   `
-  <tr>
-    <td colspan="10">
-      No RouteSafe referrals found.
-    </td>
-  </tr>
+    <tr>
+      <td colspan="10">
+        No RouteSafe referrals found.
+      </td>
+    </tr>
   `;
 }
 
-/* =========================================================
-   ROUTE PROTECTION
-========================================================= */
-
 function renderProtection(){
-
   const grouped={};
 
-  referrals.forEach(
+  referrals
+  .filter(
+    row =>
+    row.status!=='CANCELED' &&
+    row.status!=='INELIGIBLE' &&
+    row.service_address
+  )
+  .forEach(
     row => {
-
       const key =
       row.partner_id +
       '|' +
-      (
-        row.service_address ||
-        ''
-      )
+      row.service_address
       .trim()
       .toLowerCase();
 
       if(
         !grouped[key] ||
-        new Date(
-          row.referral_at
-        )
-        >
-        new Date(
-          grouped[key].referral_at
-        )
+        new Date(row.referral_at) >
+        new Date(grouped[key].referral_at)
       ){
         grouped[key]=row;
       }
@@ -3143,11 +2244,9 @@ function renderProtection(){
   );
 
   $('protectionRows').innerHTML =
-
   Object.values(grouped)
   .map(
     row => {
-
       const partner =
       partners.find(
         p =>
@@ -3164,90 +2263,46 @@ function renderProtection(){
       end>=new Date();
 
       return `
-
-      <tr>
-
-        <td>
-          ${esc(
-            partner?.partner_name ||
-            ''
-          )}
-        </td>
-
-        <td>
-          ${esc(
-            row.customer_name
-          )}
-        </td>
-
-        <td>
-          ${esc(
-            row.service_address
-          )}
-        </td>
-
-        <td>
-          ${
-            new Date(
-              row.referral_at
-            )
-            .toLocaleDateString()
-          }
-        </td>
-
-        <td>
-          ${end.toLocaleDateString()}
-        </td>
-
-        <td>
-          ${
-            badge(
-              active
-              ? 'ACTIVE'
-              : 'EXPIRED'
-            )
-          }
-        </td>
-
-      </tr>
+        <tr>
+          <td>${esc(partner?.partner_name || '')}</td>
+          <td>${esc(row.customer_name)}</td>
+          <td>${esc(row.service_address)}</td>
+          <td>${new Date(row.referral_at).toLocaleDateString()}</td>
+          <td>${end.toLocaleDateString()}</td>
+          <td>${badge(active ? 'ACTIVE' : 'EXPIRED')}</td>
+        </tr>
       `;
     }
   ).join('')
-
   ||
-
   `
-  <tr>
-    <td colspan="6">
-      No protected addresses found.
-    </td>
-  </tr>
+    <tr>
+      <td colspan="6">
+        No protected addresses found.
+      </td>
+    </tr>
   `;
 }
 
-/* =========================================================
-   SMALL PROJECTS / SPECIALTY
-========================================================= */
-
 function renderServiceOpportunities(){
-
   const search =
-  $('serviceSearch')
-  .value
+  (
+    $('serviceSearch')?.value ||
+    ''
+  )
   .toLowerCase();
 
   const type =
-  $('serviceTypeFilter')
-  .value;
+  $('serviceTypeFilter')?.value ||
+  '';
 
   const status =
-  $('serviceStatusFilter')
-  .value;
+  $('serviceStatusFilter')?.value ||
+  '';
 
   const filtered =
   serviceOpportunities.filter(
     row => {
-
       const haystack = [
         row.client_name,
         row.service_address,
@@ -3275,157 +2330,92 @@ function renderServiceOpportunities(){
   );
 
   $('serviceRows').innerHTML =
-
   filtered.map(
     row => {
-
       const incentive =
+      row.customer_paid_date &&
+      row.status!=='CANCELED' &&
+      row.status!=='INELIGIBLE'
+      ?
       Number(
         row.eligible_collected_revenue ||
         0
-      ) * .02;
+      ) * .02
+      :
+      0;
 
       return `
+        <tr>
+          <td>${dateOnly(row.opportunity_date)}</td>
 
-      <tr>
+          <td>${esc(typeLabel(row.opportunity_type))}</td>
 
-        <td>
-          ${dateOnly(
-            row.opportunity_date
-          )}
-        </td>
+          <td>
+            <b>${esc(row.client_name)}</b>
+            <br>
+            <span style="color:#687786">
+              ${esc(row.service_address || '')}
+            </span>
+          </td>
 
-        <td>
-          ${esc(
-            typeLabel(
-              row.opportunity_type
-            )
-          )}
-        </td>
+          <td>${esc(row.description || '—')}</td>
 
-        <td>
+          <td>
+            ${esc(row.quote_number || '—')}
+            <br>
+            <span style="color:#687786">
+              ${esc(row.job_number || '')}
+            </span>
+          </td>
 
-          <b>
-            ${esc(
-              row.client_name
-            )}
-          </b>
+          <td>${badge(row.status)}</td>
 
-          <br>
+          <td>${dateOnly(row.completed_date)}</td>
 
-          <span style="color:#687786">
-            ${esc(
-              row.service_address ||
-              ''
-            )}
-          </span>
+          <td>${dateOnly(row.customer_paid_date)}</td>
 
-        </td>
+          <td class="money">${money(row.sold_amount)}</td>
 
-        <td>
-          ${esc(
-            row.description ||
-            '—'
-          )}
-        </td>
+          <td class="money">${money(row.eligible_collected_revenue)}</td>
 
-        <td>
+          <td class="money">
+            <b>${money(incentive)}</b>
+          </td>
 
-          ${esc(
-            row.quote_number ||
-            '—'
-          )}
-
-          <br>
-
-          <span style="color:#687786">
-            ${esc(
-              row.job_number ||
-              ''
-            )}
-          </span>
-
-        </td>
-
-        <td>
-          ${badge(
-            row.status
-          )}
-        </td>
-
-        <td>
-          ${dateOnly(
-            row.customer_paid_date
-          )}
-        </td>
-
-        <td class="money">
-          ${money(
-            row.sold_amount
-          )}
-        </td>
-
-        <td class="money">
-          ${money(
-            row.eligible_collected_revenue
-          )}
-        </td>
-
-        <td class="money">
-          <b>
-            ${money(
-              incentive
-            )}
-          </b>
-        </td>
-
-        <td>
-
-          <button
-            class="secondary"
-            onclick="editServiceOpportunity('${row.id}')">
-
-            Edit
-
-          </button>
-
-        </td>
-
-      </tr>
+          <td>
+            <button class="secondary" onclick="editServiceOpportunity('${row.id}')">
+              Edit
+            </button>
+          </td>
+        </tr>
       `;
     }
   ).join('')
-
   ||
-
   `
-  <tr>
-    <td colspan="11">
-      No Small Project or Specialty Service opportunities found.
-    </td>
-  </tr>
+    <tr>
+      <td colspan="12">
+        No Small Project or Specialty Service opportunities found.
+      </td>
+    </tr>
   `;
 }
 
-/* =========================================================
-   RENOVATIONS
-========================================================= */
-
 function renderRenovations(){
-
   const search =
-  $('renoSearch')
-  .value
+  (
+    $('renoSearch')?.value ||
+    ''
+  )
   .toLowerCase();
 
   const status =
-  $('renoStatusFilter')
-  .value;
+  $('renoStatusFilter')?.value ||
+  '';
 
   const filtered =
   renovations.filter(
     row => {
-
       const haystack = [
         row.client_name,
         row.service_address,
@@ -3448,152 +2438,89 @@ function renderRenovations(){
   );
 
   $('renoRows').innerHTML =
-
   filtered.map(
     row => {
-
       const finder =
-      row.finder_fee_eligible
+      row.finder_fee_eligible &&
+      row.signed_contract_date
       ? 100
       : 0;
 
       const commission =
+      row.completed_date &&
+      row.customer_paid_date &&
+      row.status!=='CANCELED' &&
+      row.status!=='INELIGIBLE'
+      ?
       Number(
         row.eligible_collected_revenue ||
         0
-      ) * .005;
+      ) * .005
+      :
+      0;
 
       return `
+        <tr>
+          <td>${dateOnly(row.referral_date)}</td>
 
-      <tr>
+          <td>
+            <b>${esc(row.client_name)}</b>
+            <br>
+            <span style="color:#687786">
+              ${esc(row.service_address || '')}
+            </span>
+          </td>
 
-        <td>
-          ${dateOnly(
-            row.referral_date
-          )}
-        </td>
+          <td>${esc(row.opportunity_description || '—')}</td>
 
-        <td>
+          <td>
+            ${esc(row.project_reference || '—')}
+            <br>
+            <span style="color:#687786">
+              ${esc(row.job_number || '')}
+            </span>
+          </td>
 
-          <b>
-            ${esc(
-              row.client_name
-            )}
-          </b>
+          <td>${badge(row.status)}</td>
 
-          <br>
+          <td>${dateOnly(row.signed_contract_date)}</td>
 
-          <span style="color:#687786">
-            ${esc(
-              row.service_address ||
-              ''
-            )}
-          </span>
+          <td>${dateOnly(row.completed_date)}</td>
 
-        </td>
+          <td>${dateOnly(row.customer_paid_date)}</td>
 
-        <td>
-          ${esc(
-            row.opportunity_description ||
-            '—'
-          )}
-        </td>
+          <td class="money">${money(row.contract_amount)}</td>
 
-        <td>
+          <td class="money">${money(row.eligible_collected_revenue)}</td>
 
-          ${esc(
-            row.project_reference ||
-            '—'
-          )}
+          <td class="money">${money(finder)}</td>
 
-          <br>
+          <td class="money">${money(commission)}</td>
 
-          <span style="color:#687786">
-            ${esc(
-              row.job_number ||
-              ''
-            )}
-          </span>
+          <td class="money">
+            <b>${money(finder + commission)}</b>
+          </td>
 
-        </td>
-
-        <td>
-          ${badge(
-            row.status
-          )}
-        </td>
-
-        <td>
-          ${dateOnly(
-            row.signed_contract_date
-          )}
-        </td>
-
-        <td class="money">
-          ${money(
-            row.contract_amount
-          )}
-        </td>
-
-        <td class="money">
-          ${money(
-            row.eligible_collected_revenue
-          )}
-        </td>
-
-        <td class="money">
-          ${money(finder)}
-        </td>
-
-        <td class="money">
-          ${money(
-            commission
-          )}
-        </td>
-
-        <td class="money">
-          <b>
-            ${money(
-              finder +
-              commission
-            )}
-          </b>
-        </td>
-
-        <td>
-
-          <button
-            class="secondary"
-            onclick="editRenovation('${row.id}')">
-
-            Edit
-
-          </button>
-
-        </td>
-
-      </tr>
+          <td>
+            <button class="secondary" onclick="editRenovation('${row.id}')">
+              Edit
+            </button>
+          </td>
+        </tr>
       `;
     }
   ).join('')
-
   ||
-
   `
-  <tr>
-    <td colspan="12">
-      No renovation opportunity referrals found.
-    </td>
-  </tr>
+    <tr>
+      <td colspan="14">
+        No renovation opportunity referrals found.
+      </td>
+    </tr>
   `;
 }
 
-/* =========================================================
-   ROUTESAFE QUARTER CALCULATION
-========================================================= */
-
 function routeQuarterData(){
-
   const q =
   selectedQuarter();
 
@@ -3605,12 +2532,12 @@ function routeQuarterData(){
 
   partners.forEach(
     partner => {
-
       const partnerRows =
       referrals.filter(
         row =>
-        row.partner_id===
-        partner.id
+        row.partner_id===partner.id &&
+        row.status!=='CANCELED' &&
+        row.status!=='INELIGIBLE'
       );
 
       const bounds =
@@ -3624,10 +2551,7 @@ function routeQuarterData(){
 
       partnerRows.forEach(
         row => {
-
-          if(
-            !row.customer_paid_date
-          )
+          if(!row.customer_paid_date)
             return;
 
           const paid =
@@ -3642,9 +2566,7 @@ function routeQuarterData(){
             0
           );
 
-          if(
-            paid<bounds.start
-          ){
+          if(paid<bounds.start){
             beforeQuarter+=amount;
           }
 
@@ -3679,29 +2601,14 @@ function routeQuarterData(){
       commission+=
       partnerCommission;
 
-      if(
-        partnerCommission>0
-      ){
-
+      if(partnerCommission>0){
         details.push({
-
           program:'RouteSafe 1%',
-
-          source:
-          partner.partner_code,
-
-          name:
-          partner.partner_name,
-
-          date:
-          selectedQuarterKey,
-
-          revenue:
-          commissionable,
-
-          incentive:
-          partnerCommission
-
+          source:partner.partner_code,
+          name:partner.partner_name,
+          date:selectedQuarterKey,
+          revenue:commissionable,
+          incentive:partnerCommission
         });
       }
 
@@ -3713,30 +2620,17 @@ function routeQuarterData(){
           q.quarter
         )
       ){
-
         spiffs+=25;
 
         details.push({
-
-          program:
-          'RouteSafe Enrollment',
-
-          source:
-          partner.partner_code,
-
-          name:
-          partner.partner_name,
-
-          date:
-          partner.qualified_enrollment_date,
-
+          program:'RouteSafe Enrollment',
+          source:partner.partner_code,
+          name:partner.partner_name,
+          date:partner.qualified_enrollment_date,
           revenue:0,
-
           incentive:25
-
         });
       }
-
     }
   );
 
@@ -3744,19 +2638,12 @@ function routeQuarterData(){
     revenue,
     spiffs,
     commission,
-    total:
-      spiffs +
-      commission,
+    total:spiffs + commission,
     details
   };
 }
 
-/* =========================================================
-   SERVICE QUARTER CALCULATION
-========================================================= */
-
 function serviceQuarterData(){
-
   const q =
   selectedQuarter();
 
@@ -3767,6 +2654,12 @@ function serviceQuarterData(){
 
   serviceOpportunities.forEach(
     row => {
+      if(
+        row.status==='CANCELED' ||
+        row.status==='INELIGIBLE'
+      ){
+        return;
+      }
 
       if(
         !row.customer_paid_date ||
@@ -3792,30 +2685,13 @@ function serviceQuarterData(){
       commission+=incentive;
 
       details.push({
-
-        program:
-        typeLabel(
-          row.opportunity_type
-        ),
-
-        source:
-        row.job_number ||
-        row.quote_number ||
-        '—',
-
-        name:
-        row.client_name,
-
-        date:
-        row.customer_paid_date,
-
-        revenue:
-        amount,
-
+        program:typeLabel(row.opportunity_type),
+        source:row.job_number || row.quote_number || '—',
+        name:row.client_name,
+        date:row.customer_paid_date,
+        revenue:amount,
         incentive
-
       });
-
     }
   );
 
@@ -3826,12 +2702,7 @@ function serviceQuarterData(){
   };
 }
 
-/* =========================================================
-   RENOVATION QUARTER CALCULATION
-========================================================= */
-
 function renovationQuarterData(){
-
   const q =
   selectedQuarter();
 
@@ -3843,6 +2714,12 @@ function renovationQuarterData(){
 
   renovations.forEach(
     row => {
+      if(
+        row.status==='CANCELED' ||
+        row.status==='INELIGIBLE'
+      ){
+        return;
+      }
 
       if(
         row.finder_fee_eligible &&
@@ -3853,33 +2730,20 @@ function renovationQuarterData(){
           q.quarter
         )
       ){
-
         finderFees+=100;
 
         details.push({
-
-          program:
-          'Renovation Finder Fee',
-
-          source:
-          row.job_number ||
-          row.project_reference ||
-          '—',
-
-          name:
-          row.client_name,
-
-          date:
-          row.signed_contract_date,
-
+          program:'Renovation Finder Fee',
+          source:row.job_number || row.project_reference || '—',
+          name:row.client_name,
+          date:row.signed_contract_date,
           revenue:0,
-
           incentive:100
-
         });
       }
 
       if(
+        row.completed_date &&
         row.customer_paid_date &&
         dateInQuarter(
           row.customer_paid_date,
@@ -3887,7 +2751,6 @@ function renovationQuarterData(){
           q.quarter
         )
       ){
-
         const amount =
         Number(
           row.eligible_collected_revenue ||
@@ -3900,35 +2763,17 @@ function renovationQuarterData(){
         revenue+=amount;
         commission+=incentive;
 
-        if(
-          amount>0
-        ){
-
+        if(amount>0){
           details.push({
-
-            program:
-            'Renovation 0.5%',
-
-            source:
-            row.job_number ||
-            row.project_reference ||
-            '—',
-
-            name:
-            row.client_name,
-
-            date:
-            row.customer_paid_date,
-
-            revenue:
-            amount,
-
+            program:'Renovation 0.5%',
+            source:row.job_number || row.project_reference || '—',
+            name:row.client_name,
+            date:row.customer_paid_date,
+            revenue:amount,
             incentive
-
           });
         }
       }
-
     }
   );
 
@@ -3936,19 +2781,12 @@ function renovationQuarterData(){
     revenue,
     finderFees,
     commission,
-    total:
-      finderFees +
-      commission,
+    total:finderFees + commission,
     details
   };
 }
 
-/* =========================================================
-   DASHBOARD
-========================================================= */
-
 function renderMetrics(){
-
   const route =
   routeQuarterData();
 
@@ -3960,39 +2798,27 @@ function renderMetrics(){
 
   $('mPartners').textContent =
   partners.filter(
-    p =>
-    p.status==='ACTIVE'
+    partner =>
+    partner.status==='ACTIVE'
   ).length;
 
   $('mRouteRevenue').textContent =
-  money(
-    route.revenue
-  );
+  money(route.revenue);
 
   $('mServiceRevenue').textContent =
-  money(
-    service.revenue
-  );
+  money(service.revenue);
 
   $('mRenoRevenue').textContent =
-  money(
-    reno.revenue
-  );
+  money(reno.revenue);
 
   $('mRouteIncentive').textContent =
-  money(
-    route.total
-  );
+  money(route.total);
 
   $('mServiceIncentive').textContent =
-  money(
-    service.commission
-  );
+  money(service.commission);
 
   $('mRenoIncentive').textContent =
-  money(
-    reno.total
-  );
+  money(reno.total);
 
   $('mTotalIncentive').textContent =
   money(
@@ -4002,12 +2828,7 @@ function renderMetrics(){
   );
 }
 
-/* =========================================================
-   QUARTER SUMMARY
-========================================================= */
-
 function renderQuarterSummary(){
-
   const route =
   routeQuarterData();
 
@@ -4019,32 +2840,22 @@ function renderQuarterSummary(){
 
   $('quarterSummaryTitle')
   .textContent =
-  `${selectedQuarterKey} — Elena Incentive Detail`;
+  `${selectedQuarterKey} — Incentive Detail`;
 
   $('qRouteSpiffs').textContent =
-  money(
-    route.spiffs
-  );
+  money(route.spiffs);
 
   $('qRouteCommission').textContent =
-  money(
-    route.commission
-  );
+  money(route.commission);
 
   $('qServiceCommission').textContent =
-  money(
-    service.commission
-  );
+  money(service.commission);
 
   $('qRenoFees').textContent =
-  money(
-    reno.finderFees
-  );
+  money(reno.finderFees);
 
   $('qRenoCommission').textContent =
-  money(
-    reno.commission
-  );
+  money(reno.commission);
 
   const total =
   route.spiffs +
@@ -4063,116 +2874,137 @@ function renderQuarterSummary(){
   ];
 
   $('quarterDetailRows').innerHTML =
-
   rows.map(
     row => `
-
       <tr>
-
-        <td>
-          ${esc(
-            row.program
-          )}
-        </td>
-
-        <td>
-          ${esc(
-            row.source
-          )}
-        </td>
-
-        <td>
-          ${esc(
-            row.name
-          )}
-        </td>
-
+        <td>${esc(row.program)}</td>
+        <td>${esc(row.source)}</td>
+        <td>${esc(row.name)}</td>
         <td>
           ${
-            row.date.startsWith?.('FY')
+            String(row.date).startsWith('FY')
             ? esc(row.date)
             : dateOnly(row.date)
           }
         </td>
-
-        <td class="money">
-          ${money(
-            row.revenue
-          )}
-        </td>
-
-        <td class="money">
-          <b>
-            ${money(
-              row.incentive
-            )}
-          </b>
-        </td>
-
+        <td class="money">${money(row.revenue)}</td>
+        <td class="money"><b>${money(row.incentive)}</b></td>
       </tr>
-
     `
   ).join('')
-
   ||
-
   `
-  <tr>
-    <td colspan="6">
-      No incentive activity for ${esc(selectedQuarterKey)}.
-    </td>
-  </tr>
+    <tr>
+      <td colspan="6">
+        No incentive activity for ${esc(selectedQuarterKey)}.
+      </td>
+    </tr>
   `;
 }
 
-/* =========================================================
-   PARTNER SELECT
-========================================================= */
+function currentQuarterDetails(){
+  return [
+    ...routeQuarterData().details,
+    ...serviceQuarterData().details,
+    ...renovationQuarterData().details
+  ];
+}
+
+function exportQuarterCSV(){
+  const rows =
+  currentQuarterDetails();
+
+  const headers = [
+    'Quarter',
+    'Program',
+    'Source',
+    'Client / Partner',
+    'Recognition Date',
+    'Eligible Revenue',
+    'Incentive'
+  ];
+
+  const csvRows = [
+    headers
+  ];
+
+  rows.forEach(
+    row => {
+      csvRows.push([
+        selectedQuarterKey,
+        row.program,
+        row.source,
+        row.name,
+        row.date,
+        Number(row.revenue || 0).toFixed(2),
+        Number(row.incentive || 0).toFixed(2)
+      ]);
+    }
+  );
+
+  const csv =
+  csvRows.map(
+    row =>
+    row.map(
+      value =>
+      `"${String(value ?? '').replace(/"/g,'""')}"`
+    )
+    .join(',')
+  )
+  .join('\n');
+
+  const blob =
+  new Blob(
+    [csv],
+    {
+      type:'text/csv;charset=utf-8;'
+    }
+  );
+
+  const url =
+  URL.createObjectURL(blob);
+
+  const a =
+  document.createElement('a');
+
+  a.href=url;
+
+  a.download=
+  `service-incentive-detail-${selectedQuarterKey.replace(/\s+/g,'-')}.csv`;
+
+  document.body.appendChild(a);
+
+  a.click();
+
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
+}
 
 function populatePartnerSelect(){
-
   $('r_partner').innerHTML =
-
   `
-  <option value="">
-    Select RouteSafe Partner...
-  </option>
+    <option value="">
+      Select RouteSafe Partner...
+    </option>
   `
-
   +
-
   partners.map(
     partner => `
-
       <option value="${partner.id}">
-
-        ${esc(
-          partner.partner_name
-        )}
-        —
-        ${esc(
-          partner.partner_code
-        )}
-
+        ${esc(partner.partner_name)} — ${esc(partner.partner_code)}
       </option>
-
     `
   ).join('');
 }
 
-/* =========================================================
-   MODALS
-========================================================= */
-
 function closeModal(id){
-
   $(id)
   .classList
   .remove('show');
 }
 
 function openPartner(){
-
   $('partnerForm').reset();
 
   $('p_id').value='';
@@ -4186,7 +3018,6 @@ function openPartner(){
 }
 
 function editPartner(id){
-
   const p =
   partners.find(
     row =>
@@ -4197,46 +3028,18 @@ function editPartner(id){
     return;
 
   $('p_id').value=p.id;
-
-  $('p_name').value=
-  p.partner_name || '';
-
-  $('p_code').value=
-  p.partner_code || '';
-
-  $('p_contact').value=
-  p.contact_name || '';
-
-  $('p_status').value=
-  p.status || 'PROSPECT';
-
-  $('p_phone').value=
-  p.phone || '';
-
-  $('p_email').value=
-  p.email || '';
-
-  $('p_effective').value=
-  p.agreement_effective_date || '';
-
-  $('p_expiration').value=
-  p.agreement_expiration_date || '';
-
-  $('p_vendor').value=
-  String(
-    !!p.vendor_setup_complete
-  );
-
-  $('p_qualified').value=
-  String(
-    !!p.qualified_enrollment
-  );
-
-  $('p_qualified_date').value=
-  p.qualified_enrollment_date || '';
-
-  $('p_notes').value=
-  p.notes || '';
+  $('p_name').value=p.partner_name || '';
+  $('p_code').value=p.partner_code || '';
+  $('p_contact').value=p.contact_name || '';
+  $('p_status').value=p.status || 'PROSPECT';
+  $('p_phone').value=p.phone || '';
+  $('p_email').value=p.email || '';
+  $('p_effective').value=p.agreement_effective_date || '';
+  $('p_expiration').value=p.agreement_expiration_date || '';
+  $('p_vendor').value=String(!!p.vendor_setup_complete);
+  $('p_qualified').value=String(!!p.qualified_enrollment);
+  $('p_qualified_date').value=p.qualified_enrollment_date || '';
+  $('p_notes').value=p.notes || '';
 
   $('partnerTitle').textContent =
   'Edit RouteSafe Partner';
@@ -4247,11 +3050,7 @@ function editPartner(id){
 }
 
 function openReferral(){
-
-  if(
-    !partners.length
-  ){
-
+  if(!partners.length){
     alert(
       'Create a RouteSafe Partner before adding a referral.'
     );
@@ -4285,7 +3084,6 @@ function openReferral(){
 }
 
 function editReferral(id){
-
   const row =
   referrals.find(
     r =>
@@ -4296,20 +3094,13 @@ function editReferral(id){
     return;
 
   $('r_id').value=row.id;
-
-  $('r_partner').value=
-  row.partner_id || '';
+  $('r_partner').value=row.partner_id || '';
 
   const localDate =
   new Date(
-    new Date(
-      row.referral_at
-    ).getTime()
+    new Date(row.referral_at).getTime()
     -
-    new Date(
-      row.referral_at
-    )
-    .getTimezoneOffset()
+    new Date(row.referral_at).getTimezoneOffset()
     *60000
   );
 
@@ -4318,51 +3109,20 @@ function editReferral(id){
   .toISOString()
   .slice(0,16);
 
-  $('r_customer').value=
-  row.customer_name || '';
-
-  $('r_phone').value=
-  row.customer_phone || '';
-
-  $('r_address').value=
-  row.service_address || '';
-
-  $('r_issue').value=
-  row.equipment_issue || '';
-
-  $('r_urgency').value=
-  row.urgency || 'ROUTINE';
-
-  $('r_job').value=
-  row.job_number || '';
-
-  $('r_invoice').value=
-  row.invoice_number || '';
-
-  $('r_status').value=
-  row.status || 'REFERRED';
-
-  $('r_type').value=
-  row.reward_type ||
-  'REPAIR_REPLACEMENT';
-
-  $('r_collected').value=
-  row.eligible_collected_revenue ||
-  0;
-
-  $('r_paid_date').value=
-  row.customer_paid_date || '';
-
-  $('r_reward_status').value=
-  row.partner_reward_status ||
-  'ACCRUED';
-
-  $('r_reward_paid').value=
-  row.partner_reward_paid_date ||
-  '';
-
-  $('r_notes').value=
-  row.notes || '';
+  $('r_customer').value=row.customer_name || '';
+  $('r_phone').value=row.customer_phone || '';
+  $('r_address').value=row.service_address || '';
+  $('r_issue').value=row.equipment_issue || '';
+  $('r_urgency').value=row.urgency || 'ROUTINE';
+  $('r_job').value=row.job_number || '';
+  $('r_invoice').value=row.invoice_number || '';
+  $('r_status').value=row.status || 'REFERRED';
+  $('r_type').value=row.reward_type || 'REPAIR_REPLACEMENT';
+  $('r_collected').value=row.eligible_collected_revenue || 0;
+  $('r_paid_date').value=row.customer_paid_date || '';
+  $('r_reward_status').value=row.partner_reward_status || 'ACCRUED';
+  $('r_reward_paid').value=row.partner_reward_paid_date || '';
+  $('r_notes').value=row.notes || '';
 
   $('refTitle').textContent =
   'Edit RouteSafe Referral / Job';
@@ -4373,7 +3133,6 @@ function editReferral(id){
 }
 
 function openServiceOpportunity(){
-
   $('serviceForm').reset();
 
   $('s_id').value='';
@@ -4390,7 +3149,6 @@ function openServiceOpportunity(){
 }
 
 function editServiceOpportunity(id){
-
   const row =
   serviceOpportunities.find(
     r =>
@@ -4401,45 +3159,19 @@ function editServiceOpportunity(id){
     return;
 
   $('s_id').value=row.id;
-
-  $('s_type').value=
-  row.opportunity_type;
-
-  $('s_date').value=
-  row.opportunity_date || '';
-
-  $('s_client').value=
-  row.client_name || '';
-
-  $('s_address').value=
-  row.service_address || '';
-
-  $('s_description').value=
-  row.description || '';
-
-  $('s_quote').value=
-  row.quote_number || '';
-
-  $('s_job').value=
-  row.job_number || '';
-
-  $('s_status').value=
-  row.status || 'OPPORTUNITY';
-
-  $('s_sold').value=
-  row.sold_amount || 0;
-
-  $('s_collected').value=
-  row.eligible_collected_revenue || 0;
-
-  $('s_completed').value=
-  row.completed_date || '';
-
-  $('s_paid').value=
-  row.customer_paid_date || '';
-
-  $('s_notes').value=
-  row.notes || '';
+  $('s_type').value=row.opportunity_type;
+  $('s_date').value=row.opportunity_date || '';
+  $('s_client').value=row.client_name || '';
+  $('s_address').value=row.service_address || '';
+  $('s_description').value=row.description || '';
+  $('s_quote').value=row.quote_number || '';
+  $('s_job').value=row.job_number || '';
+  $('s_status').value=row.status || 'OPPORTUNITY';
+  $('s_sold').value=row.sold_amount || 0;
+  $('s_collected').value=row.eligible_collected_revenue || 0;
+  $('s_completed').value=row.completed_date || '';
+  $('s_paid').value=row.customer_paid_date || '';
+  $('s_notes').value=row.notes || '';
 
   $('serviceModalTitle').textContent =
   'Edit Small Project / Specialty Service';
@@ -4450,7 +3182,6 @@ function editServiceOpportunity(id){
 }
 
 function openRenovation(){
-
   $('renoForm').reset();
 
   $('n_id').value='';
@@ -4467,7 +3198,6 @@ function openRenovation(){
 }
 
 function editRenovation(id){
-
   const row =
   renovations.find(
     r =>
@@ -4478,50 +3208,20 @@ function editRenovation(id){
     return;
 
   $('n_id').value=row.id;
-
-  $('n_date').value=
-  row.referral_date || '';
-
-  $('n_client').value=
-  row.client_name || '';
-
-  $('n_address').value=
-  row.service_address || '';
-
-  $('n_description').value=
-  row.opportunity_description || '';
-
-  $('n_project').value=
-  row.project_reference || '';
-
-  $('n_job').value=
-  row.job_number || '';
-
-  $('n_status').value=
-  row.status || 'REFERRED';
-
-  $('n_contract').value=
-  row.contract_amount || 0;
-
-  $('n_signed').value=
-  row.signed_contract_date || '';
-
-  $('n_completed').value=
-  row.completed_date || '';
-
-  $('n_paid').value=
-  row.customer_paid_date || '';
-
-  $('n_collected').value=
-  row.eligible_collected_revenue || 0;
-
-  $('n_finder').value=
-  String(
-    !!row.finder_fee_eligible
-  );
-
-  $('n_notes').value=
-  row.notes || '';
+  $('n_date').value=row.referral_date || '';
+  $('n_client').value=row.client_name || '';
+  $('n_address').value=row.service_address || '';
+  $('n_description').value=row.opportunity_description || '';
+  $('n_project').value=row.project_reference || '';
+  $('n_job').value=row.job_number || '';
+  $('n_status').value=row.status || 'REFERRED';
+  $('n_contract').value=row.contract_amount || 0;
+  $('n_signed').value=row.signed_contract_date || '';
+  $('n_completed').value=row.completed_date || '';
+  $('n_paid').value=row.customer_paid_date || '';
+  $('n_collected').value=row.eligible_collected_revenue || 0;
+  $('n_finder').value=String(!!row.finder_fee_eligible);
+  $('n_notes').value=row.notes || '';
 
   $('renoModalTitle').textContent =
   'Edit Renovation Opportunity Referral';
@@ -4531,133 +3231,66 @@ function editRenovation(id){
   .add('show');
 }
 
-/* =========================================================
-   SAVE PARTNER
-========================================================= */
-
 $('partnerForm')
 .addEventListener(
   'submit',
   async event => {
-
     event.preventDefault();
 
     const id =
     $('p_id').value;
 
     const row={
-
-      partner_name:
-      $('p_name')
-      .value
-      .trim(),
-
-      partner_code:
-      $('p_code')
-      .value
-      .trim()
-      .toUpperCase(),
-
-      contact_name:
-      $('p_contact')
-      .value
-      .trim()
-      || null,
-
-      phone:
-      $('p_phone')
-      .value
-      .trim()
-      || null,
-
-      email:
-      $('p_email')
-      .value
-      .trim()
-      || null,
-
-      status:
-      $('p_status').value,
-
-      agreement_effective_date:
-      $('p_effective').value
-      || null,
-
-      agreement_expiration_date:
-      $('p_expiration').value
-      || null,
-
-      vendor_setup_complete:
-      $('p_vendor').value==='true',
-
-      qualified_enrollment:
-      $('p_qualified').value==='true',
-
-      qualified_enrollment_date:
-      $('p_qualified_date').value
-      || null,
-
-      notes:
-      $('p_notes')
-      .value
-      .trim()
-      || null,
-
-      updated_by:
-      currentUser.id
+      partner_name:$('p_name').value.trim(),
+      partner_code:$('p_code').value.trim().toUpperCase(),
+      contact_name:$('p_contact').value.trim() || null,
+      phone:$('p_phone').value.trim() || null,
+      email:$('p_email').value.trim() || null,
+      status:$('p_status').value,
+      agreement_effective_date:$('p_effective').value || null,
+      agreement_expiration_date:$('p_expiration').value || null,
+      vendor_setup_complete:$('p_vendor').value==='true',
+      qualified_enrollment:$('p_qualified').value==='true',
+      qualified_enrollment_date:$('p_qualified_date').value || null,
+      notes:$('p_notes').value.trim() || null,
+      updated_by:currentUser.id
     };
 
     let result;
 
     if(id){
-
       result =
       await db
       .from('routesafe_partners')
       .update(row)
       .eq('id',id);
-
     }
 
     else{
-
       result =
       await db
       .from('routesafe_partners')
       .insert({
         ...row,
-        created_by:
-        currentUser.id
+        created_by:currentUser.id
       });
-
     }
 
     if(result.error){
-
-      alert(
-        result.error.message
-      );
-
+      alert(result.error.message);
       return;
     }
 
-    closeModal(
-      'partnerModal'
-    );
+    closeModal('partnerModal');
 
     await loadAll();
   }
 );
 
-/* =========================================================
-   SAVE ROUTESAFE REFERRAL
-========================================================= */
-
 $('refForm')
 .addEventListener(
   'submit',
   async event => {
-
     event.preventDefault();
 
     const id =
@@ -4677,137 +3310,61 @@ $('refForm')
     ) / 100;
 
     const row={
-
-      partner_id:
-      $('r_partner').value,
-
-      referral_at:
-      new Date(
-        $('r_date').value
-      )
-      .toISOString(),
-
-      customer_name:
-      $('r_customer')
-      .value
-      .trim(),
-
-      customer_phone:
-      $('r_phone')
-      .value
-      .trim()
-      || null,
-
-      service_address:
-      $('r_address')
-      .value
-      .trim(),
-
-      equipment_issue:
-      $('r_issue')
-      .value
-      .trim()
-      || null,
-
-      urgency:
-      $('r_urgency').value,
-
-      job_number:
-      $('r_job')
-      .value
-      .trim()
-      || null,
-
-      invoice_number:
-      $('r_invoice')
-      .value
-      .trim()
-      || null,
-
-      status:
-      $('r_status').value,
-
-      reward_type:
-      $('r_type').value,
-
-      eligible_collected_revenue:
-      collected,
-
-      partner_reward_amount:
-      partnerReward,
-
-      customer_paid_date:
-      $('r_paid_date').value
-      || null,
-
-      partner_reward_status:
-      $('r_reward_status').value,
-
-      partner_reward_paid_date:
-      $('r_reward_paid').value
-      || null,
-
-      notes:
-      $('r_notes')
-      .value
-      .trim()
-      || null,
-
-      updated_by:
-      currentUser.id
+      partner_id:$('r_partner').value,
+      referral_at:new Date($('r_date').value).toISOString(),
+      customer_name:$('r_customer').value.trim(),
+      customer_phone:$('r_phone').value.trim() || null,
+      service_address:$('r_address').value.trim(),
+      equipment_issue:$('r_issue').value.trim() || null,
+      urgency:$('r_urgency').value,
+      job_number:$('r_job').value.trim() || null,
+      invoice_number:$('r_invoice').value.trim() || null,
+      status:$('r_status').value,
+      reward_type:$('r_type').value,
+      eligible_collected_revenue:collected,
+      partner_reward_amount:partnerReward,
+      customer_paid_date:$('r_paid_date').value || null,
+      partner_reward_status:$('r_reward_status').value,
+      partner_reward_paid_date:$('r_reward_paid').value || null,
+      notes:$('r_notes').value.trim() || null,
+      updated_by:currentUser.id
     };
 
     let result;
 
     if(id){
-
       result =
       await db
       .from('routesafe_referrals')
       .update(row)
       .eq('id',id);
-
     }
 
     else{
-
       result =
       await db
       .from('routesafe_referrals')
       .insert({
         ...row,
-        created_by:
-        currentUser.id
+        created_by:currentUser.id
       });
-
     }
 
     if(result.error){
-
-      alert(
-        result.error.message
-      );
-
+      alert(result.error.message);
       return;
     }
 
-    closeModal(
-      'referralModal'
-    );
+    closeModal('referralModal');
 
     await loadAll();
   }
 );
 
-/* =========================================================
-   SAVE SMALL PROJECT / SPECIALTY
-========================================================= */
-
 $('serviceForm')
 .addEventListener(
   'submit',
   async event => {
-
     event.preventDefault();
 
     const id =
@@ -4827,136 +3384,59 @@ $('serviceForm')
     ) / 100;
 
     const row={
-
-      opportunity_type:
-      $('s_type').value,
-
-      opportunity_date:
-      $('s_date').value,
-
-      client_name:
-      $('s_client')
-      .value
-      .trim(),
-
-      service_address:
-      $('s_address')
-      .value
-      .trim()
-      || null,
-
-      description:
-      $('s_description')
-      .value
-      .trim()
-      || null,
-
-      quote_number:
-      $('s_quote')
-      .value
-      .trim()
-      || null,
-
-      job_number:
-      $('s_job')
-      .value
-      .trim()
-      || null,
-
-      sold_amount:
-      Number(
-        $('s_sold').value ||
-        0
-      ),
-
-      eligible_collected_revenue:
-      collected,
-
-      completed_date:
-      $('s_completed').value
-      || null,
-
-      customer_paid_date:
-      $('s_paid').value
-      || null,
-
-      status:
-      $('s_status').value,
-
-      incentive_rate:
-      .02,
-
-      incentive_amount:
-      incentive,
-
-      notes:
-      $('s_notes')
-      .value
-      .trim()
-      || null,
-
-      updated_by:
-      currentUser.id
+      opportunity_type:$('s_type').value,
+      opportunity_date:$('s_date').value,
+      client_name:$('s_client').value.trim(),
+      service_address:$('s_address').value.trim() || null,
+      description:$('s_description').value.trim() || null,
+      quote_number:$('s_quote').value.trim() || null,
+      job_number:$('s_job').value.trim() || null,
+      sold_amount:Number($('s_sold').value || 0),
+      eligible_collected_revenue:collected,
+      completed_date:$('s_completed').value || null,
+      customer_paid_date:$('s_paid').value || null,
+      status:$('s_status').value,
+      incentive_rate:.02,
+      incentive_amount:incentive,
+      notes:$('s_notes').value.trim() || null,
+      updated_by:currentUser.id
     };
 
     let result;
 
     if(id){
-
       result =
       await db
-      .from(
-        'service_incentive_opportunities'
-      )
+      .from('service_incentive_opportunities')
       .update(row)
-      .eq(
-        'id',
-        id
-      );
-
+      .eq('id',id);
     }
 
     else{
-
       result =
       await db
-      .from(
-        'service_incentive_opportunities'
-      )
+      .from('service_incentive_opportunities')
       .insert({
         ...row,
-        created_by:
-        currentUser.id
+        created_by:currentUser.id
       });
-
     }
 
     if(result.error){
-
-      alert(
-        result.error.message
-      );
-
+      alert(result.error.message);
       return;
     }
 
-    closeModal(
-      'serviceModal'
-    );
+    closeModal('serviceModal');
 
     await loadAll();
   }
 );
 
-/* =========================================================
-   SAVE RENOVATION
-========================================================= */
-
 $('renoForm')
 .addEventListener(
   'submit',
   async event => {
-
     event.preventDefault();
 
     const id =
@@ -4969,8 +3449,7 @@ $('renoForm')
     );
 
     const finderEligible =
-    $('n_finder').value===
-    'true';
+    $('n_finder').value==='true';
 
     const finderFee =
     finderEligible
@@ -4985,269 +3464,146 @@ $('renoForm')
     ) / 100;
 
     const row={
-
-      referral_date:
-      $('n_date').value,
-
-      client_name:
-      $('n_client')
-      .value
-      .trim(),
-
-      service_address:
-      $('n_address')
-      .value
-      .trim()
-      || null,
-
-      opportunity_description:
-      $('n_description')
-      .value
-      .trim()
-      || null,
-
-      project_reference:
-      $('n_project')
-      .value
-      .trim()
-      || null,
-
-      job_number:
-      $('n_job')
-      .value
-      .trim()
-      || null,
-
-      contract_amount:
-      Number(
-        $('n_contract').value ||
-        0
-      ),
-
-      signed_contract_date:
-      $('n_signed').value
-      || null,
-
-      completed_date:
-      $('n_completed').value
-      || null,
-
-      customer_paid_date:
-      $('n_paid').value
-      || null,
-
-      eligible_collected_revenue:
-      collected,
-
-      status:
-      $('n_status').value,
-
-      finder_fee_eligible:
-      finderEligible,
-
-      finder_fee_amount:
-      finderFee,
-
-      commission_rate:
-      .005,
-
-      commission_amount:
-      commission,
-
-      notes:
-      $('n_notes')
-      .value
-      .trim()
-      || null,
-
-      updated_by:
-      currentUser.id
+      referral_date:$('n_date').value,
+      client_name:$('n_client').value.trim(),
+      service_address:$('n_address').value.trim() || null,
+      opportunity_description:$('n_description').value.trim() || null,
+      project_reference:$('n_project').value.trim() || null,
+      job_number:$('n_job').value.trim() || null,
+      contract_amount:Number($('n_contract').value || 0),
+      signed_contract_date:$('n_signed').value || null,
+      completed_date:$('n_completed').value || null,
+      customer_paid_date:$('n_paid').value || null,
+      eligible_collected_revenue:collected,
+      status:$('n_status').value,
+      finder_fee_eligible:finderEligible,
+      finder_fee_amount:finderFee,
+      commission_rate:.005,
+      commission_amount:commission,
+      notes:$('n_notes').value.trim() || null,
+      updated_by:currentUser.id
     };
 
     let result;
 
     if(id){
-
       result =
       await db
-      .from(
-        'renovation_opportunity_referrals'
-      )
+      .from('renovation_opportunity_referrals')
       .update(row)
-      .eq(
-        'id',
-        id
-      );
-
+      .eq('id',id);
     }
 
     else{
-
       result =
       await db
-      .from(
-        'renovation_opportunity_referrals'
-      )
+      .from('renovation_opportunity_referrals')
       .insert({
         ...row,
-        created_by:
-        currentUser.id
+        created_by:currentUser.id
       });
-
     }
 
     if(result.error){
-
-      alert(
-        result.error.message
-      );
-
+      alert(result.error.message);
       return;
     }
 
-    closeModal(
-      'renoModal'
-    );
+    closeModal('renoModal');
 
     await loadAll();
   }
 );
 
-/* =========================================================
-   MAIN SECTION TABS
-========================================================= */
-
 document
-.querySelectorAll(
-  '.section-tab'
-)
+.querySelectorAll('.tab')
 .forEach(
   tab => {
-
     tab.addEventListener(
       'click',
       () => {
-
         document
-        .querySelectorAll(
-          '.section-tab'
-        )
+        .querySelectorAll('.tab')
         .forEach(
           item =>
-          item.classList.remove(
-            'active'
-          )
+          item.classList.remove('active')
         );
 
         document
-        .querySelectorAll(
-          '.section-panel'
-        )
+        .querySelectorAll('.panel')
         .forEach(
           item =>
-          item.classList.remove(
-            'active'
-          )
+          item.classList.remove('active')
         );
 
-        tab.classList.add(
-          'active'
-        );
+        tab.classList.add('active');
 
-        $(
-          tab.dataset.section
-        )
+        $(tab.dataset.tab)
         .classList
-        .add(
-          'active'
-        );
-
+        .add('active');
       }
     );
-
   }
 );
 
-/* =========================================================
-   ROUTESAFE SUBTABS
-========================================================= */
-
 document
-.querySelectorAll(
-  '.subtab'
-)
+.querySelectorAll('.subtab')
 .forEach(
   tab => {
-
     tab.addEventListener(
       'click',
       () => {
-
-        const group =
-        tab.dataset.group;
-
         document
-        .querySelectorAll(
-          `.subtab[data-group="${group}"]`
-        )
+        .querySelectorAll('.subtab')
         .forEach(
           item =>
-          item.classList.remove(
-            'active'
-          )
+          item.classList.remove('active')
         );
 
-        [
-          'routePartners',
-          'routeReferrals',
-          'routeProtection'
-        ]
+        document
+        .querySelectorAll('.subpanel')
         .forEach(
-          id =>
-          $(id)
-          .classList
-          .remove(
-            'active'
-          )
+          item =>
+          item.classList.remove('active')
         );
 
-        tab.classList.add(
-          'active'
-        );
+        tab.classList.add('active');
 
-        $(
-          tab.dataset.sub
-        )
+        $(tab.dataset.sub)
         .classList
-        .add(
-          'active'
-        );
-
+        .add('active');
       }
     );
-
   }
 );
 
-/* =========================================================
-   INITIALIZE
-========================================================= */
+document
+.querySelectorAll('.modal')
+.forEach(
+  modal => {
+    modal.addEventListener(
+      'click',
+      event => {
+        if(event.target===modal){
+          modal.classList.remove('show');
+        }
+      }
+    );
+  }
+);
 
 (async()=>{
-
   const authorized =
   await guardAccess();
 
-  if(
-    !authorized
-  )
+  if(!authorized)
     return;
 
   await loadAll();
-
 })();
-
 </script>
+
+<script src="shared-navigation.js"></script>
 
 </body>
 </html>
