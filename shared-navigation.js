@@ -212,6 +212,11 @@
           ]
         },
         {
+          label: 'Weekly Samsara',
+          href: 'weekly-samsara.html',
+          roles: ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
           label: 'Callback Tracking',
           href: 'callback-tracking.html',
           roles: [
