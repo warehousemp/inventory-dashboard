@@ -2127,6 +2127,7 @@
           <div class="mechanical-assessment-filters">
             <div><label for="mechanicalAssessmentSearch">Search</label><input id="mechanicalAssessmentSearch" type="search" placeholder="Customer, address, or Route Tech..." oninput="applyMechanicalAssessmentFilters()"></div>
             <div><label for="mechanicalAssessmentTechFilter">Route Tech</label><select id="mechanicalAssessmentTechFilter" onchange="applyMechanicalAssessmentFilters()"><option value="">All Route Techs</option></select></div>
+            <div><label for="mechanicalAssessmentDayFilter">Route Day</label><select id="mechanicalAssessmentDayFilter" onchange="applyMechanicalAssessmentFilters()"><option value="">All Route Days</option></select></div>
             <div><label for="mechanicalAssessmentCompletionFilter">Mechanical Assessment</label><select id="mechanicalAssessmentCompletionFilter" onchange="applyMechanicalAssessmentFilters()"><option value="">All</option><option value="YES">Completed</option><option value="NO">Not Completed</option><option value="REVIEW">Needs Review</option></select></div>
             <div><label>&nbsp;</label><button class="secondary-btn" type="button" onclick="clearMechanicalAssessmentFilters()">Clear Filters</button></div>
           </div>
@@ -2140,8 +2141,8 @@
 
           <div class="mechanical-assessment-table-wrap">
             <table class="mechanical-assessment-table">
-              <thead><tr><th>Customer</th><th>Location</th><th>Route Tech</th><th>Mechanical Assessment Completed</th><th>Assessment Date</th><th>Status</th></tr></thead>
-              <tbody id="mechanicalAssessmentTbody"><tr><td colspan="6">Mechanical Assessment data will load here.</td></tr></tbody>
+              <thead><tr><th>Customer</th><th>Location</th><th>Route Tech</th><th>Route Day</th><th>Mechanical Assessment Completed</th><th>Assessment Date</th><th>Status</th></tr></thead>
+              <tbody id="mechanicalAssessmentTbody"><tr><td colspan="7">Mechanical Assessment data will load here.</td></tr></tbody>
             </table>
           </div>
           <div class="footer-note" id="mechanicalAssessmentResultCount">0 customer records loaded.</div>
@@ -4094,7 +4095,7 @@ async function loadMechanicalAssessmentImportHistory(){
 async function loadMechanicalAssessmentData(showSuccessMessage = true) {
   const tbody = document.getElementById('mechanicalAssessmentTbody');
   const refreshBtn = document.getElementById('mechanicalAssessmentRefreshBtn');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="6">Loading Mechanical Assessment data...</td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="7">Loading Mechanical Assessment data...</td></tr>';
   if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.textContent = 'Refreshing...'; }
   setMessage('mechanicalAssessmentMessage', 'info', 'Loading Mechanical Assessment data...');
 
@@ -4124,21 +4125,40 @@ async function loadMechanicalAssessmentData(showSuccessMessage = true) {
 
 function populateMechanicalAssessmentFilterOptions() {
   const techSelect = document.getElementById('mechanicalAssessmentTechFilter');
-  if (!techSelect) return;
-  const techs = [...new Set(allMechanicalAssessmentRows.map(row => mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech)).filter(Boolean))].sort();
-  techSelect.innerHTML = '<option value="">All Route Techs</option>' + techs.map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join('');
+  const daySelect = document.getElementById('mechanicalAssessmentDayFilter');
+
+  if (techSelect) {
+    const currentTech = techSelect.value;
+    const techs = [...new Set(allMechanicalAssessmentRows.map(row => mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech)).filter(Boolean))].sort();
+    techSelect.innerHTML = '<option value="">All Route Techs</option>' + techs.map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`).join('');
+    if (techs.includes(currentTech)) techSelect.value = currentTech;
+  }
+
+  if (daySelect) {
+    const currentDay = daySelect.value;
+    const days = [...new Map(
+      allMechanicalAssessmentRows
+        .filter(row => mechanicalAssessmentSafe(row.service_day_name))
+        .map(row => [mechanicalAssessmentSafe(row.service_day_name), Number(row.service_day_number) || 99])
+    ).entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]));
+    daySelect.innerHTML = '<option value="">All Route Days</option>' + days.map(([name]) => `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`).join('');
+    if (days.some(([name]) => name === currentDay)) daySelect.value = currentDay;
+  }
 }
 
 function applyMechanicalAssessmentFilters(showMessage = true) {
   const search = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentSearch')?.value).toLowerCase();
   const routeTech = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentTechFilter')?.value);
+  const routeDay = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentDayFilter')?.value);
   const completion = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentCompletionFilter')?.value).toUpperCase();
 
   filteredMechanicalAssessmentRows = allMechanicalAssessmentRows.filter(row => {
     const tech = mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech);
+    const rowRouteDay = mechanicalAssessmentSafe(row.service_day_name);
     const completed = mechanicalAssessmentComplete(row);
     const needsReview = mechanicalAssessmentNeedsReview(row);
     if (routeTech && tech !== routeTech) return false;
+    if (routeDay && rowRouteDay !== routeDay) return false;
     if (completion === 'YES' && !completed) return false;
     if (completion === 'NO' && (completed || needsReview)) return false;
     if (completion === 'REVIEW' && !needsReview) return false;
@@ -4167,12 +4187,13 @@ function renderMechanicalAssessmentTable(rows) {
   if (!tbody) return;
   tbody.innerHTML = '';
   if (resultCount) resultCount.textContent = `${rows.length.toLocaleString()} customer record${rows.length === 1 ? '' : 's'} shown.`;
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6">No Mechanical Assessment records match the current filters.</td></tr>'; return; }
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7">No Mechanical Assessment records match the current filters.</td></tr>'; return; }
 
   rows.forEach(row => {
     const customer = mechanicalAssessmentSafe(row.customer_name || row.customer);
     const location = mechanicalAssessmentSafe(row.location || row.full_location_address || row.location_address);
     const tech = mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech);
+    const routeDay = mechanicalAssessmentSafe(row.service_day_name);
     const completed = mechanicalAssessmentComplete(row);
     const needsReview = mechanicalAssessmentNeedsReview(row);
     const date = row.mechanical_assessment_date || row.assessment_date || row.completed_at || '';
@@ -4183,6 +4204,7 @@ function renderMechanicalAssessmentTable(rows) {
       <td class="wrap-cell"><strong>${escapeHTML(customer || '—')}</strong></td>
       <td class="wrap-cell">${escapeHTML(location || '—')}</td>
       <td>${escapeHTML(tech || '—')}</td>
+      <td>${escapeHTML(routeDay || '—')}</td>
       <td><span class="badge ${completed ? 'green' : 'red'}">${completed ? 'Yes' : 'No'}</span></td>
       <td>${escapeHTML(date ? formatShortDate(String(date).slice(0,10)) : '—')}</td>
       <td>
@@ -4206,6 +4228,7 @@ function renderMechanicalAssessmentSummary(rows) {
 function clearMechanicalAssessmentFilters() {
   setValue('mechanicalAssessmentSearch', '');
   setValue('mechanicalAssessmentTechFilter', '');
+  setValue('mechanicalAssessmentDayFilter', '');
   setValue('mechanicalAssessmentCompletionFilter', '');
   applyMechanicalAssessmentFilters();
 }
@@ -4240,6 +4263,7 @@ function mechanicalAssessmentSafe(value) { return value === null || value === un
 function exportMechanicalAssessmentNotCompletedCsv() {
   const search = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentSearch')?.value).toLowerCase();
   const routeTech = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentTechFilter')?.value);
+  const routeDay = mechanicalAssessmentSafe(document.getElementById('mechanicalAssessmentDayFilter')?.value);
 
   const rowsToExport = allMechanicalAssessmentRows.filter(row => {
     const tech = mechanicalAssessmentSafe(row.assigned_route_tech || row.route_tech);
@@ -4247,6 +4271,7 @@ function exportMechanicalAssessmentNotCompletedCsv() {
     const needsReview = mechanicalAssessmentNeedsReview(row);
     if (completed || needsReview) return false;
     if (routeTech && tech !== routeTech) return false;
+    if (routeDay && mechanicalAssessmentSafe(row.service_day_name) !== routeDay) return false;
     if (search) {
       const haystack = [row.customer_name, row.customer, row.location, row.full_location_address, row.location_address, tech]
         .map(mechanicalAssessmentSafe).join(' ').toLowerCase();
@@ -4260,7 +4285,7 @@ function exportMechanicalAssessmentNotCompletedCsv() {
   });
 
   if (!rowsToExport.length) {
-    setMessage('mechanicalAssessmentMessage', 'error', 'There are no Not Completed records matching the current Search and Route Tech filters.');
+    setMessage('mechanicalAssessmentMessage', 'error', 'There are no Not Completed records matching the current Search, Route Tech, and Route Day filters.');
     return;
   }
 
@@ -4269,7 +4294,7 @@ function exportMechanicalAssessmentNotCompletedCsv() {
 }
 
 function exportMechanicalAssessmentRows(rowsToExport, filename) {
-  const headers = ['Customer','Location','Route Tech','Mechanical Assessment Completed','Assessment Date','Status','Review Reason'];
+  const headers = ['Customer','Location','Route Tech','Route Day','Mechanical Assessment Completed','Assessment Date','Status','Review Reason'];
   const rows = rowsToExport.map(row => {
     const completed = mechanicalAssessmentComplete(row);
     const review = mechanicalAssessmentNeedsReview(row);
@@ -4277,6 +4302,7 @@ function exportMechanicalAssessmentRows(rowsToExport, filename) {
       row.customer_name || row.customer || '',
       row.location || row.full_location_address || row.location_address || '',
       row.assigned_route_tech || row.route_tech || '',
+      row.service_day_name || '',
       completed ? 'Yes' : 'No',
       row.mechanical_assessment_date || row.assessment_date || row.completed_at || '',
       review ? 'Needs Review' : completed ? 'Completed' : 'Not Completed',
