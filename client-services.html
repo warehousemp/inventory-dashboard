@@ -209,6 +209,13 @@
       align-items: end;
     }
 
+    .client-cleanup-filter-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.25fr) repeat(3, minmax(180px, 0.85fr));
+      gap: 14px;
+      align-items: end;
+    }
+
     .button-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; margin-bottom: 8px; }
     .button-row button { width: auto; min-width: 180px; }
 
@@ -261,6 +268,7 @@
 
     .col-review { width: 130px; }
     .col-client { width: 230px; }
+    .col-route { width: 190px; }
     .col-email { width: 230px; }
     .col-phone { width: 140px; }
     .col-location { width: 310px; }
@@ -998,8 +1006,7 @@
       flex-wrap: wrap;
       margin-bottom: 14px;
     }
-
-    .mechanical-assessment-actions button {
+.mechanical-assessment-actions button {
       width: auto;
       min-width: 150px;
       margin: 0;
@@ -1109,6 +1116,7 @@
     @media (max-width: 1000px) {
       .info-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
       .three-column-form,
+      .client-cleanup-filter-grid,
       .revenue-entry-grid,
       .revenue-filter-grid { grid-template-columns: 1fr; }
       .revenue-summary-grid,
@@ -1977,7 +1985,7 @@
 
           <div id="missingDataSectionBody">
             <div class="status-note">
-              This page is the Client Services cleanup list. Use the filters below to find active Skimmer clients missing email or phone data. Missing email/phone is loaded directly from the dedicated Supabase cleanup view, so the worklist and the summary counts use the same database source of truth. Fix the actual customer record in Skimmer. After a fresh Skimmer Customer CSV is imported on the Client Marketing Sync page, this list will update.
+              This page is the Client Services cleanup list. Use the filters below to find active Skimmer clients missing email or phone data. Missing email/phone is loaded directly from the dedicated Supabase cleanup view, and Existing Route Client status is matched against the latest reviewed Route Assignments data. Fix the actual customer record in Skimmer. After a fresh Skimmer Customer CSV or Route Assignments PDF is imported, this list will update.
             </div>
 
             <div class="warning-note">
@@ -1998,8 +2006,7 @@
               <button class="secondary-btn" onclick="showAllCleanupRecords()">SHOW ALL CLEANUP RECORDS</button>
               <button class="admin-btn" onclick="loadClientWorklist()">REFRESH LIST</button>
             </div>
-
-            <div class="three-column-form">
+            <div class="client-cleanup-filter-grid">
               <div>
                 <label>Search:</label>
                 <input id="clientSearchInput" placeholder="Name, phone, address, customer code..." autocomplete="off" oninput="filterClientWorklist()">
@@ -2012,6 +2019,15 @@
                   <option value="MISSING_PHONE">Active Missing Phone</option>
                   <option value="ANY_MISSING">Any Active Missing Email or Phone</option>
                   <option value="ALL">All Cleanup Records</option>
+                </select>
+              </div>
+
+              <div>
+                <label>Client Type:</label>
+                <select id="clientTypeFilter" onchange="filterClientWorklist()">
+                  <option value="ALL">All Clients</option>
+                  <option value="ROUTE">Existing Route Clients</option>
+                  <option value="NON_ROUTE">NON-Route Clients</option>
                 </select>
               </div>
 
@@ -2032,6 +2048,7 @@
                   <tr>
                     <th class="col-review">Review</th>
                     <th class="col-client">Client</th>
+                    <th class="col-route">Route Client</th>
                     <th class="col-email">Email</th>
                     <th class="col-phone">Phone</th>
                     <th class="col-location">Service Location</th>
@@ -2044,7 +2061,7 @@
                   </tr>
                 </thead>
                 <tbody id="clientWorklistBody">
-                  <tr><td colspan="11">Loading client cleanup list...</td></tr>
+                  <tr><td colspan="12">Loading client cleanup list...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -2998,7 +3015,7 @@ function renderFallbackSummary(rows) {
     <div class="info-box"><div class="info-label">Total Clients</div><div class="info-value">${formatNumber(rows.length)}</div></div>
     <div class="info-box"><div class="info-label">Active Clients</div><div class="info-value">${formatNumber(active)}</div></div>
     <div class="info-box"><div class="info-label">Active Missing Email</div><div class="info-value">${formatNumber(missingEmail)}</div></div>
-    <div class="info-box"><div class="info-label">Active Missing Phone</div><div class="info-value">${formatNumber(missingPhone)}</div></div>
+<div class="info-box"><div class="info-label">Active Missing Phone</div><div class="info-value">${formatNumber(missingPhone)}</div></div>
     <div class="info-box"><div class="info-label">Last Skimmer Sync</div><div class="info-value">${escapeHTML(formatDateTime(lastSync) || 'Not synced')}</div></div>
   `;
 
@@ -3032,6 +3049,7 @@ function showActiveMissingPhones() {
 
 function showAllCleanupRecords() {
   document.getElementById('cleanupFilter').value = 'ALL';
+  document.getElementById('clientTypeFilter').value = 'ALL';
   document.getElementById('activeFilter').value = 'ALL';
   filterClientWorklist();
 }
@@ -3039,6 +3057,7 @@ function showAllCleanupRecords() {
 function filterClientWorklist(showMessage = true) {
   const searchValue = document.getElementById('clientSearchInput').value.trim().toLowerCase();
   const cleanupFilter = document.getElementById('cleanupFilter').value;
+  const clientTypeFilter = document.getElementById('clientTypeFilter')?.value || 'ALL';
   const activeFilter = document.getElementById('activeFilter').value;
 
   filteredClientWorklistData = (clientWorklistData || []).filter(row => {
@@ -3046,6 +3065,9 @@ function filterClientWorklist(showMessage = true) {
     // That database view already limits the list to active clients with missing email and/or phone.
     // Keep this active filter only as a safety check for future view changes.
     if (activeFilter === 'ACTIVE' && !isActiveRow(row)) return false;
+
+    if (clientTypeFilter === 'ROUTE' && !isRouteClient(row)) return false;
+    if (clientTypeFilter === 'NON_ROUTE' && isRouteClient(row)) return false;
 
     if (cleanupFilter === 'MISSING_EMAIL' && !hasActiveMissingEmail(row)) return false;
     if (cleanupFilter === 'MISSING_PHONE' && !hasActiveMissingPhone(row)) return false;
@@ -3065,7 +3087,12 @@ function filterClientWorklist(showMessage = true) {
         row.skimmer_customer_code,
         row.skimmer_location_code,
         row.lead_source,
-        row.tag_list
+        row.tag_list,
+        row.route_code,
+        row.route_tech_name,
+        row.route_service_day,
+        row.route_assignment_client_name,
+        row.route_assignment_service_address
       ].map(value => String(value || '').toLowerCase()).join(' ');
 
       if (!combined.includes(searchValue)) return false;
@@ -3086,7 +3113,7 @@ function renderClientWorklist(rows) {
   tbody.innerHTML = '';
 
   if (!rows || rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11">No client records match the current filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12">No client records match the current filters.</td></tr>';
     return;
   }
 
@@ -3098,6 +3125,7 @@ function renderClientWorklist(rows) {
         <strong>${escapeHTML(row.full_name || row.company_name || '')}</strong>
         ${row.company_name && row.company_name !== row.full_name ? `<span class="muted-small">${escapeHTML(row.company_name)}</span>` : ''}
       </td>
+      <td class="col-route wrap-cell">${renderRouteClientBadge(row)}</td>
       <td class="col-email">${escapeHTML(row.primary_email)}</td>
       <td class="col-phone">${escapeHTML(formatPhone(row.primary_phone))}</td>
       <td class="col-location wrap-cell">${escapeHTML(row.full_location_address || buildLocation(row))}</td>
@@ -3112,6 +3140,29 @@ function renderClientWorklist(rows) {
   });
 }
 
+
+function isRouteClient(row) {
+  if (!row) return false;
+  return isTrueValue(row.is_route_client);
+}
+
+function renderRouteClientBadge(row) {
+  if (!isRouteClient(row)) {
+    return '<span class="badge gray">NO</span>';
+  }
+
+  const routeCode = String(row.route_code || '').trim();
+  const routeTech = String(row.route_tech_name || '').trim();
+  const routeDay = String(row.route_service_day || '').trim();
+  const label = routeCode ? 'YES · ' + routeCode : 'YES';
+
+  const detailParts = [routeTech, routeDay].filter(Boolean);
+  const detail = detailParts.length
+    ? '<span class="muted-small">' + escapeHTML(detailParts.join(' · ')) + '</span>'
+    : '';
+
+  return '<span class="badge green">' + escapeHTML(label) + '</span>' + detail;
+}
 
 function normalizeCompareValue(value) {
   return String(value ?? '').trim().toLowerCase();
@@ -3998,7 +4049,7 @@ async function addRevenueTransaction() {
   if (!entryType) {
     setMessage('revenueMessage', 'error', "What's Being Entered In is required.");
     return;
-  }
+}
 
   if (!earnedBy) {
     setMessage('revenueMessage', 'error', 'Earned By is required.');
@@ -4998,7 +5049,7 @@ function printSelectedInspectionRequest() {
       <script>window.onload = function() { window.focus(); window.print(); };<\/script>
     </body>
     </html>
-  `;
+`;
 
   printWindow.document.open();
   printWindow.document.write(html);
@@ -5998,7 +6049,7 @@ function printCurrentSamsaraReport() {
     const bMissing = b.data_status !== 'MATCHED';
     if (aMissing !== bMissing) return aMissing ? 1 : -1;
     return Number(b.no_seat_belt || 0) - Number(a.no_seat_belt || 0) || a.driver_name.localeCompare(b.driver_name);
-  });
+});
   const weekStart = document.getElementById('samsaraWeekStartDate')?.value || '';
   const priorMobile = samsaraPriorSummary?.total_mobile_usage;
   const priorSeat = samsaraPriorSummary?.total_no_seat_belt;
