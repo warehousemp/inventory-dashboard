@@ -2969,6 +2969,7 @@
 <label>Cycle Count Mode:</label>
 <select id="cycleCountMode" onchange="handleCycleCountModeChange()">
 <option selected="" value="MAIN_WAREHOUSE_BY_CATEGORY">Main Warehouse by Category</option>
+<option value="MAIN_WAREHOUSE_BY_SHELF">Main Warehouse by Shelf Location</option>
 <option value="WHOLE_LOCATION">Whole Location Count</option>
 </select>
 <div class="part-description-display" id="cycleCountMainWarehouseLocationBox">
@@ -2979,6 +2980,11 @@
 <select id="cycleCountCategory">
 <option value="">Loading categories...</option>
 </select>
+</div>
+<div class="hidden" id="cycleCountShelfContainer">
+<label>Shelf Location:</label>
+<select id="cycleCountShelf"><option value="">Select shelf...</option></select>
+<div class="help-text">Counts every eligible part assigned to this shelf, including zero quantity parts and on-hand serialized items. Parts without a shelf assignment must be assigned before counting by shelf.</div>
 </div>
 <div class="hidden" id="cycleCountWholeLocationContainer">
 <label>Location to Count:</label>
@@ -3547,6 +3553,7 @@ const MAIN_WAREHOUSE_ID = "da67a9d7-b093-4e2d-b4fc-a8e05450e1e5";
 const WARRANTY_LOCATION_ID = "4d249b0c-5bd9-4dba-8b2f-d9eb24c4b2f1";
 const CYCLE_COUNT_MODE_CATEGORY = "MAIN_WAREHOUSE_BY_CATEGORY";
 const CYCLE_COUNT_MODE_LOCATION = "WHOLE_LOCATION";
+const CYCLE_COUNT_MODE_SHELF = "MAIN_WAREHOUSE_BY_SHELF";
 const WHOLE_LOCATION_CYCLE_COUNT_CATEGORY = "WHOLE_LOCATION";
 const WHOLE_LOCATION_COUNT_LOCATION_NAMES = [
   "Van 3",
@@ -7618,6 +7625,7 @@ async function loadMainWarehouseShelfLocations() {
 
   populateNewPartShelfLocationDropdown();
   populateShelfLabelShelfDropdown();
+  populateCycleCountShelfDropdown();
   renderWarehouseShelfLocationSetupTable();
   console.log('Main Warehouse Shelf Locations loaded:', mainWarehouseShelfLocationData.length);
 }
@@ -9563,7 +9571,7 @@ function formatDateOnly(value) {
 function getCycleCountSessionType(row) {
   return normalizeCycleCountRequirementValue(row?.cycle_count_category) === WHOLE_LOCATION_CYCLE_COUNT_CATEGORY
     ? 'Whole Location'
-    : 'Main Warehouse Category';
+    : String(row?.cycle_count_category || '').startsWith('SHELF:') ? 'Main Warehouse Shelf' : 'Main Warehouse Category';
 }
 
 function getCycleCountSessionRequirementName(row) {
@@ -9584,6 +9592,8 @@ function getPostedCycleCountRequirementKey(row) {
 
     return getCycleCountRequirementKey('LOCATION', locationName);
   }
+
+  if (getCycleCountSessionType(row) === 'Main Warehouse Shelf') return '';
 
   const category = String(row?.cycle_count_category || '').trim();
 
@@ -10427,7 +10437,7 @@ async function getOpenCycleCountSheetData(cycleCountId, statusBox = null, status
     countName: session?.count_name || '',
     mode: String(session?.cycle_count_category || '').toUpperCase() === WHOLE_LOCATION_CYCLE_COUNT_CATEGORY
       ? 'Whole Location Count'
-      : 'Main Warehouse by Category',
+      : String(session?.cycle_count_category || '').startsWith('SHELF:') ? 'Main Warehouse by Shelf Location' : 'Main Warehouse by Category',
     location: fallbackLocationName,
     category: session?.cycle_count_category || '',
     cycleCountId: cycleCountId
@@ -10683,6 +10693,29 @@ async function loadCycleCountCategories() {
   console.log('Cycle count categories loaded:', categories.length);
 }
 
+function populateCycleCountShelfDropdown() {
+  const select = document.getElementById('cycleCountShelf');
+  if (!select) return;
+  const old = select.value;
+  select.innerHTML = '<option value="">Select shelf...</option>';
+  (mainWarehouseShelfLocationData || []).forEach(shelf => {
+    const option = document.createElement('option');
+    option.value = shelf.id;
+    option.textContent = shelf.shelf_code;
+    select.appendChild(option);
+  });
+  if ([...select.options].some(option => option.value === old)) select.value = old;
+}
+
+function getSelectedCycleCountShelf() {
+  const id = document.getElementById('cycleCountShelf')?.value;
+  return mainWarehouseShelfLocationData.find(row => String(row.id) === String(id));
+}
+
+function isShelfCycleCountMode() {
+  return getCycleCountMode() === CYCLE_COUNT_MODE_SHELF;
+}
+
 function getCycleCountMode() {
   return document.getElementById('cycleCountMode')?.value || CYCLE_COUNT_MODE_CATEGORY;
 }
@@ -10694,7 +10727,7 @@ function isWholeLocationCycleCountMode() {
 function getCycleCountModeLabel() {
   return isWholeLocationCycleCountMode()
     ? 'Whole Location Count'
-    : 'Main Warehouse by Category';
+    : isShelfCycleCountMode() ? 'Main Warehouse by Shelf Location' : 'Main Warehouse by Category';
 }
 
 function getSelectedCycleCountLocationId() {
@@ -10808,25 +10841,29 @@ function handleCycleCountModeChange() {
   const isLocationMode = isWholeLocationCycleCountMode();
   const categoryContainer = document.getElementById('cycleCountCategoryContainer');
   const locationContainer = document.getElementById('cycleCountWholeLocationContainer');
+  const shelfContainer = document.getElementById('cycleCountShelfContainer');
+  const shelfSelect = document.getElementById('cycleCountShelf');
   const mainWarehouseBox = document.getElementById('cycleCountMainWarehouseLocationBox');
   const categorySelect = document.getElementById('cycleCountCategory');
   const locationSelect = document.getElementById('cycleCountLocation');
   const helpText = document.getElementById('cycleCountModeHelpText');
 
   if (categoryContainer) {
-    categoryContainer.classList.toggle('hidden', isLocationMode);
+    categoryContainer.classList.toggle('hidden', isLocationMode || isShelfCycleCountMode());
   }
 
   if (locationContainer) {
     locationContainer.classList.toggle('hidden', !isLocationMode);
   }
+  if (shelfContainer) shelfContainer.classList.toggle('hidden', !isShelfCycleCountMode());
+  if (shelfSelect) shelfSelect.disabled = !isShelfCycleCountMode();
 
   if (mainWarehouseBox) {
     mainWarehouseBox.classList.toggle('hidden', isLocationMode);
   }
 
   if (categorySelect) {
-    categorySelect.disabled = isLocationMode;
+    categorySelect.disabled = isLocationMode || isShelfCycleCountMode();
   }
 
   if (locationSelect) {
@@ -10836,7 +10873,7 @@ function handleCycleCountModeChange() {
   if (helpText) {
     helpText.textContent = isLocationMode
       ? 'Whole Location Count includes everything currently assigned to the selected location: non-serialized stock with quantity on hand greater than zero and on-hand serialized items.'
-      : 'Main Warehouse by Category uses the existing category workflow for Main Warehouse. Select a category, load the count sheet, then export it for physical counting.';
+      : isShelfCycleCountMode() ? 'Select one Main Warehouse shelf. Every assigned, eligible part on that shelf is included regardless of category.' : 'Main Warehouse by Category uses the existing category workflow for Main Warehouse. Select a category, load the count sheet, then export it for physical counting.';
   }
 
   cycleCountSheetData = [];
@@ -10845,7 +10882,7 @@ function handleCycleCountModeChange() {
   if (report) {
     report.textContent = isLocationMode
       ? 'Select Van 3, Van 4, Van 6, or WARRANTY and load count sheet...'
-      : 'Select a category and load count sheet...';
+      : isShelfCycleCountMode() ? 'Select a shelf and load count sheet...' : 'Select a category and load count sheet...';
   }
 }
 
@@ -11098,6 +11135,60 @@ async function fetchSerializedCountSheetRowsByLocation(locationName) {
   return data || [];
 }
 
+async function fetchShelfCycleCountSheetRows(shelf) {
+  const { data: assignments, error: assignmentError } = await client
+    .from('part_warehouse_shelf_assignments')
+    .select('part_id')
+    .eq('shelf_location_id', shelf.id)
+    .eq('inventory_location_id', MAIN_WAREHOUSE_ID)
+    .eq('active', true).eq('is_primary', true);
+  if (assignmentError) throw assignmentError;
+  const ids = [...new Set((assignments || []).map(row => row.part_id))];
+  if (!ids.length) return { quantityRows: [], serializedSheetRows: [], serializedPartIds: new Set() };
+
+  const parts = [], balances = [], disabledCategories = [];
+  const { data: disabled, error: categoryError } = await client
+    .from('inventory_part_categories').select('category_name')
+    .eq('cycle_count_enabled', false);
+  if (categoryError) throw categoryError;
+  disabledCategories.push(...(disabled || []).map(row => String(row.category_name || '').trim().toUpperCase()));
+  const excluded = new Set(disabledCategories);
+  for (let i = 0; i < ids.length; i += 100) {
+    const batch = ids.slice(i, i + 100);
+    const [partResult, balanceResult] = await Promise.all([
+      client.from('parts').select('id,part_number,description,category,cycle_count_category,is_serialized,unit_cost,active').in('id', batch),
+      client.from('stock_balances').select('part_id,quantity_on_hand').eq('location_id', MAIN_WAREHOUSE_ID).in('part_id', batch)
+    ]);
+    if (partResult.error) throw partResult.error;
+    if (balanceResult.error) throw balanceResult.error;
+    parts.push(...(partResult.data || []));
+    balances.push(...(balanceResult.data || []));
+  }
+  const eligible = parts.filter(p => p.active && String(p.cycle_count_category || '').trim()
+    && !excluded.has(String(p.category || '').trim().toUpperCase()));
+  const balanceById = new Map(balances.map(row => [String(row.part_id), Number(row.quantity_on_hand || 0)]));
+  const common = p => ({ line_type: 'QUANTITY', count_mode: CYCLE_COUNT_MODE_SHELF,
+    location_id: MAIN_WAREHOUSE_ID, part_id: p.id, part_number: p.part_number,
+    description: p.description || '', category: p.category || '',
+    cycle_count_category: p.cycle_count_category, unit_cost: p.unit_cost || 0,
+    location_name: 'Main Warehouse', shelf_location_id: shelf.id,
+    shelf_location: shelf.shelf_code, shelf_code: shelf.shelf_code,
+    shelf_sort_order: shelf.sort_order });
+  const quantityRows = eligible.filter(p => !p.is_serialized).map(p => ({ ...common(p),
+    quantity_on_hand: balanceById.get(String(p.id)) || 0 }));
+  const serialParts = eligible.filter(p => p.is_serialized);
+  const serialRows = await fetchSerializedCountSheetRows(serialParts, 'Main Warehouse');
+  const partByNumber = new Map(serialParts.map(p => [String(p.part_number || '').toUpperCase(), p]));
+  const serializedSheetRows = serialRows.map(row => {
+    const p = partByNumber.get(String(row.part_number || '').toUpperCase());
+    return { ...common(p), line_type: 'SERIALIZED', quantity_on_hand: 1,
+      serial_number_raw: row.serial_number_raw, serial_number_normalized: row.serial_number_normalized,
+      expected_status: 'on_hand' };
+  });
+  return { quantityRows, serializedSheetRows,
+    serializedPartIds: new Set(serialParts.map(p => String(p.id))) };
+}
+
 async function loadCycleCountSheet() {
   const selectedMode = getCycleCountMode();
   const selectedModeLabel = getCycleCountModeLabel();
@@ -11108,6 +11199,12 @@ async function loadCycleCountSheet() {
   if (selectedMode === CYCLE_COUNT_MODE_CATEGORY && !selectedCategory) {
     document.getElementById('cycleCountSheetReport').textContent =
       'Please select a cycle count category.';
+    cycleCountSheetData = [];
+    return;
+  }
+
+  if (selectedMode === CYCLE_COUNT_MODE_SHELF && !getSelectedCycleCountShelf()) {
+    document.getElementById('cycleCountSheetReport').textContent = 'Please select a shelf location.';
     cycleCountSheetData = [];
     return;
   }
@@ -11228,6 +11325,8 @@ async function loadCycleCountSheet() {
           shelf_sort_order: viewRow.shelf_sort_order ?? null
         };
       });
+    } else if (selectedMode === CYCLE_COUNT_MODE_SHELF) {
+      ({ quantityRows, serializedSheetRows, serializedPartIds } = await fetchShelfCycleCountSheetRows(getSelectedCycleCountShelf()));
     } else {
       const stockRows = await fetchNonSerializedStockRowsForLocation(selectedLocationId);
       const serializedRows = await fetchSerializedCountSheetRowsByLocation(selectedLocationName);
@@ -11297,7 +11396,8 @@ async function loadCycleCountSheet() {
 
   renderCycleCountSheetPreview(
     selectedModeLabel,
-    selectedMode === CYCLE_COUNT_MODE_LOCATION ? WHOLE_LOCATION_CYCLE_COUNT_CATEGORY : selectedCategory,
+    selectedMode === CYCLE_COUNT_MODE_LOCATION ? WHOLE_LOCATION_CYCLE_COUNT_CATEGORY :
+      selectedMode === CYCLE_COUNT_MODE_SHELF ? `SHELF:${getSelectedCycleCountShelf().shelf_code}` : selectedCategory,
     selectedLocationName,
     quantityRows,
     serializedSheetRows,
@@ -11862,7 +11962,7 @@ function getCurrentCycleCountSheetMetadata() {
   const selectedMode = getCycleCountMode();
   const selectedCategory = selectedMode === CYCLE_COUNT_MODE_LOCATION
     ? WHOLE_LOCATION_CYCLE_COUNT_CATEGORY
-    : document.getElementById('cycleCountCategory').value;
+    : selectedMode === CYCLE_COUNT_MODE_SHELF ? `SHELF:${getSelectedCycleCountShelf()?.shelf_code || ''}` : document.getElementById('cycleCountCategory').value;
   const selectedLocationName = getSelectedCycleCountLocationName();
 
   return {
@@ -11886,7 +11986,7 @@ async function exportCycleCountSheetCSV() {
   const selectedMode = getCycleCountMode();
   const selectedCategory = selectedMode === CYCLE_COUNT_MODE_LOCATION
     ? WHOLE_LOCATION_CYCLE_COUNT_CATEGORY
-    : document.getElementById('cycleCountCategory').value;
+    : selectedMode === CYCLE_COUNT_MODE_SHELF ? `SHELF:${getSelectedCycleCountShelf()?.shelf_code || ''}` : document.getElementById('cycleCountCategory').value;
   const selectedLocationName = getSelectedCycleCountLocationName();
 
   const hasData = await ensureCycleCountSheetDataLoaded();
@@ -11902,8 +12002,8 @@ async function exportCycleCountSheetCSV() {
     category: selectedCategory
   });
   const csv = buildCleanCountSheetCSV(rows);
-  const safeMode = selectedMode === CYCLE_COUNT_MODE_LOCATION ? 'whole_location' : 'main_warehouse_category';
-  const safeSelection = cleanFilename(selectedMode === CYCLE_COUNT_MODE_LOCATION ? selectedLocationName : selectedCategory || 'category');
+  const safeMode = selectedMode === CYCLE_COUNT_MODE_LOCATION ? 'whole_location' : selectedMode === CYCLE_COUNT_MODE_SHELF ? 'main_warehouse_shelf' : 'main_warehouse_category';
+  const safeSelection = cleanFilename(selectedMode === CYCLE_COUNT_MODE_LOCATION ? selectedLocationName : selectedMode === CYCLE_COUNT_MODE_SHELF ? getSelectedCycleCountShelf()?.shelf_code : selectedCategory || 'category');
 
   downloadCSV(csv, `cycle_count_sheet_${safeMode}_${safeSelection}.csv`);
 }
@@ -11912,7 +12012,7 @@ async function printCycleCountSheet() {
   const selectedMode = getCycleCountMode();
   const selectedCategory = selectedMode === CYCLE_COUNT_MODE_LOCATION
     ? WHOLE_LOCATION_CYCLE_COUNT_CATEGORY
-    : document.getElementById('cycleCountCategory').value;
+    : selectedMode === CYCLE_COUNT_MODE_SHELF ? `SHELF:${getSelectedCycleCountShelf()?.shelf_code || ''}` : document.getElementById('cycleCountCategory').value;
   const selectedLocationName = getSelectedCycleCountLocationName();
   const report = document.getElementById('cycleCountSheetReport');
   const hasData = await ensureCycleCountSheetDataLoaded();
@@ -11959,6 +12059,11 @@ async function createCycleCountSession() {
     return;
   }
 
+  if (selectedMode === CYCLE_COUNT_MODE_SHELF && !getSelectedCycleCountShelf()) {
+    document.getElementById('cycleCountSessionResult').textContent = 'Please select a shelf location.';
+    return;
+  }
+
   if (selectedMode === CYCLE_COUNT_MODE_LOCATION && !selectedLocationId) {
     document.getElementById('cycleCountSessionResult').textContent =
       'Please select Van 3, Van 4, Van 6, or WARRANTY before creating a Whole Location Count.';
@@ -11993,6 +12098,15 @@ async function createCycleCountSession() {
 
     data = response.data;
     error = response.error;
+  } else if (selectedMode === CYCLE_COUNT_MODE_SHELF) {
+    const response = await client.rpc('create_cycle_count_by_shelf', {
+      p_count_name: countName,
+      p_shelf_location_id: getSelectedCycleCountShelf().id,
+      p_started_by: startedBy,
+      p_notes: notes || null
+    });
+    data = response.data;
+    error = response.error;
   } else {
     const response = await client.rpc('create_cycle_count_by_category', {
       p_count_name: countName,
@@ -12015,7 +12129,7 @@ async function createCycleCountSession() {
 
   const activeCategory = selectedMode === CYCLE_COUNT_MODE_LOCATION
     ? WHOLE_LOCATION_CYCLE_COUNT_CATEGORY
-    : selectedCategory;
+    : selectedMode === CYCLE_COUNT_MODE_SHELF ? `SHELF:${getSelectedCycleCountShelf().shelf_code}` : selectedCategory;
 
   document.getElementById('activeCycleCountIdBox').textContent =
     `Active Cycle Count ID: ${activeCycleCountId}\nMode: ${getCycleCountModeLabel()}\nLocation: ${selectedLocationName}\nCategory: ${activeCategory}`;
