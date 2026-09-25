@@ -1048,6 +1048,7 @@
 
     <div class="button-row">
       <button class="secondary-btn" onclick="exportSelectedCycleCountReviewCSV()">EXPORT SELECTED REVIEW CSV</button>
+      <button class="secondary-btn" onclick="printSelectedCycleCountReview()">PRINT / SAVE AS PDF</button>
     </div>
 
     <div class="table-wrap">
@@ -1737,6 +1738,386 @@ async function exportSelectedCycleCountReviewCSV() {
   );
 }
 
+async function printSelectedCycleCountReview() {
+  if (!selectedCycleCount) {
+    setMessage('reviewQueueMessage', 'error', 'Open a cycle count before printing the selected review.');
+    return;
+  }
+
+  // Open the print window immediately from the button click so browsers do not block it as a popup.
+  const printWindow = window.open('', '_blank', 'width=1400,height=900');
+
+  if (!printWindow) {
+    setMessage(
+      'reviewQueueMessage',
+      'error',
+      'The print window was blocked by the browser. Allow pop-ups for this site and try again.'
+    );
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Preparing Cycle Count Review...</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          padding: 28px;
+          color: #1f2933;
+        }
+      </style>
+    </head>
+    <body>
+      <h2>Preparing Cycle Count Review...</h2>
+      <p>Please wait while the selected cycle count detail is loaded.</p>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
+
+  if (!selectedCycleCountDetailData || selectedCycleCountDetailData.length === 0) {
+    await loadSelectedCycleCountReviewDetail(selectedCycleCount.cycle_count_id);
+  }
+
+  if (!selectedCycleCountDetailData || selectedCycleCountDetailData.length === 0) {
+    printWindow.close();
+    setMessage('reviewQueueMessage', 'error', 'No selected cycle count detail data is available to print.');
+    return;
+  }
+
+  const count = selectedCycleCount;
+  const printedAt = new Date().toLocaleString();
+
+  const varianceClass = value => {
+    const number = Number(value || 0);
+    if (number < 0) return 'negative';
+    if (number > 0) return 'positive';
+    return 'neutral';
+  };
+
+  const detailRows = selectedCycleCountDetailData.map(row => {
+    const varianceQty = Number(row.variance_quantity || 0);
+    const rowClass = varianceQty !== 0 ? 'variance-row' : '';
+
+    return `
+      <tr class="${rowClass}">
+        <td>${escapeHTML(row.part_number)}</td>
+        <td class="description-cell">${escapeHTML(row.description || row.part_description || '')}</td>
+        <td>${escapeHTML(row.line_type || '')}</td>
+        <td>${escapeHTML(row.serial_number_raw || row.serial_number_normalized || '')}</td>
+        <td>${escapeHTML(row.count_result || '')}</td>
+        <td class="number-cell">${escapeHTML(formatNumber(row.system_quantity))}</td>
+        <td class="number-cell">${escapeHTML(formatNumber(row.counted_quantity))}</td>
+        <td class="number-cell ${varianceClass(row.variance_quantity)}">${escapeHTML(formatNumber(row.variance_quantity))}</td>
+        <td class="number-cell">${escapeHTML(formatCurrency(row.unit_cost))}</td>
+        <td class="number-cell ${varianceClass(row.variance_value)}">${escapeHTML(formatCurrency(row.variance_value))}</td>
+        <td>${escapeHTML(row.counted_by)}</td>
+        <td>${escapeHTML(formatDateTime(row.counted_at))}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const reportHtml = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${escapeHTML(count.count_name || 'Cycle Count Review')} - Cycle Count Review</title>
+      <style>
+        @page {
+          size: Letter landscape;
+          margin: 0.35in;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          color: #1f2933;
+          background: #ffffff;
+          font-size: 10px;
+        }
+
+        .print-actions {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+
+        .print-actions button {
+          border: 0;
+          border-radius: 6px;
+          background: #0b3c5d;
+          color: #ffffff;
+          padding: 10px 16px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .report-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 18px;
+          border-bottom: 3px solid #0b3c5d;
+          padding-bottom: 10px;
+          margin-bottom: 12px;
+        }
+
+        .company-name {
+          font-size: 18px;
+          font-weight: 800;
+          color: #0b3c5d;
+          margin: 0 0 3px;
+        }
+
+        .report-title {
+          font-size: 15px;
+          font-weight: 700;
+          margin: 0;
+        }
+
+        .printed-at {
+          text-align: right;
+          color: #475467;
+          line-height: 1.4;
+        }
+
+        .summary-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 7px;
+          margin-bottom: 12px;
+        }
+
+        .summary-box {
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          padding: 7px 8px;
+          min-height: 48px;
+        }
+
+        .summary-label {
+          color: #64748b;
+          font-size: 8px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.25px;
+          margin-bottom: 4px;
+        }
+
+        .summary-value {
+          font-size: 10px;
+          font-weight: 700;
+          overflow-wrap: anywhere;
+        }
+
+        .negative {
+          color: #b42318;
+          font-weight: 800;
+        }
+
+        .positive {
+          color: #0b3c5d;
+          font-weight: 800;
+        }
+
+        .neutral {
+          color: #475467;
+          font-weight: 700;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+        }
+
+        thead {
+          display: table-header-group;
+        }
+
+        th {
+          background: #dcfce7;
+          color: #04233c;
+          border: 1px solid #aebdca;
+          padding: 5px 4px;
+          font-size: 8px;
+          line-height: 1.15;
+          text-align: left;
+          vertical-align: bottom;
+          white-space: normal;
+        }
+
+        td {
+          border: 1px solid #d8e0e7;
+          padding: 4px;
+          font-size: 8px;
+          line-height: 1.2;
+          vertical-align: top;
+          white-space: normal;
+          overflow-wrap: anywhere;
+        }
+
+        tr {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        .variance-row td {
+          background: #fff7ed;
+        }
+
+        .description-cell {
+          width: 20%;
+        }
+
+        .number-cell {
+          text-align: right;
+          white-space: nowrap;
+        }
+
+        .footer-note {
+          margin-top: 8px;
+          color: #667085;
+          font-size: 8px;
+        }
+
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          .print-actions {
+            display: none !important;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="print-actions">
+        <button onclick="window.print()">PRINT / SAVE AS PDF</button>
+      </div>
+
+      <div class="report-header">
+        <div>
+          <div class="company-name">Molinari Pools</div>
+          <div class="report-title">Selected Cycle Count Review</div>
+        </div>
+        <div class="printed-at">
+          <strong>Printed:</strong><br>
+          ${escapeHTML(printedAt)}
+        </div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-box">
+          <div class="summary-label">Cycle Count ID</div>
+          <div class="summary-value">${escapeHTML(count.cycle_count_id)}</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Count Name</div>
+          <div class="summary-value">${escapeHTML(count.count_name)}</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Category / Shelf</div>
+          <div class="summary-value">${escapeHTML(count.cycle_count_category)}</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Status</div>
+          <div class="summary-value">${escapeHTML(count.status)}</div>
+        </div>
+
+        <div class="summary-box">
+          <div class="summary-label">Started By</div>
+          <div class="summary-value">${escapeHTML(count.started_by)}</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Started At</div>
+          <div class="summary-value">${escapeHTML(formatDateTime(count.started_at))}</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Total Variance Qty</div>
+          <div class="summary-value ${varianceClass(count.total_variance_quantity)}">
+            ${escapeHTML(formatNumber(count.total_variance_quantity))}
+          </div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-label">Total Variance Value</div>
+          <div class="summary-value ${varianceClass(count.total_variance_value)}">
+            ${escapeHTML(formatCurrency(count.total_variance_value))}
+          </div>
+        </div>
+      </div>
+
+      <table>
+        <colgroup>
+          <col style="width:9%">
+          <col style="width:19%">
+          <col style="width:7%">
+          <col style="width:10%">
+          <col style="width:7%">
+          <col style="width:6%">
+          <col style="width:6%">
+          <col style="width:6%">
+          <col style="width:7%">
+          <col style="width:8%">
+          <col style="width:7%">
+          <col style="width:8%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Part Number</th>
+            <th>Description</th>
+            <th>Line Type</th>
+            <th>Serial Number</th>
+            <th>Count Result</th>
+            <th>System Qty</th>
+            <th>Counted Qty</th>
+            <th>Variance Qty</th>
+            <th>Unit Cost</th>
+            <th>Variance Value</th>
+            <th>Counted By</th>
+            <th>Counted At</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${detailRows}
+        </tbody>
+      </table>
+
+      <div class="footer-note">
+        Molinari Pools Inventory Administration — Cycle Count Review
+      </div>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(reportHtml);
+  printWindow.document.close();
+
+  setMessage(
+    'reviewQueueMessage',
+    'success',
+    'Print view opened. Choose your printer or select Save as PDF in the browser print dialog.'
+  );
+
+  window.setTimeout(() => {
+    printWindow.focus();
+    printWindow.print();
+  }, 300);
+}
+
 async function markSelectedCycleCountForRecount() {
   if (!selectedCycleCount) {
     setMessage('reviewActionMessage', 'error', 'Open a cycle count from the review queue before marking it for recount.');
@@ -1920,7 +2301,7 @@ function clearSelectedCycleCount() {
   renderSelectedCycleCountInfo(null);
 
   const tbody = document.getElementById('reviewDetailBody');
-  tbody.innerHTML = '<tr><td colspan="9">Open a cycle count from the queue to view line-level variances.</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="12">Open a cycle count from the queue to view line-level variances.</td></tr>';
 }
 
 
