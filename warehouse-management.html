@@ -2767,11 +2767,12 @@
     </div>
 <details class="cycle-panel" id="cycleCountCompliancePanel" open="">
 <summary>30-Day Cycle Count Compliance</summary>
-<h3>Rolling 30-Day Cycle Count Checklist</h3>
+<h3>Rolling 30-Day Shelf &amp; Location Cycle Count Checklist</h3>
 <div class="status-note">
-      This is an automatic read-only checklist. Every Main Warehouse cycle-count category and each whole-location count
-      (Van 3, Van 4, Van 6, and WARRANTY) must be POSTED once every 30 days. Open, Ready for Review, Recount Required,
-      and Voided sessions do not reset the 30-day clock.
+      This is an automatic read-only checklist. Every active Main Warehouse Shelf Location that contains eligible cycle-count inventory,
+      plus each whole-location count (Van 3, Van 4, Van 6, and WARRANTY), must be POSTED once every 30 days.
+      A POSTED Shelf Location count resets that shelf's 30-day clock. Main Warehouse Category counts remain available for targeted counting,
+      but they do not reset the Shelf Location compliance clock. Open, Ready for Review, Recount Required, and Voided sessions do not reset the clock.
     </div>
 <div class="button-row">
 <button class="cycle-btn" onclick="loadCycleCountCompliance()">REFRESH 30-DAY CHECKLIST</button>
@@ -2808,7 +2809,7 @@
 <tr>
 <th>Status</th>
 <th>Count Type</th>
-<th>Required Count</th>
+<th>Shelf / Location</th>
 <th>Last Posted</th>
 <th>Days Since</th>
 <th>Next Due</th>
@@ -9569,21 +9570,47 @@ function formatDateOnly(value) {
 }
 
 function getCycleCountSessionType(row) {
-  return normalizeCycleCountRequirementValue(row?.cycle_count_category) === WHOLE_LOCATION_CYCLE_COUNT_CATEGORY
-    ? 'Whole Location'
-    : String(row?.cycle_count_category || '').startsWith('SHELF:') ? 'Main Warehouse Shelf' : 'Main Warehouse Category';
+  const normalizedCategory = normalizeCycleCountRequirementValue(row?.cycle_count_category);
+
+  if (normalizedCategory === WHOLE_LOCATION_CYCLE_COUNT_CATEGORY) {
+    return 'Whole Location';
+  }
+
+  if (normalizedCategory.startsWith('SHELF:')) {
+    return 'Main Warehouse Shelf';
+  }
+
+  return 'Main Warehouse Category';
+}
+
+function getShelfCodeFromCycleCountRow(row) {
+  const rawCategory = String(row?.cycle_count_category || '').trim();
+
+  if (!rawCategory || !normalizeCycleCountRequirementValue(rawCategory).startsWith('SHELF:')) {
+    return '';
+  }
+
+  return rawCategory.replace(/^SHELF:/i, '').trim();
 }
 
 function getCycleCountSessionRequirementName(row) {
-  if (getCycleCountSessionType(row) === 'Whole Location') {
+  const sessionType = getCycleCountSessionType(row);
+
+  if (sessionType === 'Whole Location') {
     return String(row?.location_name || '').trim() || 'Whole Location';
+  }
+
+  if (sessionType === 'Main Warehouse Shelf') {
+    return getShelfCodeFromCycleCountRow(row) || 'Unassigned Shelf';
   }
 
   return String(row?.cycle_count_category || '').trim() || 'Unassigned Category';
 }
 
 function getPostedCycleCountRequirementKey(row) {
-  if (getCycleCountSessionType(row) === 'Whole Location') {
+  const sessionType = getCycleCountSessionType(row);
+
+  if (sessionType === 'Whole Location') {
     const locationName = String(row?.location_name || '').trim();
 
     if (!locationName) {
@@ -9593,29 +9620,91 @@ function getPostedCycleCountRequirementKey(row) {
     return getCycleCountRequirementKey('LOCATION', locationName);
   }
 
-  if (getCycleCountSessionType(row) === 'Main Warehouse Shelf') return '';
+  if (sessionType === 'Main Warehouse Shelf') {
+    const shelfCode = getShelfCodeFromCycleCountRow(row);
 
-  const category = String(row?.cycle_count_category || '').trim();
+    if (!shelfCode) {
+      return '';
+    }
 
-  if (!category) {
-    return '';
+    return getCycleCountRequirementKey('SHELF', shelfCode);
   }
 
-  return getCycleCountRequirementKey('CATEGORY', category);
+  // Category counts remain available as an operational counting method,
+  // but the rolling 30-day Main Warehouse compliance checklist is shelf-based.
+  return '';
 }
 
-function buildCycleCountRequirements(categories, countLocations) {
-  const requirements = [];
-  const seenKeys = new Set();
+async function fetchCycleCountComplianceShelves(activeCategories) {
+  if (!mainWarehouseShelfLocationData || mainWarehouseShelfLocationData.length === 0) {
+    await loadMainWarehouseShelfLocations();
+  }
 
-  (categories || []).forEach(category => {
-    const name = String(category || '').trim();
+  const activeCategorySet = new Set(
+    (activeCategories || [])
+      .map(category => normalizeCycleCountRequirementValue(category))
+      .filter(Boolean)
+  );
 
-    if (!name || normalizeCycleCountRequirementValue(name) === WHOLE_LOCATION_CYCLE_COUNT_CATEGORY) {
+  let assignedRows = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  while (true) {
+    const { data, error } = await client
+      .from('main_warehouse_part_shelf_status_view')
+      .select('part_number, category, shelf_location, shelf_assignment_status')
+      .eq('shelf_assignment_status', 'ASSIGNED')
+      .range(from, from + batchSize - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      break;
+    }
+
+    assignedRows = assignedRows.concat(data);
+
+    if (data.length < batchSize) {
+      break;
+    }
+
+    from += batchSize;
+  }
+
+  const eligibleShelfCodes = new Set();
+
+  assignedRows.forEach(row => {
+    const category = normalizeCycleCountRequirementValue(row?.category);
+    const shelfCode = normalizeShelfLocationCode(row?.shelf_location);
+
+    if (!shelfCode || !category || !activeCategorySet.has(category)) {
       return;
     }
 
-    const key = getCycleCountRequirementKey('CATEGORY', name);
+    eligibleShelfCodes.add(shelfCode);
+  });
+
+  return (mainWarehouseShelfLocationData || []).filter(shelf => {
+    const shelfCode = normalizeShelfLocationCode(getShelfLocationCode(shelf));
+    return shelfCode && eligibleShelfCodes.has(shelfCode);
+  });
+}
+
+function buildCycleCountRequirements(shelves, countLocations) {
+  const requirements = [];
+  const seenKeys = new Set();
+
+  (shelves || []).forEach((shelf, index) => {
+    const name = String(getShelfLocationCode(shelf) || '').trim();
+
+    if (!name) {
+      return;
+    }
+
+    const key = getCycleCountRequirementKey('SHELF', name);
 
     if (seenKeys.has(key)) {
       return;
@@ -9624,12 +9713,15 @@ function buildCycleCountRequirements(categories, countLocations) {
     seenKeys.add(key);
     requirements.push({
       key,
-      requirement_type: 'Main Warehouse Category',
-      requirement_name: name
+      requirement_type: 'Main Warehouse Shelf',
+      requirement_name: name,
+      requirement_sort_order: Number.isFinite(Number(shelf?.sort_order))
+        ? Number(shelf.sort_order)
+        : index + 1
     });
   });
 
-  (countLocations || []).forEach(location => {
+  (countLocations || []).forEach((location, index) => {
     const name = String(location?.location_name || '').trim();
 
     if (!name) {
@@ -9646,7 +9738,8 @@ function buildCycleCountRequirements(categories, countLocations) {
     requirements.push({
       key,
       requirement_type: 'Whole Location',
-      requirement_name: name
+      requirement_name: name,
+      requirement_sort_order: 100000 + index
     });
   });
 
@@ -9739,7 +9832,14 @@ function buildCycleCountComplianceRows(requirements, postedRows) {
       return aDue - bDue;
     }
 
-    return a.requirement_name.localeCompare(b.requirement_name);
+    const aSortOrder = Number(a.requirement_sort_order ?? 999999);
+    const bSortOrder = Number(b.requirement_sort_order ?? 999999);
+
+    if (aSortOrder !== bSortOrder) {
+      return aSortOrder - bSortOrder;
+    }
+
+    return a.requirement_name.localeCompare(b.requirement_name, undefined, { numeric: true });
   });
 }
 
@@ -9940,9 +10040,9 @@ async function loadCycleCountCompliance() {
   const complianceBody = document.getElementById('cycleCountComplianceTableBody');
   const historyBody = document.getElementById('completedCycleCountHistoryTableBody');
 
-  if (complianceStatus) complianceStatus.textContent = 'Loading 30-day cycle count compliance...';
+  if (complianceStatus) complianceStatus.textContent = 'Loading 30-day Shelf Location compliance...';
   if (historyStatus) historyStatus.textContent = 'Loading completed cycle count history...';
-  if (complianceBody) complianceBody.innerHTML = '<tr><td colspan="8">Loading 30-day cycle count compliance...</td></tr>';
+  if (complianceBody) complianceBody.innerHTML = '<tr><td colspan="8">Loading 30-day Shelf Location compliance...</td></tr>';
   if (historyBody) historyBody.innerHTML = '<tr><td colspan="9">Loading completed cycle count history...</td></tr>';
 
   const [categoryResponse, locationResponse, postedResponse] = await Promise.all([
@@ -9991,11 +10091,36 @@ async function loadCycleCountCompliance() {
     (locationResponse.data || []).filter(location => location.active === true && isAllowedWholeLocationCountLocation(location))
   );
 
+  let complianceShelves = [];
+
+  try {
+    complianceShelves = await fetchCycleCountComplianceShelves(categories);
+  } catch (error) {
+    cycleCountComplianceData = [];
+    completedCycleCountHistoryData = (postedResponse.data || [])
+      .filter(row => getPostedCycleCountDate(row))
+      .sort((a, b) => getPostedCycleCountDate(b) - getPostedCycleCountDate(a));
+
+    renderCycleCountComplianceSummary();
+    renderCycleCountComplianceTable();
+    populateCompletedCycleCountMonthFilter();
+    renderCompletedCycleCountHistory();
+
+    const message = `Unable to load Shelf Location compliance requirements: ${error.message}`;
+
+    if (complianceStatus) complianceStatus.textContent = message;
+    if (historyStatus) {
+      historyStatus.textContent = `${formatNumber(completedCycleCountHistoryData.length)} completed POSTED cycle count(s) loaded.`;
+    }
+
+    return;
+  }
+
   const postedRows = (postedResponse.data || [])
     .filter(row => getPostedCycleCountDate(row))
     .sort((a, b) => getPostedCycleCountDate(b) - getPostedCycleCountDate(a));
 
-  const requirements = buildCycleCountRequirements(categories, countLocations);
+  const requirements = buildCycleCountRequirements(complianceShelves, countLocations);
   cycleCountComplianceData = buildCycleCountComplianceRows(requirements, postedRows);
   completedCycleCountHistoryData = postedRows;
 
@@ -10005,14 +10130,18 @@ async function loadCycleCountCompliance() {
   renderCompletedCycleCountHistory();
 
   if (complianceStatus) {
+    const shelfRequirementCount = cycleCountComplianceData.filter(row => row.requirement_type === 'Main Warehouse Shelf').length;
+    const wholeLocationRequirementCount = cycleCountComplianceData.filter(row => row.requirement_type === 'Whole Location').length;
     const actionRequiredCount = cycleCountComplianceData.filter(row => ['OVERDUE', 'DUE TODAY', 'NEVER COMPLETED'].includes(row.status)).length;
     const dueSoonCount = cycleCountComplianceData.filter(row => row.status === 'DUE SOON').length;
 
     complianceStatus.textContent =
-      `Required Cycle Counts: ${formatNumber(cycleCountComplianceData.length)}\n` +
+      `Main Warehouse Shelves Requiring 30-Day Counts: ${formatNumber(shelfRequirementCount)}\n` +
+      `Whole Locations Requiring 30-Day Counts: ${formatNumber(wholeLocationRequirementCount)}\n` +
       `Action Required Now: ${formatNumber(actionRequiredCount)}\n` +
-      `Due Soon (21–29 days since last POSTED count): ${formatNumber(dueSoonCount)}\n\n` +
-      `The next due date is always 30 calendar days after the most recent POSTED completion date.`;
+      `Due Soon (21–29 days since last POSTED shelf/location count): ${formatNumber(dueSoonCount)}\n\n` +
+      `A POSTED Shelf Location count resets that shelf for 30 calendar days. ` +
+      `Main Warehouse Category counts remain available for targeted counts, but do not reset a shelf's 30-day compliance clock.`;
   }
 }
 
