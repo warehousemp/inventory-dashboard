@@ -180,11 +180,6 @@
       ],
       links: [
         {
-          label: 'Service Manager Dashboard',
-          href: 'service-manager-dashboard.html',
-          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
           label: 'Performance Hub',
           href: 'performance-hub.html',
           roles: ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
@@ -231,6 +226,23 @@
           label: 'RSO Tracking',
           href: 'rso-tracking.html',
           roles: ['ADMIN', 'SYSTEM_ADMIN']
+        }
+      ]
+    },
+
+    {
+      label: 'Service Analytics',
+      roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN'],
+      links: [
+        {
+          label: 'Service Manager Dashboard',
+          href: 'service-manager-dashboard.html',
+          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'Route Profitability',
+          href: 'route-profitability.html',
+          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
