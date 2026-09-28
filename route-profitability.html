@@ -1,0 +1,1068 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Molinari Pools - Route Profitability</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="shared-navigation.css">
+  <style>
+    :root {
+      --navy:#173f67; --navy-dark:#0d2b49; --blue:#1f6fa9; --blue-soft:#eaf4fb;
+      --green:#157347; --green-soft:#e8f6ee; --amber:#9a6700; --amber-soft:#fff4ce;
+      --red:#b42318; --red-soft:#feeceb; --gray-50:#f8fafc; --gray-100:#eef2f6;
+      --gray-200:#d8e0e8; --gray-500:#667085; --gray-700:#344054; --text:#172b3a;
+      --white:#fff; --shadow:0 8px 24px rgba(13,43,73,.08);
+    }
+
+    * { box-sizing:border-box; }
+
+    body {
+      margin:0;
+      color:var(--text);
+      background:#f3f6f9;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+
+    button,select,input { font:inherit; }
+    button { cursor:pointer; }
+    .hidden { display:none !important; }
+
+    .page-wrapper {
+      width:min(1560px,calc(100% - 32px));
+      margin:24px auto 56px;
+    }
+
+    .page-header {
+      display:flex;
+      justify-content:space-between;
+      gap:20px;
+      align-items:flex-start;
+      margin-bottom:18px;
+    }
+
+    .eyebrow {
+      color:var(--blue);
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      font-size:.76rem;
+    }
+
+    h1 {
+      margin:4px 0 6px;
+      color:var(--navy-dark);
+      font-size:clamp(1.65rem,3vw,2.35rem);
+    }
+
+    .subtitle {
+      margin:0;
+      color:var(--gray-500);
+      max-width:980px;
+      line-height:1.5;
+    }
+
+    .header-actions {
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .primary-btn,.secondary-btn {
+      border-radius:8px;
+      padding:10px 15px;
+      font-weight:750;
+      border:1px solid transparent;
+      transition:transform .1s ease,box-shadow .1s ease;
+    }
+
+    .primary-btn { color:var(--white); background:var(--navy); }
+
+    .secondary-btn {
+      color:var(--navy);
+      background:var(--white);
+      border-color:var(--gray-200);
+    }
+
+    button:hover:not(:disabled) {
+      transform:translateY(-1px);
+      box-shadow:0 5px 12px rgba(13,43,73,.11);
+    }
+
+    button:disabled {
+      cursor:not-allowed;
+      opacity:.55;
+    }
+
+    .panel {
+      background:var(--white);
+      border:1px solid var(--gray-200);
+      border-radius:12px;
+      box-shadow:var(--shadow);
+      margin-bottom:16px;
+      overflow:hidden;
+    }
+
+    .panel-header {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:14px;
+      padding:14px 17px;
+      border-bottom:1px solid var(--gray-200);
+    }
+
+    .panel-header h2 {
+      margin:0;
+      color:var(--navy-dark);
+      font-size:1.05rem;
+    }
+
+    .panel-body { padding:17px; }
+
+    .filters {
+      display:grid;
+      grid-template-columns:repeat(4,minmax(180px,1fr)) auto;
+      gap:12px;
+      align-items:end;
+    }
+
+    .field {
+      display:grid;
+      gap:6px;
+    }
+
+    .field label {
+      font-size:.76rem;
+      color:var(--gray-500);
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .field input {
+      width:100%;
+      border:1px solid #cbd5df;
+      border-radius:8px;
+      padding:10px 11px;
+      color:var(--text);
+      background:var(--white);
+    }
+
+    .filter-actions {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .helper {
+      margin-top:12px;
+      color:var(--gray-500);
+      font-size:.82rem;
+      line-height:1.45;
+    }
+
+    .status-bar {
+      min-height:44px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      border-radius:8px;
+      padding:10px 13px;
+      background:var(--gray-50);
+      border:1px solid var(--gray-200);
+      color:var(--gray-700);
+      margin-top:12px;
+    }
+
+    .status-bar.success {
+      background:var(--green-soft);
+      border-color:#a7d9bc;
+      color:var(--green);
+    }
+
+    .status-bar.error {
+      background:var(--red-soft);
+      border-color:#f2b8b5;
+      color:var(--red);
+    }
+
+    .status-bar.working {
+      background:var(--blue-soft);
+      border-color:#b8d9ee;
+      color:#174b70;
+    }
+
+    .status-bar.warning {
+      background:var(--amber-soft);
+      border-color:#ead28c;
+      color:#7a5300;
+    }
+
+    .metric-grid {
+      display:grid;
+      grid-template-columns:repeat(4,minmax(190px,1fr));
+      gap:12px;
+      margin-bottom:16px;
+    }
+
+    .metric-card {
+      background:var(--white);
+      border:1px solid var(--gray-200);
+      border-radius:12px;
+      box-shadow:var(--shadow);
+      padding:15px 17px;
+    }
+
+    .metric-label {
+      color:var(--gray-500);
+      font-weight:700;
+      font-size:.76rem;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .metric-value {
+      color:var(--navy-dark);
+      font-size:1.65rem;
+      font-weight:850;
+      margin-top:5px;
+      font-variant-numeric:tabular-nums;
+    }
+
+    .metric-note {
+      color:var(--gray-500);
+      font-size:.77rem;
+      margin-top:2px;
+      line-height:1.35;
+    }
+
+    .source-strip {
+      display:flex;
+      gap:18px;
+      flex-wrap:wrap;
+      color:var(--gray-500);
+      font-size:.8rem;
+    }
+
+    .source-strip strong { color:var(--gray-700); }
+
+    .table-wrap {
+      overflow:auto;
+      max-height:70vh;
+    }
+
+    table {
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      min-width:1360px;
+    }
+
+    thead th {
+      position:sticky;
+      top:0;
+      z-index:2;
+      background:var(--navy);
+      color:var(--white);
+      padding:10px 9px;
+      text-align:left;
+      font-size:.73rem;
+      letter-spacing:.02em;
+      white-space:nowrap;
+    }
+
+    tbody td,tfoot td {
+      padding:10px 9px;
+      border-bottom:1px solid var(--gray-100);
+      vertical-align:middle;
+      font-size:.82rem;
+    }
+
+    tbody tr:hover { background:var(--gray-50); }
+
+    tfoot td {
+      position:sticky;
+      bottom:0;
+      background:var(--gray-50);
+      color:var(--navy-dark);
+      font-weight:850;
+      border-top:2px solid var(--gray-200);
+    }
+
+    .number-cell {
+      text-align:right;
+      font-variant-numeric:tabular-nums;
+      white-space:nowrap;
+    }
+
+    .total-cell {
+      text-align:right;
+      color:var(--navy-dark);
+      font-weight:850;
+      font-variant-numeric:tabular-nums;
+      white-space:nowrap;
+    }
+
+    .muted { color:var(--gray-500); }
+
+    .positive { color:var(--green); font-weight:850; }
+    .negative { color:var(--red); font-weight:850; }
+
+    .chip {
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      padding:4px 8px;
+      font-size:.71rem;
+      font-weight:800;
+      white-space:nowrap;
+    }
+
+    .chip-good { color:var(--green); background:var(--green-soft); }
+    .chip-watch { color:#7a5300; background:var(--amber-soft); }
+    .chip-low { color:var(--red); background:var(--red-soft); }
+    .chip-neutral { color:#175c87; background:var(--blue-soft); }
+
+    .expand-btn {
+      width:25px;
+      height:25px;
+      margin-right:8px;
+      border:1px solid #9bb6ca;
+      border-radius:6px;
+      background:#fff;
+      color:var(--navy);
+      font-weight:900;
+      line-height:1;
+    }
+
+    .detail-row:hover { background:#fff; }
+
+    .detail-cell {
+      padding:0 14px 15px !important;
+      background:#f7fafc;
+    }
+
+    .detail-wrap {
+      padding-top:12px;
+    }
+
+    .detail-title {
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      margin-bottom:8px;
+      color:var(--navy-dark);
+      font-weight:850;
+    }
+
+    .detail-table-wrap {
+      overflow:auto;
+      border:1px solid var(--gray-200);
+      border-radius:9px;
+      background:#fff;
+    }
+
+    .detail-table {
+      min-width:1180px;
+    }
+
+    .detail-table thead th {
+      position:static;
+      background:#edf3f7;
+      color:var(--gray-700);
+      font-size:.69rem;
+    }
+
+    .detail-client {
+      font-weight:800;
+      color:var(--navy-dark);
+    }
+
+    .detail-address {
+      color:var(--gray-500);
+      margin-top:2px;
+      font-size:.75rem;
+    }
+
+    .empty-state {
+      text-align:center;
+      padding:38px 20px !important;
+      color:var(--gray-500);
+    }
+
+    .access-layout {
+      width:min(680px,calc(100% - 32px));
+      margin:70px auto;
+      background:var(--white);
+      border:1px solid var(--gray-200);
+      border-radius:14px;
+      padding:28px;
+      box-shadow:var(--shadow);
+    }
+
+    .access-actions {
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:18px;
+    }
+
+    @media (max-width:1100px) {
+      .filters { grid-template-columns:repeat(2,minmax(180px,1fr)); }
+      .filter-actions { grid-column:1/-1; }
+      .metric-grid { grid-template-columns:repeat(2,1fr); }
+      .page-header { flex-direction:column; }
+    }
+
+    @media (max-width:620px) {
+      .page-wrapper { width:min(100% - 18px,1560px); margin-top:14px; }
+      .filters { grid-template-columns:1fr; }
+      .filter-actions { grid-column:auto; }
+      .metric-grid { grid-template-columns:1fr; }
+      .panel-header { align-items:flex-start; flex-direction:column; }
+    }
+
+    @media print {
+      #sharedNavigation,.no-print { display:none !important; }
+      body { background:white; }
+      .page-wrapper { width:100%; margin:0; }
+      .panel,.metric-card { box-shadow:none; }
+      .table-wrap { overflow:visible; max-height:none; }
+      table { min-width:0; font-size:8pt; }
+      thead th,tfoot td { position:static; }
+      .detail-row.hidden { display:none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="sharedNavigation"></div>
+
+  <section id="accessGate" class="access-layout hidden">
+    <div class="eyebrow">Restricted Page</div>
+    <h1>Route Profitability</h1>
+    <p id="accessMessage">Sign in with an authorized Molinari Pools account to continue.</p>
+    <div class="access-actions">
+      <button class="primary-btn" onclick="window.location.href='login.html'">Sign In</button>
+      <button class="secondary-btn" onclick="window.location.href='index.html'">Main Menu</button>
+      <button class="secondary-btn" id="logoutButton">Sign Out</button>
+    </div>
+  </section>
+
+  <main id="pageContent" class="page-wrapper hidden">
+    <header class="page-header">
+      <div>
+        <div class="eyebrow">Service Route</div>
+        <h1>Route Profitability</h1>
+        <p class="subtitle">
+          Weekly Route cost-to-service analysis combining recurring route revenue, PPV labor,
+          Skimmer chemical usage and Samsara mileage. This page is restricted to Service Manager,
+          Admin and System Admin.
+        </p>
+      </div>
+      <div class="header-actions no-print">
+        <button class="secondary-btn" id="refreshButton">Refresh</button>
+        <button class="secondary-btn" onclick="window.print()">Print Report</button>
+      </div>
+    </header>
+
+    <section class="panel no-print">
+      <div class="panel-header">
+        <h2>Reporting Assumptions</h2>
+        <span class="muted">Fuel assumptions are adjustable</span>
+      </div>
+      <div class="panel-body">
+        <div class="filters">
+          <div class="field">
+            <label for="weekStartInput">Week Start</label>
+            <input id="weekStartInput" type="date">
+          </div>
+          <div class="field">
+            <label for="fuelPriceInput">Fuel $ / Gallon</label>
+            <input id="fuelPriceInput" type="number" min="0" step="0.01" placeholder="Enter fuel price">
+          </div>
+          <div class="field">
+            <label for="mpgInput">Default Truck MPG</label>
+            <input id="mpgInput" type="number" min="1" step="0.1" value="16">
+          </div>
+          <div class="field">
+            <label>Fuel Mileage Basis</label>
+            <input value="All Samsara trip miles in selected week" disabled>
+          </div>
+          <div class="filter-actions">
+            <button class="primary-btn" id="applyButton">Apply</button>
+            <button class="secondary-btn" id="clearFuelButton">Clear Fuel</button>
+          </div>
+        </div>
+
+        <div class="helper">
+          Revenue is converted from monthly route revenue to a weekly equivalent using
+          <strong>monthly × 12 ÷ 52</strong>. PPV labor and chemical costs come from the selected
+          Skimmer Service History week. Fuel is estimated as <strong>miles ÷ MPG × fuel price</strong>.
+          Until take-home/commute mileage rules are configured by vehicle, Samsara miles shown here
+          should be treated as an operating estimate rather than final accounting fuel expense.
+        </div>
+
+        <div id="statusBar" class="status-bar">Loading Route Profitability...</div>
+      </div>
+    </section>
+
+    <section class="metric-grid">
+      <article class="metric-card">
+        <div class="metric-label">Weekly Route Revenue</div>
+        <div class="metric-value" id="revenueMetric">$0</div>
+        <div class="metric-note">Monthly recurring revenue converted to weekly</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">PPV Labor Cost</div>
+        <div class="metric-value" id="laborMetric">$0</div>
+        <div class="metric-note">Skimmer Service History labor cost</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Chemical Cost</div>
+        <div class="metric-value" id="chemicalMetric">$0</div>
+        <div class="metric-note">Chemical usage × effective unit cost</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Estimated Fuel Cost</div>
+        <div class="metric-value" id="fuelMetric">—</div>
+        <div class="metric-note" id="fuelMetricNote">Enter fuel price to include fuel</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Total Direct Cost</div>
+        <div class="metric-value" id="directCostMetric">$0</div>
+        <div class="metric-note">PPV + chemicals + configured fuel</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Direct Contribution</div>
+        <div class="metric-value" id="contributionMetric">$0</div>
+        <div class="metric-note">Weekly revenue less direct route costs</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Direct Contribution %</div>
+        <div class="metric-value" id="marginMetric">—</div>
+        <div class="metric-note">Contribution ÷ weekly route revenue</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Route Miles / Cost per Visit</div>
+        <div class="metric-value" id="milesMetric">0 mi</div>
+        <div class="metric-note" id="costPerVisitMetric">$0 per visit</div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Route / Tech Profitability</h2>
+        <span class="muted">Expand a route for client-level cost-to-service</span>
+      </div>
+
+      <div class="panel-body source-strip">
+        <span><strong>Cost week:</strong> <span id="costWeekLabel">-</span></span>
+        <span><strong>Route Assignment snapshot:</strong> <span id="snapshotLabel">-</span></span>
+        <span><strong>Fuel price:</strong> <span id="fuelSourceLabel">Not included</span></span>
+        <span><strong>Default MPG:</strong> <span id="mpgSourceLabel">16.0</span></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Route / Tech</th>
+              <th class="number-cell">Visits</th>
+              <th class="number-cell">Weekly Revenue</th>
+              <th class="number-cell">PPV Labor</th>
+              <th class="number-cell">Chemicals</th>
+              <th class="number-cell">Miles</th>
+              <th class="number-cell">Fuel</th>
+              <th class="number-cell">Direct Cost</th>
+              <th class="number-cell">Contribution</th>
+              <th class="number-cell">Margin</th>
+              <th class="number-cell">Cost / Visit</th>
+              <th class="number-cell">Chem / Visit</th>
+              <th class="number-cell">Miles / Visit</th>
+            </tr>
+          </thead>
+          <tbody id="routeBody">
+            <tr><td class="empty-state" colspan="13">Loading route profitability...</td></tr>
+          </tbody>
+          <tfoot id="routeFoot"></tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="shared-navigation.js"></script>
+  <script>
+    'use strict';
+
+    const SUPABASE_URL = 'https://icqkuhbhcennhhbbwqgo.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+    const client = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+    const VIEW_ROLES = ['SYSTEM_ADMIN','ADMIN','SERVICE_MANAGER'];
+
+    let currentProfile = null;
+    let currentRows = [];
+    const clientDetailCache = new Map();
+
+    const $ = id => document.getElementById(id);
+
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#039;');
+    }
+
+    function showAccessGate(message) {
+      $('accessMessage').textContent = message;
+      $('accessGate').classList.remove('hidden');
+      $('pageContent').classList.add('hidden');
+    }
+
+    function showPage() {
+      $('accessGate').classList.add('hidden');
+      $('pageContent').classList.remove('hidden');
+    }
+
+    function setStatus(message,type='') {
+      const bar = $('statusBar');
+      bar.textContent = message;
+      bar.className = `status-bar${type ? ` ${type}` : ''}`;
+    }
+
+    function formatCurrency(value,decimals=0) {
+      if (value == null || value === '') return '—';
+      return Number(value || 0).toLocaleString('en-US',{
+        style:'currency',
+        currency:'USD',
+        minimumFractionDigits:decimals,
+        maximumFractionDigits:decimals
+      });
+    }
+
+    function formatNumber(value,decimals=0) {
+      if (value == null || value === '') return '—';
+      return Number(value || 0).toLocaleString('en-US',{
+        minimumFractionDigits:decimals,
+        maximumFractionDigits:decimals
+      });
+    }
+
+    function formatPercent(value) {
+      if (value == null || value === '') return '—';
+      return `${Number(value).toFixed(1)}%`;
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+      const [year,month,day] = String(value).slice(0,10).split('-').map(Number);
+      if (!year || !month || !day) return value;
+      return new Date(year,month-1,day).toLocaleDateString('en-US',{
+        month:'short',day:'numeric',year:'numeric'
+      });
+    }
+
+    function marginChip(value) {
+      if (value == null) return '<span class="chip chip-neutral">No revenue</span>';
+      const pct = Number(value);
+      if (pct >= 50) return `<span class="chip chip-good">${pct.toFixed(1)}%</span>`;
+      if (pct >= 35) return `<span class="chip chip-watch">${pct.toFixed(1)}%</span>`;
+      return `<span class="chip chip-low">${pct.toFixed(1)}%</span>`;
+    }
+
+    function fuelPriceValue() {
+      const raw = $('fuelPriceInput').value;
+      return raw === '' ? null : Number(raw);
+    }
+
+    function mpgValue() {
+      const raw = Number($('mpgInput').value || 16);
+      return raw > 0 ? raw : 16;
+    }
+
+    function selectedWeekStart() {
+      return $('weekStartInput').value || null;
+    }
+
+    function rememberAssumptions() {
+      const fuel = $('fuelPriceInput').value;
+      const mpg = $('mpgInput').value;
+      if (fuel === '') localStorage.removeItem('routeProfitabilityFuelPrice');
+      else localStorage.setItem('routeProfitabilityFuelPrice',fuel);
+      localStorage.setItem('routeProfitabilityMpg',mpg || '16');
+    }
+
+    function restoreAssumptions() {
+      const fuel = localStorage.getItem('routeProfitabilityFuelPrice');
+      const mpg = localStorage.getItem('routeProfitabilityMpg');
+      if (fuel != null) $('fuelPriceInput').value = fuel;
+      if (mpg != null) $('mpgInput').value = mpg;
+    }
+
+    async function initializePage() {
+      try {
+        const {data:sessionData,error:sessionError} = await client.auth.getSession();
+        if (sessionError) throw sessionError;
+
+        if (!sessionData?.session?.user) {
+          showAccessGate('Sign in with an authorized Molinari Pools account to continue.');
+          return;
+        }
+
+        const {data:profile,error:profileError} = await client.from('user_profiles')
+          .select('id,full_name,role,active')
+          .eq('id',sessionData.session.user.id)
+          .maybeSingle();
+
+        if (profileError) throw profileError;
+
+        if (!profile?.active || !VIEW_ROLES.includes(profile.role)) {
+          showAccessGate('Route Profitability is available to Service Manager, Admin and System Admin.');
+          return;
+        }
+
+        currentProfile = profile;
+        restoreAssumptions();
+        showPage();
+        await loadProfitability();
+      } catch(error) {
+        console.error(error);
+        showAccessGate(error.message || 'Unable to verify Route Profitability access.');
+      }
+    }
+
+    async function loadProfitability() {
+      try {
+        setStatus('Loading route revenue, PPV labor, chemical cost and Samsara mileage...','working');
+
+        rememberAssumptions();
+
+        const fuelPrice = fuelPriceValue();
+        const mpg = mpgValue();
+        const weekStart = selectedWeekStart();
+
+        const {data,error} = await client.rpc('get_route_profitability_dashboard',{
+          p_week_start:weekStart,
+          p_fuel_price_per_gallon:fuelPrice,
+          p_default_mpg:mpg
+        });
+
+        if (error) throw error;
+
+        currentRows = data || [];
+        clientDetailCache.clear();
+
+        if (!currentRows.length) {
+          renderEmpty();
+          setStatus('No Route Profitability data was found for the selected week.','warning');
+          return;
+        }
+
+        const source = currentRows[0];
+
+        if (!$('weekStartInput').value && source.week_start) {
+          $('weekStartInput').value = source.week_start;
+        }
+
+        renderReport();
+
+        const fuelText = fuelPrice == null
+          ? ' Fuel is currently excluded because no fuel price is entered.'
+          : ` Fuel is estimated at ${formatCurrency(fuelPrice,2)} per gallon using ${mpg.toFixed(1)} MPG.`;
+
+        setStatus(
+          `Loaded Route Profitability for ${formatDate(source.week_start)} through ${formatDate(source.week_end)}.${fuelText}`,
+          fuelPrice == null ? 'warning' : 'success'
+        );
+      } catch(error) {
+        console.error(error);
+        renderEmpty();
+        setStatus(error.message || 'Unable to load Route Profitability.','error');
+      }
+    }
+
+    function totals() {
+      return currentRows.reduce((a,r) => {
+        a.visits += Number(r.visits || 0);
+        a.revenue += Number(r.weekly_route_revenue || 0);
+        a.labor += Number(r.ppv_labor_cost || 0);
+        a.chemicals += Number(r.chemical_cost || 0);
+        a.miles += Number(r.samsara_miles || 0);
+        a.fuel += Number(r.estimated_fuel_cost || 0);
+        a.direct += Number(r.total_direct_cost || 0);
+        a.contribution += Number(r.direct_contribution || 0);
+        return a;
+      },{visits:0,revenue:0,labor:0,chemicals:0,miles:0,fuel:0,direct:0,contribution:0});
+    }
+
+    function renderEmpty() {
+      currentRows = [];
+      $('revenueMetric').textContent = '$0';
+      $('laborMetric').textContent = '$0';
+      $('chemicalMetric').textContent = '$0';
+      $('fuelMetric').textContent = '—';
+      $('directCostMetric').textContent = '$0';
+      $('contributionMetric').textContent = '$0';
+      $('marginMetric').textContent = '—';
+      $('milesMetric').textContent = '0 mi';
+      $('costPerVisitMetric').textContent = '$0 per visit';
+      $('costWeekLabel').textContent = '-';
+      $('snapshotLabel').textContent = '-';
+      $('routeBody').innerHTML = '<tr><td class="empty-state" colspan="13">No Route Profitability data is available.</td></tr>';
+      $('routeFoot').innerHTML = '';
+    }
+
+    function renderReport() {
+      const t = totals();
+      const source = currentRows[0];
+      const fuelPrice = fuelPriceValue();
+      const mpg = mpgValue();
+      const margin = t.revenue > 0 ? (t.contribution / t.revenue) * 100 : null;
+      const cpv = t.visits > 0 ? t.direct / t.visits : 0;
+
+      $('revenueMetric').textContent = formatCurrency(t.revenue);
+      $('laborMetric').textContent = formatCurrency(t.labor);
+      $('chemicalMetric').textContent = formatCurrency(t.chemicals);
+      $('fuelMetric').textContent = fuelPrice == null ? '—' : formatCurrency(t.fuel);
+      $('fuelMetricNote').textContent = fuelPrice == null
+        ? 'Enter fuel price to include fuel'
+        : `${formatCurrency(fuelPrice,2)}/gal at ${mpg.toFixed(1)} MPG`;
+      $('directCostMetric').textContent = formatCurrency(t.direct);
+      $('contributionMetric').textContent = formatCurrency(t.contribution);
+      $('contributionMetric').className = `metric-value ${t.contribution < 0 ? 'negative' : ''}`;
+      $('marginMetric').textContent = margin == null ? '—' : `${margin.toFixed(1)}%`;
+      $('milesMetric').textContent = `${formatNumber(t.miles,0)} mi`;
+      $('costPerVisitMetric').textContent = `${formatCurrency(cpv,2)} per visit`;
+
+      $('costWeekLabel').textContent = `${formatDate(source.week_start)} – ${formatDate(source.week_end)}`;
+      $('snapshotLabel').textContent = formatDate(source.snapshot_effective_date);
+      $('fuelSourceLabel').textContent = fuelPrice == null ? 'Not included' : `${formatCurrency(fuelPrice,2)} / gal`;
+      $('mpgSourceLabel').textContent = mpg.toFixed(1);
+
+      $('routeBody').innerHTML = currentRows.length
+        ? currentRows.map(r => {
+            const contribution = Number(r.direct_contribution || 0);
+            return `
+              <tr>
+                <td>
+                  <button class="expand-btn no-print" id="expand-${escapeHtml(r.route_code)}"
+                    type="button" aria-expanded="false"
+                    onclick="toggleClientDetail('${escapeHtml(r.route_code)}')">+</button>
+                  <strong>${escapeHtml(r.route_code || '-')} - ${escapeHtml(r.route_tech_name || '-')}</strong>
+                </td>
+                <td class="number-cell">${formatNumber(r.visits)}</td>
+                <td class="number-cell">${formatCurrency(r.weekly_route_revenue)}</td>
+                <td class="number-cell">${formatCurrency(r.ppv_labor_cost)}</td>
+                <td class="number-cell">${formatCurrency(r.chemical_cost)}</td>
+                <td class="number-cell">${formatNumber(r.samsara_miles,1)}</td>
+                <td class="number-cell">${r.estimated_fuel_cost == null ? '—' : formatCurrency(r.estimated_fuel_cost)}</td>
+                <td class="number-cell">${formatCurrency(r.total_direct_cost)}</td>
+                <td class="number-cell ${contribution < 0 ? 'negative' : 'positive'}">${formatCurrency(r.direct_contribution)}</td>
+                <td class="number-cell">${marginChip(r.direct_contribution_pct)}</td>
+                <td class="number-cell">${formatCurrency(r.cost_per_visit,2)}</td>
+                <td class="number-cell">${formatCurrency(r.chemical_cost_per_visit,2)}</td>
+                <td class="number-cell">${formatNumber(r.miles_per_visit,1)}</td>
+              </tr>
+              <tr id="detail-${escapeHtml(r.route_code)}" class="detail-row hidden">
+                <td colspan="13" class="detail-cell">
+                  <div id="detail-content-${escapeHtml(r.route_code)}">Loading client profitability...</div>
+                </td>
+              </tr>`;
+          }).join('')
+        : '<tr><td class="empty-state" colspan="13">No Route Profitability rows found.</td></tr>';
+
+      $('routeFoot').innerHTML = currentRows.length ? `
+        <tr>
+          <td>All Active RT Routes</td>
+          <td class="number-cell">${formatNumber(t.visits)}</td>
+          <td class="number-cell">${formatCurrency(t.revenue)}</td>
+          <td class="number-cell">${formatCurrency(t.labor)}</td>
+          <td class="number-cell">${formatCurrency(t.chemicals)}</td>
+          <td class="number-cell">${formatNumber(t.miles,1)}</td>
+          <td class="number-cell">${fuelPrice == null ? '—' : formatCurrency(t.fuel)}</td>
+          <td class="number-cell">${formatCurrency(t.direct)}</td>
+          <td class="total-cell">${formatCurrency(t.contribution)}</td>
+          <td class="number-cell">${margin == null ? '—' : `${margin.toFixed(1)}%`}</td>
+          <td class="number-cell">${formatCurrency(cpv,2)}</td>
+          <td class="number-cell">${t.visits ? formatCurrency(t.chemicals/t.visits,2) : '—'}</td>
+          <td class="number-cell">${t.visits ? formatNumber(t.miles/t.visits,1) : '—'}</td>
+        </tr>` : '';
+    }
+
+    async function toggleClientDetail(routeCode) {
+      const row = $(`detail-${routeCode}`);
+      const button = $(`expand-${routeCode}`);
+      if (!row || !button) return;
+
+      const opening = row.classList.contains('hidden');
+      row.classList.toggle('hidden',!opening);
+      button.textContent = opening ? '−' : '+';
+      button.setAttribute('aria-expanded',String(opening));
+
+      if (!opening) return;
+
+      const cacheKey = `${selectedWeekStart()}:${routeCode}:${fuelPriceValue()}:${mpgValue()}`;
+      const content = $(`detail-content-${routeCode}`);
+
+      if (clientDetailCache.has(cacheKey)) {
+        content.innerHTML = renderClientDetail(routeCode,clientDetailCache.get(cacheKey));
+        return;
+      }
+
+      content.textContent = 'Loading client profitability...';
+
+      try {
+        const {data,error} = await client.rpc('get_route_profitability_clients',{
+          p_week_start:selectedWeekStart(),
+          p_route_code:routeCode
+        });
+
+        if (error) throw error;
+
+        const rows = data || [];
+        clientDetailCache.set(cacheKey,rows);
+        content.innerHTML = renderClientDetail(routeCode,rows);
+      } catch(error) {
+        console.error(error);
+        content.innerHTML = `<div class="status-bar error">${escapeHtml(error.message || 'Unable to load client profitability.')}</div>`;
+      }
+    }
+
+    function renderClientDetail(routeCode,rows) {
+      if (!rows.length) {
+        return '<div class="status-bar warning">No client assignments were found for this route.</div>';
+      }
+
+      const route = currentRows.find(r => r.route_code === routeCode);
+      const routeVisits = Number(route?.visits || 0);
+      const routeFuel = Number(route?.estimated_fuel_cost || 0);
+      const fuelConfigured = route?.estimated_fuel_cost != null;
+      const fuelPerVisit = routeVisits > 0 && fuelConfigured ? routeFuel / routeVisits : null;
+
+      let totalRevenue = 0;
+      let totalLabor = 0;
+      let totalChem = 0;
+      let totalFuel = 0;
+      let totalDirect = 0;
+      let totalContribution = 0;
+
+      const body = rows.map(r => {
+        const weeklyRevenue = Number(r.monthly_rate || 0) * 12 / 52;
+        const visits = Number(r.visits || 0);
+        const labor = Number(r.ppv_labor_cost || 0);
+        const chem = Number(r.chemical_cost || 0);
+        const fuel = fuelPerVisit == null ? 0 : fuelPerVisit * visits;
+        const direct = labor + chem + fuel;
+        const contribution = weeklyRevenue - direct;
+        const margin = weeklyRevenue > 0 ? contribution / weeklyRevenue * 100 : null;
+
+        totalRevenue += weeklyRevenue;
+        totalLabor += labor;
+        totalChem += chem;
+        totalFuel += fuel;
+        totalDirect += direct;
+        totalContribution += contribution;
+
+        return `
+          <tr>
+            <td>
+              <div class="detail-client">${escapeHtml(r.customer_name)}</div>
+              <div class="detail-address">${escapeHtml(r.service_address || '')}</div>
+            </td>
+            <td>${escapeHtml(r.service_day_name || '-')}</td>
+            <td class="number-cell">${Number(r.stop_number || 0)}</td>
+            <td class="number-cell">${formatCurrency(r.monthly_rate)}</td>
+            <td class="number-cell">${formatCurrency(weeklyRevenue)}</td>
+            <td class="number-cell">${visits}</td>
+            <td class="number-cell">${formatCurrency(labor)}</td>
+            <td class="number-cell">${formatCurrency(chem)}</td>
+            <td class="number-cell">${fuelConfigured ? formatCurrency(fuel) : '—'}</td>
+            <td class="number-cell">${formatCurrency(direct)}</td>
+            <td class="number-cell ${contribution < 0 ? 'negative' : 'positive'}">${formatCurrency(contribution)}</td>
+            <td class="number-cell">${marginChip(margin)}</td>
+          </tr>`;
+      }).join('');
+
+      const totalMargin = totalRevenue > 0 ? totalContribution / totalRevenue * 100 : null;
+
+      return `
+        <div class="detail-wrap">
+          <div class="detail-title">
+            <span>${escapeHtml(routeCode)} Client Cost-to-Service</span>
+            <span class="muted">${fuelConfigured ? 'Fuel allocated evenly by completed visit.' : 'Fuel is not included.'}</span>
+          </div>
+          <div class="detail-table-wrap">
+            <table class="detail-table">
+              <thead>
+                <tr>
+                  <th>Client / Address</th>
+                  <th>Day</th>
+                  <th class="number-cell">Stop</th>
+                  <th class="number-cell">Monthly Rate</th>
+                  <th class="number-cell">Weekly Revenue</th>
+                  <th class="number-cell">Visits</th>
+                  <th class="number-cell">PPV</th>
+                  <th class="number-cell">Chemicals</th>
+                  <th class="number-cell">Fuel</th>
+                  <th class="number-cell">Direct Cost</th>
+                  <th class="number-cell">Contribution</th>
+                  <th class="number-cell">Margin</th>
+                </tr>
+              </thead>
+              <tbody>${body}</tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="4">Route Client Total</td>
+                  <td class="number-cell">${formatCurrency(totalRevenue)}</td>
+                  <td></td>
+                  <td class="number-cell">${formatCurrency(totalLabor)}</td>
+                  <td class="number-cell">${formatCurrency(totalChem)}</td>
+                  <td class="number-cell">${fuelConfigured ? formatCurrency(totalFuel) : '—'}</td>
+                  <td class="number-cell">${formatCurrency(totalDirect)}</td>
+                  <td class="number-cell">${formatCurrency(totalContribution)}</td>
+                  <td class="number-cell">${totalMargin == null ? '—' : `${totalMargin.toFixed(1)}%`}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>`;
+    }
+
+    function bindEvents() {
+      $('refreshButton').addEventListener('click',loadProfitability);
+      $('applyButton').addEventListener('click',loadProfitability);
+
+      $('clearFuelButton').addEventListener('click',async () => {
+        $('fuelPriceInput').value = '';
+        localStorage.removeItem('routeProfitabilityFuelPrice');
+        await loadProfitability();
+      });
+
+      $('logoutButton').addEventListener('click',async () => {
+        await client.auth.signOut();
+        window.location.href='login.html';
+      });
+
+      ['fuelPriceInput','mpgInput','weekStartInput'].forEach(id => {
+        $(id).addEventListener('keydown',event => {
+          if (event.key === 'Enter') loadProfitability();
+        });
+      });
+    }
+
+    bindEvents();
+    initializePage();
+  </script>
+</body>
+</html>
