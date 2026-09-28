@@ -498,7 +498,7 @@
 
         <div class="helper">
           Revenue is converted from monthly route revenue to a weekly equivalent using
-          <strong>monthly × 12 ÷ 52</strong>. PPV labor and chemical costs come from the selected
+          <strong>monthly × 12 ÷ 52</strong>. PPV labor comes from the PPV pay-period visit totals and approved PPV rates. Chemical costs come from the selected
           Skimmer Service History week. Fuel is estimated as <strong>miles ÷ MPG × fuel price</strong>.
           Until take-home/commute mileage rules are configured by vehicle, Samsara miles shown here
           should be treated as an operating estimate rather than final accounting fuel expense.
@@ -518,7 +518,7 @@
       <article class="metric-card">
         <div class="metric-label">PPV Labor Cost</div>
         <div class="metric-value" id="laborMetric">$0</div>
-        <div class="metric-note">Skimmer Service History labor cost</div>
+        <div class="metric-note">Qualifying PPV visits × approved PPV rate</div>
       </article>
 
       <article class="metric-card">
@@ -552,6 +552,54 @@
       </article>
 
       <article class="metric-card">
+        <div class="metric-label">RTL Support Cost</div>
+        <div class="metric-value" id="rtlSupportMetric">$0</div>
+        <div class="metric-note">Victor + Cristian allocated across their assigned routes</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Director Route Allocation</div>
+        <div class="metric-value" id="directorSupportMetric">$0</div>
+        <div class="metric-note" id="directorSupportNote">$90,000 salary allocated by Route vs Repair revenue</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Elena Route Allocation</div>
+        <div class="metric-value" id="elenaSupportMetric">$0</div>
+        <div class="metric-note" id="elenaSupportNote">$65,000 salary allocated by Route vs Repair revenue</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Laurie Route Allocation</div>
+        <div class="metric-value" id="laurieSupportMetric">$0</div>
+        <div class="metric-note" id="laurieSupportNote">$24.50/hr × 40 hours allocated by Route vs Repair revenue</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Ken Route Allocation</div>
+        <div class="metric-value" id="kenSupportMetric">$0</div>
+        <div class="metric-note" id="kenSupportNote">$57,000 salary allocated by Route vs Repair revenue</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Fully Loaded Route Cost</div>
+        <div class="metric-value" id="fullyLoadedCostMetric">$0</div>
+        <div class="metric-note">Direct cost + RTL + Director + Elena fixed support</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Fully Loaded Contribution</div>
+        <div class="metric-value" id="fullyLoadedContributionMetric">$0</div>
+        <div class="metric-note">Weekly route revenue less all included costs</div>
+      </article>
+
+      <article class="metric-card">
+        <div class="metric-label">Fully Loaded Margin</div>
+        <div class="metric-value" id="fullyLoadedMarginMetric">—</div>
+        <div class="metric-note">Loaded contribution ÷ weekly route revenue</div>
+      </article>
+
+      <article class="metric-card">
         <div class="metric-label">Route Miles / Cost per Visit</div>
         <div class="metric-value" id="milesMetric">0 mi</div>
         <div class="metric-note" id="costPerVisitMetric">$0 per visit</div>
@@ -569,6 +617,8 @@
         <span><strong>Route Assignment snapshot:</strong> <span id="snapshotLabel">-</span></span>
         <span><strong>Fuel price:</strong> <span id="fuelSourceLabel">Not included</span></span>
         <span><strong>Default MPG:</strong> <span id="mpgSourceLabel">16.0</span></span>
+        <span><strong>Route / Repair revenue split:</strong> <span id="revenueSplitLabel">-</span></span>
+        <span><strong>Support payroll basis:</strong> Victor $30×40 · Cristian $26×40 · Director $90k · Elena $65k · Laurie $24.50×40 · Ken $57k</span>
       </div>
 
       <div class="table-wrap">
@@ -583,15 +633,23 @@
               <th class="number-cell">Miles</th>
               <th class="number-cell">Fuel</th>
               <th class="number-cell">Direct Cost</th>
-              <th class="number-cell">Contribution</th>
-              <th class="number-cell">Margin</th>
+              <th class="number-cell">Direct Contribution</th>
+              <th class="number-cell">Direct Margin</th>
+              <th class="number-cell">RTL Support</th>
+              <th class="number-cell">Director</th>
+              <th class="number-cell">Elena</th>
+              <th class="number-cell">Laurie</th>
+              <th class="number-cell">Ken</th>
+              <th class="number-cell">Fully Loaded Cost</th>
+              <th class="number-cell">Loaded Contribution</th>
+              <th class="number-cell">Loaded Margin</th>
               <th class="number-cell">Cost / Visit</th>
               <th class="number-cell">Chem / Visit</th>
               <th class="number-cell">Miles / Visit</th>
             </tr>
           </thead>
           <tbody id="routeBody">
-            <tr><td class="empty-state" colspan="13">Loading route profitability...</td></tr>
+            <tr><td class="empty-state" colspan="21">Loading route profitability...</td></tr>
           </tbody>
           <tfoot id="routeFoot"></tfoot>
         </table>
@@ -611,6 +669,7 @@
 
     let currentProfile = null;
     let currentRows = [];
+    let currentSupportRows = [];
     const clientDetailCache = new Map();
 
     const $ = id => document.getElementById(id);
@@ -744,7 +803,7 @@
 
     async function loadProfitability() {
       try {
-        setStatus('Loading route revenue, PPV labor, chemical cost and Samsara mileage...','working');
+        setStatus('Loading route revenue, PPV payroll, chemical cost, Samsara mileage and management support...','working');
 
         rememberAssumptions();
 
@@ -752,15 +811,22 @@
         const mpg = mpgValue();
         const weekStart = selectedWeekStart();
 
-        const {data,error} = await client.rpc('get_route_profitability_dashboard',{
-          p_week_start:weekStart,
-          p_fuel_price_per_gallon:fuelPrice,
-          p_default_mpg:mpg
-        });
+        const [profitResult,supportResult] = await Promise.all([
+          client.rpc('get_route_profitability_dashboard',{
+            p_week_start:weekStart,
+            p_fuel_price_per_gallon:fuelPrice,
+            p_default_mpg:mpg
+          }),
+          client.rpc('get_route_profitability_support_allocations',{
+            p_week_start:weekStart
+          })
+        ]);
 
-        if (error) throw error;
+        if (profitResult.error) throw profitResult.error;
+        if (supportResult.error) throw supportResult.error;
 
-        currentRows = data || [];
+        currentRows = profitResult.data || [];
+        currentSupportRows = supportResult.data || [];
         clientDetailCache.clear();
 
         if (!currentRows.length) {
@@ -792,8 +858,12 @@
       }
     }
 
+    function supportForRoute(routeCode) {
+      return currentSupportRows.find(row => row.route_code === routeCode) || null;
+    }
+
     function totals() {
-      return currentRows.reduce((a,r) => {
+      const totals = currentRows.reduce((a,r) => {
         a.visits += Number(r.visits || 0);
         a.revenue += Number(r.weekly_route_revenue || 0);
         a.labor += Number(r.ppv_labor_cost || 0);
@@ -803,7 +873,21 @@
         a.direct += Number(r.total_direct_cost || 0);
         a.contribution += Number(r.direct_contribution || 0);
         return a;
-      },{visits:0,revenue:0,labor:0,chemicals:0,miles:0,fuel:0,direct:0,contribution:0});
+      },{visits:0,revenue:0,labor:0,chemicals:0,miles:0,fuel:0,direct:0,contribution:0,
+          rtlSupport:0,directorSupport:0,elenaSupport:0,laurieSupport:0,kenSupport:0,fixedSupport:0,fullyLoadedCost:0,fullyLoadedContribution:0});
+
+      currentSupportRows.forEach(row => {
+        totals.rtlSupport += Number(row.rtl_allocated_cost || 0);
+        totals.directorSupport += Number(row.director_allocated_cost || 0);
+        totals.elenaSupport += Number(row.elena_allocated_salary_cost || 0);
+        totals.laurieSupport += Number(row.laurie_allocated_cost || 0);
+        totals.kenSupport += Number(row.ken_allocated_cost || 0);
+        totals.fixedSupport += Number(row.fixed_support_allocated_cost || 0);
+      });
+
+      totals.fullyLoadedCost = totals.direct + totals.fixedSupport;
+      totals.fullyLoadedContribution = totals.revenue - totals.fullyLoadedCost;
+      return totals;
     }
 
     function renderEmpty() {
@@ -815,11 +899,20 @@
       $('directCostMetric').textContent = '$0';
       $('contributionMetric').textContent = '$0';
       $('marginMetric').textContent = '—';
+      $('rtlSupportMetric').textContent = '$0';
+      $('directorSupportMetric').textContent = '$0';
+      $('elenaSupportMetric').textContent = '$0';
+      $('laurieSupportMetric').textContent = '$0';
+      $('kenSupportMetric').textContent = '$0';
+      $('fullyLoadedCostMetric').textContent = '$0';
+      $('fullyLoadedContributionMetric').textContent = '$0';
+      $('fullyLoadedMarginMetric').textContent = '—';
       $('milesMetric').textContent = '0 mi';
       $('costPerVisitMetric').textContent = '$0 per visit';
       $('costWeekLabel').textContent = '-';
       $('snapshotLabel').textContent = '-';
-      $('routeBody').innerHTML = '<tr><td class="empty-state" colspan="13">No Route Profitability data is available.</td></tr>';
+      $('revenueSplitLabel').textContent = '-';
+      $('routeBody').innerHTML = '<tr><td class="empty-state" colspan="21">No Route Profitability data is available.</td></tr>';
       $('routeFoot').innerHTML = '';
     }
 
@@ -829,7 +922,9 @@
       const fuelPrice = fuelPriceValue();
       const mpg = mpgValue();
       const margin = t.revenue > 0 ? (t.contribution / t.revenue) * 100 : null;
+      const loadedMargin = t.revenue > 0 ? (t.fullyLoadedContribution / t.revenue) * 100 : null;
       const cpv = t.visits > 0 ? t.direct / t.visits : 0;
+      const supportSource = currentSupportRows[0] || null;
 
       $('revenueMetric').textContent = formatCurrency(t.revenue);
       $('laborMetric').textContent = formatCurrency(t.labor);
@@ -842,6 +937,17 @@
       $('contributionMetric').textContent = formatCurrency(t.contribution);
       $('contributionMetric').className = `metric-value ${t.contribution < 0 ? 'negative' : ''}`;
       $('marginMetric').textContent = margin == null ? '—' : `${margin.toFixed(1)}%`;
+      $('rtlSupportMetric').textContent = formatCurrency(t.rtlSupport);
+      $('directorSupportMetric').textContent = formatCurrency(t.directorSupport);
+      $('elenaSupportMetric').textContent = formatCurrency(t.elenaSupport);
+      $('laurieSupportMetric').textContent = formatCurrency(t.laurieSupport);
+      $('kenSupportMetric').textContent = formatCurrency(t.kenSupport);
+      $('fullyLoadedCostMetric').textContent = formatCurrency(t.fullyLoadedCost);
+      $('fullyLoadedContributionMetric').textContent = formatCurrency(t.fullyLoadedContribution);
+      $('fullyLoadedContributionMetric').className =
+        `metric-value ${t.fullyLoadedContribution < 0 ? 'negative' : ''}`;
+      $('fullyLoadedMarginMetric').textContent =
+        loadedMargin == null ? '—' : `${loadedMargin.toFixed(1)}%`;
       $('milesMetric').textContent = `${formatNumber(t.miles,0)} mi`;
       $('costPerVisitMetric').textContent = `${formatCurrency(cpv,2)} per visit`;
 
@@ -849,10 +955,37 @@
       $('snapshotLabel').textContent = formatDate(source.snapshot_effective_date);
       $('fuelSourceLabel').textContent = fuelPrice == null ? 'Not included' : `${formatCurrency(fuelPrice,2)} / gal`;
       $('mpgSourceLabel').textContent = mpg.toFixed(1);
+      $('revenueSplitLabel').textContent = supportSource
+        ? `Route ${formatPercent(supportSource.route_revenue_share_pct)} / Repair ${formatPercent(supportSource.repair_revenue_share_pct)}`
+        : '-';
+      $('directorSupportNote').textContent = supportSource
+        ? `${formatCurrency(supportSource.director_weekly_cost,2)}/week × Route ${formatPercent(supportSource.route_revenue_share_pct)}`
+        : '$90,000 salary allocated by Route vs Repair revenue';
+      $('elenaSupportNote').textContent = supportSource
+        ? `${formatCurrency(supportSource.elena_weekly_salary,2)}/week × Route ${formatPercent(supportSource.route_revenue_share_pct)}`
+        : '$65,000 salary allocated by Route vs Repair revenue';
+      $('laurieSupportNote').textContent = supportSource
+        ? `${formatCurrency(supportSource.laurie_weekly_cost,2)}/week × Route ${formatPercent(supportSource.route_revenue_share_pct)}`
+        : '$24.50/hr × 40 hours allocated by Route vs Repair revenue';
+      $('kenSupportNote').textContent = supportSource
+        ? `${formatCurrency(supportSource.ken_weekly_cost,2)}/week × Route ${formatPercent(supportSource.route_revenue_share_pct)}`
+        : '$57,000 salary allocated by Route vs Repair revenue';
 
       $('routeBody').innerHTML = currentRows.length
         ? currentRows.map(r => {
             const contribution = Number(r.direct_contribution || 0);
+            const support = supportForRoute(r.route_code);
+            const rtlSupport = Number(support?.rtl_allocated_cost || 0);
+            const directorSupport = Number(support?.director_allocated_cost || 0);
+            const elenaSupport = Number(support?.elena_allocated_salary_cost || 0);
+            const laurieSupport = Number(support?.laurie_allocated_cost || 0);
+            const kenSupport = Number(support?.ken_allocated_cost || 0);
+            const fixedSupport = Number(support?.fixed_support_allocated_cost || 0);
+            const fullyLoadedCost = Number(r.total_direct_cost || 0) + fixedSupport;
+            const fullyLoadedContribution = Number(r.weekly_route_revenue || 0) - fullyLoadedCost;
+            const fullyLoadedMargin = Number(r.weekly_route_revenue || 0) > 0
+              ? fullyLoadedContribution / Number(r.weekly_route_revenue) * 100
+              : null;
             return `
               <tr>
                 <td>
@@ -870,17 +1003,25 @@
                 <td class="number-cell">${formatCurrency(r.total_direct_cost)}</td>
                 <td class="number-cell ${contribution < 0 ? 'negative' : 'positive'}">${formatCurrency(r.direct_contribution)}</td>
                 <td class="number-cell">${marginChip(r.direct_contribution_pct)}</td>
+                <td class="number-cell">${formatCurrency(rtlSupport)}</td>
+                <td class="number-cell">${formatCurrency(directorSupport)}</td>
+                <td class="number-cell">${formatCurrency(elenaSupport)}</td>
+                <td class="number-cell">${formatCurrency(laurieSupport)}</td>
+                <td class="number-cell">${formatCurrency(kenSupport)}</td>
+                <td class="number-cell">${formatCurrency(fullyLoadedCost)}</td>
+                <td class="number-cell ${fullyLoadedContribution < 0 ? 'negative' : 'positive'}">${formatCurrency(fullyLoadedContribution)}</td>
+                <td class="number-cell">${marginChip(fullyLoadedMargin)}</td>
                 <td class="number-cell">${formatCurrency(r.cost_per_visit,2)}</td>
                 <td class="number-cell">${formatCurrency(r.chemical_cost_per_visit,2)}</td>
                 <td class="number-cell">${formatNumber(r.miles_per_visit,1)}</td>
               </tr>
               <tr id="detail-${escapeHtml(r.route_code)}" class="detail-row hidden">
-                <td colspan="13" class="detail-cell">
+                <td colspan="21" class="detail-cell">
                   <div id="detail-content-${escapeHtml(r.route_code)}">Loading client profitability...</div>
                 </td>
               </tr>`;
           }).join('')
-        : '<tr><td class="empty-state" colspan="13">No Route Profitability rows found.</td></tr>';
+        : '<tr><td class="empty-state" colspan="21">No Route Profitability rows found.</td></tr>';
 
       $('routeFoot').innerHTML = currentRows.length ? `
         <tr>
@@ -894,6 +1035,14 @@
           <td class="number-cell">${formatCurrency(t.direct)}</td>
           <td class="total-cell">${formatCurrency(t.contribution)}</td>
           <td class="number-cell">${margin == null ? '—' : `${margin.toFixed(1)}%`}</td>
+          <td class="number-cell">${formatCurrency(t.rtlSupport)}</td>
+          <td class="number-cell">${formatCurrency(t.directorSupport)}</td>
+          <td class="number-cell">${formatCurrency(t.elenaSupport)}</td>
+          <td class="number-cell">${formatCurrency(t.laurieSupport)}</td>
+          <td class="number-cell">${formatCurrency(t.kenSupport)}</td>
+          <td class="number-cell">${formatCurrency(t.fullyLoadedCost)}</td>
+          <td class="total-cell">${formatCurrency(t.fullyLoadedContribution)}</td>
+          <td class="number-cell">${loadedMargin == null ? '—' : `${loadedMargin.toFixed(1)}%`}</td>
           <td class="number-cell">${formatCurrency(cpv,2)}</td>
           <td class="number-cell">${t.visits ? formatCurrency(t.chemicals/t.visits,2) : '—'}</td>
           <td class="number-cell">${t.visits ? formatNumber(t.miles/t.visits,1) : '—'}</td>
@@ -1000,7 +1149,7 @@
         <div class="detail-wrap">
           <div class="detail-title">
             <span>${escapeHtml(routeCode)} Client Cost-to-Service</span>
-            <span class="muted">${fuelConfigured ? 'Fuel allocated evenly by completed visit.' : 'Fuel is not included.'}</span>
+            <span class="muted">${fuelConfigured ? 'Fuel allocated evenly by completed visit. ' : 'Fuel is not included. '}RTL, Director, Elena, Laurie and Ken support remain allocated at the route level.</span>
           </div>
           <div class="detail-table-wrap">
             <table class="detail-table">
