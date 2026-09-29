@@ -1025,7 +1025,7 @@
 
     .payroll-report-table {
       width: 100%;
-      min-width: 980px;
+      min-width: 1280px;
       border-collapse: collapse;
       font-size: 12px;
     }
@@ -1741,7 +1741,7 @@
                 <div class="card manager-only">
                   <h2>Manual Adjustments / On-call Pay</h2>
                   <div class="warning-note">
-                    Use this for approved payroll dollar corrections and On-call Pay. Do not use this for visit credits, PTO/holiday/other time, quarterly commissions, or safeguard events. Positive and negative amounts are allowed.
+                    Use this for approved payroll dollar corrections and On-call Pay. Select the correct adjustment type so Accounting can see Manual Adjustments and On-Call Pay separately on the Payroll Reporting Sheet. Do not use this for visit credits, PTO/holiday/other time, quarterly commissions, or safeguard events. Positive and negative amounts are allowed.
                   </div>
 
                   <label>Route Tech:</label>
@@ -1749,13 +1749,19 @@
                     <option value="">Loading route techs...</option>
                   </select>
 
+                  <label>Adjustment Type:</label>
+                  <select id="manualAdjustmentCategorySelect">
+                    <option value="MANUAL_ADJUSTMENT">Manual Adjustment</option>
+                    <option value="ON_CALL_PAY">On-Call Pay</option>
+                  </select>
+
                   <label>Adjustment Amount:</label>
                   <input id="manualAdjustmentAmountInput" type="number" step="0.01" placeholder="Example: 50.00 or -25.00">
 
                   <label>Reason / Notes:</label>
-                  <textarea id="manualAdjustmentReasonInput" placeholder="Required. Example: On-call Pay for weekend coverage, missed bonus, or approved payroll correction."></textarea>
+                  <textarea id="manualAdjustmentReasonInput" placeholder="Required. Example: Chemicals self service, missed bonus, approved payroll correction, or weekend On-Call coverage."></textarea>
 
-                  <button class="primary-btn full-width-btn" type="button" onclick="saveManualDollarAdjustment()">SAVE MANUAL ADJUSTMENT / ON-CALL PAY</button>
+                  <button class="primary-btn full-width-btn" type="button" onclick="saveManualDollarAdjustment()">SAVE PAY ADJUSTMENT</button>
                 </div>
               </div>
 
@@ -2894,6 +2900,11 @@ async function refreshSelectedPayPeriodData() {
     loadAdjustmentRows()
   ]);
 
+  // Rebuild after adjustment rows finish loading so Manual Adjustments and
+  // On-Call Pay are split accurately in the Accounting payroll report.
+  currentPayrollReportingRows = buildPayrollReportingRows(currentLivePayrollRows);
+  renderPayrollReportingSheet(currentPayrollReportingRows);
+
   if (!currentRouteTechRows.length) {
     await loadRouteTechs();
   } else {
@@ -3211,10 +3222,61 @@ function getPayrollReportDateRange() {
   };
 }
 
+function cleanLegacyManualAdjustmentReason(value) {
+  return String(value || '')
+    .replace(/^Manual Adjustment\s*\/\s*On[- ]call Pay\s*-\s*/i, '')
+    .trim();
+}
+
+function isOnCallPayAdjustment(adjustment) {
+  const reasonText = String(
+    getRecordValue(adjustment, ['reason', 'notes']) || ''
+  ).trim();
+
+  if (/^On[- ]Call Pay\s*-\s*/i.test(reasonText)) {
+    return true;
+  }
+
+  // Historical records used the shared prefix:
+  // "Manual Adjustment / On-call Pay - ..."
+  // Strip that generic prefix first, then inspect the actual description.
+  const legacyDescription = cleanLegacyManualAdjustmentReason(reasonText);
+
+  return /\bOn[- ]?Call\b/i.test(legacyDescription);
+}
+
+function getAdjustmentBreakdownForRouteTech(routeTechId) {
+  const matchingRows = (currentAdjustmentRows || []).filter(adjustment => {
+    const adjustmentRouteTechId = getRecordValue(adjustment, ['route_tech_id']);
+    const status = String(getRecordValue(adjustment, ['status']) || '').toUpperCase();
+    const amount = numberFromRecord(adjustment, ['adjustment_amount']);
+
+    return String(adjustmentRouteTechId || '') === String(routeTechId || '')
+      && status === 'APPROVED'
+      && amount !== 0;
+  });
+
+  return matchingRows.reduce((totals, adjustment) => {
+    const amount = numberFromRecord(adjustment, ['adjustment_amount']);
+
+    if (isOnCallPayAdjustment(adjustment)) {
+      totals.on_call_pay += amount;
+    } else {
+      totals.manual_adjustments += amount;
+    }
+
+    return totals;
+  }, {
+    manual_adjustments: 0,
+    on_call_pay: 0
+  });
+}
+
 function buildPayrollReportingRows(rows) {
   return (rows || [])
     .filter(isRouteTechPayrollReportRow)
     .map(row => {
+      const routeTechId = getRecordValue(row, ['route_tech_id']) || '';
       const rtCode = getRecordValue(row, ['rt_code']) || '';
       const routeTechName = getRecordValue(row, ['route_tech_name']) || '';
       const ppvRate = numberFromRecord(row, ['final_ppv_rate', 'ppv_rate']);
@@ -3228,6 +3290,7 @@ function buildPayrollReportingRows(rows) {
       const safeguardPenalties = numberFromRecord(row, ['safeguard_impact_total']);
       const quarterlyCommissions = numberFromRecord(row, ['quarterly_commission_pay', 'quarterly_commission_amount', 'commission_pay']);
       const grossPay = numberFromRecord(row, ['final_gross_before_taxes_deductions', 'net_ppv_pay', 'gross_pay']);
+      const adjustmentBreakdown = getAdjustmentBreakdownForRouteTech(routeTechId);
 
       return {
         name: `${rtCode}${rtCode && routeTechName ? ' - ' : ''}${routeTechName}`,
@@ -3235,7 +3298,9 @@ function buildPayrollReportingRows(rows) {
         ppv_base_pay: ppvBasePay,
         pickup_pay: pickupPay,
         pto_holiday_pay: ptoHolidayPay,
-        extra_rt_meetings_maint: meetingMaintenancePay,
+        rt_meetings_and_maintenance: meetingMaintenancePay,
+        manual_adjustments: adjustmentBreakdown.manual_adjustments,
+        on_call_pay: adjustmentBreakdown.on_call_pay,
         safeguard_penalties: safeguardPenalties,
         quarterly_commissions: quarterlyCommissions,
         gross_pay: grossPay
@@ -3259,7 +3324,7 @@ function renderPayrollReportingSheet(rows) {
       <th class="payroll-report-date-value">${escapeHTML(formatDate(dateRange.start) || '-')}</th>
       <th class="payroll-report-date-label">Payroll End</th>
       <th class="payroll-report-date-value">${escapeHTML(formatDate(dateRange.end) || '-')}</th>
-      <th colspan="5"></th>
+      <th colspan="7"></th>
     </tr>
     <tr>
       <th>Name</th>
@@ -3267,7 +3332,9 @@ function renderPayrollReportingSheet(rows) {
       <th>PPV Base Pay</th>
       <th>Pickup Pay</th>
       <th>PTO / Holiday Pay</th>
-      <th>Extra RT<br>Meetings / Maint.</th>
+      <th>RT Meetings and<br>Maintenance</th>
+      <th>Manual<br>Adjustments</th>
+      <th>On-Call<br>Pay</th>
       <th>Safeguard<br>Penalties</th>
       <th>Quarterly<br>Commissions</th>
       <th>Gross Pay</th>
@@ -3275,7 +3342,7 @@ function renderPayrollReportingSheet(rows) {
   `;
 
   if (!rows || rows.length === 0) {
-    body.innerHTML = '<tr><td colspan="9">No payroll reporting rows found for this pay period.</td></tr>';
+    body.innerHTML = '<tr><td colspan="11">No payroll reporting rows found for this pay period.</td></tr>';
     return;
   }
 
@@ -3288,20 +3355,21 @@ function renderPayrollReportingSheet(rows) {
       <td class="payroll-report-money">${formatCurrency(row.ppv_base_pay || 0)}</td>
       <td class="payroll-report-money">${formatCurrency(row.pickup_pay || 0)}</td>
       <td class="payroll-report-money">${formatCurrency(row.pto_holiday_pay || 0)}</td>
-      <td class="payroll-report-money">${formatCurrency(row.extra_rt_meetings_maint || 0)}</td>
+      <td class="payroll-report-money">${formatCurrency(row.rt_meetings_and_maintenance || 0)}</td>
+      <td class="payroll-report-money">${formatCurrency(row.manual_adjustments || 0)}</td>
+      <td class="payroll-report-money">${formatCurrency(row.on_call_pay || 0)}</td>
       <td class="payroll-report-money">${formatCurrency(row.safeguard_penalties || 0)}</td>
       <td class="payroll-report-money">${formatCurrency(row.quarterly_commissions || 0)}</td>
       <td class="payroll-report-money"><strong>${formatCurrency(row.gross_pay || 0)}</strong></td>
     </tr>
   `).join('') + `
     <tr>
-      <td colspan="7"></td>
+      <td colspan="9"></td>
       <td class="payroll-report-total-label">Total $</td>
       <td class="payroll-report-total-value">${formatCurrency(totalGross)}</td>
     </tr>
   `;
 }
-
 
 function renderMetrics(rows) {
   const totals = {
@@ -3848,15 +3916,18 @@ async function saveManualDollarAdjustment() {
   }
 
   const routeTechId = getInputValue('manualAdjustmentRouteTechSelect');
+  const category = getInputValue('manualAdjustmentCategorySelect') || 'MANUAL_ADJUSTMENT';
   const amount = numberInputValue('manualAdjustmentAmountInput');
   const reason = getInputValue('manualAdjustmentReasonInput');
 
   if (!routeTechId || amount === 0 || !reason) {
-    setPPVStatus('Select a route tech, enter a non-zero dollar amount, and provide a reason before saving a manual adjustment or On-call Pay entry.', 'error');
+    setPPVStatus('Select a route tech, choose the adjustment type, enter a non-zero dollar amount, and provide a reason before saving.', 'error');
     return;
   }
 
-  const fullReason = `Manual Adjustment / On-call Pay - ${reason}`;
+  const isOnCallPay = category === 'ON_CALL_PAY';
+  const entryLabel = isOnCallPay ? 'On-Call Pay' : 'Manual Adjustment';
+  const fullReason = `${entryLabel} - ${reason}`;
 
   const { error } = await client.rpc('upsert_ppv_adjustment', {
     p_pay_period_id: currentPayPeriodId,
@@ -3871,11 +3942,11 @@ async function saveManualDollarAdjustment() {
   });
 
   if (error) {
-    setPPVStatus('Manual adjustment / On-call Pay save error: ' + error.message, 'error');
+    setPPVStatus(`${entryLabel} save error: ${error.message}`, 'error');
     return;
   }
 
-  setPPVStatus('Manual adjustment / On-call Pay saved as an approved payroll correction.', 'success');
+  setPPVStatus(`${entryLabel} saved as an approved payroll correction.`, 'success');
   setInputValue('manualAdjustmentAmountInput', '');
   setInputValue('manualAdjustmentReasonInput', '');
   await refreshSelectedPayPeriodData();
@@ -5284,6 +5355,9 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
   const preSafeguardPay = numberFromRecord(row, ['pre_safeguard_pay']);
   const safeguardPenalty = numberFromRecord(row, ['safeguard_impact_total']);
   const adjustmentTotal = numberFromRecord(row, ['adjustment_total']);
+  const adjustmentBreakdown = getAdjustmentBreakdownForRouteTech(routeTechId);
+  const manualAdjustmentTotal = adjustmentBreakdown.manual_adjustments;
+  const onCallPayTotal = adjustmentBreakdown.on_call_pay;
   const quarterlyCommissionPay = numberFromRecord(row, ['quarterly_commission_pay', 'quarterly_commission_amount', 'commission_pay']);
   const finalGross = numberFromRecord(row, ['final_gross_before_taxes_deductions', 'net_ppv_pay']);
   const preSafeguardDisplayPay = finalGross || safeguardPenalty
@@ -5409,11 +5483,18 @@ function buildRouteTechPaySheetHTML(row, printMode = false) {
             <td>Approved quarterly commission earned for this pay period.</td>
           </tr>
           <tr>
-            <td>Manual Adjustments / On-call Pay</td>
+            <td>Manual Adjustments</td>
             <td></td>
             <td></td>
-            <td>${formatCurrency(adjustmentTotal)}</td>
-            <td>Approved manual pay adjustments and On-call Pay, if any.</td>
+            <td>${formatCurrency(manualAdjustmentTotal)}</td>
+            <td>Approved manual payroll dollar adjustments, if any.</td>
+          </tr>
+          <tr>
+            <td>On-Call Pay</td>
+            <td></td>
+            <td></td>
+            <td>${formatCurrency(onCallPayTotal)}</td>
+            <td>Approved On-Call Pay for this pay period, if any.</td>
           </tr>
           <tr>
             <td>Pre-Safeguard Pay</td>
