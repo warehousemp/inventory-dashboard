@@ -903,7 +903,7 @@
 
         <div id="panel-import" class="tab-panel">
           <h2>Tech Details Import</h2>
-          <p class="section-description">Upload a Skimmer Tech Details CSV. Only Cleaning and Skipped Stop rows are inserted. Molinari Pools rows are flagged as internal and excluded from client-change reporting.</p>
+          <p class="section-description">Upload a Skimmer Tech Details CSV. The complete in-range Tech Details report is retained for Performance Hub and work-order reporting, while only Cleaning and Skipped Stop rows feed Client Changes reporting. Molinari Pools rows are flagged as internal and excluded from client-change reporting.</p>
 
           <div class="skimmer-import-instructions">
             <h3>How to Export the Tech Details Report from Skimmer</h3>
@@ -2715,7 +2715,15 @@ async function previewImport() {
       try {
         const rows = Array.isArray(results.data) ? results.data : [];
         const fields = results.meta?.fields || [];
-        const required = ['Service Date', 'Service Type', 'Customer', 'Service Location', 'Tech Name'];
+        const required = [
+          'Service Date',
+          'Service Type',
+          'Customer',
+          'Service Location',
+          'Tech Name',
+          'Work Order Type',
+          'Work Order Number'
+        ];
         const missing = required.filter(field => !fields.includes(field));
 
         if (missing.length) {
@@ -2728,6 +2736,13 @@ async function previewImport() {
         let outsideRows = 0;
         let otherTypeRows = 0;
         let invalidDateRows = 0;
+
+        // rawRows keeps EVERY valid, in-range Tech Details row for Performance Hub
+        // and other reporting that depends on Work Order Type.
+        const rawRows = [];
+
+        // preparedRows remains the Client Changes subset only:
+        // Cleaning + Skipped Stop rows.
         const preparedRows = [];
 
         rows.forEach((row, index) => {
@@ -2745,15 +2760,39 @@ async function previewImport() {
 
           const serviceType = safe(row['Service Type']).trim();
           const serviceTypeLower = serviceType.toLowerCase();
+          const customer = safe(row['Customer']).trim();
+          const serviceLocation = safe(row['Service Location']).trim();
+          const routeTech = safe(row['Tech Name']).trim();
+
+          rawRows.push({
+            source_row_number: String(index + 2),
+            service_date: serviceDate,
+            service_type: serviceType,
+            tech_name: routeTech,
+            customer_name: customer,
+            customer_name_normalized: normalizeName(customer),
+            service_location: serviceLocation,
+            service_location_normalized: normalizeAddress(serviceLocation),
+            work_order_type: safe(row['Work Order Type']).trim(),
+            work_order_number: safe(row['Work Order Number']).trim(),
+            total_labor_amount: safe(row['Total Labor Amount']).trim(),
+            cleanings: safe(row['Cleanings']).trim(),
+            cleaning_amount: safe(row['Cleaning Amount']).trim(),
+            work_orders: safe(row['Work Orders']).trim(),
+            work_order_amount: safe(row['Work Order Amount']).trim(),
+            skipped_stops: safe(row['Skipped Stops']).trim(),
+            labor_cost: safe(row['Labor Cost']).trim(),
+            labor_amount: safe(row['Labor Amount']).trim(),
+            frequency: safe(row['Frequency']).trim(),
+            day_of_week: safe(row['Day of Week']).trim(),
+            skip_reason: safe(row['Skip Reason']).trim(),
+            labor_cost_type: safe(row['Labor Cost Type']).trim()
+          });
 
           if (!['cleaning', 'skipped stop'].includes(serviceTypeLower)) {
             otherTypeRows++;
             return;
           }
-
-          const customer = safe(row['Customer']).trim();
-          const serviceLocation = safe(row['Service Location']).trim();
-          const routeTech = safe(row['Tech Name']).trim();
 
           const isInternal = normalizeName(customer) === 'molinari pools';
           const isCleaning = serviceTypeLower === 'cleaning';
@@ -2781,6 +2820,7 @@ async function previewImport() {
         parsedImport = {
           file,
           sourceRows: rows.length,
+          rawRows,
           preparedRows,
           cleaningRows,
           skippedRows,
@@ -2788,7 +2828,7 @@ async function previewImport() {
           outsideRows,
           otherTypeRows,
           invalidDateRows,
-          excludedRows: outsideRows + otherTypeRows + invalidDateRows,
+          excludedRows: outsideRows + invalidDateRows,
           startDate,
           endDate
         };
@@ -2801,14 +2841,15 @@ async function previewImport() {
         setText('previewExcludedRows', parsedImport.excludedRows);
 
         document.getElementById('importPreview')?.classList.remove('hidden');
-        document.getElementById('runImportBtn').disabled = preparedRows.length === 0;
+        document.getElementById('runImportBtn').disabled = rawRows.length === 0;
 
         setMessage(
           'importMessage',
           'success',
-          `Preview ready. ${preparedRows.length.toLocaleString()} rows will be imported. ` +
-          `${outsideRows.toLocaleString()} outside the date range, ${otherTypeRows.toLocaleString()} other service types, ` +
-          `and ${invalidDateRows.toLocaleString()} invalid-date rows will be excluded.`
+          `Preview ready. ${rawRows.length.toLocaleString()} Tech Details rows will be retained. ` +
+          `${preparedRows.length.toLocaleString()} Cleaning / Skipped Stop rows will feed Client Changes reporting. ` +
+          `${otherTypeRows.toLocaleString()} other service-type rows will be retained for Performance Hub and work-order reporting. ` +
+          `${outsideRows.toLocaleString()} outside the date range and ${invalidDateRows.toLocaleString()} invalid-date rows will be excluded.`
         );
       } catch (error) {
         setMessage('importMessage', 'error', error.message || String(error));
@@ -2824,7 +2865,7 @@ async function previewImport() {
 }
 
 async function runImport() {
-  if (!parsedImport?.preparedRows?.length) {
+  if (!parsedImport?.rawRows?.length) {
     setMessage('importMessage', 'error', 'Preview a valid import before running it.');
     return;
   }
@@ -2837,7 +2878,10 @@ async function runImport() {
     return;
   }
 
-  if (!confirm(`Import ${parsedImport.preparedRows.length.toLocaleString()} prepared rows from ${parsedImport.file.name}?`)) return;
+  if (!confirm(
+    `Import ${parsedImport.rawRows.length.toLocaleString()} Tech Details rows from ${parsedImport.file.name}?\n\n` +
+    `${parsedImport.preparedRows.length.toLocaleString()} Cleaning / Skipped Stop rows will also feed Client Changes reporting.`
+  )) return;
 
   setButtonLoading('runImportBtn', true, 'Importing...');
   setMessage('importMessage', 'info', 'Creating import batch...');
@@ -2860,6 +2904,36 @@ async function runImport() {
 
     importId = rpcData;
 
+    // 1) Retain the complete Tech Details dataset.
+    // This is the source used by Performance Hub for Work Order Type KPIs.
+    const rawChunkSize = 400;
+    for (let start = 0; start < parsedImport.rawRows.length; start += rawChunkSize) {
+      const chunk = parsedImport.rawRows.slice(start, start + rawChunkSize);
+
+      const { error: rawError } = await client.rpc(
+        'load_client_changes_tech_details_raw',
+        {
+          p_import_id: importId,
+          p_rows: chunk
+        }
+      );
+
+      if (rawError) {
+        throw new Error(
+          `Full Tech Details retention failed at rows ${start + 1}-${start + chunk.length}: ${rawError.message}`
+        );
+      }
+
+      setMessage(
+        'importMessage',
+        'info',
+        `Retained ${Math.min(start + chunk.length, parsedImport.rawRows.length).toLocaleString()} ` +
+        `of ${parsedImport.rawRows.length.toLocaleString()} Tech Details rows...`
+      );
+    }
+
+    // 2) Keep the existing Client Changes behavior unchanged.
+    // Only Cleaning and Skipped Stop rows belong in client_changes_weekly_details.
     const rowsWithImport = parsedImport.preparedRows.map(row => ({
       ...row,
       import_id: importId
@@ -2873,13 +2947,14 @@ async function runImport() {
         .insert(chunk);
 
       if (insertError) {
-        throw new Error(`Detail insert failed at rows ${start + 1}-${start + chunk.length}: ${insertError.message}`);
+        throw new Error(`Client Changes detail insert failed at rows ${start + 1}-${start + chunk.length}: ${insertError.message}`);
       }
 
       setMessage(
         'importMessage',
         'info',
-        `Imported ${Math.min(start + chunk.length, rowsWithImport.length).toLocaleString()} of ${rowsWithImport.length.toLocaleString()} detail rows...`
+        `Loaded ${Math.min(start + chunk.length, rowsWithImport.length).toLocaleString()} ` +
+        `of ${rowsWithImport.length.toLocaleString()} Client Changes rows...`
       );
     }
 
@@ -2889,7 +2964,8 @@ async function runImport() {
         total_source_rows: parsedImport.sourceRows,
         cleaning_rows: parsedImport.cleaningRows,
         skipped_stop_rows: parsedImport.skippedRows,
-        excluded_internal_rows: parsedImport.internalRows
+        excluded_internal_rows: parsedImport.internalRows,
+        raw_tech_detail_rows: parsedImport.rawRows.length
       })
       .eq('id', importId);
 
@@ -2898,7 +2974,9 @@ async function runImport() {
     setMessage(
       'importMessage',
       'success',
-      `Import complete. ${rowsWithImport.length.toLocaleString()} detail rows were inserted under batch ${importId}.`
+      `Import complete. ${parsedImport.rawRows.length.toLocaleString()} Tech Details rows were retained, ` +
+      `including Work Order Type data for Performance Hub. ` +
+      `${rowsWithImport.length.toLocaleString()} Cleaning / Skipped Stop rows were loaded into Client Changes reporting.`
     );
 
     parsedImport = null;
