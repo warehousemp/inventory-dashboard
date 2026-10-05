@@ -1768,7 +1768,82 @@
     .filter-staging-table th:nth-child(2), .filter-staging-table td:nth-child(2) { width: 16%; text-align: center; font-weight: 800; }
     .filter-staging-table th:nth-child(3), .filter-staging-table td:nth-child(3) { width: 34%; font-weight: 800; }
     .filter-staging-table th:nth-child(4), .filter-staging-table td:nth-child(4) { width: 16%; text-align: center; font-weight: 800; }
-    .filter-checklist-table { min-width: 1650px; }
+    .filter-checklist-table {
+      min-width: 1680px;
+      table-layout: fixed;
+    }
+
+    .filter-checklist-table th:nth-child(1),
+    .filter-checklist-table td:nth-child(1) {
+      width: 80px;
+      text-align: center;
+    }
+
+    .filter-checklist-table th:nth-child(2),
+    .filter-checklist-table td:nth-child(2) {
+      width: 105px;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .filter-checklist-table th:nth-child(3),
+    .filter-checklist-table td:nth-child(3) {
+      width: 190px;
+      font-weight: 800;
+    }
+
+    .filter-checklist-table th:nth-child(4),
+    .filter-checklist-table td:nth-child(4) {
+      width: 220px;
+      font-weight: 800;
+    }
+
+    .filter-checklist-table th:nth-child(5),
+    .filter-checklist-table td:nth-child(5) {
+      width: 260px;
+    }
+
+    .filter-checklist-table th:nth-child(6),
+    .filter-checklist-table td:nth-child(6) {
+      width: 180px;
+    }
+
+    .filter-checklist-table th:nth-child(7),
+    .filter-checklist-table td:nth-child(7) {
+      width: 220px;
+      font-weight: 800;
+    }
+
+    .filter-checklist-table th:nth-child(8),
+    .filter-checklist-table td:nth-child(8) {
+      width: 90px;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .filter-checklist-table th:nth-child(9),
+    .filter-checklist-table td:nth-child(9) {
+      width: 220px;
+      font-weight: 800;
+    }
+
+    .filter-checklist-table th:nth-child(10),
+    .filter-checklist-table td:nth-child(10) {
+      width: 90px;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .filter-checklist-verify-box {
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 400;
+    }
+
+    .filter-checklist-parts {
+      line-height: 1.5;
+    }
+
     .filter-billing-table { min-width: 1680px; table-layout: fixed; }
 
     .filter-billing-table th,
@@ -3477,6 +3552,43 @@
             </tr>
           </thead>
           <tbody id="filterStagingBody"><tr><td colspan="4">Load filter and O-ring requirements.</td></tr></tbody>
+        </table>
+      </div>
+
+      <h3>Route Tech Changeout Checklist</h3>
+      <div class="status-note">
+        Client-level verification checklist for the selected changeout date, day, and Route Tech.
+        Use this list to visually compare the planned database stops against the appointments currently scheduled in Skimmer.
+        Each client/service location appears once even when that property has multiple filter systems.
+      </div>
+
+      <div class="button-row">
+        <button class="transfer-btn" type="button" onclick="printRouteTechChecklist()">PRINT ROUTE TECH CHECKLIST</button>
+      </div>
+
+      <div id="filterChecklistSummary" class="session-id-box">
+        Load filter requirements to view the Route Tech checklist.
+      </div>
+
+      <div class="count-table-wrapper">
+        <table class="filter-checklist-table">
+          <thead>
+            <tr>
+              <th>Skimmer Match</th>
+              <th>Service Date</th>
+              <th>Route Tech</th>
+              <th>Client</th>
+              <th>Service Location</th>
+              <th>Filter System(s)</th>
+              <th>Filter Part(s)</th>
+              <th>Filter Qty</th>
+              <th>O-Ring Part(s)</th>
+              <th>O-Ring Qty</th>
+            </tr>
+          </thead>
+          <tbody id="filterChecklistBody">
+            <tr><td colspan="10">Load filter requirements.</td></tr>
+          </tbody>
         </table>
       </div>
 
@@ -6467,15 +6579,19 @@ async function loadRouteTechFilterReports() {
   const summary = document.getElementById('filterRouteTechSummary');
   const pullListBody = document.getElementById('filterPullListBody');
   const stagingBody = document.getElementById('filterStagingBody');
+  const checklistBody = document.getElementById('filterChecklistBody');
+  const checklistSummary = document.getElementById('filterChecklistSummary');
   const billingBody = document.getElementById('filterCSCBillingBody');
   const billingSummary = document.getElementById('filterCSCBillingSummary');
 
-  if (!summary || !pullListBody || !stagingBody || !billingBody || !billingSummary) return;
+  if (!summary || !pullListBody || !stagingBody || !checklistBody || !checklistSummary || !billingBody || !billingSummary) return;
 
   summary.textContent = `Loading ${selections.serviceDateLabel} filter requirements for ${selections.routeTechLabel}...`;
   pullListBody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
   stagingBody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
-  billingBody.innerHTML = '<tr><td colspan="11">Loading...</td></tr>';
+  checklistBody.innerHTML = '<tr><td colspan="10">Loading Route Tech checklist...</td></tr>';
+  checklistSummary.textContent = 'Loading Route Tech checklist...';
+  billingBody.innerHTML = '<tr><td colspan="12">Loading...</td></tr>';
   billingSummary.textContent = 'Loading CSC billing data...';
 
   let stagingQuery = client
@@ -6544,7 +6660,9 @@ async function loadRouteTechFilterReports() {
     summary.textContent = message;
     pullListBody.innerHTML = `<tr><td colspan="3">${escapeHTML(message)}</td></tr>`;
     stagingBody.innerHTML = `<tr><td colspan="4">${escapeHTML(message)}</td></tr>`;
-    billingBody.innerHTML = `<tr><td colspan="11">${escapeHTML(message)}</td></tr>`;
+    checklistBody.innerHTML = `<tr><td colspan="10">${escapeHTML(message)}</td></tr>`;
+    checklistSummary.textContent = message;
+    billingBody.innerHTML = `<tr><td colspan="12">${escapeHTML(message)}</td></tr>`;
     billingSummary.textContent = message;
     return;
   }
@@ -6556,6 +6674,7 @@ async function loadRouteTechFilterReports() {
   populateCSCBillingClientList();
   renderFilterPullList();
   renderFilterStagingTable();
+  renderRouteTechChecklist();
   renderCSCBillingTable();
   renderCSCBillingClientQuoteSummary();
 
@@ -7140,6 +7259,316 @@ function getScheduledClientCountForRoute(serviceDate, routeTech) {
       .map(row => `${row.client_name || ''}|${row.service_location || ''}`)
   );
   return clients.size;
+}
+
+
+function buildRouteTechChecklistClientRows(rows = filterChecklistData) {
+  const grouped = new Map();
+
+  sortFilterChecklistRows(rows || []).forEach(row => {
+    const serviceDate = getFilterServiceDateValue(row);
+    const routeTech = String(row.route_tech || 'Unassigned');
+    const clientName = String(row.client_name || '');
+    const serviceLocation = String(row.service_location || '');
+    const key = `${serviceDate}|||${routeTech}|||${clientName}|||${serviceLocation}`;
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        service_date: serviceDate,
+        service_day_name: getFilterServiceDayName(row),
+        route_tech: routeTech,
+        client_name: clientName,
+        service_location: serviceLocation,
+        changeout_sequence: Number(row.changeout_sequence || 0),
+        filter_systems: new Set(),
+        filter_parts: new Map(),
+        oring_parts: new Map(),
+        filter_quantity: 0,
+        oring_quantity: 0
+      });
+    }
+
+    const group = grouped.get(key);
+    const filterSystem = String(row.filter_system_name || '').trim();
+    const filterPart = String(row.hurricane_part_number || 'TBD').trim() || 'TBD';
+    const oringPart = String(row.oring_part_number || 'TBD').trim() || 'TBD';
+    const filterQty = Number(row.system_quantity || 0);
+    const oringQty = Number(row.oring_quantity || 0);
+
+    if (filterSystem) {
+      group.filter_systems.add(filterSystem);
+    }
+
+    group.filter_parts.set(
+      filterPart,
+      Number(group.filter_parts.get(filterPart) || 0) + filterQty
+    );
+
+    group.oring_parts.set(
+      oringPart,
+      Number(group.oring_parts.get(oringPart) || 0) + oringQty
+    );
+
+    group.filter_quantity += filterQty;
+    group.oring_quantity += oringQty;
+
+    if (
+      !group.changeout_sequence ||
+      (Number(row.changeout_sequence || 0) > 0 &&
+       Number(row.changeout_sequence || 0) < group.changeout_sequence)
+    ) {
+      group.changeout_sequence = Number(row.changeout_sequence || 0);
+    }
+  });
+
+  return [...grouped.values()].sort((a, b) => {
+    return String(a.service_date || '').localeCompare(String(b.service_date || ''))
+      || String(a.route_tech || '').localeCompare(String(b.route_tech || ''))
+      || Number(a.changeout_sequence || 0) - Number(b.changeout_sequence || 0)
+      || String(a.client_name || '').localeCompare(String(b.client_name || ''))
+      || String(a.service_location || '').localeCompare(String(b.service_location || ''));
+  });
+}
+
+function formatChecklistPartMap(partMap) {
+  if (!partMap || partMap.size === 0) {
+    return 'TBD';
+  }
+
+  return [...partMap.entries()]
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+    .map(([partNumber, quantity]) =>
+      `${escapeHTML(partNumber)} <span class="filter-inventory-item-qty">Qty ${formatNumber(quantity)}</span>`
+    )
+    .join('<br>');
+}
+
+function formatChecklistPartMapPlain(partMap) {
+  if (!partMap || partMap.size === 0) {
+    return 'TBD';
+  }
+
+  return [...partMap.entries()]
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+    .map(([partNumber, quantity]) => `${partNumber} x${formatNumber(quantity)}`)
+    .join(' / ');
+}
+
+function renderRouteTechChecklist() {
+  const body = document.getElementById('filterChecklistBody');
+  const summary = document.getElementById('filterChecklistSummary');
+
+  if (!body || !summary) {
+    return;
+  }
+
+  const clientRows = buildRouteTechChecklistClientRows(filterChecklistData);
+  body.innerHTML = '';
+
+  if (!clientRows.length) {
+    body.innerHTML = '<tr><td colspan="10">No Route Tech checklist stops found for the selected filters.</td></tr>';
+    summary.textContent = 'No Route Tech checklist stops found for the selected filters.';
+    return;
+  }
+
+  let lastServiceDate = null;
+  let lastRouteTech = null;
+
+  clientRows.forEach(row => {
+    const serviceDate = row.service_date || '';
+    const dayName = row.service_day_name || '';
+    const routeTech = row.route_tech || 'Unassigned';
+
+    if (serviceDate !== lastServiceDate) {
+      appendFilterDateHeader(body, serviceDate, dayName, 10);
+      lastServiceDate = serviceDate;
+      lastRouteTech = null;
+    }
+
+    if (routeTech !== lastRouteTech) {
+      const routeClientCount = clientRows.filter(item =>
+        item.service_date === serviceDate &&
+        item.route_tech === routeTech
+      ).length;
+
+      appendFilterRouteHeader(
+        body,
+        routeTech,
+        10,
+        `${formatNumber(routeClientCount)} planned client${routeClientCount === 1 ? '' : 's'}`
+      );
+      lastRouteTech = routeTech;
+    }
+
+    const filterSystems = [...row.filter_systems]
+      .sort((a, b) => a.localeCompare(b))
+      .map(value => escapeHTML(value))
+      .join('<br>');
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="filter-checklist-verify-box">☐</td>
+      <td>${escapeHTML(formatFilterServiceDateShort(row.service_date))}</td>
+      <td>${escapeHTML(routeTech)}</td>
+      <td>${escapeHTML(row.client_name || '')}</td>
+      <td>${escapeHTML(row.service_location || '')}</td>
+      <td>${filterSystems || '—'}</td>
+      <td class="filter-checklist-parts">${formatChecklistPartMap(row.filter_parts)}</td>
+      <td>${formatNumber(row.filter_quantity)}</td>
+      <td class="filter-checklist-parts">${formatChecklistPartMap(row.oring_parts)}</td>
+      <td>${formatNumber(row.oring_quantity)}</td>
+    `;
+    body.appendChild(tr);
+  });
+
+  const routeTechCount = new Set(clientRows.map(row => row.route_tech).filter(Boolean)).size;
+  const changeoutDateCount = new Set(clientRows.map(row => row.service_date).filter(Boolean)).size;
+  const totalFilters = clientRows.reduce((sum, row) => sum + Number(row.filter_quantity || 0), 0);
+  const totalOrings = clientRows.reduce((sum, row) => sum + Number(row.oring_quantity || 0), 0);
+  const selections = getFilterReportSelections();
+
+  summary.textContent =
+    `Changeout Service Date: ${selections.serviceDateLabel}\n` +
+    `Day of Week: ${selections.serviceDayName}\n` +
+    `Route Tech: ${selections.routeTechLabel}\n` +
+    `Planned Client Stops: ${formatNumber(clientRows.length)}\n` +
+    `Route Technicians Included: ${formatNumber(routeTechCount)}\n` +
+    `Changeout Dates Included: ${formatNumber(changeoutDateCount)}\n` +
+    `Filters Represented: ${formatNumber(totalFilters)}\n` +
+    `O-Rings Represented: ${formatNumber(totalOrings)}\n` +
+    `Use the Skimmer Match checkbox to visually verify each planned stop against Skimmer.`;
+}
+
+function printRouteTechChecklist() {
+  const clientRows = buildRouteTechChecklistClientRows(filterChecklistData);
+
+  if (!clientRows.length) {
+    const summary = document.getElementById('filterChecklistSummary');
+    if (summary) {
+      summary.textContent = 'No Route Tech checklist stops are available to print for the current filters.';
+    }
+    return;
+  }
+
+  const selections = getFilterReportSelections();
+  const routeTechCount = new Set(clientRows.map(row => row.route_tech).filter(Boolean)).size;
+  const totalFilters = clientRows.reduce((sum, row) => sum + Number(row.filter_quantity || 0), 0);
+  const totalOrings = clientRows.reduce((sum, row) => sum + Number(row.oring_quantity || 0), 0);
+
+  let rowsHtml = '';
+  let lastServiceDate = null;
+  let lastRouteTech = null;
+
+  clientRows.forEach(row => {
+    const serviceDate = row.service_date || '';
+    const dayName = row.service_day_name || '';
+    const routeTech = row.route_tech || 'Unassigned';
+
+    if (serviceDate !== lastServiceDate) {
+      rowsHtml += `<tr class="day-header"><td colspan="10">${escapeHTML(getFilterServiceDateLabel(serviceDate))}${dayName ? ` — ${escapeHTML(dayName)}` : ''}</td></tr>`;
+      lastServiceDate = serviceDate;
+      lastRouteTech = null;
+    }
+
+    if (routeTech !== lastRouteTech) {
+      const routeClientCount = clientRows.filter(item =>
+        item.service_date === serviceDate &&
+        item.route_tech === routeTech
+      ).length;
+
+      rowsHtml += `<tr class="route-header"><td colspan="10">Route Tech: ${escapeHTML(routeTech)} — ${formatNumber(routeClientCount)} planned client${routeClientCount === 1 ? '' : 's'}</td></tr>`;
+      lastRouteTech = routeTech;
+    }
+
+    rowsHtml += `
+      <tr>
+        <td class="check">☐</td>
+        <td>${escapeHTML(formatFilterServiceDateShort(row.service_date))}</td>
+        <td>${escapeHTML(routeTech)}</td>
+        <td>${escapeHTML(row.client_name || '')}</td>
+        <td>${escapeHTML(row.service_location || '')}</td>
+        <td>${escapeHTML([...row.filter_systems].sort().join(' / '))}</td>
+        <td>${escapeHTML(formatChecklistPartMapPlain(row.filter_parts))}</td>
+        <td class="num">${formatNumber(row.filter_quantity)}</td>
+        <td>${escapeHTML(formatChecklistPartMapPlain(row.oring_parts))}</td>
+        <td class="num">${formatNumber(row.oring_quantity)}</td>
+      </tr>`;
+  });
+
+  const printWindow = window.open('', '_blank', 'width=1500,height=900');
+
+  if (!printWindow) {
+    const summary = document.getElementById('filterChecklistSummary');
+    if (summary) {
+      summary.textContent = 'Pop-up blocked. Allow pop-ups and try printing the Route Tech checklist again.';
+    }
+    return;
+  }
+
+  printWindow.document.write(`<!doctype html>
+<html>
+<head>
+  <title>Route Tech Filter Changeout Checklist - ${escapeHTML(selections.serviceDateLabel)}</title>
+  <style>
+    body{font-family:Arial,sans-serif;color:#111;margin:18px}
+    h1{font-size:20px;margin:0 0 6px}
+    .meta{font-size:11px;margin-bottom:12px;line-height:1.5}
+    .verify-note{font-size:11px;margin:0 0 12px;padding:8px 10px;border:1px solid #bbb;background:#f7f7f7}
+    table{width:100%;border-collapse:collapse;font-size:8px;table-layout:fixed}
+    th,td{border:1px solid #555;padding:5px;vertical-align:top;overflow-wrap:anywhere}
+    th{background:#eee}
+    .check{font-size:15px;text-align:center;width:42px}
+    .num{text-align:center;font-weight:700}
+    .day-header td{background:#dbeafe;color:#0b3c5d;font-size:11px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;padding:7px;page-break-after:avoid}
+    .route-header td{background:#ecfdf3;color:#166534;font-size:9px;font-weight:900;padding:6px 9px;page-break-after:avoid}
+    th:nth-child(1),td:nth-child(1){width:42px}
+    th:nth-child(2),td:nth-child(2){width:60px}
+    th:nth-child(3),td:nth-child(3){width:105px}
+    th:nth-child(4),td:nth-child(4){width:135px}
+    th:nth-child(5),td:nth-child(5){width:165px}
+    th:nth-child(6),td:nth-child(6){width:105px}
+    th:nth-child(7),td:nth-child(7){width:130px}
+    th:nth-child(8),td:nth-child(8){width:45px}
+    th:nth-child(9),td:nth-child(9){width:130px}
+    th:nth-child(10),td:nth-child(10){width:45px}
+    @page{size:landscape;margin:.35in}
+  </style>
+</head>
+<body>
+  <h1>Route Tech Annual Filter &amp; O-Ring Changeout Checklist</h1>
+  <div class="meta">
+    <strong>Changeout Date:</strong> ${escapeHTML(selections.serviceDateLabel)} &nbsp;&nbsp;
+    <strong>Day:</strong> ${escapeHTML(selections.serviceDayName)} &nbsp;&nbsp;
+    <strong>Route Tech:</strong> ${escapeHTML(selections.routeTechLabel)} &nbsp;&nbsp;
+    <strong>Planned Client Stops:</strong> ${formatNumber(clientRows.length)} &nbsp;&nbsp;
+    <strong>Route Techs:</strong> ${formatNumber(routeTechCount)} &nbsp;&nbsp;
+    <strong>Filters:</strong> ${formatNumber(totalFilters)} &nbsp;&nbsp;
+    <strong>O-Rings:</strong> ${formatNumber(totalOrings)}
+  </div>
+  <div class="verify-note"><strong>Verification:</strong> Check each row after confirming the client, service date, and Route Tech match the appointment currently scheduled in Skimmer.</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Skimmer Match</th>
+        <th>Date</th>
+        <th>Route Tech</th>
+        <th>Client</th>
+        <th>Service Location</th>
+        <th>Filter System(s)</th>
+        <th>Filter Part(s)</th>
+        <th>Filter Qty</th>
+        <th>O-Ring Part(s)</th>
+        <th>O-Ring Qty</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHtml}</tbody>
+  </table>
+</body>
+</html>`);
+
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
 }
 
 function buildFilterPullList(rows = filterStagingData) {
