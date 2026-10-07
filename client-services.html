@@ -1672,7 +1672,7 @@
           <section class="revenue-reporting-card">
             <h3>Summary Reporting Controls</h3>
             <div class="status-note">
-              These controls update the Weekly Revenue summary cards and totals. The Revenue Transaction Log below has its own reporting controls so the table can be reviewed independently.
+              These controls update the Weekly Revenue summary cards and totals. Completed Annual Filter &amp; O-Ring Changeouts are added automatically as Service revenue on the actual completion date, so they do not need to be entered manually in the Revenue Transaction Log. The Revenue Transaction Log below has its own reporting controls so the table can be reviewed independently.
             </div>
 
             <div class="revenue-filter-grid">
@@ -1727,7 +1727,7 @@
               <div class="sub" id="revenueSummaryTransactions">0 transactions</div>
             </div>
             <div class="revenue-summary-card" id="revenueSummaryQuotedCard">
-              <div class="label">Total Quoted</div>
+              <div class="label">Total Quoted $</div>
               <div class="value" id="revenueSummaryQuoted">$0.00 / $0.00</div>
               <div class="sub" id="revenueSummaryQuotedBreakdown">Service: $0.00 | CRM: $0.00</div>
               <div class="goal-note" id="revenueSummaryQuotedGoalNote">Goal status: —</div>
@@ -1735,9 +1735,15 @@
             <div class="revenue-summary-card" id="revenueSummaryRevenueCard">
               <div class="label">Total Revenue</div>
               <div class="value" id="revenueSummaryRevenue">$0.00 / $0.00</div>
-              <div class="sub">Project, tech, leak, route, and other revenue</div>
+              <div class="sub">Project Work + Total Service Only Revenue</div>
               <div class="goal-note" id="revenueSummaryRevenueGoalNote">Goal status: —</div>
             </div>
+            <div class="revenue-summary-card">
+              <div class="label">Total Service Only Revenue</div>
+              <div class="value" id="revenueSummaryServiceOnly">$0.00</div>
+              <div class="sub">Repair Tech + Other + Leak + Route Service + Filter Changeout</div>
+            </div>
+
             <div class="revenue-summary-card">
               <div class="label">Project Work $</div>
               <div class="value" id="revenueSummaryProjectWork">$0.00</div>
@@ -1758,15 +1764,21 @@
               <div class="value" id="revenueSummaryLeakDetection">$0.00</div>
               <div class="sub">Leak detection revenue</div>
             </div>
+
             <div class="revenue-summary-card">
               <div class="label">Route Service $</div>
               <div class="value" id="revenueSummaryRouteService">$0.00</div>
-              <div class="sub">Route team revenue</div>
+              <div class="sub">Route Service revenue excluding Filter Changeout</div>
+            </div>
+            <div class="revenue-summary-card">
+              <div class="label">Filter Changeout $</div>
+              <div class="value" id="revenueSummaryAnnualFilter">$0.00</div>
+              <div class="sub">Completed Annual Filter &amp; O-Ring Changeouts by actual completion date</div>
             </div>
             <div class="revenue-summary-card">
               <div class="label">Last Updated</div>
               <div class="value" id="revenueSummaryLastUpdated">—</div>
-              <div class="sub" id="revenueSummaryLastEntry">Last transaction: —</div>
+              <div class="sub" id="revenueSummaryLastEntry">Last revenue activity: —</div>
             </div>
           </section>
 
@@ -2635,7 +2647,7 @@ const MISSING_DATA_COLLAPSED_STORAGE_KEY = 'clientServicesMissingDataCollapsed';
 const REVENUE_VIEW = 'client_services_revenue_transaction_reporting_view';
 const REVENUE_ADD_RPC = 'add_client_services_revenue_transaction';
 const REVENUE_VOID_RPC = 'void_client_services_revenue_transaction';
-const REVENUE_SUMMARY_RPC = 'get_client_services_revenue_transaction_summary';
+const REVENUE_SUMMARY_RPC = 'get_client_services_revenue_dashboard_summary';
 const REVENUE_GOAL_TARGETS_RPC = 'get_client_services_revenue_goal_targets';
 const REVENUE_ENTERED_BY_STORAGE_KEY = 'clientServicesRevenueEnteredBy';
 
@@ -3630,10 +3642,14 @@ function renderRevenueSummary(row, goalRow, weeklyRow, startDate, endDate) {
   const goals = goalRow || {};
   const weeklySummary = weeklyRow || {};
   const transactionCount = Number(summary.transaction_count || 0);
+  const annualFilterCount = Number(summary.annual_filter_changeout_count || 0);
   const goalDays = Number(goals.period_business_days || 0);
 
   setText('revenueSummaryPeriod', `${formatShortDate(startDate)} – ${formatShortDate(endDate)}`);
-  setText('revenueSummaryTransactions', `${transactionCount} active transaction${transactionCount === 1 ? '' : 's'}`);
+  setText(
+    'revenueSummaryTransactions',
+    `${transactionCount} active transaction${transactionCount === 1 ? '' : 's'} · ${annualFilterCount} completed filter changeout${annualFilterCount === 1 ? '' : 's'}`
+  );
 
   renderRevenueGoalCard({
     cardId: 'revenueSummaryQuotedCard',
@@ -3671,20 +3687,15 @@ function renderRevenueSummary(row, goalRow, weeklyRow, startDate, endDate) {
     endDate,
     selectedPeriodKey: document.getElementById('revenuePeriodFilter')?.value || 'today'
   });
+  setText('revenueSummaryServiceOnly', formatCurrency(summary.total_service_only_revenue));
   setText('revenueSummaryProjectWork', formatCurrency(summary.total_project_work));
   setText('revenueSummaryRepairTech', formatCurrency(summary.total_repair_tech_revenue));
-  // The RPC's total_other is an Earned By total. This card is the OTHER entry-type
-  // category, so derive it from the complete, constrained set of revenue buckets.
-  const otherRevenue = Number(summary.total_revenue || 0)
-    - Number(summary.total_project_work || 0)
-    - Number(summary.total_repair_tech_revenue || 0)
-    - Number(summary.total_leak_detection || 0)
-    - Number(summary.total_route_service || 0);
-  setText('revenueSummaryOther', formatCurrency(otherRevenue));
+  setText('revenueSummaryOther', formatCurrency(summary.total_other_revenue));
   setText('revenueSummaryLeakDetection', formatCurrency(summary.total_leak_detection));
   setText('revenueSummaryRouteService', formatCurrency(summary.total_route_service));
+  setText('revenueSummaryAnnualFilter', formatCurrency(summary.total_annual_filter_changeout));
   setText('revenueSummaryLastUpdated', summary.last_updated_at ? formatDateTime(summary.last_updated_at) : '—');
-  setText('revenueSummaryLastEntry', `Last transaction: ${summary.last_transaction_date ? formatShortDate(summary.last_transaction_date) : '—'}`);
+  setText('revenueSummaryLastEntry', `Last revenue activity: ${summary.last_transaction_date ? formatShortDate(summary.last_transaction_date) : '—'}`);
 }
 
 function renderRevenueGoalCard({
