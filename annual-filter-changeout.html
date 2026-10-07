@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="shared-navigation.css">
   <meta name="theme-color" content="#0b3c5d">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     *{box-sizing:border-box}
     :root{--header:#0b3c5d;--accent:#1aa3b0;--bg:#f4f8fb;--card:#fff;--text:#1f2933;--muted:#667085;--border:#d9e2ec;--success:#067647}
@@ -80,8 +81,21 @@
     .quote-total{font-size:24px;font-weight:900;color:var(--success);margin-top:3px}
     .quote-total.review-total{color:#92400e}
     .quote-detail{font-size:11px;color:#475467;margin-top:6px}
-    @media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(150px,1fr))}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-action{grid-column:1/-1}.filter-action button{width:100%}.quote-summary{grid-template-columns:repeat(2,minmax(150px,1fr))}.queue-toolbar{grid-template-columns:1fr 1fr}.queue-summary{grid-template-columns:repeat(2,minmax(140px,1fr))}}
-    @media(max-width:650px){main{width:min(100% - 20px,1580px);margin-top:14px}.header-bar{padding:15px 16px}.hero{padding:18px}.summary-grid,.filters,.quote-summary,.billing-lookup-grid,.queue-toolbar,.queue-summary{grid-template-columns:1fr}.filter-action{grid-column:auto}.billing-lookup button{width:100%}}
+    .accounting-upload{padding:18px 20px;border-bottom:1px solid var(--border);background:#f8fafc}
+    .accounting-drop-zone{border:2px dashed #7aa9c4;border-radius:12px;padding:26px 20px;text-align:center;background:#fff;cursor:pointer;transition:.15s ease}
+    .accounting-drop-zone:hover,.accounting-drop-zone.dragover{border-color:var(--accent);background:#ecfeff}
+    .accounting-drop-title{font-size:17px;font-weight:900;color:var(--header);margin-bottom:5px}
+    .accounting-drop-note{font-size:12px;color:var(--muted);line-height:1.45}
+    .accounting-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) 220px auto auto auto;gap:12px;align-items:end;padding:18px 20px;border-bottom:1px solid var(--border);background:#f8fafc}
+    .accounting-summary{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:10px;padding:14px 20px;border-bottom:1px solid var(--border)}
+    .accounting-summary .summary-card{margin:0}
+    .status-ready-invoice{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+    .status-submitted{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+    .status-invoiced{background:#ecfdf3;color:#067647;border:1px solid #a7f3d0}
+    .status-needs-review{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+    .accounting-review{min-width:260px;white-space:normal;color:#92400e}
+    @media(max-width:1100px){.summary-grid{grid-template-columns:repeat(3,minmax(150px,1fr))}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-action{grid-column:1/-1}.filter-action button{width:100%}.quote-summary{grid-template-columns:repeat(2,minmax(150px,1fr))}.queue-toolbar{grid-template-columns:1fr 1fr}.queue-summary{grid-template-columns:repeat(2,minmax(140px,1fr))}.accounting-toolbar{grid-template-columns:1fr 1fr}.accounting-summary{grid-template-columns:repeat(2,minmax(140px,1fr))}}
+    @media(max-width:650px){main{width:min(100% - 20px,1580px);margin-top:14px}.header-bar{padding:15px 16px}.hero{padding:18px}.summary-grid,.filters,.quote-summary,.billing-lookup-grid,.queue-toolbar,.queue-summary,.accounting-toolbar,.accounting-summary{grid-template-columns:1fr}.filter-action{grid-column:auto}.billing-lookup button{width:100%}}
     @media print{#sharedNavigation,.header-bar,.filters,.tabs,.no-print{display:none!important}body{background:#fff}main{width:100%;margin:0}.hero,.card{box-shadow:none;border-color:#aaa}.tab-pane{display:block!important;margin-bottom:18px}.table-wrap{overflow:visible;max-height:none}table{min-width:0;font-size:9px}th{position:static}}
   </style>
 </head>
@@ -128,6 +142,7 @@
       <button id="tabSchedule" class="tab active" onclick="setTab('Schedule')">Client Schedule</button>
       <button id="tabStaging" class="tab" onclick="setTab('Staging')">Warehouse Staging</button>
       <button id="tabBilling" class="tab" onclick="setTab('Billing')">CSC Billing List</button>
+      <button id="tabAccounting" class="tab" style="display:none" onclick="setTab('Accounting')">Accounting Billing</button>
       <button id="tabForecast" class="tab" onclick="setTab('Forecast')">Purchasing Forecast</button>
       <button id="tabQueue" class="tab" onclick="setTab('Queue')">Skimmer Work Order Queue</button>
     </div>
@@ -170,6 +185,31 @@
       </div>
 
       <div class="table-wrap"><table style="min-width:1600px"><thead><tr><th>Service Date</th><th>Client</th><th>Total Billable to Client</th><th>Service Location</th><th>Filter System</th><th>Hurricane Part #</th><th>Filter Unit Cost</th><th>Qty</th><th>O-Ring Part #</th><th>Qty</th><th>O-Ring Unit Cost</th><th>Status</th></tr></thead><tbody id="billingBody"></tbody></table></div>
+    </section>
+
+    <section id="paneAccounting" class="card tab-pane">
+      <div class="card-head"><div><h2>Annual Filter Accounting Billing</h2><div class="queue-note" style="margin-top:5px;">Upload the completed Skimmer Work Order Details report here. Labor Amount is ignored. The system uses the existing Annual Filter Total Billable amount, creates the Accounting list, tracks submission, and confirms invoicing from the normal Monday Skimmer Invoice + Line Items import.</div></div><span id="accountingCount" class="strong"></span></div>
+
+      <div class="accounting-upload">
+        <input id="accountingCompletedFile" type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleAccountingCompletedFile(this.files?.[0])">
+        <div id="accountingDropZone" class="accounting-drop-zone" tabindex="0" role="button" aria-label="Upload completed Skimmer Work Order Details report">
+          <div class="accounting-drop-title">DROP SKIMMER WORK ORDER DETAILS REPORT HERE</div>
+          <div class="accounting-drop-note">or click to browse for Work Order Details.xlsx. Only completed <strong>Annual Filter &amp; Oring Changeout</strong> rows are imported. The $13.55 Labor Amount is not used for billing.</div>
+        </div>
+        <div id="accountingMessage" class="status" style="margin-bottom:0;">Ready for the completed Skimmer Work Order Details report.</div>
+      </div>
+
+      <div id="accountingSummary" class="accounting-summary"></div>
+
+      <div class="accounting-toolbar">
+        <div><label for="accountingSearch">Search Billing</label><input id="accountingSearch" type="search" placeholder="Client, address, work order, invoice..." oninput="renderAccountingBilling()"></div>
+        <div><label for="accountingStatusFilter">Billing Status</label><select id="accountingStatusFilter" onchange="renderAccountingBilling()"><option value="ALL">All Statuses</option><option value="READY_TO_INVOICE">Ready to Invoice</option><option value="SUBMITTED_TO_ACCOUNTING">Submitted to Accounting</option><option value="INVOICED">Invoiced</option><option value="NEEDS_REVIEW">Needs Review</option></select></div>
+        <div><button class="btn-secondary" type="button" onclick="reconcileAccountingInvoices()">REFRESH / CHECK INVOICES</button></div>
+        <div><button class="btn-secondary" type="button" onclick="exportCurrentAccountingCSV()">EXPORT CURRENT VIEW CSV</button></div>
+        <div><button class="btn-success" type="button" onclick="submitReadyAccounting()">SUBMIT READY LIST TO ACCOUNTING</button></div>
+      </div>
+
+      <div class="table-wrap"><table style="min-width:1850px"><thead><tr><th>Status</th><th>Completed Date</th><th>Client</th><th>Service Location</th><th>Work Order #</th><th>Filter Systems</th><th>Total Billable</th><th>Submitted</th><th>Submitted By</th><th>Invoice #</th><th>Invoice Date</th><th>Invoice Subtotal</th><th>Invoice Tax</th><th>Invoice Total</th><th>Review / Match Detail</th></tr></thead><tbody id="accountingBody"></tbody></table></div>
     </section>
 
     <section id="paneForecast" class="card tab-pane">
@@ -226,6 +266,9 @@
     let workOrderQueueData=[];
     let filteredSchedule=[],filteredStaging=[],filteredBilling=[];
     let billingClientSearch="";
+    let accountingData=[];
+    let accountingVisibleRows=[];
+    let accountingImporting=false;
     let batchProcessing=false;
     let activeBatchDate="";
 
@@ -238,7 +281,7 @@
     function message(text,type="status"){const b=document.getElementById("pageMessage");b.className=type;b.textContent=text}
 
     function setTab(name){
-      ["Schedule","Staging","Billing","Forecast","Queue"].forEach(n=>{
+      ["Schedule","Staging","Billing","Accounting","Forecast","Queue"].forEach(n=>{
         document.getElementById("pane"+n).classList.toggle("active",n===name);
         document.getElementById("tab"+n).classList.toggle("active",n===name);
       });
@@ -259,6 +302,9 @@
       document.getElementById("headerUser").textContent=`${profile.full_name||session.user.email} · ${profile.role} · ${QUEUE_OPERATOR_ROLES.includes(profile.role) ? "Queue Operator" : "View Only"}`;
       const syncButton=document.getElementById("queueOperatorSync");
       if(syncButton && QUEUE_OPERATOR_ROLES.includes(profile.role))syncButton.style.display="block";
+      const accountingTab=document.getElementById("tabAccounting");
+      if(accountingTab && QUEUE_OPERATOR_ROLES.includes(profile.role))accountingTab.style.display="";
+      if(QUEUE_OPERATOR_ROLES.includes(profile.role))setupAccountingUpload();
       await loadData();
     }
 
@@ -278,6 +324,7 @@
 
       scheduleData=s.data||[];stagingData=st.data||[];billingData=b.data||[];forecastData=f.data||[];workOrderQueueData=q.data||[];
       populateFilters();applyFilters();renderForecast();renderWorkOrderQueue();
+      if(queueOperator())await loadAccountingData();
       message("View-only page loaded. Data maintenance and imports remain on Warehouse Reports → Annual Filter Planning.","status");
     }
 
@@ -455,6 +502,243 @@
         const ready=String(r.billing_status||"").toUpperCase().includes("READY");
         return `<tr><td>${esc(dateLabel(r.service_date))}</td><td class="strong">${esc(r.client_name||"")}</td><td class="money">${esc(whole(r.total_billable_to_client))}</td><td>${esc(r.service_location||"")}</td><td>${esc(r.filter_system_name||"")}</td><td>${esc(r.hurricane_part_number||"TBD")}</td><td class="money">${esc(money(r.filter_unit_cost))}</td><td class="num">${num(r.system_quantity)}</td><td>${esc(r.oring_part_number||"TBD")}</td><td class="num">${num(r.oring_quantity||1)}</td><td class="money">${esc(money(r.oring_unit_cost))}</td><td><span class="badge ${ready?"ready":"review"}">${esc(r.billing_status||"REVIEW")}</span></td></tr>`;
       }).join("");
+    }
+
+    function accountingStatusLabel(status){
+      const value=String(status||"").toUpperCase();
+      if(value==="READY_TO_INVOICE")return"READY TO INVOICE";
+      if(value==="SUBMITTED_TO_ACCOUNTING")return"SUBMITTED TO ACCOUNTING";
+      if(value==="INVOICED")return"INVOICED";
+      if(value==="NEEDS_REVIEW")return"NEEDS REVIEW";
+      return value||"—";
+    }
+
+    function accountingStatusClass(status){
+      const value=String(status||"").toUpperCase();
+      if(value==="READY_TO_INVOICE")return"status-ready-invoice";
+      if(value==="SUBMITTED_TO_ACCOUNTING")return"status-submitted";
+      if(value==="INVOICED")return"status-invoiced";
+      return"status-needs-review";
+    }
+
+    function setupAccountingUpload(){
+      const zone=document.getElementById("accountingDropZone");
+      const input=document.getElementById("accountingCompletedFile");
+      if(!zone||!input||zone.dataset.ready==="1")return;
+      zone.dataset.ready="1";
+      zone.addEventListener("click",()=>input.click());
+      zone.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();input.click()}});
+      ["dragenter","dragover"].forEach(name=>zone.addEventListener(name,event=>{event.preventDefault();event.stopPropagation();zone.classList.add("dragover")}));
+      ["dragleave","drop"].forEach(name=>zone.addEventListener(name,event=>{event.preventDefault();event.stopPropagation();zone.classList.remove("dragover")}));
+      zone.addEventListener("drop",event=>handleAccountingCompletedFile(event.dataTransfer?.files?.[0]));
+    }
+
+    function accountingMessage(text,type="status"){
+      const el=document.getElementById("accountingMessage");
+      if(!el)return;
+      el.className=type;
+      el.style.marginBottom="0";
+      el.textContent=text;
+    }
+
+    function xlsxDateToIso(value){
+      if(value instanceof Date && !Number.isNaN(value.getTime())){
+        const y=value.getFullYear(),m=String(value.getMonth()+1).padStart(2,"0"),d=String(value.getDate()).padStart(2,"0");
+        return `${y}-${m}-${d}`;
+      }
+      if(typeof value==="number" && window.XLSX?.SSF?.parse_date_code){
+        const p=XLSX.SSF.parse_date_code(value);
+        if(p)return `${String(p.y).padStart(4,"0")}-${String(p.m).padStart(2,"0")}-${String(p.d).padStart(2,"0")}`;
+      }
+      const text=String(value??"").trim();
+      if(!text)return"";
+      const direct=text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if(direct)return `${direct[1]}-${String(direct[2]).padStart(2,"0")}-${String(direct[3]).padStart(2,"0")}`;
+      const us=text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+      if(us){const y=us[3].length===2?`20${us[3]}`:us[3];return `${y}-${String(us[1]).padStart(2,"0")}-${String(us[2]).padStart(2,"0")}`}
+      const parsed=new Date(text);
+      if(Number.isNaN(parsed.getTime()))return"";
+      return `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,"0")}-${String(parsed.getDate()).padStart(2,"0")}`;
+    }
+
+    function normalizedExcelRow(row){
+      const out={};
+      Object.entries(row||{}).forEach(([key,value])=>{out[String(key).trim().toLowerCase()]=value});
+      return out;
+    }
+
+    function isAnnualFilterWorkOrderType(value){
+      const text=String(value||"").toLowerCase();
+      return text.includes("annual")&&text.includes("filter")&&text.includes("changeout")&&(text.includes("oring")||text.includes("o-ring")||text.includes("o ring"));
+    }
+
+    async function handleAccountingCompletedFile(file){
+      if(!file||accountingImporting||!queueOperator())return;
+      if(!window.XLSX){accountingMessage("The Excel reader did not load. Refresh the page and try again.","danger");return}
+      accountingImporting=true;
+      accountingMessage(`Reading ${file.name}…`,"warning");
+      try{
+        const buffer=await file.arrayBuffer();
+        const workbook=XLSX.read(buffer,{type:"array",cellDates:true});
+        const sheet=workbook.Sheets[workbook.SheetNames[0]];
+        if(!sheet)throw new Error("No worksheet was found in this file.");
+        const rawRows=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:true});
+        if(!rawRows.length)throw new Error("The uploaded report does not contain any rows.");
+
+        const headers=Object.keys(normalizedExcelRow(rawRows[0]));
+        const required=["service date","customer","service location","work order type","work order"];
+        const missing=required.filter(name=>!headers.includes(name));
+        if(missing.length)throw new Error(`This is not the expected Skimmer Work Order Details report. Missing column(s): ${missing.join(", ")}.`);
+
+        const rows=rawRows.map(raw=>{
+          const r=normalizedExcelRow(raw);
+          return {
+            service_date:xlsxDateToIso(r["service date"]),
+            customer:String(r["customer"]||"").trim(),
+            service_location:String(r["service location"]||"").trim(),
+            tech_name:String(r["tech name"]||"").trim(),
+            work_order_type:String(r["work order type"]||"").trim(),
+            work_order:String(r["work order"]||"").trim().replace(/\.0$/,""),
+          };
+        }).filter(r=>isAnnualFilterWorkOrderType(r.work_order_type));
+
+        if(!rows.length)throw new Error("No completed Annual Filter & Oring Changeout work orders were found in this report.");
+        if(rows.some(r=>!r.service_date||!r.customer||!r.service_location||!r.work_order))throw new Error("At least one Annual Filter row is missing Service Date, Customer, Service Location, or Work Order #.");
+
+        let processed=0,review=0,existing=0;
+        const chunkSize=100;
+        for(let i=0;i<rows.length;i+=chunkSize){
+          const chunk=rows.slice(i,i+chunkSize);
+          const {data,error}=await db.rpc("import_annual_filter_completed_work_orders",{p_rows:chunk,p_source_file_name:file.name});
+          if(error)throw error;
+          const result=Array.isArray(data)?data[0]:data;
+          processed+=Number(result?.processed_count||0);
+          review+=Number(result?.review_count||0);
+          existing+=Number(result?.existing_count||0);
+        }
+
+        await loadAccountingData();
+        setTab("Accounting");
+        accountingMessage(`${file.name} processed successfully. ${processed} completed Annual Filter work order${processed===1?"":"s"} loaded. ${existing} were already on file. ${review} require review. Labor Amount was ignored.`,review?"warning":"status");
+      }catch(error){
+        accountingMessage(`Unable to process ${file.name}: ${error.message}`,"danger");
+      }finally{
+        accountingImporting=false;
+        const input=document.getElementById("accountingCompletedFile");
+        if(input)input.value="";
+      }
+    }
+
+    async function loadAccountingData(){
+      if(!queueOperator())return;
+      const {data,error}=await db.from("annual_filter_changeout_accounting_view").select("*").order("completed_date",{ascending:false}).order("client_name");
+      if(error){accountingMessage(`Unable to load Accounting Billing: ${error.message}`,"danger");return}
+      accountingData=data||[];
+      renderAccountingBilling();
+    }
+
+    function getVisibleAccountingRows(){
+      const q=(document.getElementById("accountingSearch")?.value||"").trim().toLowerCase();
+      const status=document.getElementById("accountingStatusFilter")?.value||"ALL";
+      return accountingData.filter(row=>{
+        if(status!=="ALL"&&String(row.billing_status||"").toUpperCase()!==status)return false;
+        if(!q)return true;
+        return [row.client_name,row.service_location,row.skimmer_work_order_id,row.filter_system_summary,row.invoice_number,row.submitted_by_name,row.review_reason]
+          .join(" ").toLowerCase().includes(q);
+      });
+    }
+
+    function renderAccountingSummary(){
+      const el=document.getElementById("accountingSummary"); if(!el)return;
+      const rowsBy=status=>accountingData.filter(row=>String(row.billing_status||"").toUpperCase()===status);
+      const total=rows=>rows.reduce((sum,row)=>sum+Number(row.expected_invoice_amount||0),0);
+      const ready=rowsBy("READY_TO_INVOICE"),submitted=rowsBy("SUBMITTED_TO_ACCOUNTING"),invoiced=rowsBy("INVOICED"),review=rowsBy("NEEDS_REVIEW");
+      el.innerHTML=`
+        <div class="summary-card"><div class="summary-label">Completed Work Orders</div><div class="summary-value">${num(accountingData.length)}</div></div>
+        <div class="summary-card"><div class="summary-label">Ready to Invoice</div><div class="summary-value">${num(ready.length)} · ${whole(total(ready))}</div></div>
+        <div class="summary-card"><div class="summary-label">Submitted to Accounting</div><div class="summary-value">${num(submitted.length)} · ${whole(total(submitted))}</div></div>
+        <div class="summary-card"><div class="summary-label">Invoiced</div><div class="summary-value">${num(invoiced.length)} · ${whole(total(invoiced))}</div></div>
+        <div class="summary-card"><div class="summary-label">Needs Review</div><div class="summary-value">${num(review.length)}</div></div>`;
+    }
+
+    function renderAccountingBilling(){
+      if(!queueOperator())return;
+      renderAccountingSummary();
+      const body=document.getElementById("accountingBody"),count=document.getElementById("accountingCount");
+      if(!body)return;
+      accountingVisibleRows=getVisibleAccountingRows();
+      if(count)count.textContent=`${accountingVisibleRows.length} billing record${accountingVisibleRows.length===1?"":"s"}`;
+      if(!accountingVisibleRows.length){body.innerHTML='<tr><td colspan="15" class="empty">No Annual Filter Accounting records match the current filter.</td></tr>';return}
+      body.innerHTML=accountingVisibleRows.map(row=>{
+        const submitted=row.submitted_to_accounting_at?new Date(row.submitted_to_accounting_at).toLocaleString():"—";
+        const detail=row.review_reason||row.invoice_match_method||"";
+        return `<tr>
+          <td><span class="badge ${accountingStatusClass(row.billing_status)}">${esc(accountingStatusLabel(row.billing_status))}</span></td>
+          <td>${esc(dateLabel(row.completed_date))}</td>
+          <td class="strong">${esc(row.client_name||"")}</td>
+          <td>${esc(row.service_location||"")}</td>
+          <td>${esc(row.skimmer_work_order_id||"")}</td>
+          <td>${esc(row.filter_system_summary||"")}</td>
+          <td class="money">${esc(whole(row.expected_invoice_amount))}</td>
+          <td>${esc(submitted)}</td>
+          <td>${esc(row.submitted_by_name||"—")}</td>
+          <td class="strong">${esc(row.invoice_number||"—")}</td>
+          <td>${esc(row.invoice_date?dateLabel(row.invoice_date):"—")}</td>
+          <td class="money">${row.actual_invoice_amount==null?"—":esc(money(row.actual_invoice_amount))}</td>
+          <td class="money">${row.invoice_tax==null?"—":esc(money(row.invoice_tax))}</td>
+          <td class="money">${row.invoice_total_sales==null?"—":esc(money(row.invoice_total_sales))}</td>
+          <td class="accounting-review">${esc(detail||"—")}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    async function reconcileAccountingInvoices(){
+      if(!queueOperator())return;
+      accountingMessage("Checking the imported Skimmer Invoices + Line Items for Annual Filter invoices…","warning");
+      const {data,error}=await db.rpc("reconcile_annual_filter_changeout_invoices");
+      if(error){accountingMessage(`Invoice reconciliation failed: ${error.message}`,"danger");return}
+      const result=Array.isArray(data)?data[0]:data;
+      await loadAccountingData();
+      accountingMessage(`Invoice check complete. Newly confirmed invoiced: ${Number(result?.invoiced_count||0)}. Needs review: ${Number(result?.review_count||0)}. Still awaiting invoice: ${Number(result?.waiting_count||0)}.`,Number(result?.review_count||0)?"warning":"status");
+    }
+
+    function downloadAccountingCSV(rows,filename,accountingOnly=false){
+      if(!rows.length){alert("No Accounting billing records are available for export.");return}
+      let csv;
+      if(accountingOnly){
+        csv="Completed Date,Client,Service Location,Work Order #,Total Billable\n";
+        rows.forEach(row=>{csv+=[row.completed_date,row.client_name,row.service_location,row.skimmer_work_order_id,Number(row.expected_invoice_amount||0).toFixed(2)].map(csvValue).join(",")+"\n"});
+        const total=rows.reduce((sum,row)=>sum+Number(row.expected_invoice_amount||0),0);
+        csv+=["","","","TOTAL",total.toFixed(2)].map(csvValue).join(",")+"\n";
+      }else{
+        csv="Status,Completed Date,Client,Service Location,Work Order #,Total Billable,Submitted Date,Invoice #,Invoice Date,Invoice Subtotal,Invoice Tax,Invoice Total,Review Detail\n";
+        rows.forEach(row=>{csv+=[accountingStatusLabel(row.billing_status),row.completed_date,row.client_name,row.service_location,row.skimmer_work_order_id,Number(row.expected_invoice_amount||0).toFixed(2),row.submitted_to_accounting_at||"",row.invoice_number||"",row.invoice_date||"",row.actual_invoice_amount??"",row.invoice_tax??"",row.invoice_total_sales??"",row.review_reason||row.invoice_match_method||""].map(csvValue).join(",")+"\n"});
+      }
+      const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+      const url=URL.createObjectURL(blob),a=document.createElement("a");
+      a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    }
+
+    function exportCurrentAccountingCSV(){
+      const rows=getVisibleAccountingRows();
+      downloadAccountingCSV(rows,`annual_filter_accounting_${new Date().toISOString().slice(0,10)}.csv`,false);
+    }
+
+    async function submitReadyAccounting(){
+      if(!queueOperator())return;
+      const rows=getVisibleAccountingRows().filter(row=>String(row.billing_status||"").toUpperCase()==="READY_TO_INVOICE");
+      if(!rows.length){alert("There are no READY TO INVOICE records in the current view.");return}
+      const total=rows.reduce((sum,row)=>sum+Number(row.expected_invoice_amount||0),0);
+      if(!confirm(`SUBMIT ANNUAL FILTER BILLING TO ACCOUNTING\n\nRecords: ${rows.length}\nTotal Billable: ${whole(total)}\n\nThis will mark these records SUBMITTED TO ACCOUNTING and download the Accounting CSV. Continue?`))return;
+      accountingMessage(`Submitting ${rows.length} Annual Filter billing record${rows.length===1?"":"s"} to Accounting…`,"warning");
+      const {data,error}=await db.rpc("submit_annual_filter_accounting",{p_ids:rows.map(row=>row.id)});
+      if(error){accountingMessage(`Unable to submit the Accounting list: ${error.message}`,"danger");return}
+      const result=Array.isArray(data)?data[0]:data;
+      const batchId=result?.batch_id;
+      await loadAccountingData();
+      const batchRows=accountingData.filter(row=>String(row.submitted_batch_id||"")===String(batchId||""));
+      if(batchRows.length)downloadAccountingCSV(batchRows,`annual_filter_submitted_to_accounting_${new Date().toISOString().slice(0,10)}.csv`,true);
+      accountingMessage(`Submitted to Accounting: ${Number(result?.submitted_count||0)} record${Number(result?.submitted_count||0)===1?"":"s"} totaling ${money(result?.submitted_total||0)}. The Accounting CSV has been generated.`,"status");
     }
 
     function renderForecast(){
