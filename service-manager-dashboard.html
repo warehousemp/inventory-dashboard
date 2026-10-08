@@ -829,9 +829,9 @@
             </div>
 
             <div class="op-card" onclick="window.location.href='client-services.html'">
-              <div class="op-label">Mechanical Assessments</div>
-              <div class="op-value" id="opAssessmentCompletion">0.0%</div>
-              <div class="op-sub" id="opAssessmentCompletionSub">0 / 0 completed</div>
+              <div class="op-label">Mechanical Assessments Completed</div>
+              <div class="op-value" id="opAssessmentCompletion">0</div>
+              <div class="op-sub" id="opAssessmentCompletionSub">0 completed in selected period | Overall 0 / 0 (0.0%)</div>
             </div>
 
             <div class="op-card wide" onclick="window.location.href='warehouse-reports.html'">
@@ -1106,7 +1106,7 @@ async function applyMasterPeriod() {
 
   currentRange = { startDate, endDate };
   setText('masterPeriodLabel', `${formatDate(startDate)} – ${formatDate(endDate)}`);
-  setText('masterPeriodNote', 'Revenue and invoice mix use this range. Client Growth defaults to this range but can be changed inside its panel; route population/assessments are current; filter completion is measured as of the end date; payroll is pay-period based.');
+  setText('masterPeriodNote', 'Revenue and invoice mix use this range. Client Growth defaults to this range but can be changed inside its panel; Route Clients are current; Mechanical Assessments show completions during the selected period plus overall program completion; filter completion is measured as of the end date; payroll is pay-period based.');
 
   await refreshDashboard(true);
 }
@@ -1384,21 +1384,41 @@ function renderClientMixChart(existing, nonRoute) {
 async function loadMechanicalAssessmentAnalytics() {
   const rows = await fetchAllRows(MECHANICAL_ASSESSMENT_VIEW, '*', query => query.order('customer_name', { ascending: true }));
   const total = rows.length;
+  const startDate = currentRange.startDate || '';
+  const endDate = currentRange.endDate || '';
   let completed = 0;
+  let completedInPeriod = 0;
   let needsReview = 0;
 
   rows.forEach(row => {
-    if (assessmentIsComplete(row)) completed += 1;
-    else if (assessmentNeedsReview(row)) needsReview += 1;
+    if (assessmentIsComplete(row)) {
+      completed += 1;
+
+      const assessmentDate = String(
+        row.mechanical_assessment_date ??
+        row.assessment_date ??
+        row.completed_at ??
+        ''
+      ).slice(0, 10);
+
+      if (assessmentDate && startDate && endDate && assessmentDate >= startDate && assessmentDate <= endDate) {
+        completedInPeriod += 1;
+      }
+    } else if (assessmentNeedsReview(row)) {
+      needsReview += 1;
+    }
   });
 
   const pending = Math.max(total - completed - needsReview, 0);
   const pct = total > 0 ? (completed / total) * 100 : 0;
 
-  dashboardState.assessments = { total, completed, needsReview, pending, pct };
+  dashboardState.assessments = { total, completed, completedInPeriod, needsReview, pending, pct };
   setText('opRouteClients', formatNumber(total));
-  setText('opAssessmentCompletion', `${pct.toFixed(1)}%`);
-  setText('opAssessmentCompletionSub', `${formatNumber(completed)} / ${formatNumber(total)} completed · ${formatNumber(needsReview)} review`);
+  setText('opAssessmentCompletion', formatNumber(completedInPeriod));
+  setText(
+    'opAssessmentCompletionSub',
+    `${formatNumber(completedInPeriod)} completed ${formatDate(startDate)} – ${formatDate(endDate)} | Overall ${formatNumber(completed)} / ${formatNumber(total)} (${pct.toFixed(1)}%) · ${formatNumber(needsReview)} review`
+  );
 }
 
 function assessmentIsComplete(row) {
