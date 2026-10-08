@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Service Manager Dashboard - Molinari Pools</title>
+  <title>Service Analytics - Molinari Pools</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -16,6 +16,7 @@
   <meta name="theme-color" content="#0b3c5d">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
   <style>
     :root {
@@ -35,15 +36,13 @@
       --warning-soft: #fff7ed;
       --danger: #b91c1c;
       --danger-soft: #fef2f2;
-      --info-soft: #eef6ff;
+      --blue-soft: #eef6ff;
+      --shadow: 0 4px 14px rgba(11,60,93,0.055);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
-    html,
-    body {
+    html, body {
       margin: 0;
       max-width: 100%;
       min-height: 100%;
@@ -56,77 +55,63 @@
       color: var(--text);
     }
 
-    button,
-    input,
-    select {
-      font: inherit;
-    }
-
-    button {
-      cursor: pointer;
-    }
-
-    .hidden {
-      display: none !important;
-    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .hidden { display: none !important; }
 
     .app-shell {
-      min-height: 100vh;
       width: 100%;
-      max-width: 100%;
+      min-height: 100vh;
       min-width: 0;
       overflow-x: hidden;
     }
 
-    .page-shell {
-      min-width: 0;
-      min-height: 100vh;
-    }
+    .page-shell { min-width: 0; min-height: 100vh; }
 
     .header-bar {
       background: var(--header);
       color: white;
-      padding: 18px 28px;
+      min-height: 68px;
+      padding: 13px 24px;
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
       gap: 16px;
       flex-wrap: wrap;
     }
 
     .header-title {
       font-size: 21px;
-      font-weight: 800;
-      letter-spacing: 0.2px;
+      font-weight: 900;
+      letter-spacing: .2px;
     }
 
     .header-subtitle {
-      margin-top: 4px;
+      margin-top: 3px;
       font-size: 12px;
       font-weight: 600;
-      opacity: 0.84;
+      opacity: .86;
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 9px;
       flex-wrap: wrap;
     }
 
     .header-button {
-      border: 1px solid rgba(255,255,255,0.28);
+      border: 1px solid rgba(255,255,255,.28);
       border-radius: 8px;
-      background: rgba(255,255,255,0.14);
+      background: rgba(255,255,255,.14);
       color: white;
-      padding: 10px 14px;
-      font-weight: 800;
-      font-size: 13px;
+      padding: 9px 13px;
+      font-size: 12px;
+      font-weight: 850;
     }
 
-    .header-button:hover {
-      background: rgba(255,255,255,0.22);
-    }
+    .header-button:hover { background: rgba(255,255,255,.22); }
+    .header-button:disabled { opacity: .55; cursor: not-allowed; }
 
     .access-layout {
       max-width: 680px;
@@ -139,13 +124,10 @@
       padding: 26px;
       border-radius: 14px;
       border: 1px solid #e6edf3;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      box-shadow: 0 6px 18px rgba(0,0,0,.08);
     }
 
-    .access-card h2 {
-      margin: 0 0 16px;
-      color: var(--header);
-    }
+    .access-card h2 { margin: 0 0 16px; color: var(--header); }
 
     .access-actions {
       display: flex;
@@ -167,825 +149,416 @@
       font-weight: 800;
     }
 
-    .access-actions .danger-button {
-      background: var(--danger);
-    }
+    .access-actions .danger-button { background: var(--danger); }
 
-    .status-note,
     .warning-note,
-    .danger-note {
+    .danger-note,
+    .status-note {
       padding: 12px 14px;
       border-radius: 9px;
       font-size: 13px;
       line-height: 1.45;
     }
 
-    .status-note {
-      background: var(--success-soft);
-      border: 1px solid #bbf7d0;
-      color: #14532d;
-    }
-
-    .warning-note {
-      background: var(--warning-soft);
-      border: 1px solid #fed7aa;
-      color: #9a3412;
-    }
-
-    .danger-note {
-      background: var(--danger-soft);
-      border: 1px solid #fecaca;
-      color: #991b1b;
-    }
+    .warning-note { background: var(--warning-soft); border: 1px solid #fed7aa; color: #9a3412; }
+    .danger-note { background: var(--danger-soft); border: 1px solid #fecaca; color: #991b1b; }
+    .status-note { background: var(--success-soft); border: 1px solid #bbf7d0; color: #14532d; }
 
     .dashboard {
       width: 100%;
-      max-width: 1660px;
+      max-width: 1760px;
       margin: 0 auto;
-      padding: 22px;
+      padding: 14px 18px 22px;
     }
 
     .dashboard-status {
-      margin-bottom: 16px;
-      padding: 11px 14px;
+      min-height: 34px;
+      margin-bottom: 10px;
+      padding: 8px 11px;
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: 9px;
       background: white;
       color: var(--muted);
-      font-size: 13px;
-    }
-
-    .dashboard-status.success {
-      background: var(--success-soft);
-      border-color: #bbf7d0;
-      color: #14532d;
-    }
-
-    .dashboard-status.warning {
-      background: var(--warning-soft);
-      border-color: #fed7aa;
-      color: #9a3412;
-    }
-
-    .section {
-      margin-bottom: 22px;
-    }
-
-    .section-heading {
+      font-size: 12px;
       display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      gap: 14px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
+      align-items: center;
     }
 
-    .section-title {
-      margin: 0;
-      color: var(--header);
-      font-size: 20px;
-      font-weight: 850;
-    }
+    .dashboard-status.success { background: var(--success-soft); border-color: #bbf7d0; color: #14532d; }
+    .dashboard-status.warning { background: var(--warning-soft); border-color: #fed7aa; color: #9a3412; }
 
-    .section-description {
-      margin: 4px 0 0;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.4;
-    }
-
-    .section-link {
-      color: var(--header);
-      font-size: 13px;
-      font-weight: 800;
-      text-decoration: none;
-    }
-
-    .section-link:hover {
-      text-decoration: underline;
-    }
-
-    .filter-panel {
+    .master-controls {
       background: white;
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+      padding: 10px 12px;
+      margin-bottom: 10px;
       display: grid;
-      grid-template-columns: minmax(220px, 1fr) minmax(150px, 0.6fr) minmax(150px, 0.6fr) auto;
-      gap: 12px;
+      grid-template-columns: minmax(190px, .95fr) minmax(145px, .7fr) minmax(145px, .7fr) auto minmax(240px, 1.1fr);
+      gap: 9px;
       align-items: end;
     }
 
     .filter-field label {
       display: block;
-      margin-bottom: 5px;
-      color: #334155;
-      font-size: 12px;
-      font-weight: 800;
+      margin-bottom: 4px;
+      color: #475569;
+      font-size: 10px;
+      font-weight: 900;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
+      letter-spacing: .05em;
     }
 
     .filter-field select,
     .filter-field input {
       width: 100%;
-      min-height: 42px;
+      min-height: 37px;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
       background: white;
-      padding: 9px 11px;
+      padding: 7px 9px;
       color: var(--text);
+      font-size: 12px;
     }
 
     .primary-button {
-      min-height: 42px;
+      min-height: 37px;
       border: 0;
       border-radius: 8px;
-      padding: 10px 16px;
+      padding: 8px 14px;
       background: var(--header);
       color: white;
-      font-weight: 850;
-    }
-
-    .primary-button:hover {
-      opacity: 0.92;
-    }
-
-    .invoice-freshness {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      color: var(--muted);
       font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
     }
 
-    .invoice-freshness strong {
-      color: var(--header);
-      font-size: 13px;
-    }
-
-    .invoice-mix-filter-panel {
-      grid-template-columns: minmax(250px, 1fr) minmax(150px, 0.55fr) minmax(150px, 0.55fr) auto;
-    }
-
-    .invoice-mix-status {
-      margin-top: 12px;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      background: white;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.45;
-    }
-
-    .invoice-mix-status.warning {
-      background: var(--warning-soft);
-      border-color: #fed7aa;
-      color: #9a3412;
-    }
-
-    .invoice-mix-status.success {
-      background: var(--success-soft);
-      border-color: #bbf7d0;
-      color: #14532d;
-    }
-
-    .invoice-import-panel {
-      margin-top: 14px;
-      padding: 16px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: #ffffff;
-    }
-
-    .invoice-import-panel[hidden] {
-      display: none !important;
-    }
-
-    .invoice-import-panel h3 {
-      margin: 0 0 7px;
-      color: var(--header);
-      font-size: 16px;
-    }
-
-    .invoice-import-grid {
-      display: grid;
-      grid-template-columns: minmax(280px, 1fr) auto;
-      gap: 12px;
-      align-items: end;
-      margin-top: 12px;
-    }
-
-    .invoice-drop-zone {
-      min-height: 92px;
-      border: 2px dashed var(--border);
-      border-radius: 12px;
+    .period-summary {
+      min-height: 37px;
+      border-radius: 8px;
       background: #f8fafc;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 18px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
-      outline: none;
-    }
-
-    .invoice-drop-zone:hover,
-    .invoice-drop-zone:focus-visible {
-      border-color: var(--header);
-      background: #f1f5f9;
-    }
-
-    .invoice-drop-zone.dragover {
-      border-color: var(--header);
-      background: #eaf4fb;
-      transform: translateY(-1px);
-    }
-
-    .invoice-drop-zone.has-file {
-      border-style: solid;
-      background: var(--success-soft);
-    }
-
-    .invoice-drop-title {
-      color: var(--header);
-      font-weight: 800;
-      font-size: 14px;
-      margin-bottom: 4px;
-    }
-
-    .invoice-drop-subtitle {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.45;
-    }
-
-    .invoice-import-note {
-      margin-top: 7px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .invoice-import-message {
-      margin-top: 10px;
-      font-size: 12px;
-      line-height: 1.45;
-    }
-
-    .invoice-import-message.error { color: var(--danger); }
-    .invoice-import-message.success { color: var(--success); }
-    .invoice-import-message.info { color: var(--header); }
-
-    .invoice-import-result {
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.45;
-    }
-
-    .metric-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(210px, 1fr));
-      gap: 14px;
-    }
-
-    .metric-grid.five {
-      grid-template-columns: repeat(5, minmax(190px, 1fr));
-    }
-
-    .metric-card {
-      min-width: 0;
-      min-height: 142px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 13px;
-      padding: 16px;
-      box-shadow: 0 4px 14px rgba(11,60,93,0.055);
+      border: 1px solid #e2e8f0;
+      padding: 7px 10px;
       display: flex;
       flex-direction: column;
+      justify-content: center;
+      gap: 2px;
     }
 
-    .metric-card.goal-below {
-      border-top: 4px solid var(--danger);
-    }
+    .period-summary strong { color: var(--header); font-size: 12px; }
+    .period-summary span { color: var(--muted); font-size: 10px; line-height: 1.25; }
 
-    .metric-card.goal-near {
-      border-top: 4px solid var(--warning);
-    }
-
-    .metric-card.goal-met {
-      border-top: 4px solid var(--success);
-    }
-
-    .metric-label {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 850;
-      text-transform: uppercase;
-      letter-spacing: 0.045em;
-      line-height: 1.35;
-    }
-
-    .metric-value {
-      margin-top: 9px;
-      color: var(--header);
-      font-size: 28px;
-      font-weight: 900;
-      line-height: 1.08;
-      overflow-wrap: anywhere;
-    }
-
-    .metric-value.compact {
-      font-size: 23px;
-    }
-
-    .metric-sub {
-      margin-top: auto;
-      padding-top: 9px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.4;
-    }
-
-    .metric-sub strong {
-      color: #334155;
-    }
-
-    .invoice-mix-percent {
-      display: inline-block;
-      margin-bottom: 2px;
-      font-size: 20px;
-      font-weight: 900;
-      color: var(--header);
-      line-height: 1.2;
-    }
-
-    .invoice-review-button {
-      margin-top: 10px;
-      border: 0;
-      background: transparent;
-      color: var(--header);
-      padding: 0;
-      font-size: 12px;
-      font-weight: 850;
-      text-decoration: underline;
-      cursor: pointer;
-      text-align: left;
-    }
-
-    .invoice-review-panel {
-      margin-top: 14px;
-      padding: 16px;
-      border: 1px solid #fed7aa;
-      border-radius: 12px;
-      background: #fffaf5;
-    }
-
-    .invoice-review-panel[hidden] {
-      display: none !important;
-    }
-
-    .invoice-review-heading {
-      display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      align-items: flex-start;
-      flex-wrap: wrap;
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
       margin-bottom: 10px;
     }
 
-    .invoice-review-heading h3 {
-      margin: 0;
-      color: var(--header);
-      font-size: 17px;
-    }
-
-    .invoice-review-heading p {
-      margin: 4px 0 0;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.45;
-      max-width: 900px;
-    }
-
-    .invoice-review-summary {
-      color: #9a3412;
-      font-size: 12px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    .invoice-review-table-wrap {
-      max-height: 360px;
-      overflow: auto;
-      border: 1px solid var(--border);
-      border-radius: 9px;
+    .kpi-card {
+      position: relative;
+      min-width: 0;
+      min-height: 105px;
       background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 13px 11px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
     }
 
-    .invoice-review-table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 900px;
-      font-size: 12px;
-    }
+    .kpi-card.clickable { cursor: pointer; }
+    .kpi-card.clickable:hover { border-color: #a8c2d6; transform: translateY(-1px); }
 
-    .invoice-review-table th,
-    .invoice-review-table td {
-      padding: 9px 10px;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
-      vertical-align: top;
-    }
+    .kpi-card.goal-met { border-top: 4px solid var(--success); }
+    .kpi-card.goal-near { border-top: 4px solid var(--warning); }
+    .kpi-card.goal-below { border-top: 4px solid var(--danger); }
 
-    .invoice-review-table th {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      background: #f8fafc;
-      color: #475569;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-    }
-
-    .invoice-review-table td.amount,
-    .invoice-review-table th.amount {
-      text-align: right;
-      white-space: nowrap;
-    }
-
-    .invoice-review-empty {
-      padding: 14px;
+    .kpi-label {
       color: var(--muted);
-      text-align: center;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      line-height: 1.25;
     }
 
-    .progress-track {
-      width: 100%;
-      height: 8px;
-      margin-top: 10px;
+    .kpi-value {
+      margin-top: 6px;
+      color: var(--header);
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+    }
+
+    .kpi-value.compact { font-size: 20px; }
+
+    .kpi-sub {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.3;
+    }
+
+    .mini-progress {
+      height: 5px;
+      margin-top: 7px;
       border-radius: 999px;
       background: #e8eef3;
       overflow: hidden;
     }
 
-    .progress-fill {
+    .mini-progress > div {
       height: 100%;
       width: 0;
       border-radius: 999px;
       background: var(--accent);
-      transition: width 0.25s ease;
+      transition: width .2s ease;
     }
 
-    .progress-fill.below {
-      background: var(--danger);
-    }
-
-    .progress-fill.near {
-      background: var(--warning);
-    }
-
-    .progress-fill.met {
-      background: var(--success);
-    }
-
-    .split-layout {
+    .analytics-grid-primary {
       display: grid;
-      grid-template-columns: minmax(0, 1.35fr) minmax(330px, 0.65fr);
-      gap: 16px;
-      align-items: start;
+      grid-template-columns: minmax(0, 1.25fr) minmax(330px, .72fr) minmax(390px, .9fr);
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .analytics-grid-secondary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(330px, .7fr);
+      gap: 10px;
     }
 
     .panel {
+      min-width: 0;
       background: white;
       border: 1px solid var(--border);
-      border-radius: 13px;
-      padding: 17px;
-      box-shadow: 0 4px 14px rgba(11,60,93,0.045);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 11px 12px;
+      overflow: hidden;
     }
 
-    .panel h3 {
-      margin: 0 0 5px;
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 7px;
+    }
+
+    .panel-title {
+      margin: 0;
       color: var(--header);
-      font-size: 17px;
+      font-size: 14px;
+      font-weight: 900;
     }
 
     .panel-subtitle {
-      margin: 0 0 13px;
+      margin: 2px 0 0;
       color: var(--muted);
-      font-size: 12px;
-      line-height: 1.4;
+      font-size: 10px;
+      line-height: 1.25;
     }
 
-    .attention-list {
-      display: grid;
-      gap: 9px;
+    .panel-link {
+      color: var(--header);
+      font-size: 10px;
+      font-weight: 850;
+      text-decoration: none;
+      white-space: nowrap;
     }
+
+    .panel-link:hover { text-decoration: underline; }
+
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 214px;
+    }
+
+    .chart-wrap.compact { height: 190px; }
+
+    .client-mix-summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-top: 6px;
+    }
+
+    .mix-stat {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 7px 8px;
+      background: #f8fafc;
+    }
+
+    .mix-stat strong { display: block; color: var(--header); font-size: 13px; }
+    .mix-stat span { color: var(--muted); font-size: 9px; }
+
+    .operations-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .op-card {
+      min-height: 78px;
+      border: 1px solid #e2e8f0;
+      border-radius: 9px;
+      background: #f8fafc;
+      padding: 9px;
+      cursor: pointer;
+    }
+
+    .op-card:hover { border-color: #b4cadb; }
+    .op-card.wide { grid-column: 1 / -1; }
+
+    .op-label {
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      line-height: 1.2;
+    }
+
+    .op-value {
+      margin-top: 4px;
+      color: var(--header);
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+
+    .op-sub { margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.2; }
+
+    .growth-summary-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 7px;
+      margin-top: 5px;
+    }
+
+    .growth-kpi {
+      border-radius: 8px;
+      padding: 7px 9px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+    }
+
+    .growth-kpi strong { color: var(--header); font-size: 16px; }
+    .growth-kpi span { display: block; color: var(--muted); font-size: 9px; margin-top: 2px; }
+
+    .growth-kpi.positive { background: var(--success-soft); border-color: #bbf7d0; }
+    .growth-kpi.negative { background: var(--danger-soft); border-color: #fecaca; }
+
+    .payroll-summary {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid #edf2f7;
+    }
+
+    .payroll-summary div:first-child { color: var(--muted); font-size: 9px; line-height: 1.25; }
+    .payroll-summary strong { color: var(--header); font-size: 12px; }
+
+    .attention-list { display: grid; gap: 6px; }
 
     .attention-row {
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: 12px;
+      gap: 8px;
       align-items: center;
-      padding: 11px 12px;
+      min-height: 38px;
+      padding: 6px 7px;
       border: 1px solid #e2e8f0;
-      border-radius: 9px;
+      border-radius: 8px;
       background: #f8fafc;
     }
 
-    .attention-title {
-      color: #334155;
-      font-size: 13px;
-      font-weight: 800;
-    }
+    .attention-row.warning { background: var(--warning-soft); border-color: #fed7aa; }
+    .attention-row.danger { background: var(--danger-soft); border-color: #fecaca; }
+    .attention-row.success { background: var(--success-soft); border-color: #bbf7d0; }
 
-    .attention-detail {
-      margin-top: 3px;
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.35;
-    }
+    .attention-title { color: #334155; font-size: 10px; font-weight: 850; line-height: 1.2; }
+    .attention-detail { margin-top: 2px; color: var(--muted); font-size: 8px; line-height: 1.2; }
 
-    .count-badge {
-      min-width: 48px;
-      padding: 6px 9px;
+    .attention-badge {
+      min-width: 43px;
+      padding: 4px 7px;
       border-radius: 999px;
-      background: var(--accent-soft);
+      background: white;
+      border: 1px solid #dbe3ea;
       color: var(--header);
       text-align: center;
-      font-size: 13px;
-      font-weight: 900;
-    }
-
-    .count-badge.warning {
-      background: var(--warning-soft);
-      color: #9a3412;
-    }
-
-    .count-badge.danger {
-      background: var(--danger-soft);
-      color: var(--danger);
-    }
-
-    .count-badge.success {
-      background: var(--success-soft);
-      color: var(--success);
-    }
-
-    .source-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .source-table th,
-    .source-table td {
-      padding: 9px 8px;
-      border-bottom: 1px solid #e2e8f0;
-      text-align: left;
-      font-size: 12px;
-      line-height: 1.35;
-    }
-
-    .source-table th {
-      color: var(--header);
-      background: #f8fafc;
-      font-weight: 850;
-    }
-
-    .source-table td {
-      color: #475569;
-    }
-
-    .source-table tr:last-child td {
-      border-bottom: 0;
-    }
-
-    .error-text {
-      color: var(--danger) !important;
-    }
-
-    .restricted-note {
-      margin-top: 11px;
-      padding: 10px 12px;
-      border-radius: 8px;
-      background: var(--info-soft);
-      border: 1px solid #cfe3ff;
-      color: #1e4d7a;
-      font-size: 12px;
-      line-height: 1.4;
-    }
-
-    @media (max-width: 1380px) {
-      .metric-grid,
-      .metric-grid.five {
-        grid-template-columns: repeat(3, minmax(210px, 1fr));
-      }
-    }
-
-    @media (max-width: 1060px) {
-      .metric-grid,
-      .metric-grid.five {
-        grid-template-columns: repeat(2, minmax(210px, 1fr));
-      }
-
-      .split-layout {
-        grid-template-columns: 1fr;
-      }
-
-      .filter-panel {
-        grid-template-columns: repeat(2, minmax(180px, 1fr));
-      }
-    }
-
-    @media (max-width: 820px) {
-      .dashboard {
-        padding: 16px 12px 24px;
-      }
-    }
-
-    @media (max-width: 620px) {
-      .header-bar {
-        padding: 16px 18px;
-      }
-
-      .header-actions,
-      .header-button {
-        width: 100%;
-      }
-
-      .metric-grid,
-      .metric-grid.five,
-      .filter-panel {
-        grid-template-columns: 1fr;
-      }
-
-      .metric-card {
-        min-height: 132px;
-      }
-
-      .metric-value {
-        font-size: 25px;
-      }
-
-      .section-heading {
-        align-items: flex-start;
-      }
-    }
-
-    @media (max-width: 820px) {
-      .invoice-mix-filter-panel,
-      .invoice-import-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  
-    .invoice-overview-meta {
-      display: flex;
-      gap: 18px;
-      flex-wrap: wrap;
-      align-items: center;
-      margin: 4px 0 12px;
-      color: #667085;
-      font-size: 12px;
-    }
-
-    .invoice-overview-meta strong {
-      color: var(--header);
-      font-size: 13px;
-    }
-
-    .metric-grid.four {
-      grid-template-columns: repeat(4, minmax(210px, 1fr));
-    }
-
-    @media (max-width: 1200px) {
-      .metric-grid.four {
-        grid-template-columns: repeat(2, minmax(220px, 1fr));
-      }
-    }
-
-    @media (max-width: 760px) {
-      .metric-grid.four {
-        grid-template-columns: 1fr;
-      }
-    }
-
-  
-    .summary-reporting-controls {
-      background: #ffffff;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 14px;
-    }
-
-    .summary-controls-title {
-      margin: 0 0 12px;
-      color: var(--header);
-      font-size: 18px;
-      font-weight: 900;
-    }
-
-    .summary-controls-note {
-      margin-bottom: 16px;
-      padding: 13px 15px;
-      border: 1px solid #bbf7d0;
-      border-radius: 9px;
-      background: #ecfdf3;
-      color: #075985;
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    .summary-reporting-controls .filter-panel {
-      padding: 0;
-      border: 0;
-      border-radius: 0;
-      background: transparent;
-    }
-
-    .summary-controls-grid {
-      grid-template-columns: minmax(260px, 1.1fr) minmax(190px, .9fr) minmax(190px, .9fr) minmax(220px, 1.1fr);
-    }
-
-    .summary-refresh-button {
-      width: 100%;
-    }
-
-    .quick-period-buttons {
-      display: grid;
-      grid-template-columns: repeat(8, minmax(120px, 1fr));
-      gap: 10px;
-      margin-top: 16px;
-    }
-
-    .quick-period-button {
-      min-height: 40px;
-      border: 1px solid var(--header);
-      border-radius: 8px;
-      background: var(--header);
-      color: #ffffff;
-      padding: 9px 11px;
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 900;
       white-space: nowrap;
     }
 
-    .quick-period-button.active {
-      box-shadow: inset 0 0 0 2px #ffffff, 0 0 0 2px var(--header);
+    .data-note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 9px;
+      line-height: 1.25;
     }
 
     @media (max-width: 1450px) {
-      .quick-period-buttons { grid-template-columns: repeat(4, minmax(140px, 1fr)); }
-    }
-
-    @media (max-width: 900px) {
-      .summary-controls-grid { grid-template-columns: 1fr 1fr; }
-      .quick-period-buttons { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
-    }
-
-    @media (max-width: 600px) {
-      .summary-controls-grid,
-      .quick-period-buttons { grid-template-columns: 1fr; }
-    }
-
-  
-    .metric-grid.three {
-      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      .kpi-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .analytics-grid-primary { grid-template-columns: minmax(0,1.2fr) minmax(300px,.8fr); }
+      .analytics-grid-primary .operations-panel { grid-column: 1 / -1; }
+      .operations-grid { grid-template-columns: repeat(5, minmax(0,1fr)); }
+      .op-card.wide { grid-column: auto; }
+      .analytics-grid-secondary { grid-template-columns: 1fr 1fr; }
+      .analytics-grid-secondary .attention-panel { grid-column: 1 / -1; }
+      .attention-list { grid-template-columns: repeat(4, minmax(0,1fr)); }
     }
 
     @media (max-width: 1000px) {
-      .metric-grid.three {
-        grid-template-columns: 1fr;
-      }
+      .master-controls { grid-template-columns: 1fr 1fr; }
+      .period-summary { grid-column: 1 / -1; }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .analytics-grid-primary,
+      .analytics-grid-secondary { grid-template-columns: 1fr; }
+      .operations-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .op-card.wide { grid-column: 1 / -1; }
+      .attention-list { grid-template-columns: 1fr 1fr; }
     }
 
+    @media (max-width: 620px) {
+      .header-bar { padding: 13px 16px; }
+      .header-actions, .header-button { width: 100%; }
+      .dashboard { padding: 10px; }
+      .master-controls, .kpi-grid, .operations-grid, .attention-list { grid-template-columns: 1fr; }
+      .period-summary, .op-card.wide { grid-column: auto; }
+      .kpi-value { font-size: 22px; }
+      .chart-wrap, .chart-wrap.compact { height: 210px; }
+    }
   </style>
 </head>
-
 <body>
 <div id="sharedNavigation"></div>
 <div class="app-shell" id="appShell">
-
   <main class="page-shell">
     <header class="header-bar">
       <div>
-        <div class="header-title">Molinari Pools – Service Manager Dashboard</div>
-        <div class="header-subtitle">Service production, route operations, inventory, and PPV payroll overview</div>
+        <div class="header-title">Molinari Pools – Service Analytics</div>
+        <div class="header-subtitle">Service financial performance, client mix, growth, payroll, route operations, and annual filter changeout progress</div>
       </div>
       <div class="header-actions">
-        <button id="refreshDashboardButton" class="header-button" type="button" onclick="refreshDashboard()">REFRESH DASHBOARD</button>
+        <button id="refreshDashboardButton" class="header-button" type="button" onclick="refreshDashboard()">REFRESH ANALYTICS</button>
       </div>
     </header>
 
     <div id="dashboardAccessGate" class="access-layout">
       <div class="access-card">
-        <h2>Service Manager Dashboard Access Required</h2>
+        <h2>Service Analytics Access Required</h2>
         <div id="dashboardAccessMessage" class="warning-note">Checking dashboard access...</div>
         <div class="access-actions">
           <a href="login.html">GO TO LOGIN</a>
@@ -996,354 +569,217 @@
     </div>
 
     <div id="dashboardContent" class="dashboard hidden">
+      <div id="dashboardStatus" class="dashboard-status">Loading Service Analytics...</div>
 
-      <div id="dashboardStatus" class="dashboard-status">Loading dashboard data...</div>
-
-      <section class="section">
-        <div class="section-heading">
-          <div>
-            <h2 class="section-title">Revenue Performance</h2>
-            <p class="section-description" id="revenuePeriodDescription">Quarter-to-date performance against Service Department goals.</p>
-          </div>
-          <a class="section-link" href="client-services.html">Open Client Services →</a>
+      <section class="master-controls">
+        <div class="filter-field">
+          <label for="masterPeriod">Reporting Period</label>
+          <select id="masterPeriod" onchange="handleMasterPeriodChange()">
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="this_week">This Week</option>
+            <option value="last_week" selected>Last Week</option>
+            <option value="last_4_weeks">Last 4 Weeks</option>
+            <option value="mtd">This Month</option>
+            <option value="last_month">Last Month</option>
+            <option value="qtd">This Quarter</option>
+            <option value="last_quarter">Last Quarter</option>
+            <option value="fytd">This Fiscal Year</option>
+            <option value="custom">Custom Range</option>
+          </select>
         </div>
 
-        <div class="filter-panel">
-          <div class="filter-field">
-            <label for="revenuePeriodFilter">Revenue Period</label>
-            <select id="revenuePeriodFilter" onchange="handleRevenuePeriodChange()">
-              <option value="this_week">This Week</option>
-              <option value="last_week">Last Week</option>
-              <option value="mtd">Month to Date</option>
-              <option value="last_month">Previous Month</option>
-              <option value="qtd" selected>Quarter to Date</option>
-              <option value="last_quarter">Previous Quarter</option>
-              <option value="fytd">Fiscal Year to Date</option>
-              <option value="custom">Custom Date Range</option>
-            </select>
-          </div>
-
-          <div class="filter-field">
-            <label for="revenueStartDate">Start Date</label>
-            <input id="revenueStartDate" type="date" disabled>
-          </div>
-
-          <div class="filter-field">
-            <label for="revenueEndDate">End Date</label>
-            <input id="revenueEndDate" type="date" disabled>
-          </div>
-
-          <button class="primary-button" id="runRevenueButton" type="button" onclick="loadSelectedRevenuePeriod()">RUN PERIOD</button>
+        <div class="filter-field">
+          <label for="masterStartDate">Start Date</label>
+          <input id="masterStartDate" type="date" disabled>
         </div>
 
-        <div class="metric-grid five">
-          <article class="metric-card" id="revenueGoalCard">
-            <div class="metric-label">Total Revenue vs. Goal</div>
-            <div class="metric-value compact" id="revenueGoalValue">$0.00 / $0.00</div>
-            <div class="progress-track"><div class="progress-fill" id="revenueGoalProgress"></div></div>
-            <div class="metric-sub" id="revenueGoalSub">Selected period</div>
-          </article>
+        <div class="filter-field">
+          <label for="masterEndDate">End Date</label>
+          <input id="masterEndDate" type="date" disabled>
+        </div>
 
-          <article class="metric-card" id="quotedGoalCard">
-            <div class="metric-label">Total Quoted vs. Goal</div>
-            <div class="metric-value compact" id="quotedGoalValue">$0.00 / $0.00</div>
-            <div class="progress-track"><div class="progress-fill" id="quotedGoalProgress"></div></div>
-            <div class="metric-sub" id="quotedGoalSub">Selected period</div>
-          </article>
+        <button class="primary-button" id="applyMasterPeriodButton" type="button" onclick="applyMasterPeriod()">APPLY</button>
 
-          <article class="metric-card">
-            <div class="metric-label">Project Work</div>
-            <div class="metric-value" id="projectWorkValue">$0.00</div>
-            <div class="metric-sub">Project-related service revenue</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">Repair Tech Revenue</div>
-            <div class="metric-value" id="repairTechRevenueValue">$0.00</div>
-            <div class="metric-sub">Repair technician revenue</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">Leak Detection</div>
-            <div class="metric-value" id="leakDetectionValue">$0.00</div>
-            <div class="metric-sub" id="revenueLastUpdatedSub">Last transaction: —</div>
-          </article>
+        <div class="period-summary">
+          <strong id="masterPeriodLabel">—</strong>
+          <span id="masterPeriodNote">One reporting period drives the dashboard. Point-in-time metrics are labeled separately.</span>
         </div>
       </section>
 
-      <section class="section" id="invoiceClientMixSection">
-        <div class="section-heading">
-          <div>
-            <h2 class="section-title">Completed Invoice Revenue — Client Mix</h2>
-            <p class="section-description" id="invoiceMixDescription">High-level completed invoice revenue view. Use the controls below to review historical imported periods; detailed invoice review and imports remain on Service Revenue Analysis.</p>
-          </div>
-          <a class="section-link" href="service-revenue-analysis.html">Open Service Revenue Analysis →</a>
-        </div>
+      <section class="kpi-grid">
+        <article class="kpi-card clickable" onclick="window.location.href='client-services.html'" title="Open Client Services revenue">
+          <div class="kpi-label">Total Department Revenue</div>
+          <div class="kpi-value" id="kpiTotalRevenue">$0.00</div>
+          <div class="kpi-sub" id="kpiTotalRevenueSub">Project Work + Service Only</div>
+        </article>
 
-        <div class="summary-reporting-controls">
-          <h3 class="summary-controls-title">Summary Reporting Controls</h3>
+        <article class="kpi-card clickable" onclick="window.location.href='client-services.html'" title="Open Client Services revenue">
+          <div class="kpi-label">Service Only Revenue</div>
+          <div class="kpi-value" id="kpiServiceOnlyRevenue">$0.00</div>
+          <div class="kpi-sub">Repair + Other + Leak + Route Service + Filter Changeout</div>
+        </article>
 
-          <div class="summary-controls-note">
-            These controls update the Service Manager invoice revenue summary cards below.
-            Reporting is based on completed imported invoice data, so Today, Yesterday, and This Week are intentionally excluded.
-          </div>
+        <article class="kpi-card clickable" onclick="window.location.href='client-services.html'" title="Open Client Services revenue">
+          <div class="kpi-label">Quoted Revenue</div>
+          <div class="kpi-value" id="kpiQuotedRevenue">$0.00</div>
+          <div class="kpi-sub" id="kpiQuotedRevenueSub">Service + CRM quoted</div>
+        </article>
 
-          <div class="filter-panel summary-controls-grid">
-            <div class="filter-field">
-              <label for="invoiceDashboardPeriod">Period</label>
-              <select id="invoiceDashboardPeriod" onchange="handleInvoiceDashboardPeriodChange()">
-                <option value="last_completed_week" selected>Last Week</option>
-                <option value="last_4_weeks">Last 4 Weeks</option>
-                <option value="mtd">This Month</option>
-                <option value="last_month">Last Month</option>
-                <option value="qtd">This Quarter</option>
-                <option value="last_quarter">Last Quarter</option>
-                <option value="fytd">This Fiscal Year</option>
-                <option value="custom">Custom Range</option>
-              </select>
+        <article class="kpi-card clickable" id="kpiRevenueGoalCard" onclick="window.location.href='client-services.html'" title="Open revenue goals">
+          <div class="kpi-label">Revenue vs Goal</div>
+          <div class="kpi-value compact" id="kpiRevenueGoal">0.0%</div>
+          <div class="mini-progress"><div id="kpiRevenueGoalProgress"></div></div>
+          <div class="kpi-sub" id="kpiRevenueGoalSub">$0.00 / $0.00</div>
+        </article>
+
+        <article class="kpi-card clickable" onclick="window.location.href='ppv-tracker.html'" title="Open PPV payroll detail">
+          <div class="kpi-label">Route Tech Payroll Cost</div>
+          <div class="kpi-value" id="kpiPayrollCost">$0.00</div>
+          <div class="kpi-sub" id="kpiPayrollCostSub">PPV gross payroll basis</div>
+        </article>
+
+        <article class="kpi-card clickable" onclick="window.location.href='service-revenue-analysis.html'" title="Open Service Revenue Analysis">
+          <div class="kpi-label">Service Invoice Client Mix</div>
+          <div class="kpi-value compact" id="kpiClientMix">0.0% / 0.0%</div>
+          <div class="kpi-sub" id="kpiClientMixSub">Existing Route / Non-Route</div>
+        </article>
+      </section>
+
+      <section class="analytics-grid-primary">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Service Revenue by Category</h2>
+              <p class="panel-subtitle" id="revenueChartSubtitle">Selected period revenue mix.</p>
             </div>
+            <a class="panel-link" href="client-services.html">REVENUE DETAIL →</a>
+          </div>
+          <div class="chart-wrap"><canvas id="revenueCategoryChart"></canvas></div>
+        </article>
 
-            <div class="filter-field">
-              <label for="invoiceDashboardStartDate">Start Date</label>
-              <input id="invoiceDashboardStartDate" type="date" disabled>
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Service Invoice Client Mix</h2>
+              <p class="panel-subtitle" id="clientMixChartSubtitle">Existing Route vs Non-Route completed Service invoices.</p>
             </div>
-
-            <div class="filter-field">
-              <label for="invoiceDashboardEndDate">End Date</label>
-              <input id="invoiceDashboardEndDate" type="date" disabled>
-            </div>
-
-            <button class="primary-button summary-refresh-button" id="invoiceDashboardRefreshButton" type="button" onclick="loadInvoiceClientMixSection()">REFRESH SUMMARY</button>
+            <a class="panel-link" href="service-revenue-analysis.html">DETAIL →</a>
           </div>
-
-          <div class="quick-period-buttons" aria-label="Quick invoice reporting periods">
-            <button type="button" class="quick-period-button active" data-invoice-period="last_completed_week" onclick="selectInvoiceDashboardQuickPeriod('last_completed_week')">Last Week</button>
-            <button type="button" class="quick-period-button" data-invoice-period="last_4_weeks" onclick="selectInvoiceDashboardQuickPeriod('last_4_weeks')">Last 4 Weeks</button>
-            <button type="button" class="quick-period-button" data-invoice-period="mtd" onclick="selectInvoiceDashboardQuickPeriod('mtd')">This Month</button>
-            <button type="button" class="quick-period-button" data-invoice-period="last_month" onclick="selectInvoiceDashboardQuickPeriod('last_month')">Last Month</button>
-            <button type="button" class="quick-period-button" data-invoice-period="qtd" onclick="selectInvoiceDashboardQuickPeriod('qtd')">This Quarter</button>
-            <button type="button" class="quick-period-button" data-invoice-period="last_quarter" onclick="selectInvoiceDashboardQuickPeriod('last_quarter')">Last Quarter</button>
-            <button type="button" class="quick-period-button" data-invoice-period="fytd" onclick="selectInvoiceDashboardQuickPeriod('fytd')">This Fiscal Year</button>
-            <button type="button" class="quick-period-button" data-invoice-period="custom" onclick="selectInvoiceDashboardQuickPeriod('custom')">Custom Range</button>
+          <div class="chart-wrap compact"><canvas id="clientMixChart"></canvas></div>
+          <div class="client-mix-summary">
+            <div class="mix-stat"><strong id="mixExistingAmount">$0.00</strong><span id="mixExistingLabel">Existing Route · 0.0%</span></div>
+            <div class="mix-stat"><strong id="mixNonRouteAmount">$0.00</strong><span id="mixNonRouteLabel">Non-Route · 0.0%</span></div>
           </div>
-        </div>
+          <div class="data-note" id="invoiceFreshnessNote">Invoice data freshness: —</div>
+        </article>
 
-        <div class="invoice-overview-meta">
-          <span>Selected period: <strong id="invoiceMixPeriodLabel">—</strong></span>
-          <span>Invoice data through: <strong id="invoiceDataThrough">—</strong></span>
-          <span id="invoiceLastImport">Last import: —</span>
-        </div>
-
-        <div class="metric-grid three">
-          <article class="metric-card">
-            <div class="metric-label">Service Invoice Revenue</div>
-            <div class="metric-value" id="invoiceMixTotalRevenue">$0.00</div>
-            <div class="metric-sub">Existing Route + Non-Route qualifying Service invoice revenue</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">Existing Route Client Revenue</div>
-            <div class="metric-value" id="invoiceMixExistingRevenue">$0.00</div>
-            <div class="metric-sub"><strong class="invoice-mix-percent" id="invoiceMixExistingPercent">0.0%</strong><br>of classified Service invoice revenue</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">Non-Route Client Revenue</div>
-            <div class="metric-value" id="invoiceMixNonRouteRevenue">$0.00</div>
-            <div class="metric-sub"><strong class="invoice-mix-percent" id="invoiceMixNonRoutePercent">0.0%</strong><br>of classified Service invoice revenue</div>
-          </article>
-        </div>
-
-        <div id="invoiceMixStatus" class="invoice-mix-status">Waiting for completed invoice reporting data...</div>
-      </section>
-
-      <section class="section">
-        <div class="section-heading">
-          <div>
-            <h2 class="section-title">Route Operations</h2>
-            <p class="section-description">Current route-client count and Mechanical Assessment completion.</p>
-          </div>
-          <a class="section-link" href="client-services.html">Open Mechanical Assessments →</a>
-        </div>
-
-        <div class="metric-grid">
-          <article class="metric-card">
-            <div class="metric-label">Total Route Clients</div>
-            <div class="metric-value" id="routeClientCount">0</div>
-            <div class="metric-sub">Customer-location records in the assessment tracking view</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">Mechanical Assessments Completed</div>
-            <div class="metric-value" id="assessmentCompletedValue">0 / 0</div>
-            <div class="metric-sub">Completed assessments versus total route clients</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">Assessment Completion</div>
-            <div class="metric-value" id="assessmentCompletionPercent">0%</div>
-            <div class="progress-track"><div class="progress-fill" id="assessmentProgress"></div></div>
-            <div class="metric-sub" id="assessmentCompletionSub">0 assessments still needed</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">Assessment Needs Review</div>
-            <div class="metric-value" id="assessmentReviewCount">0</div>
-            <div class="metric-sub">Missing assignment/customer match or flagged review status</div>
-          </article>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="section-heading">
-          <div>
-            <h2 class="section-title">Inventory & UAG</h2>
-            <p class="section-description">Current-cost inventory valuation and UAG bulk-batch usage.</p>
-          </div>
-          <a class="section-link" href="accounting.html">Open Accounting →</a>
-        </div>
-
-        <div class="metric-grid">
-          <article class="metric-card">
-            <div class="metric-label">Serialized Inventory On Hand</div>
-            <div class="metric-value" id="serializedInventoryValue">$0.00</div>
-            <div class="metric-sub" id="serializedInventorySub">0 serialized units on hand</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">Total Inventory Value</div>
-            <div class="metric-value" id="totalInventoryValue">$0.00</div>
-            <div class="metric-sub">Current-cost valuation across inventory locations</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">UAG Batch Usage</div>
-            <div class="metric-value" id="uagUsagePercent">0%</div>
-            <div class="progress-track"><div class="progress-fill" id="uagUsageProgress"></div></div>
-            <div class="metric-sub" id="uagUsageSub">$0.00 issued of $0.00 original value</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">UAG Remaining Value</div>
-            <div class="metric-value" id="uagRemainingValue">$0.00</div>
-            <div class="metric-sub" id="uagRemainingSub">0 UAG bulk batches</div>
-          </article>
-        </div>
-
-        <div class="restricted-note">
-          Inventory values use the same current-cost and UAG valuation sources used by Accounting. WARRANTY inventory is treated as zero-value in the serialized total. Database permissions remain the final access control.
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="section-heading">
-          <div>
-            <h2 class="section-title">PPV Pay Period Payroll</h2>
-            <p class="section-description">Choose a pay period to review route production and payroll totals.</p>
-          </div>
-          <a class="section-link" href="ppv-tracker.html">Open PPV Tracker →</a>
-        </div>
-
-        <div class="filter-panel" style="grid-template-columns:minmax(260px,1fr) auto;">
-          <div class="filter-field">
-            <label for="ppvPayPeriodSelect">Pay Period</label>
-            <select id="ppvPayPeriodSelect" onchange="loadSelectedPPVSummary()">
-              <option value="">Loading pay periods...</option>
-            </select>
-          </div>
-          <button class="primary-button" type="button" onclick="loadSelectedPPVSummary()">REFRESH PAY PERIOD</button>
-        </div>
-
-        <div class="metric-grid">
-          <article class="metric-card">
-            <div class="metric-label">Total Visits Completed</div>
-            <div class="metric-value" id="ppvTotalVisits">0</div>
-            <div class="metric-sub" id="ppvTotalVisitsSub">Route Tech and Route Tech Leader cleanings</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">Pickup Visits Completed</div>
-            <div class="metric-value" id="ppvPickupVisits">0</div>
-            <div class="metric-sub">Payroll-eligible Route Tech pickup visits</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">Payroll Total</div>
-            <div class="metric-value" id="ppvPayrollTotal">$0.00</div>
-            <div class="metric-sub">Eligible Route Tech gross before taxes and deductions</div>
-          </article>
-
-          <article class="metric-card">
-            <div class="metric-label">Selected Pay Period</div>
-            <div class="metric-value compact" id="ppvSelectedPeriod">—</div>
-            <div class="metric-sub" id="ppvSelectedPeriodSub">No pay period selected</div>
-          </article>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="split-layout">
-          <div class="panel">
-            <h3>Management Attention</h3>
-            <p class="panel-subtitle">Items that may require follow-up or data cleanup.</p>
-
-            <div class="attention-list">
-              <div class="attention-row">
-                <div>
-                  <div class="attention-title">Mechanical Assessments Still Needed</div>
-                  <div class="attention-detail">Route clients not completed and not already flagged for review.</div>
-                </div>
-                <div class="count-badge warning" id="attentionAssessmentPending">0</div>
-              </div>
-
-              <div class="attention-row">
-                <div>
-                  <div class="attention-title">Mechanical Assessments Needing Review</div>
-                  <div class="attention-detail">Customer/tech match or assignment problems.</div>
-                </div>
-                <div class="count-badge danger" id="attentionAssessmentReview">0</div>
-              </div>
-
-              <div class="attention-row">
-                <div>
-                  <div class="attention-title">Serialized Units With Zero Cost</div>
-                  <div class="attention-detail">Excludes WARRANTY; review current-cost setup.</div>
-                </div>
-                <div class="count-badge" id="attentionZeroCostSerialized">0</div>
-              </div>
-
-              <div class="attention-row">
-                <div>
-                  <div class="attention-title">UAG Batches Needing Review</div>
-                  <div class="attention-detail">Inactive/review batch status returned by the UAG summary source.</div>
-                </div>
-                <div class="count-badge" id="attentionUagReview">0</div>
-              </div>
+        <article class="panel operations-panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Route Operations</h2>
+              <p class="panel-subtitle">Current operational position plus selected-period growth.</p>
             </div>
           </div>
 
-          <div class="panel">
-            <h3>Dashboard Sources</h3>
-            <p class="panel-subtitle">Read-only live sources used by this page.</p>
+          <div class="operations-grid">
+            <div class="op-card" onclick="window.location.href='client-services.html'">
+              <div class="op-label">Route Clients</div>
+              <div class="op-value" id="opRouteClients">0</div>
+              <div class="op-sub">Current active assessment population</div>
+            </div>
 
-            <table class="source-table">
-              <thead>
-                <tr><th>Area</th><th>Live Source</th></tr>
-              </thead>
-              <tbody>
-                <tr><td>Assessments</td><td>client_mechanical_assessment_tracking_view</td></tr>
-                <tr><td>Revenue</td><td>Revenue summary and goal RPCs</td></tr>
-                <tr><td>Invoice Client Mix</td><td>client_services_invoice_client_mix_reporting_view</td></tr>
-                <tr><td>Inventory</td><td>inventory_fifo_vs_current_valuation_view</td></tr>
-                <tr><td>Serialized Value</td><td>inventory_part_lookup_view</td></tr>
-                <tr><td>UAG</td><td>uag_bulk_batch_summary_all_view</td></tr>
-                <tr><td>PPV</td><td>ppv_pay_periods and ppv_live_pay_period_summary_view</td></tr>
-              </tbody>
-            </table>
+            <div class="op-card" onclick="window.location.href='client-changes.html'">
+              <div class="op-label">Net Client Growth</div>
+              <div class="op-value" id="opNetClientGrowth">0</div>
+              <div class="op-sub" id="opNetClientGrowthSub">Added − canceled</div>
+            </div>
+
+            <div class="op-card" onclick="window.location.href='client-changes.html'">
+              <div class="op-label">Net Service Locations</div>
+              <div class="op-value" id="opNetServiceLocations">0</div>
+              <div class="op-sub" id="opNetServiceLocationsSub">New locations − homes lost</div>
+            </div>
+
+            <div class="op-card" onclick="window.location.href='client-services.html'">
+              <div class="op-label">Mechanical Assessments</div>
+              <div class="op-value" id="opAssessmentCompletion">0.0%</div>
+              <div class="op-sub" id="opAssessmentCompletionSub">0 / 0 completed</div>
+            </div>
+
+            <div class="op-card wide" onclick="window.location.href='warehouse-reports.html'">
+              <div class="op-label">Filter Changeout Completion</div>
+              <div class="op-value" id="opFilterCompletion">0.0%</div>
+              <div class="mini-progress"><div id="opFilterCompletionProgress"></div></div>
+              <div class="op-sub" id="opFilterCompletionSub">0 of 0 completed</div>
+            </div>
           </div>
-        </div>
+        </article>
       </section>
 
+      <section class="analytics-grid-secondary">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Client Growth & Retention</h2>
+              <p class="panel-subtitle">Official Client Changes totals for the selected period.</p>
+            </div>
+            <a class="panel-link" href="client-changes.html">CLIENT CHANGES →</a>
+          </div>
+          <div class="chart-wrap compact"><canvas id="clientGrowthChart"></canvas></div>
+          <div class="growth-summary-row">
+            <div class="growth-kpi" id="growthNetClientsCard"><strong id="growthNetClients">0</strong><span id="growthNetClientsDetail">Net client growth</span></div>
+            <div class="growth-kpi" id="growthNetHomesCard"><strong id="growthNetHomes">0</strong><span id="growthNetHomesDetail">Net service locations</span></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Route Tech Payroll Breakdown</h2>
+              <p class="panel-subtitle">Gross payroll components from the PPV payroll system.</p>
+            </div>
+            <a class="panel-link" href="ppv-tracker.html">PPV TRACKER →</a>
+          </div>
+          <div class="chart-wrap compact"><canvas id="payrollBreakdownChart"></canvas></div>
+          <div class="payroll-summary">
+            <div id="payrollBasisNote">Payroll is pay-period based; the dashboard selects periods that best match the reporting range.</div>
+            <strong id="payrollGrossSummary">$0.00 Gross</strong>
+          </div>
+        </article>
+
+        <article class="panel attention-panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Service Attention</h2>
+              <p class="panel-subtitle">Exceptions and follow-up items only.</p>
+            </div>
+          </div>
+          <div class="attention-list">
+            <div class="attention-row" id="attentionRevenueRow">
+              <div><div class="attention-title">Revenue Pace</div><div class="attention-detail" id="attentionRevenueDetail">Loading...</div></div>
+              <div class="attention-badge" id="attentionRevenueBadge">—</div>
+            </div>
+            <div class="attention-row" id="attentionAssessmentRow">
+              <div><div class="attention-title">Mechanical Assessments Still Needed</div><div class="attention-detail" id="attentionAssessmentDetail">Loading...</div></div>
+              <div class="attention-badge" id="attentionAssessmentBadge">0</div>
+            </div>
+            <div class="attention-row" id="attentionReviewRow">
+              <div><div class="attention-title">Assessments Needing Review</div><div class="attention-detail">Assignment/customer-match exceptions</div></div>
+              <div class="attention-badge" id="attentionReviewBadge">0</div>
+            </div>
+            <div class="attention-row" id="attentionInvoiceRow">
+              <div><div class="attention-title">Unmatched Service Invoices</div><div class="attention-detail" id="attentionInvoiceDetail">Classification review</div></div>
+              <div class="attention-badge" id="attentionInvoiceBadge">0</div>
+            </div>
+            <div class="attention-row" id="attentionFilterRow">
+              <div><div class="attention-title">Filter Changeouts Remaining</div><div class="attention-detail" id="attentionFilterDetail">Annual program progress</div></div>
+              <div class="attention-badge" id="attentionFilterBadge">0</div>
+            </div>
+          </div>
+          <div class="data-note">Inventory/UAG reporting remains on Warehouse/Accounting; this dashboard surfaces Service management metrics and exceptions.</div>
+        </article>
+      </section>
     </div>
   </main>
 </div>
@@ -1352,62 +788,61 @@
 <script>
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
-
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const ALLOWED_ROLES = ['SYSTEM_ADMIN', 'ADMIN', 'SERVICE_MANAGER'];
 
-const REVENUE_SUMMARY_RPC = 'get_client_services_revenue_transaction_summary';
+const REVENUE_SUMMARY_RPC = 'get_client_services_revenue_dashboard_summary';
 const REVENUE_GOAL_RPC = 'get_client_services_revenue_goal_targets';
 const INVOICE_MIX_SUMMARY_RPC = 'get_client_services_invoice_mix_summary';
-const INVOICE_IMPORT_RPC = 'import_client_services_skimmer_invoices';
 const INVOICE_REPORTING_VIEW = 'client_services_invoice_client_mix_reporting_view';
 const MECHANICAL_ASSESSMENT_VIEW = 'client_mechanical_assessment_tracking_view';
-const INVENTORY_VALUATION_VIEW = 'inventory_fifo_vs_current_valuation_view';
-const SERIALIZED_VALUATION_VIEW = 'inventory_part_lookup_view';
-const UAG_SUMMARY_VIEW = 'uag_bulk_batch_summary_all_view';
+const CLIENT_GROWTH_RPC = 'get_client_growth_retention_summary';
+const FILTER_CHECKLIST_VIEW = 'route_tech_filter_changeout_checklist_view';
+const FILTER_COMPLETION_DATES_RPC = 'get_annual_filter_changeout_inventory_completion_dates';
 const PPV_PAY_PERIODS_TABLE = 'ppv_pay_periods';
 const PPV_SUMMARY_VIEW = 'ppv_live_pay_period_summary_view';
+const PPV_ADJUSTMENTS_TABLE = 'ppv_adjustments';
 
 let currentProfile = null;
 let currentSession = null;
-let currentPayPeriods = [];
 let invoiceDataThroughDate = '';
 let invoiceLastImportAt = '';
 let invoiceLastImportFile = '';
-let selectedSkimmerInvoiceFile = null;
+let currentRange = { startDate: '', endDate: '' };
 
-const dashboardAttention = {
-  assessmentPending: 0,
-  assessmentReview: 0,
-  zeroCostSerialized: 0,
-  uagReview: 0
+let revenueCategoryChart = null;
+let clientMixChart = null;
+let clientGrowthChart = null;
+let payrollBreakdownChart = null;
+
+const dashboardState = {
+  revenue: null,
+  goals: null,
+  invoiceMix: null,
+  assessments: null,
+  growth: null,
+  filter: null,
+  payroll: null
 };
 
 window.addEventListener('load', async () => {
   const hasAccess = await enforceDashboardAccess();
   if (!hasAccess) return;
 
-  initializeRevenuePeriod();
+  initializeMasterPeriod();
   await refreshDashboard();
 });
 
 function showAccessGate(message, type = 'warning') {
-  const gate = document.getElementById('dashboardAccessGate');
-  const content = document.getElementById('dashboardContent');
+  document.getElementById('dashboardAccessGate')?.classList.remove('hidden');
+  document.getElementById('dashboardContent')?.classList.add('hidden');
+
   const box = document.getElementById('dashboardAccessMessage');
+  if (!box) return;
 
-  if (gate) gate.classList.remove('hidden');
-  if (content) content.classList.add('hidden');
-
-  if (box) {
-    box.className =
-      type === 'danger' ? 'danger-note' :
-      type === 'success' ? 'status-note' :
-      'warning-note';
-
-    box.textContent = message;
-  }
+  box.className = type === 'danger' ? 'danger-note' : type === 'success' ? 'status-note' : 'warning-note';
+  box.textContent = message;
 }
 
 function showDashboardContent() {
@@ -1416,19 +851,17 @@ function showDashboardContent() {
 }
 
 async function enforceDashboardAccess() {
-  showAccessGate('Checking Service Manager Dashboard access...');
+  showAccessGate('Checking Service Analytics access...');
 
   const { data: sessionData, error: sessionError } = await client.auth.getSession();
-
   if (sessionError) {
     showAccessGate('Unable to verify login session: ' + sessionError.message, 'danger');
     return false;
   }
 
   const session = sessionData?.session;
-
   if (!session?.user) {
-    showAccessGate('You must be logged in to access the Service Manager Dashboard.', 'danger');
+    showAccessGate('You must be logged in to access Service Analytics.', 'danger');
     return false;
   }
 
@@ -1464,12 +897,7 @@ async function enforceDashboardAccess() {
 }
 
 async function appLogout() {
-  try {
-    await client.auth.signOut();
-  } catch (error) {
-    console.error('Logout error:', error);
-  }
-
+  try { await client.auth.signOut(); } catch (error) { console.error('Logout error:', error); }
   currentProfile = null;
   currentSession = null;
   window.location.href = 'login.html';
@@ -1478,806 +906,807 @@ async function appLogout() {
 function setDashboardStatus(message, type = '') {
   const element = document.getElementById('dashboardStatus');
   if (!element) return;
-
   element.textContent = message;
   element.className = 'dashboard-status' + (type ? ` ${type}` : '');
 }
 
-async function refreshDashboard() {
-  const refreshButton = document.getElementById('refreshDashboardButton');
+function initializeMasterPeriod() {
+  const preset = document.getElementById('masterPeriod');
+  if (preset) preset.value = 'last_week';
+  updateMasterDateInputs('last_week');
+}
 
-  if (refreshButton) {
-    refreshButton.disabled = true;
-    refreshButton.textContent = 'REFRESHING...';
+function handleMasterPeriodChange() {
+  const preset = document.getElementById('masterPeriod')?.value || 'last_week';
+  updateMasterDateInputs(preset);
+
+  if (preset !== 'custom') {
+    applyMasterPeriod();
+  }
+}
+
+function updateMasterDateInputs(preset) {
+  const startInput = document.getElementById('masterStartDate');
+  const endInput = document.getElementById('masterEndDate');
+  if (!startInput || !endInput) return;
+
+  const custom = preset === 'custom';
+  startInput.disabled = !custom;
+  endInput.disabled = !custom;
+
+  if (!custom) {
+    const range = getMasterPeriodRange(preset);
+    startInput.value = range.startDate;
+    endInput.value = range.endDate;
+  }
+}
+
+async function applyMasterPeriod() {
+  const startDate = document.getElementById('masterStartDate')?.value || '';
+  const endDate = document.getElementById('masterEndDate')?.value || '';
+
+  if (!startDate || !endDate) {
+    setDashboardStatus('Select both a start date and an end date.', 'warning');
+    return;
   }
 
-  setDashboardStatus('Refreshing live Service Manager Dashboard data...');
+  if (startDate > endDate) {
+    setDashboardStatus('Start date cannot be after end date.', 'warning');
+    return;
+  }
+
+  currentRange = { startDate, endDate };
+  setText('masterPeriodLabel', `${formatDate(startDate)} – ${formatDate(endDate)}`);
+  setText('masterPeriodNote', 'Revenue, growth, and invoice mix use this range. Route population/assessments are current; filter completion is measured as of the end date; payroll is pay-period based.');
+
+  await refreshDashboard(true);
+}
+
+async function refreshDashboard(rangeAlreadySet = false) {
+  const button = document.getElementById('refreshDashboardButton');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'REFRESHING...';
+  }
+
+  if (!rangeAlreadySet) {
+    currentRange = {
+      startDate: document.getElementById('masterStartDate')?.value || '',
+      endDate: document.getElementById('masterEndDate')?.value || ''
+    };
+  }
+
+  const { startDate, endDate } = currentRange;
+  if (!startDate || !endDate) {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'REFRESH ANALYTICS';
+    }
+    return;
+  }
+
+  setText('masterPeriodLabel', `${formatDate(startDate)} – ${formatDate(endDate)}`);
+  setDashboardStatus('Refreshing Service Analytics...');
 
   const results = await Promise.allSettled([
-    loadSelectedRevenuePeriod(),
-    loadInvoiceClientMixSection(),
-    loadMechanicalAssessmentSummary(),
-    loadInventorySummary(),
-    loadUagSummary(),
-    loadPayPeriodsAndSummary()
+    loadRevenueAnalytics(startDate, endDate),
+    loadInvoiceMixAnalytics(startDate, endDate),
+    loadMechanicalAssessmentAnalytics(),
+    loadClientGrowthAnalytics(startDate, endDate),
+    loadFilterCompletionAnalytics(endDate),
+    loadPayrollAnalytics(startDate, endDate)
   ]);
-
-  const failures = results.filter(result => result.status === 'rejected');
 
   renderAttentionPanel();
 
+  const failures = results.filter(result => result.status === 'rejected');
   if (failures.length === 0) {
-    setDashboardStatus(`Dashboard refreshed successfully at ${new Date().toLocaleString()}.`, 'success');
+    setDashboardStatus(`Analytics refreshed successfully at ${new Date().toLocaleString()}.`, 'success');
   } else {
     console.error('Dashboard load failures:', failures);
     setDashboardStatus(
-      `Dashboard refreshed with ${failures.length} unavailable section${failures.length === 1 ? '' : 's'}. Review any cards marked unavailable and confirm database permissions.`,
+      `Analytics refreshed with ${failures.length} unavailable data source${failures.length === 1 ? '' : 's'}. Available sections still loaded.`,
       'warning'
     );
   }
 
-  if (refreshButton) {
-    refreshButton.disabled = false;
-    refreshButton.textContent = 'REFRESH DASHBOARD';
+  if (button) {
+    button.disabled = false;
+    button.textContent = 'REFRESH ANALYTICS';
   }
 }
 
-function initializeInvoiceMixControls() {
-  const filter = document.getElementById('invoiceMixPeriodFilter');
-  if (filter) filter.value = 'last_completed_week';
+async function loadRevenueAnalytics(startDate, endDate) {
+  const [summaryResponse, goalResponse] = await Promise.all([
+    client.rpc(REVENUE_SUMMARY_RPC, { p_start_date: startDate, p_end_date: endDate }),
+    client.rpc(REVENUE_GOAL_RPC, { p_start_date: startDate, p_end_date: endDate })
+  ]);
 
-  const fileInput = document.getElementById('skimmerInvoiceImportFile');
-  const dropZone = document.getElementById('skimmerInvoiceDropZone');
-
-  const selectInvoiceFile = file => {
-    if (!file) {
-      selectedSkimmerInvoiceFile = null;
-      setText('skimmerInvoiceImportFileNote', 'No file selected.');
-      dropZone?.classList.remove('has-file');
-      return;
-    }
-
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      selectedSkimmerInvoiceFile = null;
-      setText('skimmerInvoiceImportFileNote', 'Only CSV files are accepted.');
-      dropZone?.classList.remove('has-file');
-      setInvoiceImportMessage('error', 'Please use the Skimmer Invoices CSV export.');
-      return;
-    }
-
-    selectedSkimmerInvoiceFile = file;
-    setText('skimmerInvoiceImportFileNote', `${file.name} (${file.size.toLocaleString()} bytes) ready to import.`);
-    dropZone?.classList.add('has-file');
-    setText('skimmerInvoiceImportResult', '');
-    setInvoiceImportMessage('', '');
-  };
-
-  if (fileInput && !fileInput.dataset.bound) {
-    fileInput.dataset.bound = 'true';
-    fileInput.addEventListener('change', () => selectInvoiceFile(fileInput.files?.[0] || null));
+  if (summaryResponse.error) {
+    setRevenueUnavailable(summaryResponse.error.message);
+    throw summaryResponse.error;
   }
 
-  if (dropZone && !dropZone.dataset.bound) {
-    dropZone.dataset.bound = 'true';
+  if (goalResponse.error) {
+    setRevenueUnavailable(goalResponse.error.message);
+    throw goalResponse.error;
+  }
 
-    dropZone.addEventListener('click', () => fileInput?.click());
-    dropZone.addEventListener('keydown', event => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        fileInput?.click();
+  const summary = getFirstRow(summaryResponse.data) || {};
+  const goals = normalizeRevenueGoalTargets(goalResponse.data, startDate, endDate);
+  dashboardState.revenue = summary;
+  dashboardState.goals = goals;
+
+  const totalRevenue = numberValue(summary.total_revenue);
+  const serviceOnly = numberValue(summary.total_service_only_revenue);
+  const totalQuoted = numberValue(summary.total_quoted);
+  const revenueGoal = numberValue(goals.revenue_period_goal);
+  const goalPercent = revenueGoal > 0 ? (totalRevenue / revenueGoal) * 100 : 0;
+
+  setText('kpiTotalRevenue', formatCurrency(totalRevenue));
+  setText('kpiTotalRevenueSub', `${formatCurrency(summary.total_project_work)} Project Work + ${formatCurrency(serviceOnly)} Service Only`);
+  setText('kpiServiceOnlyRevenue', formatCurrency(serviceOnly));
+  setText('kpiQuotedRevenue', formatCurrency(totalQuoted));
+  setText('kpiQuotedRevenueSub', `Service ${formatCurrency(summary.total_service_quoted)} · CRM ${formatCurrency(summary.total_crm_quoted)}`);
+  setText('kpiRevenueGoal', revenueGoal > 0 ? `${goalPercent.toFixed(1)}%` : 'No Goal');
+  setText('kpiRevenueGoalSub', revenueGoal > 0 ? `${formatCurrency(totalRevenue)} / ${formatCurrency(revenueGoal)}` : 'No revenue goal returned');
+
+  setGoalState('kpiRevenueGoalCard', goalPercent, revenueGoal > 0);
+  setProgress('kpiRevenueGoalProgress', goalPercent);
+
+  setText('revenueChartSubtitle', `${formatDate(startDate)} – ${formatDate(endDate)} · Service Only ${formatCurrency(serviceOnly)} · Total ${formatCurrency(totalRevenue)}`);
+
+  renderRevenueCategoryChart([
+    ['Project Work', numberValue(summary.total_project_work)],
+    ['Repair Tech', numberValue(summary.total_repair_tech_revenue)],
+    ['Other / Treatments', numberValue(summary.total_other_revenue)],
+    ['Leak Detection', numberValue(summary.total_leak_detection)],
+    ['Route Service', numberValue(summary.total_route_service)],
+    ['Filter Changeout', numberValue(summary.total_annual_filter_changeout)]
+  ]);
+}
+
+function setRevenueUnavailable(message) {
+  setText('kpiTotalRevenue', 'Unavailable');
+  setText('kpiServiceOnlyRevenue', 'Unavailable');
+  setText('kpiQuotedRevenue', 'Unavailable');
+  setText('kpiRevenueGoal', 'Unavailable');
+  setText('kpiRevenueGoalSub', message || 'Revenue source unavailable');
+  renderRevenueCategoryChart([]);
+}
+
+function renderRevenueCategoryChart(entries) {
+  const canvas = document.getElementById('revenueCategoryChart');
+  if (!canvas) return;
+  if (revenueCategoryChart) revenueCategoryChart.destroy();
+
+  revenueCategoryChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: entries.map(entry => entry[0]),
+      datasets: [{
+        label: 'Revenue',
+        data: entries.map(entry => entry[1]),
+        borderWidth: 1,
+        borderRadius: 6,
+        maxBarThickness: 48
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: context => ` ${formatCurrency(context.raw)}` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+        y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: value => compactCurrency(value) } }
       }
-    });
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-      dropZone.addEventListener(eventName, event => {
-        event.preventDefault();
-        event.stopPropagation();
-        dropZone.classList.add('dragover');
-      });
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, event => {
-        event.preventDefault();
-        event.stopPropagation();
-        dropZone.classList.remove('dragover');
-      });
-    });
-
-    dropZone.addEventListener('drop', event => {
-      const file = event.dataTransfer?.files?.[0] || null;
-      selectInvoiceFile(file);
-    });
-  }
+    }
+  });
 }
 
-function updateSkimmerInvoiceImportVisibility() {
-  const panel = document.getElementById('skimmerInvoiceImportPanel');
-  if (!panel) return;
-  panel.hidden = !['ADMIN', 'SYSTEM_ADMIN'].includes(String(currentProfile?.role || ''));
-}
+async function loadInvoiceMixAnalytics(startDate, endDate) {
+  await loadInvoiceDataMetadata();
 
-async function loadInvoiceClientMixSection() {
-  const metadataLoaded = await loadInvoiceDataMetadata();
-
-  if (!metadataLoaded || !invoiceDataThroughDate) {
-    setInvoiceMixUnavailable('No Skimmer invoice data has been imported yet.');
+  if (!invoiceDataThroughDate) {
+    setInvoiceMixUnavailable('No completed invoice data has been imported.');
     return;
   }
 
-  const periodKey = document.getElementById('invoiceDashboardPeriod')?.value || 'last_completed_week';
-  updateInvoiceDashboardDateInputs(periodKey);
-
-  const startDate = document.getElementById('invoiceDashboardStartDate')?.value || '';
-  const endDate = document.getElementById('invoiceDashboardEndDate')?.value || '';
-
-  if (!startDate || !endDate) {
-    setInvoiceMixUnavailable('Select both a start date and end date.');
+  const effectiveEnd = endDate > invoiceDataThroughDate ? invoiceDataThroughDate : endDate;
+  if (effectiveEnd < startDate) {
+    setInvoiceMixUnavailable(`Invoice data is only available through ${formatDate(invoiceDataThroughDate)}.`);
+    setText('invoiceFreshnessNote', `Invoice data through ${formatDate(invoiceDataThroughDate)}; no imported data falls inside this selected period.`);
     return;
   }
-
-  if (startDate > endDate) {
-    setInvoiceMixUnavailable('Start date cannot be after end date.');
-    return;
-  }
-
-  if (endDate > invoiceDataThroughDate) {
-    setInvoiceMixUnavailable(`Invoice reporting is only available through ${formatDate(invoiceDataThroughDate)}.`);
-    return;
-  }
-
-  setText('invoiceMixPeriodLabel', `${formatDate(startDate)} – ${formatDate(endDate)}`);
-  setText(
-    'invoiceMixDescription',
-    `High-level completed invoice revenue for ${formatDate(startDate)} – ${formatDate(endDate)}. Open Service Revenue Analysis for invoice detail, classification review, historical imports, and supporting line items.`
-  );
-
-  setInvoiceMixStatus('Loading completed invoice client mix...');
 
   const { data, error } = await client.rpc(INVOICE_MIX_SUMMARY_RPC, {
     p_start_date: startDate,
-    p_end_date: endDate
+    p_end_date: effectiveEnd
   });
 
   if (error) {
-    setInvoiceMixUnavailable('Unable to load completed invoice client mix: ' + error.message);
+    setInvoiceMixUnavailable(error.message);
     throw error;
   }
 
-  renderInvoiceClientMix(data, startDate, endDate);
-}
-
-function handleInvoiceDashboardPeriodChange() {
-  if (!invoiceDataThroughDate) return;
-  const key = document.getElementById('invoiceDashboardPeriod')?.value || 'last_completed_week';
-  updateInvoiceDashboardDateInputs(key);
-  updateInvoiceDashboardQuickButtons(key);
-}
-
-async function selectInvoiceDashboardQuickPeriod(periodKey) {
-  if (!invoiceDataThroughDate) return;
-
-  const select = document.getElementById('invoiceDashboardPeriod');
-  if (select) select.value = periodKey;
-
-  updateInvoiceDashboardDateInputs(periodKey);
-  updateInvoiceDashboardQuickButtons(periodKey);
-
-  if (periodKey === 'custom') {
-    document.getElementById('invoiceDashboardStartDate')?.focus();
-    return;
-  }
-
-  await loadInvoiceClientMixSection();
-}
-
-function updateInvoiceDashboardQuickButtons(periodKey) {
-  document.querySelectorAll('.quick-period-button[data-invoice-period]').forEach(button => {
-    button.classList.toggle('active', button.dataset.invoicePeriod === periodKey);
-  });
-}
-
-function updateInvoiceDashboardDateInputs(periodKey) {
-  const startInput = document.getElementById('invoiceDashboardStartDate');
-  const endInput = document.getElementById('invoiceDashboardEndDate');
-  if (!startInput || !endInput || !invoiceDataThroughDate) return;
-
-  const isCustom = periodKey === 'custom';
-  startInput.disabled = !isCustom;
-  endInput.disabled = !isCustom;
-  startInput.max = invoiceDataThroughDate;
-  endInput.max = invoiceDataThroughDate;
-
-  if (isCustom) {
-    if (!startInput.value || startInput.value > invoiceDataThroughDate) {
-      startInput.value = getInvoiceDashboardPeriodRange('last_completed_week').startDate;
-    }
-    if (!endInput.value || endInput.value > invoiceDataThroughDate) {
-      endInput.value = invoiceDataThroughDate;
-    }
-    return;
-  }
-
-  const range = getInvoiceDashboardPeriodRange(periodKey);
-  startInput.value = range.startDate;
-  endInput.value = range.endDate;
-}
-
-function getInvoiceDashboardPeriodRange(periodKey) {
-  const dataDate = parseDateISO(invoiceDataThroughDate);
-  const dataWeek = getWeekRange(dataDate);
-
-  if (periodKey === 'last_completed_week') {
-    return { startDate: dataWeek.startDate, endDate: invoiceDataThroughDate };
-  }
-
-  if (periodKey === 'last_4_weeks') {
-    return {
-      startDate: toDateISO(addDays(parseDateISO(dataWeek.startDate), -21)),
-      endDate: invoiceDataThroughDate
-    };
-  }
-
-  if (periodKey === 'mtd') {
-    return {
-      startDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth(), 1)),
-      endDate: invoiceDataThroughDate
-    };
-  }
-
-  if (periodKey === 'last_month') {
-    return {
-      startDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth() - 1, 1)),
-      endDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth(), 0))
-    };
-  }
-
-  if (periodKey === 'last_quarter') {
-    const currentQuarter = getFiscalQuarterRange(dataDate);
-    return getFiscalQuarterRange(addDays(parseDateISO(currentQuarter.startDate), -1));
-  }
-
-  if (periodKey === 'fytd') {
-    const fiscalStartYear = dataDate.getMonth() >= 6 ? dataDate.getFullYear() : dataDate.getFullYear() - 1;
-    return {
-      startDate: toDateISO(new Date(fiscalStartYear, 6, 1)),
-      endDate: invoiceDataThroughDate
-    };
-  }
-
-  return getFiscalQuarterRange(dataDate, true);
-}
-
-async function loadInvoiceDataMetadata() {
-  const [throughResponse, importResponse] = await Promise.all([
-    client
-      .from(INVOICE_REPORTING_VIEW)
-      .select('invoice_date')
-      .order('invoice_date', { ascending: false })
-      .limit(1),
-    client
-      .from(INVOICE_REPORTING_VIEW)
-      .select('source_file_name,last_imported_at')
-      .order('last_imported_at', { ascending: false })
-      .limit(1)
-  ]);
-
-  if (throughResponse.error) {
-    setInvoiceMixUnavailable('Unable to determine the latest imported invoice date: ' + throughResponse.error.message);
-    throw throughResponse.error;
-  }
-
-  if (importResponse.error) {
-    setInvoiceMixUnavailable('Unable to determine the latest invoice import: ' + importResponse.error.message);
-    throw importResponse.error;
-  }
-
-  invoiceDataThroughDate = throughResponse.data?.[0]?.invoice_date || '';
-  invoiceLastImportAt = importResponse.data?.[0]?.last_imported_at || '';
-  invoiceLastImportFile = importResponse.data?.[0]?.source_file_name || '';
-
-  const startInput = document.getElementById('invoiceMixStartDate');
-  const endInput = document.getElementById('invoiceMixEndDate');
-  if (startInput) startInput.max = invoiceDataThroughDate || '';
-  if (endInput) endInput.max = invoiceDataThroughDate || '';
-
-  setText('invoiceDataThrough', invoiceDataThroughDate ? formatDate(invoiceDataThroughDate) : 'No data');
-
-  if (invoiceLastImportAt) {
-    const importedAt = new Date(invoiceLastImportAt);
-    const importText = Number.isNaN(importedAt.getTime())
-      ? String(invoiceLastImportAt)
-      : importedAt.toLocaleString('en-US');
-    setText('invoiceLastImport', `Last import: ${importText}${invoiceLastImportFile ? ` · ${invoiceLastImportFile}` : ''}`);
-  } else {
-    setText('invoiceLastImport', 'Last import: —');
-  }
-
-  return Boolean(invoiceDataThroughDate);
-}
-
-function handleInvoiceMixPeriodChange() {
-  if (!invoiceDataThroughDate) return;
-  const periodKey = document.getElementById('invoiceMixPeriodFilter')?.value || 'last_completed_week';
-  updateInvoiceMixDateInputs(periodKey);
-  if (periodKey !== 'custom') loadSelectedInvoiceMixPeriod();
-}
-
-function updateInvoiceMixDateInputs(periodKey) {
-  const startInput = document.getElementById('invoiceMixStartDate');
-  const endInput = document.getElementById('invoiceMixEndDate');
-  if (!startInput || !endInput || !invoiceDataThroughDate) return;
-
-  const isCustom = periodKey === 'custom';
-  startInput.disabled = !isCustom;
-  endInput.disabled = !isCustom;
-  startInput.max = invoiceDataThroughDate;
-  endInput.max = invoiceDataThroughDate;
-
-  if (!isCustom) {
-    const range = getInvoiceMixPeriodRange(periodKey);
-    startInput.value = range.startDate;
-    endInput.value = range.endDate;
-  } else {
-    if (!startInput.value || startInput.value > invoiceDataThroughDate) {
-      startInput.value = getInvoiceMixPeriodRange('last_completed_week').startDate;
-    }
-    if (!endInput.value || endInput.value > invoiceDataThroughDate) {
-      endInput.value = invoiceDataThroughDate;
-    }
-  }
-}
-
-function getInvoiceMixPeriodRange(periodKey) {
-  const dataDate = parseDateISO(invoiceDataThroughDate);
-  const dataThrough = invoiceDataThroughDate;
-  const dataWeek = getWeekRange(dataDate);
-
-  if (periodKey === 'last_completed_week') {
-    return { startDate: dataWeek.startDate, endDate: dataThrough };
-  }
-
-  if (periodKey === 'last_4_weeks') {
-    return {
-      startDate: toDateISO(addDays(parseDateISO(dataWeek.startDate), -21)),
-      endDate: dataThrough
-    };
-  }
-
-  if (periodKey === 'mtd') {
-    return {
-      startDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth(), 1)),
-      endDate: dataThrough
-    };
-  }
-
-  if (periodKey === 'last_month') {
-    return {
-      startDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth() - 1, 1)),
-      endDate: toDateISO(new Date(dataDate.getFullYear(), dataDate.getMonth(), 0))
-    };
-  }
-
-  if (periodKey === 'last_quarter') {
-    const currentQuarter = getFiscalQuarterRange(dataDate);
-    return getFiscalQuarterRange(addDays(parseDateISO(currentQuarter.startDate), -1));
-  }
-
-  if (periodKey === 'fytd') {
-    const fiscalStartYear = dataDate.getMonth() >= 6 ? dataDate.getFullYear() : dataDate.getFullYear() - 1;
-    return {
-      startDate: toDateISO(new Date(fiscalStartYear, 6, 1)),
-      endDate: dataThrough
-    };
-  }
-
-  return getFiscalQuarterRange(dataDate, true);
-}
-
-async function loadSelectedInvoiceMixPeriod() {
-  if (!invoiceDataThroughDate) {
-    setInvoiceMixUnavailable('No imported invoice data is available.');
-    return;
-  }
-
-  const periodKey = document.getElementById('invoiceMixPeriodFilter')?.value || 'last_completed_week';
-  const startInput = document.getElementById('invoiceMixStartDate');
-  const endInput = document.getElementById('invoiceMixEndDate');
-
-  if (periodKey !== 'custom') updateInvoiceMixDateInputs(periodKey);
-
-  const startDate = startInput?.value || '';
-  const endDate = endInput?.value || '';
-
-  if (!startDate || !endDate) {
-    setInvoiceMixUnavailable('Select both a start date and end date.');
-    return;
-  }
-
-  if (startDate > endDate) {
-    setInvoiceMixUnavailable('Invoice reporting start date cannot be after the end date.');
-    return;
-  }
-
-  if (endDate > invoiceDataThroughDate) {
-    setInvoiceMixUnavailable(`Invoice reporting is only available through ${formatDate(invoiceDataThroughDate)}.`);
-    return;
-  }
-
-  setText(
-    'invoiceMixDescription',
-    `${formatDate(startDate)} – ${formatDate(endDate)} completed invoice reporting. Data is capped at the latest imported invoice date: ${formatDate(invoiceDataThroughDate)}.`
-  );
-  setInvoiceMixStatus('Loading completed invoice client mix...');
-
-  const button = document.getElementById('runInvoiceMixButton');
-  if (button) button.disabled = true;
-
-  try {
-    const [summaryResponse, unmatchedResponse] = await Promise.all([
-      client.rpc(INVOICE_MIX_SUMMARY_RPC, {
-        p_start_date: startDate,
-        p_end_date: endDate
-      }),
-      client
-        .from(INVOICE_REPORTING_VIEW)
-        .select('invoice_number,invoice_date,customer_name,location_address,invoice_status,total_sales')
-        .eq('client_segment', 'UNMATCHED')
-        .gte('invoice_date', startDate)
-        .lte('invoice_date', endDate)
-        .order('invoice_date', { ascending: true })
-        .order('customer_name', { ascending: true })
-    ]);
-
-    if (summaryResponse.error) throw summaryResponse.error;
-    if (unmatchedResponse.error) throw unmatchedResponse.error;
-
-    renderInvoiceClientMix(summaryResponse.data, startDate, endDate);
-    renderUnmatchedInvoiceReview(unmatchedResponse.data || [], startDate, endDate);
-  } catch (error) {
-    setInvoiceMixUnavailable('Unable to load completed invoice client mix: ' + (error?.message || error));
-    throw error;
-  } finally {
-    if (button) button.disabled = false;
-  }
-}
-
-function renderInvoiceClientMix(data, startDate, endDate) {
-  const row = Array.isArray(data) ? (data[0] || {}) : (data || {});
+  const row = getFirstRow(data) || {};
   const existing = numberValue(row.existing_route_revenue);
   const nonRoute = numberValue(row.non_route_revenue);
   const classified = numberValue(row.classified_revenue || (existing + nonRoute));
   const existingPct = numberValue(row.existing_route_pct);
   const nonRoutePct = numberValue(row.non_route_pct);
-  const recurringExcluded = numberValue(row.recurring_route_sales_excluded);
-  const recurringCount = numberValue(row.recurring_route_invoice_count);
-  const unmatchedCount = numberValue(row.unmatched_invoice_count);
-  const unmatchedSales = numberValue(row.unmatched_invoice_sales);
 
-  setText('invoiceMixTotalRevenue', formatCurrency(classified));
-  setText('invoiceMixExistingRevenue', formatCurrency(existing));
-  setText('invoiceMixExistingPercent', `${existingPct.toFixed(1)}%`);
-  setText('invoiceMixNonRouteRevenue', formatCurrency(nonRoute));
-  setText('invoiceMixNonRoutePercent', `${nonRoutePct.toFixed(1)}%`);
+  dashboardState.invoiceMix = {
+    ...row,
+    existing,
+    nonRoute,
+    classified,
+    existingPct,
+    nonRoutePct,
+    effectiveStart: startDate,
+    effectiveEnd
+  };
 
-  const unmatchedNote = unmatchedCount > 0
-    ? `${formatNumber(unmatchedCount)} unmatched invoice${unmatchedCount === 1 ? '' : 's'} totaling ${formatCurrency(unmatchedSales)} require review.`
-    : 'No unmatched invoices require review.';
+  setText('kpiClientMix', `${existingPct.toFixed(1)}% / ${nonRoutePct.toFixed(1)}%`);
+  setText('kpiClientMixSub', `${formatCurrency(classified)} classified Service invoice revenue`);
+  setText('mixExistingAmount', formatCurrency(existing));
+  setText('mixExistingLabel', `Existing Route · ${existingPct.toFixed(1)}%`);
+  setText('mixNonRouteAmount', formatCurrency(nonRoute));
+  setText('mixNonRouteLabel', `Non-Route · ${nonRoutePct.toFixed(1)}%`);
 
-  setInvoiceMixStatus(
-    `${formatDate(startDate)} – ${formatDate(endDate)}: ${formatCurrency(existing)} Existing Route (${existingPct.toFixed(1)}%) vs. ${formatCurrency(nonRoute)} Non-Route (${nonRoutePct.toFixed(1)}%). ${formatNumber(recurringCount)} recurring Route Cleaning invoice${recurringCount === 1 ? '' : 's'} totaling ${formatCurrency(recurringExcluded)} excluded. ${unmatchedNote}`,
-    unmatchedCount > 0 ? 'warning' : 'success'
-  );
+  const cappedText = effectiveEnd < endDate ? ` · selected period capped at ${formatDate(effectiveEnd)}` : '';
+  setText('clientMixChartSubtitle', `${formatDate(startDate)} – ${formatDate(effectiveEnd)} completed Service invoices${cappedText}`);
+  setText('invoiceFreshnessNote', buildInvoiceFreshnessNote());
+  renderClientMixChart(existing, nonRoute);
 }
 
-function scrollToUnmatchedInvoiceReview() {
-  const panel = document.getElementById('invoiceUnmatchedReviewPanel');
-  if (!panel || panel.hidden) return;
-  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+async function loadInvoiceDataMetadata() {
+  const [throughResponse, importResponse] = await Promise.all([
+    client.from(INVOICE_REPORTING_VIEW).select('invoice_date').order('invoice_date', { ascending: false }).limit(1),
+    client.from(INVOICE_REPORTING_VIEW).select('source_file_name,last_imported_at').order('last_imported_at', { ascending: false }).limit(1)
+  ]);
+
+  if (throughResponse.error) throw throughResponse.error;
+  if (importResponse.error) throw importResponse.error;
+
+  invoiceDataThroughDate = throughResponse.data?.[0]?.invoice_date || '';
+  invoiceLastImportAt = importResponse.data?.[0]?.last_imported_at || '';
+  invoiceLastImportFile = importResponse.data?.[0]?.source_file_name || '';
 }
 
-function renderUnmatchedInvoiceReview(rows, startDate, endDate) {
-  const panel = document.getElementById('invoiceUnmatchedReviewPanel');
-  const body = document.getElementById('invoiceUnmatchedReviewBody');
-  const summary = document.getElementById('invoiceUnmatchedReviewSummary');
-  const reviewButton = document.getElementById('invoiceMixReviewButton');
-
-  if (!panel || !body || !summary) return;
-
-  const items = Array.isArray(rows) ? rows : [];
-  const total = items.reduce((sum, row) => sum + numberValue(row.total_sales), 0);
-
-  if (reviewButton) reviewButton.hidden = items.length === 0;
-
-  if (items.length === 0) {
-    panel.hidden = true;
-    body.innerHTML = '';
-    summary.textContent = '0 invoices';
-    return;
+function buildInvoiceFreshnessNote() {
+  if (!invoiceDataThroughDate) return 'Invoice data freshness: no imported data';
+  let text = `Invoice data through ${formatDate(invoiceDataThroughDate)}`;
+  if (invoiceLastImportAt) {
+    const date = new Date(invoiceLastImportAt);
+    text += ` · last import ${Number.isNaN(date.getTime()) ? invoiceLastImportAt : date.toLocaleString('en-US')}`;
   }
-
-  panel.hidden = false;
-  summary.textContent = `${formatNumber(items.length)} invoice${items.length === 1 ? '' : 's'} · ${formatCurrency(total)} · ${formatDate(startDate)} – ${formatDate(endDate)}`;
-
-  body.innerHTML = items.map(row => `
-    <tr>
-      <td><strong>${escapeHtml(row.invoice_number || '—')}</strong></td>
-      <td>${escapeHtml(formatDate(row.invoice_date))}</td>
-      <td>${escapeHtml(row.customer_name || '—')}</td>
-      <td>${escapeHtml(row.location_address || '—')}</td>
-      <td>${escapeHtml(row.invoice_status || '—')}</td>
-      <td class="amount"><strong>${escapeHtml(formatCurrency(numberValue(row.total_sales)))}</strong></td>
-    </tr>
-  `).join('');
+  if (invoiceLastImportFile) text += ` · ${invoiceLastImportFile}`;
+  return text;
 }
 
 function setInvoiceMixUnavailable(message) {
-  setText('invoiceMixTotalRevenue', 'Unavailable');
-  setText('invoiceMixExistingRevenue', '—');
-  setText('invoiceMixExistingPercent', '—');
-  setText('invoiceMixNonRouteRevenue', '—');
-  setText('invoiceMixNonRoutePercent', '—');
-  setText('invoiceMixPeriodLabel', '—');
-  setInvoiceMixStatus(message || 'Completed invoice data unavailable.', 'warning');
+  dashboardState.invoiceMix = null;
+  setText('kpiClientMix', 'Unavailable');
+  setText('kpiClientMixSub', message || 'Invoice mix unavailable');
+  setText('mixExistingAmount', '$0.00');
+  setText('mixExistingLabel', 'Existing Route · 0.0%');
+  setText('mixNonRouteAmount', '$0.00');
+  setText('mixNonRouteLabel', 'Non-Route · 0.0%');
+  renderClientMixChart(0, 0);
 }
 
-function setInvoiceMixStatus(message, type = '') {
-  const element = document.getElementById('invoiceMixStatus');
-  if (!element) return;
-  element.textContent = message;
-  element.className = 'invoice-mix-status' + (type ? ` ${type}` : '');
-}
+function renderClientMixChart(existing, nonRoute) {
+  const canvas = document.getElementById('clientMixChart');
+  if (!canvas) return;
+  if (clientMixChart) clientMixChart.destroy();
 
-function setInvoiceImportMessage(type, message) {
-  const element = document.getElementById('skimmerInvoiceImportMessage');
-  if (!element) return;
-  element.className = 'invoice-import-message' + (type ? ` ${type}` : '');
-  element.textContent = message || '';
-}
+  const values = [numberValue(existing), numberValue(nonRoute)];
+  const noData = values.every(value => value === 0);
 
-function normalizeCsvHeader(value) {
-  return String(value || '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-}
-
-function parseCsvText(csvText) {
-  const rows = [];
-  let row = [];
-  let field = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < csvText.length; i += 1) {
-    const char = csvText[i];
-    const next = csvText[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && next === '"') {
-        field += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
+  clientMixChart = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: noData ? ['No data'] : ['Existing Route', 'Non-Route'],
+      datasets: [{ data: noData ? [1] : values, borderWidth: 1 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } },
+        tooltip: { callbacks: { label: context => noData ? ' No data' : ` ${context.label}: ${formatCurrency(context.raw)}` } }
       }
-      continue;
     }
+  });
+}
 
-    if (char === ',' && !inQuotes) {
-      row.push(field);
-      field = '';
-      continue;
-    }
+async function loadMechanicalAssessmentAnalytics() {
+  const rows = await fetchAllRows(MECHANICAL_ASSESSMENT_VIEW, '*', query => query.order('customer_name', { ascending: true }));
+  const total = rows.length;
+  let completed = 0;
+  let needsReview = 0;
 
-    if ((char === '\n' || char === '\r') && !inQuotes) {
-      if (char === '\r' && next === '\n') i += 1;
-      row.push(field);
-      if (row.some(value => String(value).trim() !== '')) rows.push(row);
-      row = [];
-      field = '';
-      continue;
-    }
+  rows.forEach(row => {
+    if (assessmentIsComplete(row)) completed += 1;
+    else if (assessmentNeedsReview(row)) needsReview += 1;
+  });
 
-    field += char;
+  const pending = Math.max(total - completed - needsReview, 0);
+  const pct = total > 0 ? (completed / total) * 100 : 0;
+
+  dashboardState.assessments = { total, completed, needsReview, pending, pct };
+  setText('opRouteClients', formatNumber(total));
+  setText('opAssessmentCompletion', `${pct.toFixed(1)}%`);
+  setText('opAssessmentCompletionSub', `${formatNumber(completed)} / ${formatNumber(total)} completed · ${formatNumber(needsReview)} review`);
+}
+
+function assessmentIsComplete(row) {
+  const value = row.mechanical_assessment_completed ?? row.assessment_completed ?? row.completed;
+  if (value === true || value === 1) return true;
+  return ['yes','true','1','completed','complete'].includes(String(value || '').trim().toLowerCase());
+}
+
+function assessmentNeedsReview(row) {
+  const customer = row.customer_name ?? row.customer ?? row.client_name;
+  const assignedTech = row.assigned_route_tech ?? row.route_tech ?? row.assigned_tech;
+  const matchStatus = String(row.match_status || '').trim().toUpperCase();
+  const reviewStatus = String(row.review_status || '').trim().toUpperCase();
+  const needsReviewValue = row.needs_review ?? row.requires_review ?? row.review_required;
+
+  if (needsReviewValue === true || needsReviewValue === 1) return true;
+  if (['YES','TRUE','1','REVIEW','NEEDS_REVIEW','NEEDS REVIEW'].includes(String(needsReviewValue || '').trim().toUpperCase())) return true;
+  if (!customer || !assignedTech) return true;
+  if (matchStatus && !['MATCHED','OK','VALID','COMPLETE'].includes(matchStatus)) return true;
+  if (reviewStatus.includes('REVIEW')) return true;
+  return false;
+}
+
+async function loadClientGrowthAnalytics(startDate, endDate) {
+  const { data, error } = await client.rpc(CLIENT_GROWTH_RPC, {
+    p_start_date: startDate,
+    p_end_date: endDate
+  });
+
+  if (error) {
+    setClientGrowthUnavailable(error.message);
+    throw error;
   }
 
-  row.push(field);
-  if (row.some(value => String(value).trim() !== '')) rows.push(row);
+  const summary = getFirstRow(data) || {};
+  const newClients = numberValue(summary.new_clients_added);
+  const canceled = numberValue(summary.canceled_clients);
+  const homesLost = numberValue(summary.homes_lost);
+  const retainedHomes = numberValue(summary.retained_homes);
+  const overallClientGrowth = newClients - canceled;
+  const brandNewServiceLocations = newClients - retainedHomes;
+  const netServiceLocations = brandNewServiceLocations - homesLost;
+
+  dashboardState.growth = { newClients, canceled, homesLost, retainedHomes, overallClientGrowth, brandNewServiceLocations, netServiceLocations };
+
+  setText('opNetClientGrowth', signedNumber(overallClientGrowth));
+  setText('opNetClientGrowthSub', `${formatNumber(newClients)} added − ${formatNumber(canceled)} canceled`);
+  setText('opNetServiceLocations', signedNumber(netServiceLocations));
+  setText('opNetServiceLocationsSub', `${formatNumber(brandNewServiceLocations)} new locations − ${formatNumber(homesLost)} lost`);
+  setText('growthNetClients', signedNumber(overallClientGrowth));
+  setText('growthNetClientsDetail', `${formatNumber(newClients)} added − ${formatNumber(canceled)} canceled`);
+  setText('growthNetHomes', signedNumber(netServiceLocations));
+  setText('growthNetHomesDetail', `${formatNumber(brandNewServiceLocations)} new − ${formatNumber(homesLost)} homes lost`);
+
+  applySignedCardState('growthNetClientsCard', overallClientGrowth);
+  applySignedCardState('growthNetHomesCard', netServiceLocations);
+  renderClientGrowthChart([newClients, canceled, homesLost, retainedHomes]);
+}
+
+function setClientGrowthUnavailable(message) {
+  dashboardState.growth = null;
+  setText('opNetClientGrowth', 'Unavailable');
+  setText('opNetClientGrowthSub', message || 'Growth source unavailable');
+  setText('opNetServiceLocations', 'Unavailable');
+  setText('opNetServiceLocationsSub', message || 'Growth source unavailable');
+  renderClientGrowthChart([]);
+}
+
+function renderClientGrowthChart(values) {
+  const canvas = document.getElementById('clientGrowthChart');
+  if (!canvas) return;
+  if (clientGrowthChart) clientGrowthChart.destroy();
+
+  clientGrowthChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: ['New Clients Added', 'Canceled Accounts', 'Homes Lost', 'Retained Homes'],
+      datasets: [{ label: 'Count', data: values, borderWidth: 1, borderRadius: 6, maxBarThickness: 30 }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => ` ${formatNumber(context.raw)}` } } },
+      scales: {
+        x: { beginAtZero: true, ticks: { precision: 0, font: { size: 9 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 9 } } }
+      }
+    }
+  });
+}
+
+async function loadFilterCompletionAnalytics(endDate) {
+  const [plannedRows, completionResponse] = await Promise.all([
+    fetchAllRows(FILTER_CHECKLIST_VIEW, 'client_name,service_location,service_date'),
+    client.rpc(FILTER_COMPLETION_DATES_RPC)
+  ]);
+
+  if (completionResponse.error) {
+    setFilterCompletionUnavailable(completionResponse.error.message);
+    throw completionResponse.error;
+  }
+
+  const plannedClients = new Set(
+    plannedRows.map(row => `${normalizeKey(row.client_name)}|${normalizeKey(row.service_location)}`)
+      .filter(key => key !== '|')
+  );
+
+  const totalEligible = plannedClients.size;
+  const completionRows = completionResponse.data || [];
+  const completedAsOfEnd = completionRows.reduce((sum, row) => {
+    const date = String(row.completed_date || '').slice(0,10);
+    if (!date || date > endDate) return sum;
+    return sum + numberValue(row.completed_client_count);
+  }, 0);
+
+  const completed = totalEligible > 0 ? Math.min(completedAsOfEnd, totalEligible) : completedAsOfEnd;
+  const remaining = Math.max(totalEligible - completed, 0);
+  const pct = totalEligible > 0 ? (completed / totalEligible) * 100 : 0;
+
+  dashboardState.filter = { totalEligible, completed, remaining, pct };
+  setText('opFilterCompletion', `${pct.toFixed(1)}%`);
+  setText('opFilterCompletionSub', `${formatNumber(completed)} of ${formatNumber(totalEligible)} completed as of ${formatDate(endDate)} · ${formatNumber(remaining)} remaining`);
+  setProgress('opFilterCompletionProgress', pct);
+}
+
+function setFilterCompletionUnavailable(message) {
+  dashboardState.filter = null;
+  setText('opFilterCompletion', 'Unavailable');
+  setText('opFilterCompletionSub', message || 'Filter completion source unavailable');
+  setProgress('opFilterCompletionProgress', 0);
+}
+
+async function loadPayrollAnalytics(startDate, endDate) {
+  const { data: periodRows, error: periodError } = await client
+    .from(PPV_PAY_PERIODS_TABLE)
+    .select('*')
+    .order('period_start_date', { ascending: true });
+
+  if (periodError) {
+    setPayrollUnavailable(periodError.message);
+    throw periodError;
+  }
+
+  const periodSelection = selectPayrollPeriods(periodRows || [], startDate, endDate);
+  const selectedPeriods = periodSelection.periods;
+
+  if (selectedPeriods.length === 0) {
+    dashboardState.payroll = { gross: 0, breakdown: emptyPayrollBreakdown(), basis: 'No PPV pay period matches this range', periodCount: 0 };
+    renderPayrollAnalytics(dashboardState.payroll);
+    return;
+  }
+
+  const aggregate = emptyPayrollBreakdown();
+  let gross = 0;
+  let routeTechRows = 0;
+
+  for (const period of selectedPeriods) {
+    const [summaryResult, adjustmentsResult] = await Promise.all([
+      selectRowsForPayPeriod(PPV_SUMMARY_VIEW, period.id),
+      client
+        .from(PPV_ADJUSTMENTS_TABLE)
+        .select('pay_period_id,route_tech_id,adjustment_type,adjustment_amount,reason,notes,status')
+        .eq('pay_period_id', period.id)
+    ]);
+
+    if (summaryResult.error) throw summaryResult.error;
+    if (adjustmentsResult.error) throw adjustmentsResult.error;
+
+    const adjustments = adjustmentsResult.data || [];
+    const rows = (summaryResult.rows || []).filter(isRouteTechPayrollRow);
+    routeTechRows += rows.length;
+
+    rows.forEach(row => {
+      const routeTechId = getFirstValue(row, ['route_tech_id']);
+      const manualBreakdown = getAdjustmentBreakdown(adjustments, routeTechId);
+
+      aggregate.base += firstNumberFrom(row, ['base_ppv_pay', 'regular_ppv_pay']);
+      aggregate.pickup += firstNumberFrom(row, ['pickup_pay', 'pickup_visit_pay']);
+      aggregate.ptoHoliday += firstNumberFrom(row, ['pto_holiday_pay']);
+      aggregate.meetings += firstNumberFrom(row, ['meeting_maintenance_pay']);
+      aggregate.otherPaid += firstNumberFrom(row, ['other_paid_visit_credit_pay']);
+      aggregate.manualAdjustments += manualBreakdown.manual;
+      aggregate.onCall += manualBreakdown.onCall;
+      aggregate.commissions += firstNumberFrom(row, ['quarterly_commission_pay', 'quarterly_commission_amount', 'commission_pay']);
+      aggregate.safeguards += firstNumberFrom(row, ['safeguard_impact_total']);
+      gross += firstNumberFrom(row, ['final_gross_before_taxes_deductions', 'net_ppv_pay', 'gross_pay']);
+    });
+  }
+
+  dashboardState.payroll = {
+    gross,
+    breakdown: aggregate,
+    basis: periodSelection.basis,
+    periodCount: selectedPeriods.length,
+    routeTechRows,
+    selectedPeriods
+  };
+
+  renderPayrollAnalytics(dashboardState.payroll);
+}
+
+function selectPayrollPeriods(periods, startDate, endDate) {
+  const valid = (periods || []).filter(period => {
+    const status = String(period.status || '').trim().toUpperCase();
+    return status !== 'VOIDED';
+  });
+
+  const endingInRange = valid.filter(period => {
+    const end = String(period.period_end_date || period.end_date || '').slice(0,10);
+    return end && end >= startDate && end <= endDate;
+  });
+
+  if (endingInRange.length > 0) {
+    return {
+      periods: endingInRange,
+      basis: `${endingInRange.length} pay period${endingInRange.length === 1 ? '' : 's'} ending inside the selected range`
+    };
+  }
+
+  const overlapping = valid.filter(period => {
+    const start = String(period.period_start_date || period.start_date || '').slice(0,10);
+    const end = String(period.period_end_date || period.end_date || '').slice(0,10);
+    return start && end && start <= endDate && end >= startDate;
+  });
+
+  return {
+    periods: overlapping,
+    basis: overlapping.length
+      ? `${overlapping.length} overlapping pay period${overlapping.length === 1 ? '' : 's'}; payroll is not prorated to the selected dates`
+      : 'No PPV pay period matches the selected range'
+  };
+}
+
+async function selectRowsForPayPeriod(sourceName, payPeriodId) {
+  const candidateFields = ['pay_period_id', 'ppv_pay_period_id', 'period_id'];
+  let lastError = null;
+
+  for (const field of candidateFields) {
+    const { data, error } = await client.from(sourceName).select('*').eq(field, payPeriodId);
+    if (!error) return { rows: data || [], error: null };
+    lastError = error;
+  }
+
+  return { rows: [], error: lastError || new Error('Unable to load pay-period rows.') };
+}
+
+function isRouteTechPayrollRow(row) {
+  if (!row) return false;
+  const rowType = String(getFirstValue(row, ['row_type', 'route_tech_row_type']) || '').toUpperCase();
+  const code = String(getFirstValue(row, ['rt_code', 'rt_code_normalized', 'route_tech_code', 'code']) || '').toUpperCase();
+  const ppvEligible = getFirstValue(row, ['ppv_eligible']);
+
+  if (rowType === 'RTL' || code.startsWith('RTL')) return false;
+  if (ppvEligible === false) return false;
+  if (rowType && rowType !== 'RT') return false;
+  return true;
+}
+
+function getAdjustmentBreakdown(adjustments, routeTechId) {
+  return (adjustments || []).reduce((totals, adjustment) => {
+    const id = getFirstValue(adjustment, ['route_tech_id']);
+    const status = String(getFirstValue(adjustment, ['status']) || '').toUpperCase();
+    const amount = firstNumberFrom(adjustment, ['adjustment_amount']);
+    if (String(id || '') !== String(routeTechId || '') || status !== 'APPROVED' || amount === 0) return totals;
+
+    const reason = String(getFirstValue(adjustment, ['reason', 'notes']) || '').trim();
+    const legacyDescription = reason.replace(/^Manual Adjustment\s*\/\s*On[- ]call Pay\s*-\s*/i, '').trim();
+    const onCall = /^On[- ]Call Pay\s*-\s*/i.test(reason) || /\bOn[- ]?Call\b/i.test(legacyDescription);
+
+    if (onCall) totals.onCall += amount;
+    else totals.manual += amount;
+    return totals;
+  }, { manual: 0, onCall: 0 });
+}
+
+function emptyPayrollBreakdown() {
+  return {
+    base: 0,
+    pickup: 0,
+    ptoHoliday: 0,
+    meetings: 0,
+    otherPaid: 0,
+    manualAdjustments: 0,
+    onCall: 0,
+    commissions: 0,
+    safeguards: 0
+  };
+}
+
+function renderPayrollAnalytics(payroll) {
+  setText('kpiPayrollCost', formatCurrency(payroll.gross));
+  setText('kpiPayrollCostSub', `${payroll.basis} · gross before taxes/deductions`);
+  setText('payrollBasisNote', payroll.basis);
+  setText('payrollGrossSummary', `${formatCurrency(payroll.gross)} Gross`);
+  renderPayrollBreakdownChart(payroll.breakdown);
+}
+
+function setPayrollUnavailable(message) {
+  dashboardState.payroll = null;
+  setText('kpiPayrollCost', 'Unavailable');
+  setText('kpiPayrollCostSub', message || 'Payroll source unavailable');
+  setText('payrollBasisNote', message || 'Payroll source unavailable');
+  setText('payrollGrossSummary', 'Unavailable');
+  renderPayrollBreakdownChart(emptyPayrollBreakdown());
+}
+
+function renderPayrollBreakdownChart(breakdown) {
+  const canvas = document.getElementById('payrollBreakdownChart');
+  if (!canvas) return;
+  if (payrollBreakdownChart) payrollBreakdownChart.destroy();
+
+  const labels = ['PPV Base', 'Pickup', 'PTO/Holiday', 'RT Meetings/Maint', 'Manual Adjustments', 'On-Call Pay', 'Commissions', 'Safeguards'];
+  const values = [
+    breakdown.base,
+    breakdown.pickup,
+    breakdown.ptoHoliday,
+    breakdown.meetings,
+    breakdown.manualAdjustments,
+    breakdown.onCall,
+    breakdown.commissions,
+    breakdown.safeguards
+  ];
+
+  payrollBreakdownChart = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Payroll', data: values, borderWidth: 1, borderRadius: 5, maxBarThickness: 28 }] },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => ` ${formatCurrency(context.raw)}` } } },
+      scales: {
+        x: { ticks: { font: { size: 9 }, callback: value => compactCurrency(value) } },
+        y: { grid: { display: false }, ticks: { font: { size: 8 } } }
+      }
+    }
+  });
+}
+
+function renderAttentionPanel() {
+  const revenue = dashboardState.revenue || {};
+  const goals = dashboardState.goals || {};
+  const actual = numberValue(revenue.total_revenue);
+  const goal = numberValue(goals.revenue_period_goal);
+  const pct = goal > 0 ? (actual / goal) * 100 : 0;
+
+  if (goal > 0) {
+    setAttention('attentionRevenueRow', 'attentionRevenueBadge', 'attentionRevenueDetail', `${pct.toFixed(1)}%`, `${formatCurrency(actual)} of ${formatCurrency(goal)} period goal`, pct >= 100 ? 'success' : pct >= 85 ? 'warning' : 'danger');
+  } else {
+    setAttention('attentionRevenueRow', 'attentionRevenueBadge', 'attentionRevenueDetail', '—', 'No revenue goal returned for this period', '');
+  }
+
+  const assessments = dashboardState.assessments;
+  if (assessments) {
+    setAttention('attentionAssessmentRow', 'attentionAssessmentBadge', 'attentionAssessmentDetail', formatNumber(assessments.pending), `${formatNumber(assessments.completed)} completed of ${formatNumber(assessments.total)}`, assessments.pending > 0 ? 'warning' : 'success');
+    setAttention('attentionReviewRow', 'attentionReviewBadge', null, formatNumber(assessments.needsReview), null, assessments.needsReview > 0 ? 'danger' : 'success');
+  }
+
+  const invoice = dashboardState.invoiceMix;
+  if (invoice) {
+    const unmatched = numberValue(invoice.unmatched_invoice_count);
+    const unmatchedSales = numberValue(invoice.unmatched_invoice_sales);
+    setAttention('attentionInvoiceRow', 'attentionInvoiceBadge', 'attentionInvoiceDetail', formatNumber(unmatched), unmatched > 0 ? `${formatCurrency(unmatchedSales)} requires classification review` : 'No unmatched invoices in available imported data', unmatched > 0 ? 'warning' : 'success');
+  } else {
+    setAttention('attentionInvoiceRow', 'attentionInvoiceBadge', 'attentionInvoiceDetail', '—', 'Invoice mix unavailable for selected period', '');
+  }
+
+  const filter = dashboardState.filter;
+  if (filter) {
+    setAttention('attentionFilterRow', 'attentionFilterBadge', 'attentionFilterDetail', formatNumber(filter.remaining), `${filter.pct.toFixed(1)}% complete · ${formatNumber(filter.completed)} of ${formatNumber(filter.totalEligible)}`, filter.remaining > 0 ? 'warning' : 'success');
+  }
+}
+
+function setAttention(rowId, badgeId, detailId, badgeValue, detailText, status) {
+  const row = document.getElementById(rowId);
+  const badge = document.getElementById(badgeId);
+  const detail = detailId ? document.getElementById(detailId) : null;
+
+  if (row) row.className = `attention-row${status ? ` ${status}` : ''}`;
+  if (badge) badge.textContent = badgeValue;
+  if (detail && detailText !== null && detailText !== undefined) detail.textContent = detailText;
+}
+
+function applySignedCardState(id, value) {
+  const card = document.getElementById(id);
+  if (!card) return;
+  card.classList.remove('positive', 'negative');
+  if (value > 0) card.classList.add('positive');
+  if (value < 0) card.classList.add('negative');
+}
+
+function setGoalState(cardId, percent, hasGoal) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+  card.classList.remove('goal-met', 'goal-near', 'goal-below');
+  if (!hasGoal) return;
+  if (percent >= 100) card.classList.add('goal-met');
+  else if (percent >= 85) card.classList.add('goal-near');
+  else card.classList.add('goal-below');
+}
+
+function setProgress(id, percent) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.width = `${Math.max(0, Math.min(numberValue(percent), 100))}%`;
+}
+
+async function fetchAllRows(viewName, columns = '*', configureQuery = null) {
+  const rows = [];
+  const batchSize = 1000;
+  let from = 0;
+
+  while (true) {
+    let query = client.from(viewName).select(columns);
+    if (typeof configureQuery === 'function') query = configureQuery(query);
+
+    const { data, error } = await query.range(from, from + batchSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    rows.push(...data);
+    if (data.length < batchSize) break;
+    from += batchSize;
+  }
+
   return rows;
 }
 
-function findCsvColumn(headerMap, aliases) {
-  for (const alias of aliases) {
-    const normalized = normalizeCsvHeader(alias);
-    if (headerMap.has(normalized)) return headerMap.get(normalized);
-  }
-  return -1;
-}
-
-function buildSkimmerInvoiceImportRows(csvText) {
-  const parsed = parseCsvText(csvText);
-  if (parsed.length < 2) throw new Error('The invoice CSV does not contain any data rows.');
-
-  const headers = parsed[0].map(normalizeCsvHeader);
-  const map = new Map(headers.map((header, index) => [header, index]));
-  const required = {
-    invoiceNumber: findCsvColumn(map, ['invoice #', 'invoice number']),
-    customer: findCsvColumn(map, ['customer', 'customer name']),
-    location: findCsvColumn(map, ['location', 'service location', 'service address']),
-    city: findCsvColumn(map, ['city', 'location city']),
-    state: findCsvColumn(map, ['state', 'location state']),
-    invoiceDate: findCsvColumn(map, ['invoice date', 'date']),
-    balance: findCsvColumn(map, ['balance']),
-    status: findCsvColumn(map, ['status', 'invoice status']),
-    subtotal: findCsvColumn(map, ['subtotal']),
-    tax: findCsvColumn(map, ['tax']),
-    totalSales: findCsvColumn(map, ['total sales', 'total'])
-  };
-
-  const labels = {
-    invoiceNumber: 'Invoice #',
-    customer: 'Customer',
-    location: 'Location',
-    city: 'City',
-    state: 'State',
-    invoiceDate: 'Invoice Date',
-    balance: 'Balance',
-    status: 'Status',
-    subtotal: 'Subtotal',
-    tax: 'Tax',
-    totalSales: 'Total Sales'
-  };
-
-  const missing = Object.entries(required)
-    .filter(([, index]) => index < 0)
-    .map(([key]) => labels[key]);
-
-  if (missing.length) {
-    throw new Error(`Required invoice column(s) not found: ${missing.join(', ')}.`);
-  }
-
-  return parsed.slice(1).map(values => ({
-    'Invoice #': String(values[required.invoiceNumber] || '').trim(),
-    'Customer': String(values[required.customer] || '').trim(),
-    'Location': String(values[required.location] || '').trim(),
-    'City': String(values[required.city] || '').trim(),
-    'State': String(values[required.state] || '').trim(),
-    'Invoice Date': String(values[required.invoiceDate] || '').trim(),
-    'Balance': String(values[required.balance] || '').trim(),
-    'Status': String(values[required.status] || '').trim(),
-    'Subtotal': String(values[required.subtotal] || '').trim(),
-    'Tax': String(values[required.tax] || '').trim(),
-    'Total Sales': String(values[required.totalSales] || '').trim()
-  })).filter(row => row['Invoice #'] && row['Invoice Date']);
-}
-
-async function importSkimmerInvoicesCsv() {
-  if (!['ADMIN', 'SYSTEM_ADMIN'].includes(String(currentProfile?.role || ''))) {
-    setInvoiceImportMessage('error', 'Only ADMIN or SYSTEM_ADMIN users can import Skimmer invoices.');
-    return;
-  }
-
-  const input = document.getElementById('skimmerInvoiceImportFile');
-  const file = selectedSkimmerInvoiceFile || input?.files?.[0];
-  if (!file) {
-    setInvoiceImportMessage('error', 'Drop or select the Skimmer Invoices CSV first.');
-    return;
-  }
-
-  const button = document.getElementById('skimmerInvoiceImportButton');
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'IMPORTING...';
-  }
-
-  try {
-    const rows = buildSkimmerInvoiceImportRows(await file.text());
-    if (!rows.length) throw new Error('No valid invoice rows were found.');
-
-    setInvoiceImportMessage('info', `Importing ${rows.length.toLocaleString()} invoice row(s)...`);
-
-    const response = await client.rpc(INVOICE_IMPORT_RPC, {
-      p_file_name: file.name,
-      p_rows: rows
-    });
-
-    if (response.error) throw response.error;
-
-    const result = Array.isArray(response.data) ? (response.data[0] || {}) : (response.data || {});
-    const summaryText =
-      `${numberValue(result.source_record_count || rows.length).toLocaleString()} rows processed · ` +
-      `${numberValue(result.inserted_record_count).toLocaleString()} new · ` +
-      `${numberValue(result.updated_record_count).toLocaleString()} updated · ` +
-      `${numberValue(result.existing_route_count).toLocaleString()} Existing Route · ` +
-      `${numberValue(result.non_route_count).toLocaleString()} Non-Route · ` +
-      `${numberValue(result.recurring_route_count).toLocaleString()} Pool Service invoices excluded · ` +
-      `${numberValue(result.unmatched_count).toLocaleString()} unmatched.`;
-
-    setText('skimmerInvoiceImportResult', summaryText);
-    setInvoiceImportMessage('success', 'Skimmer invoice import completed successfully.');
-    selectedSkimmerInvoiceFile = null;
-    if (input) input.value = '';
-    document.getElementById('skimmerInvoiceDropZone')?.classList.remove('has-file');
-    setText('skimmerInvoiceImportFileNote', 'Import complete. Drop the next weekly Invoices.csv here when ready.');
-    await loadInvoiceClientMixSection();
-  } catch (error) {
-    console.error('Skimmer invoice import failed:', error);
-    setInvoiceImportMessage('error', 'Unable to import Skimmer invoices: ' + (error?.message || error));
-  } finally {
-    if (button) {
-      button.disabled = false;
-      button.textContent = 'IMPORT INVOICES';
-    }
-  }
-}
-
-function initializeRevenuePeriod() {
-  const filter = document.getElementById('revenuePeriodFilter');
-  if (filter) filter.value = 'qtd';
-  updateRevenueDateInputs('qtd');
-}
-
-function handleRevenuePeriodChange() {
-  const periodKey = document.getElementById('revenuePeriodFilter')?.value || 'qtd';
-  updateRevenueDateInputs(periodKey);
-
-  if (periodKey !== 'custom') {
-    loadSelectedRevenuePeriod();
-  }
-}
-
-function updateRevenueDateInputs(periodKey) {
-  const startInput = document.getElementById('revenueStartDate');
-  const endInput = document.getElementById('revenueEndDate');
-  const isCustom = periodKey === 'custom';
-
-  if (!startInput || !endInput) return;
-
-  startInput.disabled = !isCustom;
-  endInput.disabled = !isCustom;
-
-  if (!isCustom) {
-    const range = getRevenuePeriodRange(periodKey);
-    startInput.value = range.startDate;
-    endInput.value = range.endDate;
-  }
-}
-
-function getRevenuePeriodRange(periodKey) {
+function getMasterPeriodRange(preset) {
   const today = startOfDay(new Date());
 
-  if (periodKey === 'this_week') {
-    return getWeekRange(today);
+  if (preset === 'today') return { startDate: toDateISO(today), endDate: toDateISO(today) };
+  if (preset === 'yesterday') {
+    const yesterday = addDays(today, -1);
+    return { startDate: toDateISO(yesterday), endDate: toDateISO(yesterday) };
   }
-
-  if (periodKey === 'last_week') {
+  if (preset === 'this_week') {
+    const range = getWeekRange(today);
+    return { startDate: range.startDate, endDate: toDateISO(today) };
+  }
+  if (preset === 'last_week') {
     const currentWeek = getWeekRange(today);
-    const priorSunday = addDays(parseDateISO(currentWeek.startDate), -1);
-    return getWeekRange(priorSunday);
+    return getWeekRange(addDays(parseDateISO(currentWeek.startDate), -1));
   }
-
-  if (periodKey === 'mtd') {
-    return {
-      startDate: toDateISO(new Date(today.getFullYear(), today.getMonth(), 1)),
-      endDate: toDateISO(today)
-    };
+  if (preset === 'last_4_weeks') {
+    const currentWeek = getWeekRange(today);
+    const lastCompletedSunday = addDays(parseDateISO(currentWeek.startDate), -1);
+    const lastCompletedWeek = getWeekRange(lastCompletedSunday);
+    return { startDate: toDateISO(addDays(parseDateISO(lastCompletedWeek.startDate), -21)), endDate: lastCompletedWeek.endDate };
   }
-
-  if (periodKey === 'last_month') {
-    return {
-      startDate: toDateISO(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
-      endDate: toDateISO(new Date(today.getFullYear(), today.getMonth(), 0))
-    };
+  if (preset === 'mtd') {
+    return { startDate: toDateISO(new Date(today.getFullYear(), today.getMonth(), 1)), endDate: toDateISO(today) };
   }
-
-  if (periodKey === 'last_quarter') {
+  if (preset === 'last_month') {
+    return { startDate: toDateISO(new Date(today.getFullYear(), today.getMonth() - 1, 1)), endDate: toDateISO(new Date(today.getFullYear(), today.getMonth(), 0)) };
+  }
+  if (preset === 'last_quarter') {
     const currentQuarter = getFiscalQuarterRange(today);
     return getFiscalQuarterRange(addDays(parseDateISO(currentQuarter.startDate), -1));
   }
-
-  if (periodKey === 'fytd') {
+  if (preset === 'fytd') {
     const fiscalStartYear = today.getMonth() >= 6 ? today.getFullYear() : today.getFullYear() - 1;
-
-    return {
-      startDate: toDateISO(new Date(fiscalStartYear, 6, 1)),
-      endDate: toDateISO(today)
-    };
+    return { startDate: toDateISO(new Date(fiscalStartYear, 6, 1)), endDate: toDateISO(today) };
   }
 
   return getFiscalQuarterRange(today, true);
@@ -2288,23 +1717,14 @@ function getFiscalQuarterRange(dateValue, throughToday = false) {
   const month = date.getMonth();
   let startMonth;
 
-  if (month >= 6 && month <= 8) {
-    startMonth = 6;
-  } else if (month >= 9) {
-    startMonth = 9;
-  } else if (month <= 2) {
-    startMonth = 0;
-  } else {
-    startMonth = 3;
-  }
+  if (month >= 6 && month <= 8) startMonth = 6;
+  else if (month >= 9) startMonth = 9;
+  else if (month <= 2) startMonth = 0;
+  else startMonth = 3;
 
   const start = new Date(date.getFullYear(), startMonth, 1);
   const end = new Date(date.getFullYear(), startMonth + 3, 0);
-
-  return {
-    startDate: toDateISO(start),
-    endDate: toDateISO(throughToday ? date : end)
-  };
+  return { startDate: toDateISO(start), endDate: toDateISO(throughToday ? date : end) };
 }
 
 function getWeekRange(dateValue) {
@@ -2313,16 +1733,41 @@ function getWeekRange(dateValue) {
   const mondayOffset = day === 0 ? -6 : 1 - day;
   const monday = addDays(date, mondayOffset);
   const sunday = addDays(monday, 6);
+  return { startDate: toDateISO(monday), endDate: toDateISO(sunday) };
+}
+
+function normalizeRevenueGoalTargets(goalData, startDate, endDate) {
+  const source = getFirstRow(goalData) || {};
+  const periodBusinessDays = firstFiniteNumber(source.period_business_days, source.business_days, source.total_business_days, countBusinessDaysInclusive(startDate, endDate));
+  const quotedDailyGoal = firstFiniteNumber(source.quoted_daily_goal, source.daily_quoted_goal);
+  const revenueDailyGoal = firstFiniteNumber(source.revenue_daily_goal, source.daily_revenue_goal);
 
   return {
-    startDate: toDateISO(monday),
-    endDate: toDateISO(sunday)
+    ...source,
+    period_business_days: periodBusinessDays,
+    quoted_period_goal: firstFiniteNumber(source.quoted_period_goal, source.quoted_goal, source.total_quoted_goal, periodBusinessDays * quotedDailyGoal),
+    revenue_period_goal: firstFiniteNumber(source.revenue_period_goal, source.revenue_goal, source.total_revenue_goal, periodBusinessDays * revenueDailyGoal),
+    quoted_daily_goal: quotedDailyGoal,
+    revenue_daily_goal: revenueDailyGoal
   };
 }
 
-function startOfDay(value) {
-  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+function countBusinessDaysInclusive(startISO, endISO) {
+  const start = parseDateISO(startISO);
+  const end = parseDateISO(endISO);
+  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+
+  let count = 0;
+  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  while (cursor <= end) {
+    const day = cursor.getDay();
+    if (day !== 0 && day !== 6) count += 1;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
 }
+
+function startOfDay(value) { return new Date(value.getFullYear(), value.getMonth(), value.getDate()); }
 
 function addDays(value, days) {
   const result = new Date(value.getFullYear(), value.getMonth(), value.getDate());
@@ -2338,692 +1783,28 @@ function toDateISO(value) {
 }
 
 function parseDateISO(value) {
-  const parts = String(value || '').slice(0, 10).split('-').map(Number);
+  const parts = String(value || '').slice(0,10).split('-').map(Number);
+  if (parts.length !== 3 || parts.some(part => !Number.isFinite(part))) return null;
   return new Date(parts[0], parts[1] - 1, parts[2]);
 }
 
-async function loadSelectedRevenuePeriod() {
-  const periodKey = document.getElementById('revenuePeriodFilter')?.value || 'qtd';
-  const startInput = document.getElementById('revenueStartDate');
-  const endInput = document.getElementById('revenueEndDate');
+function getFirstRow(value) { return Array.isArray(value) ? (value[0] || null) : (value || null); }
 
-  if (periodKey !== 'custom') {
-    updateRevenueDateInputs(periodKey);
+function getFirstValue(row, keys) {
+  for (const key of keys) {
+    if (row && row[key] !== undefined && row[key] !== null && row[key] !== '') return row[key];
   }
-
-  const startDate = startInput?.value || '';
-  const endDate = endInput?.value || '';
-
-  if (!startDate || !endDate) {
-    setRevenueUnavailable('Select both a start date and end date.');
-    throw new Error('Revenue date range is incomplete.');
-  }
-
-  if (startDate > endDate) {
-    setRevenueUnavailable('Revenue start date cannot be after the end date.');
-    throw new Error('Revenue date range is invalid.');
-  }
-
-  document.getElementById('revenuePeriodDescription').textContent =
-    `${formatDate(startDate)} – ${formatDate(endDate)} performance against Service Department goals.`;
-
-  const [summaryResponse, goalResponse] = await Promise.all([
-    client.rpc(REVENUE_SUMMARY_RPC, {
-      p_start_date: startDate,
-      p_end_date: endDate
-    }),
-    client.rpc(REVENUE_GOAL_RPC, {
-      p_start_date: startDate,
-      p_end_date: endDate
-    })
-  ]);
-
-  if (summaryResponse.error) {
-    setRevenueUnavailable(summaryResponse.error.message);
-    throw summaryResponse.error;
-  }
-
-  if (goalResponse.error) {
-    setRevenueUnavailable(goalResponse.error.message);
-    throw goalResponse.error;
-  }
-
-  const summary = getFirstRow(summaryResponse.data) || {};
-  const goals = normalizeRevenueGoalTargets(goalResponse.data, startDate, endDate);
-
-  const totalRevenue = numberValue(summary.total_revenue);
-  const totalQuoted = numberValue(summary.total_quoted);
-  const revenueGoal = numberValue(goals.revenue_period_goal);
-  const quotedGoal = numberValue(goals.quoted_period_goal);
-
-  renderGoalMetric({
-    cardId: 'revenueGoalCard',
-    valueId: 'revenueGoalValue',
-    progressId: 'revenueGoalProgress',
-    subId: 'revenueGoalSub',
-    actual: totalRevenue,
-    goal: revenueGoal,
-    detail:
-      `${formatNumber(goals.period_business_days)} business days` +
-      ` | Daily ${formatCurrency(goals.revenue_daily_goal)}` +
-      ` | Weekly ${formatCurrency(goals.revenue_week_goal)}` +
-      ` | Expected by today ${formatCurrency(goals.revenue_expected_by_today)}`
-  });
-
-  renderGoalMetric({
-    cardId: 'quotedGoalCard',
-    valueId: 'quotedGoalValue',
-    progressId: 'quotedGoalProgress',
-    subId: 'quotedGoalSub',
-    actual: totalQuoted,
-    goal: quotedGoal,
-    detail:
-      `${formatNumber(goals.period_business_days)} business days` +
-      ` | Daily ${formatCurrency(goals.quoted_daily_goal)}` +
-      ` | Weekly ${formatCurrency(goals.quoted_week_goal)}` +
-      ` | Expected by today ${formatCurrency(goals.quoted_expected_by_today)}` +
-      ` | Service ${formatCurrency(summary.total_service_quoted)}` +
-      ` | CRM ${formatCurrency(summary.total_crm_quoted)}`
-  });
-
-  setText('projectWorkValue', formatCurrency(summary.total_project_work));
-  setText('repairTechRevenueValue', formatCurrency(summary.total_repair_tech_revenue));
-  setText('leakDetectionValue', formatCurrency(summary.total_leak_detection));
-
-  const lastTransactionDate = summary.last_transaction_date
-    ? formatDate(summary.last_transaction_date)
-    : '—';
-
-  setText(
-    'revenueLastUpdatedSub',
-    `Last transaction: ${lastTransactionDate} | ${formatNumber(summary.transaction_count)} transaction${numberValue(summary.transaction_count) === 1 ? '' : 's'}`
-  );
+  return null;
 }
 
-function renderGoalMetric(config) {
-  const actual = numberValue(config.actual);
-  const goal = numberValue(config.goal);
-  const percent = goal > 0 ? (actual / goal) * 100 : 0;
-  const status =
-    goal <= 0 ? '' :
-    percent >= 100 ? 'goal-met' :
-    percent >= 85 ? 'goal-near' :
-    'goal-below';
-
-  const card = document.getElementById(config.cardId);
-  const progress = document.getElementById(config.progressId);
-
-  if (card) {
-    card.classList.remove('goal-below', 'goal-near', 'goal-met');
-    if (status) card.classList.add(status);
-  }
-
-  if (progress) {
-    progress.className = 'progress-fill';
-
-    if (status === 'goal-met') progress.classList.add('met');
-    if (status === 'goal-near') progress.classList.add('near');
-    if (status === 'goal-below') progress.classList.add('below');
-
-    progress.style.width = `${Math.max(0, Math.min(percent, 100))}%`;
-  }
-
-  setText(config.valueId, `${formatCurrency(actual)} / ${formatCurrency(goal)}`);
-
-  const paceText = goal > 0 ? `${percent.toFixed(1)}% of period goal` : 'No goal returned';
-  setText(config.subId, `${paceText}${config.detail ? ` | ${config.detail}` : ''}`);
-}
-
-function setRevenueUnavailable(message) {
-  setText('revenueGoalValue', 'Unavailable');
-  setText('quotedGoalValue', 'Unavailable');
-  setText('projectWorkValue', 'Unavailable');
-  setText('repairTechRevenueValue', 'Unavailable');
-  setText('leakDetectionValue', 'Unavailable');
-  setText('revenueGoalSub', message || 'Revenue source unavailable');
-  setText('quotedGoalSub', message || 'Goal source unavailable');
-  setText('revenueLastUpdatedSub', 'Unable to load revenue data');
-}
-
-async function loadMechanicalAssessmentSummary() {
-  const { data, error } = await client
-    .from(MECHANICAL_ASSESSMENT_VIEW)
-    .select('*')
-    .order('customer_name', { ascending: true });
-
-  if (error) {
-    setText('routeClientCount', 'Unavailable');
-    setText('assessmentCompletedValue', 'Unavailable');
-    setText('assessmentCompletionPercent', 'Unavailable');
-    setText('assessmentReviewCount', 'Unavailable');
-    throw error;
-  }
-
-  const rows = data || [];
-  const total = rows.length;
-
-  let completed = 0;
-  let needsReview = 0;
-
-  rows.forEach(row => {
-    if (assessmentIsComplete(row)) {
-      completed += 1;
-    } else if (assessmentNeedsReview(row)) {
-      needsReview += 1;
-    }
-  });
-
-  const pending = Math.max(total - completed - needsReview, 0);
-  const completionPercent = total > 0 ? (completed / total) * 100 : 0;
-
-  setText('routeClientCount', formatNumber(total));
-  setText('assessmentCompletedValue', `${formatNumber(completed)} / ${formatNumber(total)}`);
-  setText('assessmentCompletionPercent', `${completionPercent.toFixed(1)}%`);
-  setText('assessmentCompletionSub', `${formatNumber(pending)} still needed | ${formatNumber(needsReview)} needs review`);
-  setText('assessmentReviewCount', formatNumber(needsReview));
-
-  const progress = document.getElementById('assessmentProgress');
-  if (progress) {
-    progress.style.width = `${Math.max(0, Math.min(completionPercent, 100))}%`;
-  }
-
-  dashboardAttention.assessmentPending = pending;
-  dashboardAttention.assessmentReview = needsReview;
-  renderAttentionPanel();
-}
-
-function assessmentIsComplete(row) {
-  const value =
-    row.mechanical_assessment_completed ??
-    row.assessment_completed ??
-    row.completed;
-
-  if (value === true || value === 1) return true;
-
-  return ['yes', 'true', '1', 'completed', 'complete']
-    .includes(String(value || '').trim().toLowerCase());
-}
-
-function assessmentNeedsReview(row) {
-  const customer =
-    row.customer_name ??
-    row.customer ??
-    row.client_name;
-
-  const assignedTech =
-    row.assigned_route_tech ??
-    row.route_tech ??
-    row.assigned_tech;
-
-  const matchStatus = String(row.match_status || '').trim().toUpperCase();
-
-  return !String(customer || '').trim()
-    || !String(assignedTech || '').trim()
-    || ['MULTIPLE_TECHS', 'NO_CUSTOMER_MATCH', 'NEEDS_REVIEW'].includes(matchStatus);
-}
-
-async function loadInventorySummary() {
-  try {
-    const [valuationRows, serializedRows] = await Promise.all([
-      fetchAllRows(
-        INVENTORY_VALUATION_VIEW,
-        'current_cost_value'
-      ),
-      fetchAllRows(
-        SERIALIZED_VALUATION_VIEW,
-        'part_number, is_serialized, location_name, quantity_on_hand, unit_cost, inventory_value',
-        query => query.eq('is_serialized', true).gt('quantity_on_hand', 0)
-      )
-    ]);
-
-    const totalInventoryValue = valuationRows.reduce(
-      (sum, row) => sum + numberValue(row.current_cost_value),
-      0
-    );
-
-    let serializedValue = 0;
-    let serializedUnits = 0;
-    let zeroCostUnits = 0;
-
-    serializedRows.forEach(row => {
-      const location = String(row.location_name || '').trim().toUpperCase();
-      const quantity = numberValue(row.quantity_on_hand);
-      const unitCost = numberValue(row.unit_cost);
-
-      serializedUnits += quantity;
-
-      if (location !== 'WARRANTY') {
-        serializedValue += numberValue(row.inventory_value);
-
-        if (unitCost <= 0) {
-          zeroCostUnits += quantity;
-        }
-      }
-    });
-
-    setText('totalInventoryValue', formatCurrency(totalInventoryValue));
-    setText('serializedInventoryValue', formatCurrency(serializedValue));
-    setText('serializedInventorySub', `${formatNumber(serializedUnits)} serialized units on hand | WARRANTY valued at $0.00`);
-
-    dashboardAttention.zeroCostSerialized = zeroCostUnits;
-    renderAttentionPanel();
-  } catch (error) {
-    setText('totalInventoryValue', 'Unavailable');
-    setText('serializedInventoryValue', 'Unavailable');
-    setText('serializedInventorySub', error.message || 'Inventory valuation source unavailable');
-    dashboardAttention.zeroCostSerialized = 0;
-    renderAttentionPanel();
-    throw error;
-  }
-}
-
-async function loadUagSummary() {
-  try {
-    const rows = await fetchAllRows(
-      UAG_SUMMARY_VIEW,
-      'batch_code, original_value, issued_value, remaining_value, batch_status'
-    );
-
-    let originalValue = 0;
-    let issuedValue = 0;
-    let remainingValue = 0;
-    let reviewCount = 0;
-
-    rows.forEach(row => {
-      originalValue += numberValue(row.original_value);
-      issuedValue += numberValue(row.issued_value);
-      remainingValue += numberValue(row.remaining_value);
-
-      const status = String(row.batch_status || '').toUpperCase();
-      if (status.includes('INACTIVE') || status.includes('REVIEW')) {
-        reviewCount += 1;
-      }
-    });
-
-    const usagePercent = originalValue > 0 ? (issuedValue / originalValue) * 100 : 0;
-
-    setText('uagUsagePercent', `${usagePercent.toFixed(1)}%`);
-    setText('uagUsageSub', `${formatCurrency(issuedValue)} issued of ${formatCurrency(originalValue)} original value`);
-    setText('uagRemainingValue', formatCurrency(remainingValue));
-    setText('uagRemainingSub', `${formatNumber(rows.length)} UAG bulk batch${rows.length === 1 ? '' : 'es'}`);
-
-    const progress = document.getElementById('uagUsageProgress');
-    if (progress) {
-      progress.style.width = `${Math.max(0, Math.min(usagePercent, 100))}%`;
-    }
-
-    dashboardAttention.uagReview = reviewCount;
-    renderAttentionPanel();
-  } catch (error) {
-    setText('uagUsagePercent', 'Unavailable');
-    setText('uagUsageSub', error.message || 'UAG summary source unavailable');
-    setText('uagRemainingValue', 'Unavailable');
-    setText('uagRemainingSub', 'Unable to load UAG batch data');
-    dashboardAttention.uagReview = 0;
-    renderAttentionPanel();
-    throw error;
-  }
-}
-
-async function loadPayPeriodsAndSummary() {
-  const select = document.getElementById('ppvPayPeriodSelect');
-
-  if (select) {
-    select.innerHTML = '<option value="">Loading pay periods...</option>';
-  }
-
-  const { data, error } = await client
-    .from(PPV_PAY_PERIODS_TABLE)
-    .select('*')
-    .order('period_start_date', { ascending: false })
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    if (select) select.innerHTML = '<option value="">Pay periods unavailable</option>';
-    setPPVUnavailable(error.message);
-    throw error;
-  }
-
-  currentPayPeriods = (data || []).slice().sort((a, b) => {
-    const aStart = String(a.period_start_date || '');
-    const bStart = String(b.period_start_date || '');
-
-    if (aStart !== bStart) return bStart.localeCompare(aStart);
-
-    return String(b.created_at || '').localeCompare(String(a.created_at || ''));
-  });
-
-  if (!select) return;
-
-  select.innerHTML = '<option value="">Select pay period...</option>';
-
-  currentPayPeriods.forEach(period => {
-    const option = document.createElement('option');
-    option.value = period.id;
-    option.textContent = formatPayPeriodOption(period);
-    select.appendChild(option);
-  });
-
-  if (currentPayPeriods.length === 0) {
-    select.innerHTML = '<option value="">No pay periods found</option>';
-    setPPVUnavailable('No pay periods found.');
-    return;
-  }
-
-  const selectedPeriod =
-    currentPayPeriods.find(period => {
-      const status = String(period.status || '').trim().toUpperCase();
-      return !['APPROVED', 'VOIDED', 'CLOSED'].includes(status);
-    })
-    || currentPayPeriods[0];
-
-  select.value = selectedPeriod.id;
-  await loadSelectedPPVSummary();
-}
-
-async function loadSelectedPPVSummary() {
-  const select = document.getElementById('ppvPayPeriodSelect');
-  const payPeriodId = select?.value || '';
-
-  if (!payPeriodId) {
-    setPPVUnavailable('Select a pay period.');
-    return;
-  }
-
-  const period = currentPayPeriods.find(row => String(row.id) === String(payPeriodId)) || null;
-  const rows = await fetchPPVSummaryRows(payPeriodId);
-
-  let totalVisits = 0;
-  let pickupVisits = 0;
-  let payrollTotal = 0;
-  let eligibleRouteTechCount = 0;
-  let rtlVisits = 0;
-
-  rows.forEach(row => {
-    const visits = firstNumberFrom(row, [
-      'total_pay_period_visits',
-      'total_visits',
-      'ppv_total_visits',
-      'visit_total',
-      'cleanings_total'
-    ]);
-
-    totalVisits += visits;
-
-    if (isRTLRow(row)) {
-      rtlVisits += visits;
-    }
-
-    if (isEligibleRouteTechRow(row)) {
-      eligibleRouteTechCount += 1;
-
-      pickupVisits += firstNumberFrom(row, [
-        'pickup_visits',
-        'pickup_ppv_visits',
-        'overage_visits',
-        'paid_pickup_visits'
-      ]);
-
-      payrollTotal += firstNumberFrom(row, [
-        'final_gross_before_taxes_deductions',
-        'net_ppv_pay',
-        'gross_ppv_pay',
-        'pre_safeguard_pay',
-        'total_pay',
-        'total_pay_amount',
-        'payroll_total',
-        'total_ppv_pay',
-        'net_pay_total',
-        'biweekly_pay_total'
-      ]);
-    }
-  });
-
-  setText('ppvTotalVisits', formatNumber(totalVisits));
-  setText('ppvPickupVisits', formatNumber(pickupVisits));
-  setText('ppvPayrollTotal', formatCurrency(payrollTotal));
-  setText(
-    'ppvTotalVisitsSub',
-    `RT + RTL cleanings | RTL visits: ${formatNumber(rtlVisits)}`
-  );
-
-  const periodLabel = period?.pay_period_label || getFirstValue(rows[0] || {}, ['pay_period_label']) || 'Selected Pay Period';
-  const startDate = period?.period_start_date || getFirstValue(rows[0] || {}, ['period_start_date']);
-  const endDate = period?.period_end_date || getFirstValue(rows[0] || {}, ['period_end_date']);
-  const status = period?.status || getFirstValue(rows[0] || {}, ['pay_period_status']);
-
-  setText('ppvSelectedPeriod', periodLabel);
-  setText(
-    'ppvSelectedPeriodSub',
-    `${formatDate(startDate)} – ${formatDate(endDate)} | ${status || 'Status unavailable'} | ${formatNumber(eligibleRouteTechCount)} eligible RTs`
-  );
-}
-
-async function fetchPPVSummaryRows(payPeriodId) {
-  const candidateColumns = ['pay_period_id', 'ppv_pay_period_id', 'period_id'];
-  let lastError = null;
-
-  for (const column of candidateColumns) {
-    const { data, error } = await client
-      .from(PPV_SUMMARY_VIEW)
-      .select('*')
-      .eq(column, payPeriodId);
-
-    if (!error) return data || [];
-    lastError = error;
-  }
-
-  setPPVUnavailable(lastError?.message || 'Unable to load PPV summary.');
-  throw lastError || new Error('Unable to load PPV summary.');
-}
-
-function isRTLRow(row) {
-  const rowType = String(row.row_type || '').trim().toUpperCase();
-  const code = String(row.rt_code_normalized || row.rt_code || '').trim().toUpperCase();
-
-  return rowType === 'RTL' || code.startsWith('RTL');
-}
-
-function isEligibleRouteTechRow(row) {
-  if (isRTLRow(row)) return false;
-  if (row.ppv_eligible === false) return false;
-
-  const rowType = String(row.row_type || '').trim().toUpperCase();
-
-  if (rowType && rowType !== 'RT') return false;
-
-  return true;
-}
-
-function setPPVUnavailable(message) {
-  setText('ppvTotalVisits', 'Unavailable');
-  setText('ppvPickupVisits', 'Unavailable');
-  setText('ppvPayrollTotal', 'Unavailable');
-  setText('ppvSelectedPeriod', 'Unavailable');
-  setText('ppvSelectedPeriodSub', message || 'PPV source unavailable');
-}
-
-function renderAttentionPanel() {
-  setAttentionBadge('attentionAssessmentPending', dashboardAttention.assessmentPending, 'warning');
-  setAttentionBadge('attentionAssessmentReview', dashboardAttention.assessmentReview, dashboardAttention.assessmentReview > 0 ? 'danger' : 'success');
-  setAttentionBadge('attentionZeroCostSerialized', dashboardAttention.zeroCostSerialized, dashboardAttention.zeroCostSerialized > 0 ? 'danger' : 'success');
-  setAttentionBadge('attentionUagReview', dashboardAttention.uagReview, dashboardAttention.uagReview > 0 ? 'warning' : 'success');
-}
-
-function setAttentionBadge(id, value, status) {
-  const element = document.getElementById(id);
-  if (!element) return;
-
-  element.textContent = formatNumber(value);
-  element.className = `count-badge ${status || ''}`.trim();
-}
-
-async function fetchAllRows(viewName, columns = '*', configureQuery = null) {
-  const rows = [];
-  const batchSize = 1000;
-  let from = 0;
-
-  while (true) {
-    let query = client.from(viewName).select(columns);
-
-    if (typeof configureQuery === 'function') {
-      query = configureQuery(query);
-    }
-
-    const { data, error } = await query.range(from, from + batchSize - 1);
-
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-
-    rows.push(...data);
-
-    if (data.length < batchSize) break;
-    from += batchSize;
-  }
-
-  return rows;
-}
-
-function getFirstRow(value) {
-  if (Array.isArray(value)) return value[0] || null;
-  return value || null;
-}
-
-function compareDateISO(a, b) {
-  return String(a || '').slice(0, 10).localeCompare(String(b || '').slice(0, 10));
-}
-
-function clampDateISO(value, minValue, maxValue) {
-  let result = String(value || '').slice(0, 10);
-
-  if (minValue && compareDateISO(result, minValue) < 0) {
-    result = String(minValue).slice(0, 10);
-  }
-
-  if (maxValue && compareDateISO(result, maxValue) > 0) {
-    result = String(maxValue).slice(0, 10);
-  }
-
-  return result;
-}
-
-function countBusinessDaysInclusive(startISO, endISO) {
-  const start = parseDateISO(startISO);
-  const end = parseDateISO(endISO);
-
-  if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-    return 0;
-  }
-
-  let count = 0;
-  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-
-  while (cursor <= end) {
-    const day = cursor.getDay();
-    if (day !== 0 && day !== 6) count += 1;
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return count;
-}
+function firstNumberFrom(row, keys) { return numberValue(getFirstValue(row, keys)); }
 
 function firstFiniteNumber(...values) {
   for (const value of values) {
     const number = Number(value);
     if (Number.isFinite(number)) return number;
   }
-
   return 0;
-}
-
-function normalizeRevenueGoalTargets(goalData, startDate, endDate) {
-  const source = Array.isArray(goalData) ? (goalData[0] || {}) : (goalData || {});
-  const periodBusinessDays = firstFiniteNumber(
-    source.period_business_days,
-    source.business_days,
-    source.total_business_days,
-    countBusinessDaysInclusive(startDate, endDate)
-  );
-  const quotedDailyGoal = firstFiniteNumber(
-    source.quoted_daily_goal,
-    source.daily_quoted_goal
-  );
-  const revenueDailyGoal = firstFiniteNumber(
-    source.revenue_daily_goal,
-    source.daily_revenue_goal
-  );
-
-  const todayISO = toDateISO(new Date());
-  const weekReferenceDate =
-    compareDateISO(todayISO, startDate) >= 0 && compareDateISO(todayISO, endDate) <= 0
-      ? todayISO
-      : startDate;
-  const weekRange = getWeekRange(parseDateISO(weekReferenceDate));
-  const weekBusinessDays = countBusinessDaysInclusive(weekRange.startDate, weekRange.endDate);
-  const paceThroughDate = clampDateISO(
-    compareDateISO(todayISO, weekRange.startDate) >= 0 && compareDateISO(todayISO, weekRange.endDate) <= 0
-      ? todayISO
-      : endDate,
-    weekRange.startDate,
-    weekRange.endDate
-  );
-  const elapsedWeekBusinessDays = countBusinessDaysInclusive(weekRange.startDate, paceThroughDate);
-
-  const quotedPeriodGoal = firstFiniteNumber(
-    source.quoted_period_goal,
-    source.quoted_goal,
-    source.total_quoted_goal,
-    periodBusinessDays * quotedDailyGoal
-  );
-  const revenuePeriodGoal = firstFiniteNumber(
-    source.revenue_period_goal,
-    source.revenue_goal,
-    source.total_revenue_goal,
-    periodBusinessDays * revenueDailyGoal
-  );
-
-  return {
-    ...source,
-    period_business_days: periodBusinessDays,
-    quoted_period_goal: quotedPeriodGoal,
-    revenue_period_goal: revenuePeriodGoal,
-    quoted_daily_goal: quotedDailyGoal,
-    revenue_daily_goal: revenueDailyGoal,
-    week_start_date: weekRange.startDate,
-    week_end_date: weekRange.endDate,
-    week_business_days: weekBusinessDays,
-    elapsed_week_business_days: elapsedWeekBusinessDays,
-    quoted_week_goal: firstFiniteNumber(
-      source.quoted_week_goal,
-      weekBusinessDays * quotedDailyGoal
-    ),
-    revenue_week_goal: firstFiniteNumber(
-      source.revenue_week_goal,
-      weekBusinessDays * revenueDailyGoal
-    ),
-    quoted_expected_by_today: firstFiniteNumber(
-      source.quoted_expected_by_today,
-      elapsedWeekBusinessDays * quotedDailyGoal
-    ),
-    revenue_expected_by_today: firstFiniteNumber(
-      source.revenue_expected_by_today,
-      elapsedWeekBusinessDays * revenueDailyGoal
-    )
-  };
-}
-
-function getFirstValue(row, keys) {
-  for (const key of keys) {
-    if (row && row[key] !== undefined && row[key] !== null && row[key] !== '') {
-      return row[key];
-    }
-  }
-
-  return null;
-}
-
-function firstNumberFrom(row, keys) {
-  return numberValue(getFirstValue(row, keys));
 }
 
 function numberValue(value) {
@@ -3032,59 +1813,40 @@ function numberValue(value) {
 }
 
 function formatCurrency(value) {
-  return numberValue(value).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD'
-  });
+  return numberValue(value).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+}
+
+function compactCurrency(value) {
+  const number = numberValue(value);
+  if (Math.abs(number) >= 1000000) return `$${(number / 1000000).toFixed(1)}M`;
+  if (Math.abs(number) >= 1000) return `$${(number / 1000).toFixed(number >= 10000 ? 0 : 1)}K`;
+  return `$${Math.round(number)}`;
 }
 
 function formatNumber(value) {
   const number = Number(value);
-
-  if (!Number.isFinite(number)) return value ?? '';
-
-  return number.toLocaleString('en-US', {
-    maximumFractionDigits: 2
-  });
+  return Number.isFinite(number) ? number.toLocaleString('en-US') : (value ?? '');
 }
 
 function formatDate(value) {
   if (!value) return '—';
-
-  const raw = String(value);
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw.slice(0, 10))) {
-    const date = parseDateISO(raw.slice(0, 10));
-
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return raw;
-
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  const date = parseDateISO(String(value).slice(0,10));
+  if (!date || Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function formatPayPeriodOption(period) {
-  const label = period.pay_period_label
-    || `${formatDate(period.period_start_date)} – ${formatDate(period.period_end_date)}`;
+function signedNumber(value) {
+  const number = numberValue(value);
+  return number > 0 ? `+${formatNumber(number)}` : formatNumber(number);
+}
 
-  const status = period.status ? ` — ${period.status}` : '';
-  return `${label}${status}`;
+function normalizeKey(value) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function setText(id, value) {
-  const element = document.getElementById(id);
-  if (element) element.textContent = value;
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 </script>
 </body>
