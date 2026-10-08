@@ -1284,7 +1284,7 @@ const MECHANICAL_ASSESSMENT_VIEW = 'client_mechanical_assessment_tracking_view';
 const CLIENT_GROWTH_RPC = 'get_client_growth_retention_summary';
 const CLIENT_CANCELLATION_TABLE = 'client_cancellation_tracking';
 const FILTER_CHECKLIST_VIEW = 'route_tech_filter_changeout_checklist_view';
-const FILTER_COMPLETION_DATES_RPC = 'get_annual_filter_changeout_inventory_completion_dates';
+const FILTER_COMPLETED_TABLE = 'annual_filter_changeout_completed_work_orders';
 const PPV_PAY_PERIODS_TABLE = 'ppv_pay_periods';
 const PPV_SUMMARY_VIEW = 'ppv_live_pay_period_summary_view';
 const PPV_ADJUSTMENTS_TABLE = 'ppv_adjustments';
@@ -1840,7 +1840,15 @@ async function loadCancellationReasonAnalytics(startDate, endDate, canceledTotal
   const counts = new Map();
   rows.forEach(row => {
     const rawCode = String(row.cancellation_code || '').trim();
-    const key = rawCode || 'No Code';
+
+    // Historical code 5 labels represent the same cancellation reason.
+    // Combine both under the current reporting label so counts and percentages
+    // are not split between "Price / Budget" and "Price Too High".
+    let key = rawCode || 'No Code';
+    if (/^5\s*-\s*(Price\s*\/\s*Budget|Price Too High)$/i.test(rawCode)) {
+      key = '5 - Price / Budget';
+    }
+
     counts.set(key, (counts.get(key) || 0) + 1);
   });
 
@@ -1988,36 +1996,49 @@ function renderClientGrowthChart(values) {
 }
 
 async function loadFilterCompletionAnalytics(endDate) {
-  const [plannedRows, completionResponse] = await Promise.all([
+  const [plannedRows, completedRows] = await Promise.all([
     fetchAllRows(FILTER_CHECKLIST_VIEW, 'client_name,service_location,service_date'),
-    client.rpc(FILTER_COMPLETION_DATES_RPC)
+    fetchAllRows(FILTER_COMPLETED_TABLE, 'client_name,service_location,completed_date')
   ]);
 
-  if (completionResponse.error) {
-    setFilterCompletionUnavailable(completionResponse.error.message);
-    throw completionResponse.error;
-  }
-
-  const plannedClients = new Set(
-    plannedRows.map(row => `${normalizeKey(row.client_name)}|${normalizeKey(row.service_location)}`)
+  const remainingClients = new Set(
+    plannedRows
+      .map(row => `${normalizeKey(row.client_name)}|${normalizeKey(row.service_location)}`)
       .filter(key => key !== '|')
   );
 
-  const totalEligible = plannedClients.size;
-  const completionRows = completionResponse.data || [];
-  const completedAsOfEnd = completionRows.reduce((sum, row) => {
-    const date = String(row.completed_date || '').slice(0,10);
-    if (!date || date > endDate) return sum;
-    return sum + numberValue(row.completed_client_count);
-  }, 0);
+  const allCompletedClients = new Set(
+    completedRows
+      .map(row => `${normalizeKey(row.client_name)}|${normalizeKey(row.service_location)}`)
+      .filter(key => key !== '|')
+  );
 
-  const completed = totalEligible > 0 ? Math.min(completedAsOfEnd, totalEligible) : completedAsOfEnd;
+  const totalProgramClients = new Set([
+    ...remainingClients,
+    ...allCompletedClients
+  ]);
+
+  const completedAsOfEndClients = new Set(
+    completedRows
+      .filter(row => {
+        const date = String(row.completed_date || '').slice(0,10);
+        return date && date <= endDate;
+      })
+      .map(row => `${normalizeKey(row.client_name)}|${normalizeKey(row.service_location)}`)
+      .filter(key => key !== '|')
+  );
+
+  const totalEligible = totalProgramClients.size;
+  const completed = Math.min(completedAsOfEndClients.size, totalEligible);
   const remaining = Math.max(totalEligible - completed, 0);
   const pct = totalEligible > 0 ? (completed / totalEligible) * 100 : 0;
 
   dashboardState.filter = { totalEligible, completed, remaining, pct };
   setText('opFilterCompletion', `${pct.toFixed(1)}%`);
-  setText('opFilterCompletionSub', `${formatNumber(completed)} of ${formatNumber(totalEligible)} completed as of ${formatDate(endDate)} · ${formatNumber(remaining)} remaining`);
+  setText(
+    'opFilterCompletionSub',
+    `${formatNumber(completed)} of ${formatNumber(totalEligible)} completed as of ${formatDate(endDate)} · ${formatNumber(remaining)} remaining`
+  );
   setProgress('opFilterCompletionProgress', pct);
 }
 
