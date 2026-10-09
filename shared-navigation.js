@@ -102,6 +102,11 @@
           ]
         },
         {
+          label: 'RouteSafe Partner Program',
+          href: 'routesafe-csc.html',
+          roles: ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
           label: 'Client Changes',
           href: 'client-changes.html',
           roles: [
