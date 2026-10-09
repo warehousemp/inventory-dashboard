@@ -1,0 +1,2317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RouteSafe Partner Program - Molinari Pools</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="shared-navigation.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --danger: #b42318;
+      --warning: #dd6b20;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      margin: 0;
+      padding: 0;
+      color: var(--text);
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: hidden;
+    }
+
+    .main { min-width: 0; max-width: 100%; overflow-x: hidden; }
+
+    #pageContent,
+    #pageContent > .card,
+    #missingDataSectionBody,
+    #inspectionQueuePanel,
+    #weeklyRevenuePanel {
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .header-bar {
+      background: var(--header);
+      color: white;
+      padding: 18px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 0.2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title { font-size: 20px; font-weight: bold; }
+    .header-subtitle { font-size: 13px; opacity: 0.9; font-weight: 600; }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 20px;
+      max-width: 1450px;
+      margin: 30px auto;
+      padding: 0 20px;
+      align-items: flex-start;
+    }
+
+    .card {
+      background: white;
+      padding: 26px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      border: 1px solid #e6edf3;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    h2 { margin-top: 0; margin-bottom: 18px; color: var(--header); font-size: 22px; }
+
+    label { display: block; font-weight: bold; color: #333; margin-bottom: 5px; font-size: 14px; }
+
+    select,
+    input,
+    textarea {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    select:focus,
+    input:focus,
+    textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,163,176,0.15); }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    button {
+      padding: 12px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 10px;
+      font-size: 14px;
+      transition: opacity 0.2s ease, transform 0.1s ease;
+      font-family: Arial, sans-serif;
+    }
+
+    button:hover { opacity: 0.92; }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .admin-btn { background: var(--header); color: white; width: 100%; margin-top: 10px; }
+    .secondary-btn { background: var(--nav-dark); color: white; width: 100%; margin-top: 10px; }
+    .warning-btn { background: var(--warning); color: white; width: 100%; margin-top: 10px; }
+
+    .small-action-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 8px 0 18px;
+    }
+
+    .small-action-row button {
+      width: auto;
+      min-width: 170px;
+      margin: 0;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+
+    .status-note,
+    .warning-note,
+    .danger-note {
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .status-note { background: #ecfdf3; border: 1px solid #bbf7d0; color: var(--header); }
+    .warning-note { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+    .danger-note { background: #fef3f2; border: 1px solid #fecdca; color: var(--danger); }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(145px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .info-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .info-label {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: bold;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .info-value { font-size: 18px; color: var(--text); font-weight: bold; word-break: break-word; }
+
+    .three-column-form {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+      align-items: end;
+    }
+
+    .button-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; margin-bottom: 8px; }
+    .button-row button { width: auto; min-width: 180px; }
+
+    .table-wrap {
+      width: 100%;
+      max-width: 100%;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 12px;
+      margin-bottom: 18px;
+    }
+
+    .client-worklist-scroll { max-height: 760px; }
+
+    .client-worklist-scroll thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1220px;
+      border-collapse: collapse;
+      background: white;
+      table-layout: auto;
+    }
+
+    th {
+      background: #dcfce7;
+      color: var(--nav-dark);
+      text-align: left;
+      padding: 10px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    td {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px;
+      font-size: 13px;
+      vertical-align: top;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    tr:hover td { background: #f8fafc; }
+
+    .col-review { width: 130px; }
+    .col-client { width: 230px; }
+    .col-email { width: 230px; }
+    .col-phone { width: 140px; }
+    .col-location { width: 310px; }
+    .col-status { width: 120px; }
+    .col-marketing { width: 150px; }
+    .col-hubspot { width: 140px; }
+    .col-code { width: 145px; }
+    .col-last { width: 175px; }
+
+    .wrap-cell { white-space: normal !important; overflow: visible; text-overflow: clip; }
+    .muted-small { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+    .message {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      display: none;
+      white-space: pre-wrap;
+    }
+
+    .message.success { display: block; background: #ecfdf3; border: 1px solid #bbf7d0; color: var(--header); }
+    .message.error { display: block; background: #fef3f2; border: 1px solid #fecdca; color: var(--danger); }
+    .message.info { display: block; background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+
+    .hidden { display: none !important; }
+
+    .access-layout { max-width: 680px; margin: 30px auto; padding: 0 20px; }
+    .access-card { background: white; padding: 26px; border-radius: 14px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); border: 1px solid #e6edf3; }
+    .access-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+    .access-actions .nav-action-btn {
+      width: auto;
+      min-width: 160px;
+      margin-top: 0;
+      text-decoration: none;
+      text-align: center;
+      display: inline-block;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 14px;
+      color: white;
+      background: var(--nav-dark);
+    }
+    .access-actions .logout-action-btn { width: auto; min-width: 160px; margin-top: 0; background: var(--danger); color: white; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge.green { background: #dcfce7; color: #166534; }
+    .badge.blue { background: #dbeafe; color: #1d4ed8; }
+    .badge.orange { background: #ffedd5; color: #9a3412; }
+    .badge.red { background: #fee2e2; color: #991b1b; }
+    .badge.gray { background: #f1f5f9; color: #475569; }
+
+
+    .client-services-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: white;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 8px rgba(15,23,42,0.04);
+    }
+
+    .client-services-tab {
+      appearance: none;
+      border: 0;
+      border-right: 1px solid var(--border);
+      border-radius: 0;
+      background: #ffffff;
+      color: var(--nav-dark);
+      padding: 13px 16px;
+      margin: 0;
+      min-height: 44px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      cursor: pointer;
+      flex: 1 1 auto;
+      width: auto;
+      white-space: nowrap;
+    }
+
+    .client-services-tab:last-child { border-right: 0; }
+
+    .client-services-tab:hover {
+      background: #f8fafc;
+      opacity: 1;
+    }
+
+    .client-services-tab.active {
+      background: #f8fafc;
+      color: var(--nav-dark);
+      box-shadow: inset 0 -3px 0 var(--accent);
+    }
+
+    .task-panel {
+      display: none;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    .task-panel.active { display: block; }
+
+    .task-section-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+    }
+
+    .task-section-header h2 {
+      margin: 0 0 4px;
+      color: var(--header);
+      font-size: 22px;
+    }
+
+    .task-section-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .task-section-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .section-summary-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: var(--nav-dark);
+      font-size: 12px;
+      font-weight: 800;
+      padding: 7px 10px;
+      white-space: nowrap;
+    }
+
+    .collapse-section-btn {
+      background: var(--nav-dark);
+      color: white;
+      width: auto;
+      min-width: 150px;
+      margin: 0;
+      padding: 9px 12px;
+      font-size: 13px;
+      border-radius: 8px;
+    }
+
+    .placeholder-card {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 22px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .placeholder-card h3 {
+      margin: 0 0 8px;
+      color: var(--header);
+      font-size: 18px;
+    }
+
+
+
+    .revenue-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .revenue-summary-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .revenue-summary-card .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+
+    .revenue-summary-card .value {
+      font-size: 23px;
+      font-weight: 800;
+      color: var(--header);
+      word-break: break-word;
+    }
+
+    .revenue-summary-card .sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .revenue-entry-card,
+    .revenue-reporting-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 16px;
+      margin-bottom: 18px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .revenue-entry-card h3,
+    .revenue-reporting-card h3 {
+      margin: 0 0 12px;
+      color: var(--header);
+      font-size: 17px;
+    }
+
+    .revenue-entry-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    .revenue-entry-grid .full { grid-column: 1 / -1; }
+
+    .revenue-field label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0 0 6px;
+    }
+
+    .revenue-actions,
+    .revenue-filter-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 10px 0 0;
+    }
+
+    .revenue-actions button,
+    .revenue-filter-actions button {
+      width: auto;
+      min-width: 150px;
+      margin: 0;
+      padding: 10px 13px;
+      font-size: 13px;
+    }
+
+    .revenue-filter-grid {
+      display: grid;
+      grid-template-columns: minmax(170px, 0.8fr) minmax(150px, 0.7fr) minmax(150px, 0.7fr) minmax(220px, 1fr);
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    .revenue-filter-total-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin: 14px 0 4px;
+      padding: 16px 18px;
+      border: 2px solid #99d7dc;
+      border-radius: 12px;
+      background: #eefafa;
+    }
+
+    .revenue-filter-total-label {
+      display: block;
+      margin-bottom: 4px;
+      color: #0b3c5d;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .revenue-filter-total-value {
+      color: #0b3c5d;
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .revenue-filter-total-context {
+      color: #334e68;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .revenue-table-wrap {
+      width: 100%;
+      max-width: 100%;
+      max-height: 760px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 12px;
+      margin-bottom: 12px;
+    }
+
+    .revenue-table {
+      width: 100%;
+      min-width: 1350px;
+      border-collapse: collapse;
+      background: white;
+      table-layout: auto;
+    }
+
+    .revenue-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #f8fafc;
+      color: var(--header);
+    }
+
+    .variance-positive { color: #166534; font-weight: 800; }
+    .variance-negative { color: var(--danger); font-weight: 800; }
+
+    .revenue-summary-card.goal-below {
+      border-color: #fecdca;
+      background: #fffbfa;
+    }
+
+    .revenue-summary-card.goal-near {
+      border-color: #fedf89;
+      background: #fffcf5;
+    }
+
+    .revenue-summary-card.goal-met {
+      border-color: #abefc6;
+      background: #f6fef9;
+    }
+
+    .revenue-summary-card .value.goal-below { color: var(--danger); }
+    .revenue-summary-card .value.goal-near { color: #b54708; }
+    .revenue-summary-card .value.goal-met { color: #027a48; }
+
+    .goal-note {
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .goal-note.goal-below { color: var(--danger); }
+    .goal-note.goal-near { color: #b54708; }
+    .goal-note.goal-met { color: #027a48; }
+
+
+
+
+    .inspection-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .inspection-summary-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 14px;
+    }
+
+    .inspection-summary-card .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+
+    .inspection-summary-card .value {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--header);
+    }
+
+    .inspection-summary-card .sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .inspection-filters {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(150px, 0.7fr)) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+
+    .inspection-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .inspection-field label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0;
+    }
+
+    .inspection-btn {
+      border: none;
+      border-radius: 9px;
+      padding: 10px 13px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      line-height: 1;
+      min-height: 38px;
+      width: auto;
+      margin: 0;
+    }
+
+    .inspection-btn-primary { background: var(--accent); color: #ffffff; }
+    .inspection-btn-secondary { background: #eef4f7; color: var(--header); border: 1px solid var(--border); }
+    .inspection-btn-dark { background: var(--header); color: #ffffff; }
+    .inspection-btn-danger { background: #fef3f2; color: var(--danger); border: 1px solid #fecdca; }
+    .inspection-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .inspection-top-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-bottom: 14px;
+    }
+
+    .inspection-table-wrap {
+      width: 100%;
+      max-width: 100%;
+      max-height: 760px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 12px;
+      margin-bottom: 18px;
+    }
+
+    .inspection-table {
+      width: 100%;
+      min-width: 1320px;
+      border-collapse: collapse;
+      background: white;
+      table-layout: auto;
+    }
+
+    .inspection-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #f8fafc;
+      color: var(--header);
+    }
+
+    .inspection-row-actions {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .inspection-empty-state {
+      padding: 36px 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .inspection-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.56);
+      z-index: 2000;
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 36px 18px;
+      overflow-y: auto;
+    }
+
+    .inspection-modal-backdrop.show { display: flex; }
+
+    .inspection-modal {
+      width: min(1120px, 100%);
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 24px 72px rgba(15, 23, 42, 0.28);
+      overflow: hidden;
+      margin-bottom: 40px;
+    }
+
+    .inspection-modal-header {
+      background: var(--header);
+      color: #ffffff;
+      padding: 16px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .inspection-modal-header h2 { margin: 0; font-size: 19px; color: #ffffff; }
+    .inspection-modal-header p { margin: 5px 0 0; color: rgba(255,255,255,0.75); font-size: 13px; }
+    .inspection-modal-body { padding: 18px; }
+    .inspection-modal-footer {
+      padding: 14px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: #f8fafc;
+    }
+
+    .inspection-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .inspection-detail-section {
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .inspection-detail-section.full { grid-column: 1 / -1; }
+    .inspection-detail-section h3 {
+      margin: 0;
+      padding: 12px 14px;
+      background: #f8fafc;
+      color: var(--header);
+      font-size: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .inspection-detail-section-body {
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 16px;
+    }
+
+    .inspection-detail-item.full { grid-column: 1 / -1; }
+    .inspection-detail-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+
+    .inspection-detail-value {
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.35;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .inspection-office-form {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .inspection-office-form .full { grid-column: 1 / -1; }
+
+    .inspection-alert {
+      border-radius: 11px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      display: none;
+    }
+
+    .inspection-alert.show { display: block; }
+    .inspection-alert-success { background: #ecfdf3; color: #027a48; border: 1px solid #abefc6; }
+    .inspection-alert-error { background: #fef3f2; color: var(--danger); border: 1px solid #fecdca; }
+
+    .badge-submitted { background: #eff8ff; color: #175cd3; border-color: #b2ddff; }
+    .badge-reviewed { background: #fffaeb; color: #b54708; border-color: #fedf89; }
+    .badge-payment, .badge-paid { background: #ecfdf3; color: #027a48; border-color: #abefc6; }
+    .badge-converted, .badge-scheduled, .badge-completed { background: #eef4ff; color: #3538cd; border-color: #c7d7fe; }
+    .badge-cancelled { background: #fef3f2; color: var(--danger); border-color: #fecdca; }
+    .badge-neutral { background: #f2f4f7; color: #344054; border-color: #eaecf0; }
+
+
+    .mechanical-assessment-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(170px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .mechanical-assessment-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .mechanical-assessment-card .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 7px;
+      font-weight: 700;
+    }
+
+    .mechanical-assessment-card .value {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--header);
+    }
+
+    .mechanical-assessment-card .sub {
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .mechanical-assessment-filters {
+      display: grid;
+      grid-template-columns: minmax(240px, 1.2fr) repeat(3, minmax(170px, 0.8fr)) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+
+    .mechanical-assessment-card.completed { border-color: #abefc6; background: #f6fef9; }
+    .mechanical-assessment-card.not-completed { border-color: #fecdca; background: #fffbfa; }
+    .mechanical-assessment-card.review { border-color: #fedf89; background: #fffcf5; }
+
+    .mechanical-assessment-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 0 0 16px;
+    }
+
+    .mechanical-assessment-actions button {
+      width: auto;
+      min-width: 170px;
+      margin: 0;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+
+    .mechanical-review-reason {
+      display: block;
+      margin-top: 5px;
+      color: #9a3412;
+      font-size: 11px;
+      white-space: normal;
+      max-width: 260px;
+    }
+
+    .mechanical-assessment-table-wrap {
+      width: 100%;
+      max-width: 100%;
+      max-height: 760px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 12px;
+      margin-bottom: 18px;
+    }
+
+    .mechanical-assessment-table {
+      width: 100%;
+      min-width: 1450px;
+      border-collapse: collapse;
+      background: white;
+      table-layout: auto;
+    }
+
+    .mechanical-assessment-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #f8fafc;
+      color: var(--header);
+    }
+
+    .mechanical-assessment-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .mechanical-assessment-actions button {
+      width: auto;
+      min-width: 150px;
+      margin: 0;
+    }
+
+
+    .mechanical-import-card { background:#fff; border:1px solid var(--border); border-radius:13px; padding:16px; margin:0 0 18px; overflow:hidden; }
+    .mechanical-import-card h3 { margin:0 0 10px; color:var(--header); font-size:17px; }
+
+    .mechanical-import-instructions {
+      margin: 0 0 16px;
+      padding: 14px 16px;
+      border: 1px solid #b2ddff;
+      border-radius: 12px;
+      background: #eff8ff;
+    }
+
+    .mechanical-import-instructions-title {
+      color: var(--header);
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .mechanical-import-steps {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      color: #344054;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .mechanical-import-step {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 10px;
+      border: 1px solid #d1e9ff;
+      border-radius: 8px;
+      background: #ffffff;
+      font-weight: 700;
+    }
+
+    .mechanical-import-arrow {
+      color: var(--accent);
+      font-weight: 900;
+    }
+
+    .mechanical-import-grid { display:grid; grid-template-columns:minmax(340px,1.4fr) minmax(190px,.7fr) auto; gap:12px; align-items:end; }
+
+    .mechanical-import-drop-zone {
+      min-height: 142px;
+      border: 2px dashed #94a3b8;
+      border-radius: 13px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease, transform .15s ease;
+    }
+
+    .mechanical-import-drop-zone:hover,
+    .mechanical-import-drop-zone:focus,
+    .mechanical-import-drop-zone.dragover {
+      border-color: var(--accent);
+      background: #ecfeff;
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .mechanical-import-drop-zone.file-selected {
+      border-style: solid;
+      border-color: #75e0a7;
+      background: #f6fef9;
+    }
+
+    .mechanical-import-drop-zone strong {
+      color: var(--header);
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .mechanical-import-drop-zone span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .mechanical-import-file-input { display:none; }
+    .mechanical-import-file-note { color:var(--muted); font-size:12px; line-height:1.45; margin-top:8px; font-weight:700; word-break:break-word; }
+    .mechanical-import-summary-grid { display:grid; grid-template-columns:repeat(6,minmax(130px,1fr)); gap:10px; margin:14px 0; }
+    .mechanical-import-summary-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:11px; }
+    .mechanical-import-summary-box .label { color:var(--muted); font-size:11px; font-weight:800; text-transform:uppercase; margin-bottom:5px; }
+    .mechanical-import-summary-box .value { color:var(--header); font-size:20px; font-weight:800; }
+    .mechanical-import-table { min-width:1120px; }
+    .mechanical-import-history-table { min-width:1180px; }
+    .mechanical-import-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .mechanical-import-actions button { width:auto; min-width:170px; margin:0; }
+    .mechanical-import-status-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0 0; }
+
+    @media (max-width: 1000px) {
+      .info-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+      .three-column-form,
+      .revenue-entry-grid,
+      .revenue-filter-grid { grid-template-columns: 1fr; }
+      .revenue-summary-grid,
+      .inspection-filters,
+      .inspection-summary-grid,
+      .inspection-detail-grid,
+      .inspection-detail-section-body,
+      .inspection-office-form,
+      .mechanical-assessment-summary-grid,
+      .mechanical-assessment-filters,
+      .mechanical-import-grid,
+      .mechanical-import-summary-grid,
+      .routesafe-summary-grid,
+      .routesafe-form-grid,
+      .routesafe-filter-grid { grid-template-columns: 1fr; }
+    }
+
+
+    /* RouteSafe Partner Program - CSC Operational Intake */
+    .routesafe-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .routesafe-summary-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .routesafe-summary-card .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 7px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .routesafe-summary-card .value {
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--header);
+    }
+
+    .routesafe-form-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    .routesafe-form-grid .full {
+      grid-column: 1 / -1;
+    }
+
+    .routesafe-form-grid .span-two {
+      grid-column: span 2;
+    }
+
+    .routesafe-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 16px;
+      margin-bottom: 18px;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .routesafe-card h3 {
+      margin: 0 0 12px;
+      color: var(--header);
+      font-size: 17px;
+    }
+
+    .routesafe-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      align-items: center;
+    }
+
+    .routesafe-actions button {
+      width: auto;
+      min-width: 150px;
+      margin: 0;
+      padding: 10px 13px;
+      font-size: 13px;
+    }
+
+    .routesafe-filter-grid {
+      display: grid;
+      grid-template-columns: minmax(240px, 1.2fr) minmax(170px, 0.7fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    .routesafe-table-wrap {
+      width: 100%;
+      max-width: 100%;
+      max-height: 520px;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      margin-top: 12px;
+      margin-bottom: 18px;
+    }
+
+    .routesafe-table {
+      min-width: 1120px;
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    .routesafe-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #f8fafc;
+      color: var(--header);
+    }
+
+    .routesafe-muted {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      display: block;
+      margin-top: 3px;
+    }
+
+    input[readonly].routesafe-readonly {
+      background: #f8fafc;
+      color: #475569;
+      cursor: not-allowed;
+    }
+
+
+    /* Weekly Samsara Reporting */
+    .samsara-toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+
+    .samsara-upload-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 1.1fr) minmax(280px, 1fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .samsara-drop-zone {
+      min-height: 190px;
+      border: 2px dashed #94a3b8;
+      border-radius: 14px;
+      background: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+    }
+
+    .samsara-drop-zone:hover,
+    .samsara-drop-zone.dragover {
+      border-color: var(--accent);
+      background: #ecfeff;
+      transform: translateY(-1px);
+    }
+
+    .samsara-drop-zone strong {
+      color: var(--header);
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .samsara-drop-zone span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .samsara-file-name {
+      margin-top: 12px;
+      font-weight: 700;
+      color: var(--header);
+      word-break: break-word;
+    }
+
+    .samsara-meta-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: white;
+    }
+
+    .samsara-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .samsara-meta-grid .full-span {
+      grid-column: 1 / -1;
+    }
+
+    .samsara-meta-grid label {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--header);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .samsara-meta-grid input,
+    .samsara-meta-grid textarea,
+    .samsara-toolbar select {
+      width: 100%;
+      padding: 10px 11px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: white;
+      font: inherit;
+    }
+
+    .samsara-meta-grid textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+
+    .samsara-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .samsara-actions button {
+      margin: 0;
+    }
+
+    .samsara-message {
+      display: none;
+      padding: 11px 13px;
+      border-radius: 8px;
+      margin: 12px 0;
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .samsara-message.show { display: block; }
+    .samsara-message.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; }
+    .samsara-message.success { background: #ecfdf3; border: 1px solid #bbf7d0; color: #166534; }
+    .samsara-message.warning { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+    .samsara-message.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+
+    .samsara-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .samsara-metric-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+
+    .samsara-metric-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .samsara-metric-value {
+      margin-top: 7px;
+      color: var(--header);
+      font-size: 25px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .samsara-metric-help {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .samsara-report-shell {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: white;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+
+    .samsara-report-title {
+      text-align: center;
+      padding: 18px 16px 12px;
+      font-size: 26px;
+      font-weight: 900;
+      color: #111827;
+    }
+
+    .samsara-report-period {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      padding-bottom: 14px;
+    }
+
+    .samsara-report-columns {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: 0;
+      border-top: 8px solid #111827;
+    }
+
+    .samsara-report-column {
+      padding: 18px;
+      min-width: 0;
+    }
+
+    .samsara-report-column + .samsara-report-column {
+      border-left: 1px solid var(--border);
+    }
+
+    .samsara-section-heading {
+      font-size: 20px;
+      font-weight: 900;
+      color: #111827;
+      margin: 0 0 12px;
+    }
+
+    .samsara-dual-table {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .samsara-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .samsara-table {
+      width: 100%;
+      min-width: 340px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .samsara-table th,
+    .samsara-table td {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    .samsara-table th {
+      background: #f8fafc;
+      color: var(--header);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-size: 11px;
+      position: static;
+    }
+
+    .samsara-table td.metric-cell {
+      text-align: right;
+      font-weight: 800;
+    }
+
+    .samsara-no-data {
+      color: #9a3412;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .samsara-comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .samsara-comparison-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .samsara-comparison-card h4 {
+      margin: 0;
+      padding: 10px;
+      text-align: center;
+      background: #f8fafc;
+      color: var(--header);
+    }
+
+    .samsara-comparison-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 9px 11px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .samsara-difference.good { color: #027a48; }
+    .samsara-difference.bad { color: #b42318; }
+    .samsara-difference.neutral { color: #475467; }
+
+    .samsara-safety-message {
+      margin-top: 20px;
+      padding: 20px 14px;
+      text-align: center;
+      font-size: 22px;
+      line-height: 1.35;
+      color: #111827;
+    }
+
+    .samsara-detail-table {
+      margin-top: 16px;
+    }
+
+    .samsara-excluded-list {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      color: #9a3412;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1050px) {
+      .samsara-upload-grid,
+      .samsara-report-columns {
+        grid-template-columns: 1fr;
+      }
+
+      .samsara-report-column + .samsara-report-column {
+        border-left: 0;
+        border-top: 1px solid var(--border);
+      }
+
+      .samsara-metric-grid {
+        grid-template-columns: repeat(2, minmax(150px, 1fr));
+      }
+    }
+
+    @media (max-width: 650px) {
+      .header-bar { padding: 16px 18px; text-align: center; justify-content: center; }
+      .header-title { width: 100%; text-align: center; }
+      .main-layout { margin: 18px auto; padding: 0 12px; gap: 16px; }
+      .card { padding: 20px; border-radius: 12px; }
+      h2 { font-size: 20px; }
+      select,
+      input { font-size: 16px; padding: 13px; }
+      button { width: 100%; padding: 14px; font-size: 15px; }
+      .button-row { display: block; }
+      .button-row button { width: 100%; }
+      .small-action-row { display: block; }
+      .small-action-row button { width: 100%; margin-bottom: 10px; }
+      .info-grid { grid-template-columns: 1fr; }
+      th, td { font-size: 12px; padding: 8px; }
+      .client-services-tabs { display: block; border-radius: 10px; }
+      .client-services-tab { width: 100%; border-right: 0; border-bottom: 1px solid var(--border); }
+      .client-services-tab:last-child { border-bottom: 0; }
+      .task-section-header { display: block; }
+      .task-section-actions { justify-content: flex-start; margin-top: 12px; }
+      .collapse-section-btn { width: 100%; }
+      .samsara-toolbar,
+      .samsara-meta-grid,
+      .samsara-metric-grid,
+      .samsara-dual-table,
+      .samsara-comparison-grid { grid-template-columns: 1fr; }
+      .samsara-actions { display: grid; grid-template-columns: 1fr; }
+      .samsara-actions button,
+      .routesafe-actions button { width: 100%; }
+      .samsara-report-title { font-size: 22px; }
+      .samsara-safety-message { font-size: 18px; }
+    }
+
+  
+.route-safe-layout{display:block;max-width:1500px;margin:26px auto;padding:0 20px;}
+#routeSafePanel{display:block;}
+.routesafe-summary-grid{grid-template-columns:repeat(3,minmax(160px,1fr));}
+@media(max-width:780px){.routesafe-summary-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div id="sharedNavigation"></div>
+<div class="app-shell"><main class="main">
+<div class="header-bar"><div><div class="header-title">Molinari Pools – RouteSafe Partner Program</div><div class="header-subtitle">Service CSC · Partner & Referral Intake</div></div></div>
+<div id="accessGate" class="access-layout"><div class="access-card"><h2>RouteSafe Partner Program Access</h2><p id="accessMessage">Checking access...</p><a class="nav-action-btn" href="login.html">Go to Login</a><button type="button" onclick="appLogout()">Logout</button></div></div>
+<div id="pageContent" class="route-safe-layout hidden"><div class="card">
+<section id="routeSafePanel" class="task-panel active" role="region" aria-label="RouteSafe Partner Program">
+          <div class="task-section-header">
+            <div>
+              <h2>RouteSafe Partner Program</h2>
+              <p>CSC operational workspace to add/view RouteSafe Partners, referral clients, and referral addresses for quoting and job intake.</p>
+            </div>
+            <div class="task-section-actions">
+              <a class="collapse-section-btn" href="https://molinaripools.sharepoint.com/sites/AllCompany.10101108.pxrbheon/Shared%20Documents/Forms/AllItems.aspx?id=%2Fsites%2FAllCompany%2E10101108%2Epxrbheon%2FShared%20Documents%2FService%2FRepair%2FRouteSafe%20Partner%20Program%2FRouteSafe%20Signed%20Agreements&amp;viewid=2b10a0c8%2D47a2%2D4319%2D8128%2Dcd558f10f144&amp;sharingv2=true&amp;fromShare=true&amp;at=9&amp;CID=0199a442%2D483c%2D4d35%2Db609%2D75eed7f6d740&amp;FolderCTID=0x01200009C2F1502CF9DC4F9AB446B2F27F48B5&amp;TeamsCID=6f35954d%2Dabde%2D457f%2D849f%2De7a4bdbdec30" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;min-height:38px;">Signed Agreements ↗</a>
+              <button class="collapse-section-btn" id="routeSafeRefreshBtn" type="button" onclick="loadRouteSafeOperationalData(true)">Refresh RouteSafe</button>
+            </div>
+          </div>
+
+          <div class="status-note">
+            CSC-entered RouteSafe Partners are operational records only.
+          </div>
+
+          <div id="routeSafeMessage" class="message"></div>
+
+          <section class="routesafe-summary-grid" aria-label="RouteSafe summary">
+            <div class="routesafe-summary-card">
+              <div class="label">Partners</div>
+              <div class="value" id="routeSafePartnerCount">0</div>
+            </div>
+            <div class="routesafe-summary-card">
+              <div class="label">Active Partners</div>
+              <div class="value" id="routeSafeActivePartnerCount">0</div>
+            </div>
+            <div class="routesafe-summary-card">
+              <div class="label">Protected Referral Addresses</div>
+              <div class="value" id="routeSafeProtectedAddressCount">0</div>
+            </div>
+          </section>
+
+          <section class="routesafe-card">
+            <h3>Add RouteSafe Partner</h3>
+
+            <div class="routesafe-form-grid">
+              <div>
+                <label for="routeSafePartnerName">Partner Business / Name *</label>
+                <input id="routeSafePartnerName" type="text" placeholder="Example: ABC Pool Service">
+              </div>
+
+              <div>
+                <label for="routeSafePartnerCode">Partner Code</label>
+                <input id="routeSafePartnerCode" class="routesafe-readonly" type="text" readonly placeholder="Auto-generated">
+              </div>
+
+              <div>
+                <label for="routeSafePartnerContact">Contact Name</label>
+                <input id="routeSafePartnerContact" type="text" placeholder="Authorized signer / contact">
+              </div>
+
+              <div>
+                <label for="routeSafePartnerPhone">Phone</label>
+                <input id="routeSafePartnerPhone" type="text">
+              </div>
+
+              <div>
+                <label for="routeSafePartnerEmail">Email</label>
+                <input id="routeSafePartnerEmail" type="email">
+              </div>
+
+              <div class="span-two">
+                <label for="routeSafePartnerNotes">Notes</label>
+                <input id="routeSafePartnerNotes" type="text" placeholder="Optional CSC notes">
+              </div>
+            </div>
+
+            <div class="routesafe-actions">
+              <button class="admin-btn" type="button" onclick="addRouteSafePartnerFromCSC()">Add RouteSafe Partner</button>
+              <button class="secondary-btn" type="button" onclick="clearRouteSafePartnerForm()">Clear Partner Form</button>
+            </div>
+          </section>
+
+          <section class="routesafe-card">
+            <h3>Add RouteSafe Referral / Client Address</h3>
+            <div class="status-note">
+              Add the referred customer and address here so CSC can quote the work under the correct RouteSafe Partner.
+            </div>
+
+            <div class="routesafe-form-grid">
+              <div>
+                <label for="routeSafeReferralPartner">RouteSafe Partner *</label>
+                <select id="routeSafeReferralPartner">
+                  <option value="">Select partner...</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="routeSafeReferralDate">Referral Date</label>
+                <input id="routeSafeReferralDate" type="date">
+              </div>
+
+              <div>
+                <label for="routeSafeReferralCustomer">Referral Client Name *</label>
+                <input id="routeSafeReferralCustomer" type="text">
+              </div>
+
+              <div>
+                <label for="routeSafeReferralPhone">Client Phone</label>
+                <input id="routeSafeReferralPhone" type="text">
+              </div>
+
+              <div class="span-two">
+                <label for="routeSafeReferralAddress">Referral Service Address *</label>
+                <input id="routeSafeReferralAddress" type="text" placeholder="Street, city, state, ZIP">
+              </div>
+
+              <div>
+                <label for="routeSafeReferralUrgency">Urgency</label>
+                <select id="routeSafeReferralUrgency">
+                  <option value="ROUTINE">Routine</option>
+                  <option value="PRIORITY">Priority</option>
+                  <option value="URGENT">Urgent</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="routeSafeReferralStatus">Status</label>
+                <select id="routeSafeReferralStatus">
+                  <option value="REFERRED">Referred</option>
+                  <option value="SCHEDULED">Scheduled</option>
+                  <option value="QUOTED">Quoted</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="PAID">Paid</option>
+                  <option value="CANCELED">Canceled</option>
+                  <option value="INELIGIBLE">Ineligible</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="routeSafeReferralJobNumber">Job / Work Order #</label>
+                <input id="routeSafeReferralJobNumber" type="text">
+              </div>
+
+              <div class="full">
+                <label for="routeSafeReferralIssue">Equipment Issue / Quote Notes</label>
+                <textarea id="routeSafeReferralIssue" placeholder="What needs to be quoted or reviewed?"></textarea>
+              </div>
+            </div>
+
+            <div class="routesafe-actions">
+              <button class="admin-btn" type="button" onclick="addRouteSafeReferralFromCSC()">Add RouteSafe Referral</button>
+              <button class="secondary-btn" type="button" onclick="clearRouteSafeReferralForm()">Clear Referral Form</button>
+            </div>
+          </section>
+
+          <section class="routesafe-card">
+            <h3>RouteSafe Partners</h3>
+
+            <div class="routesafe-filter-grid">
+              <div>
+                <label for="routeSafePartnerSearch">Search Partners</label>
+                <input id="routeSafePartnerSearch" type="search" placeholder="Partner, code, contact, phone, email..." oninput="renderRouteSafePartners()">
+              </div>
+
+              <div>
+                <label for="routeSafePartnerStatusFilter">Status</label>
+                <select id="routeSafePartnerStatusFilter" onchange="renderRouteSafePartners()">
+                  <option value="">All Statuses</option>
+                  <option value="PROSPECT">Prospect</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </div>
+
+              <button class="secondary-btn" type="button" onclick="clearRouteSafePartnerFilters()">Clear</button>
+            </div>
+
+            <div class="routesafe-table-wrap">
+              <table class="routesafe-table">
+                <thead>
+                  <tr>
+                    <th>Partner</th>
+                    <th>Code</th>
+                    <th>Status</th>
+                    <th>Contact</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Referral Count</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="routeSafePartnerRows">
+                  <tr><td colspan="8">RouteSafe Partners will load here.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="routesafe-card">
+            <h3>RouteSafe Referral Addresses</h3>
+
+            <div class="routesafe-filter-grid">
+              <div>
+                <label for="routeSafeReferralSearch">Search Referrals</label>
+                <input id="routeSafeReferralSearch" type="search" placeholder="Client, address, partner, job, issue..." oninput="renderRouteSafeReferrals()">
+              </div>
+
+              <div>
+                <label for="routeSafeReferralStatusFilter">Status</label>
+                <select id="routeSafeReferralStatusFilter" onchange="renderRouteSafeReferrals()">
+                  <option value="">All Statuses</option>
+                  <option value="REFERRED">Referred</option>
+                  <option value="SCHEDULED">Scheduled</option>
+                  <option value="QUOTED">Quoted</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="PAID">Paid</option>
+                  <option value="CANCELED">Canceled</option>
+                  <option value="INELIGIBLE">Ineligible</option>
+                </select>
+              </div>
+
+              <button class="secondary-btn" type="button" onclick="clearRouteSafeReferralFilters()">Clear</button>
+            </div>
+
+            <div class="routesafe-table-wrap">
+              <table class="routesafe-table">
+                <thead>
+                  <tr>
+                    <th>Referral Date</th>
+                    <th>Partner</th>
+                    <th>Referral Client</th>
+                    <th>Referral Address</th>
+                    <th>Issue / Notes</th>
+                    <th>Job #</th>
+                    <th>Status</th>
+                    <th>Protected Through</th>
+                  </tr>
+                </thead>
+                <tbody id="routeSafeReferralRows">
+                  <tr><td colspan="8">RouteSafe Referrals will load here.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+</div></div></main></div>
+<script src="shared-navigation.js"></script>
+<script>
+const SUPABASE_URL = 'https://icqkuhbhcennhhbbwqgo.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const ROUTESAFE_PARTNERS_TABLE = 'routesafe_partners';
+const ROUTESAFE_REFERRALS_TABLE = 'routesafe_referrals';
+let routeSafePartners = [];
+let routeSafeReferrals = [];
+let routeSafeLoaded = false;
+let currentSession = null;
+let currentProfile = null;
+function getLocalDateISO(date = new Date()) { return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+function setText(id,value){const e=document.getElementById(id);if(e)e.textContent=value??'';}
+function setValue(id,value){const e=document.getElementById(id);if(e)e.value=value??'';}
+function formatNumber(value){return Number(value||0).toLocaleString('en-US');}
+function formatPhone(value){const d=String(value||'').replace(/\D/g,'');return d.length===10?`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`:(value||'');}
+function formatShortDate(value){if(!value)return '—'; const d=new Date(String(value).slice(0,10)+'T00:00:00');return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});}
+function truncateText(value,maxLength){const v=String(value||'').trim();return v.length<=maxLength?v:v.slice(0,maxLength-1)+'…';}
+function escapeHTML(value){return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+function setMessage(id,type,message){const el=document.getElementById(id);if(!el)return;el.className=`message ${type}`;el.textContent=message;}
+async function enforceRouteSafeAccess(){
+  const msg=document.getElementById('accessMessage');
+  const {data,error}=await client.auth.getSession();
+  if(error||!data?.session?.user){msg.textContent=error?.message||'Please log in to access this page.';return false;}
+  currentSession=data.session;
+  const {data:profile,error:profileError}=await client.from('user_profiles').select('id, full_name, role, active').eq('id',currentSession.user.id).single();
+  if(profileError||!profile||profile.active!==true){msg.textContent='User profile is unavailable or inactive.';return false;}
+  if(!['SERVICE','SERVICE_MANAGER','ADMIN','SYSTEM_ADMIN'].includes(profile.role)){msg.textContent='Access requires SERVICE, SERVICE_MANAGER, ADMIN, or SYSTEM_ADMIN.';return false;}
+  currentProfile=profile;
+  document.getElementById('accessGate').classList.add('hidden');
+  document.getElementById('pageContent').classList.remove('hidden');
+  return true;
+}
+async function appLogout(){await client.auth.signOut();window.location.href='login.html';}
+window.addEventListener('load',async()=>{if(await enforceRouteSafeAccess())await loadRouteSafeOperationalData(false);});
+
+/* RouteSafe Partner Program - CSC Operational Functions */
+
+function routeSafePartnerById(partnerId) {
+  return (routeSafePartners || []).find(partner => String(partner.id) === String(partnerId)) || null;
+}
+
+function routeSafeStatusBadge(status) {
+  const value = String(status || '').trim() || '—';
+  const upper = value.toUpperCase();
+
+  if (upper === 'ACTIVE' || upper === 'PAID' || upper === 'COMPLETED') {
+    return `<span class="badge green">${escapeHTML(value)}</span>`;
+  }
+
+  if (upper === 'PENDING' || upper === 'SCHEDULED' || upper === 'QUOTED' || upper === 'APPROVED' || upper === 'REFERRED' || upper === 'PROSPECT') {
+    return `<span class="badge orange">${escapeHTML(value)}</span>`;
+  }
+
+  if (upper === 'CANCELED' || upper === 'INELIGIBLE' || upper === 'INACTIVE') {
+    return `<span class="badge red">${escapeHTML(value)}</span>`;
+  }
+
+  return `<span class="badge gray">${escapeHTML(value)}</span>`;
+}
+
+function getNextRouteSafePartnerCode() {
+  const usedCodes = new Set(
+    (routeSafePartners || [])
+      .map(partner => String(partner.partner_code || '').trim().toUpperCase())
+      .filter(Boolean)
+  );
+
+  let highestNumber = 0;
+
+  (routeSafePartners || []).forEach(partner => {
+    const code = String(partner.partner_code || '').trim().toUpperCase();
+    const match = /^RS-(\d+)$/.exec(code);
+
+    if (match) {
+      highestNumber = Math.max(highestNumber, Number(match[1]));
+    }
+  });
+
+  let nextNumber = highestNumber + 1;
+  let nextCode = `RS-${String(nextNumber).padStart(4, '0')}`;
+
+  while (usedCodes.has(nextCode)) {
+    nextNumber += 1;
+    nextCode = `RS-${String(nextNumber).padStart(4, '0')}`;
+  }
+
+  return nextCode;
+}
+
+function setRouteSafeDefaultFormValues() {
+  const partnerCode = document.getElementById('routeSafePartnerCode');
+  const referralDate = document.getElementById('routeSafeReferralDate');
+
+  if (partnerCode && !partnerCode.value) {
+    partnerCode.value = getNextRouteSafePartnerCode();
+  }
+
+  if (referralDate && !referralDate.value) {
+    referralDate.value = getLocalDateISO();
+  }
+}
+
+async function loadRouteSafeOperationalData(showSuccessMessage = true) {
+  setMessage('routeSafeMessage', 'info', 'Loading RouteSafe Partner Program data...');
+
+  const [partnerResponse, referralResponse] = await Promise.all([
+    client
+      .from(ROUTESAFE_PARTNERS_TABLE)
+      .select('*')
+      .order('partner_name', { ascending: true }),
+
+    client
+      .from(ROUTESAFE_REFERRALS_TABLE)
+      .select('*')
+      .order('referral_at', { ascending: false })
+      .limit(5000)
+  ]);
+
+  if (partnerResponse.error) {
+    routeSafePartners = [];
+    routeSafeReferrals = [];
+    renderRouteSafePartners();
+    renderRouteSafeReferrals();
+    setMessage('routeSafeMessage', 'error', 'Unable to load RouteSafe partners: ' + partnerResponse.error.message);
+    return;
+  }
+
+  if (referralResponse.error) {
+    routeSafePartners = partnerResponse.data || [];
+    routeSafeReferrals = [];
+    renderRouteSafePartners();
+    renderRouteSafeReferrals();
+    setMessage('routeSafeMessage', 'error', 'Unable to load RouteSafe referrals: ' + referralResponse.error.message);
+    return;
+  }
+
+  routeSafePartners = partnerResponse.data || [];
+  routeSafeReferrals = referralResponse.data || [];
+  routeSafeLoaded = true;
+
+  populateRouteSafePartnerSelect();
+  setRouteSafeDefaultFormValues();
+  renderRouteSafeSummary();
+  renderRouteSafePartners();
+  renderRouteSafeReferrals();
+
+  if (showSuccessMessage) {
+    setMessage('routeSafeMessage', 'success', `RouteSafe data refreshed. ${routeSafePartners.length.toLocaleString()} partner(s), ${routeSafeReferrals.length.toLocaleString()} referral address(es).`);
+  } else {
+    setMessage('routeSafeMessage', 'success', `RouteSafe data loaded. ${routeSafePartners.length.toLocaleString()} partner(s), ${routeSafeReferrals.length.toLocaleString()} referral address(es).`);
+  }
+}
+
+function renderRouteSafeSummary() {
+  const activePartners = (routeSafePartners || []).filter(partner => String(partner.status || '').toUpperCase() === 'ACTIVE').length;
+
+  const uniqueProtectedAddresses = new Set(
+    (routeSafeReferrals || [])
+      .filter(row => !['CANCELED', 'INELIGIBLE'].includes(String(row.status || '').toUpperCase()))
+      .map(row => `${row.partner_id || ''}|${String(row.service_address || '').trim().toLowerCase()}`)
+      .filter(Boolean)
+  );
+
+  setText('routeSafePartnerCount', formatNumber((routeSafePartners || []).length));
+  setText('routeSafeActivePartnerCount', formatNumber(activePartners));
+  setText('routeSafeProtectedAddressCount', formatNumber(uniqueProtectedAddresses.size));
+}
+
+function populateRouteSafePartnerSelect() {
+  const select = document.getElementById('routeSafeReferralPartner');
+  if (!select) return;
+
+  const currentValue = select.value;
+
+  select.innerHTML = '<option value="">Select partner...</option>' +
+    (routeSafePartners || []).map(partner => {
+      const statusText = partner.status ? ` (${partner.status})` : '';
+      return `<option value="${escapeHTML(partner.id)}">${escapeHTML(partner.partner_name || 'Unnamed Partner')} — ${escapeHTML(partner.partner_code || '')}${escapeHTML(statusText)}</option>`;
+    }).join('');
+
+  if (currentValue && (routeSafePartners || []).some(partner => String(partner.id) === String(currentValue))) {
+    select.value = currentValue;
+  }
+}
+
+function routeSafePartnerReferralCount(partnerId) {
+  return (routeSafeReferrals || []).filter(row => String(row.partner_id) === String(partnerId)).length;
+}
+
+function renderRouteSafePartners() {
+  const tbody = document.getElementById('routeSafePartnerRows');
+  if (!tbody) return;
+
+  const search = String(document.getElementById('routeSafePartnerSearch')?.value || '').trim().toLowerCase();
+  const statusFilter = String(document.getElementById('routeSafePartnerStatusFilter')?.value || '').trim().toUpperCase();
+
+  const rows = (routeSafePartners || []).filter(partner => {
+    if (statusFilter && String(partner.status || '').toUpperCase() !== statusFilter) return false;
+
+    if (!search) return true;
+
+    const haystack = [
+      partner.partner_name,
+      partner.partner_code,
+      partner.contact_name,
+      partner.phone,
+      partner.email,
+      partner.status,
+      partner.notes
+    ].map(value => String(value || '').toLowerCase()).join(' ');
+
+    return haystack.includes(search);
+  });
+
+  tbody.innerHTML = '';
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8">No RouteSafe Partners match the current filters.</td></tr>';
+    return;
+  }
+
+  rows.forEach(partner => {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td class="wrap-cell">
+        <strong>${escapeHTML(partner.partner_name || '—')}</strong>
+      </td>
+      <td><strong>${escapeHTML(partner.partner_code || '—')}</strong></td>
+      <td>${routeSafeStatusBadge(partner.status)}</td>
+      <td class="wrap-cell">${escapeHTML(partner.contact_name || '—')}</td>
+      <td>${escapeHTML(formatPhone(partner.phone) || '—')}</td>
+      <td class="wrap-cell">${escapeHTML(partner.email || '—')}</td>
+      <td>${formatNumber(routeSafePartnerReferralCount(partner.id))}</td>
+      <td class="wrap-cell">${escapeHTML(truncateText(partner.notes, 120) || '—')}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function renderRouteSafeReferrals() {
+  const tbody = document.getElementById('routeSafeReferralRows');
+  if (!tbody) return;
+
+  const search = String(document.getElementById('routeSafeReferralSearch')?.value || '').trim().toLowerCase();
+  const statusFilter = String(document.getElementById('routeSafeReferralStatusFilter')?.value || '').trim().toUpperCase();
+
+  const rows = (routeSafeReferrals || []).filter(row => {
+    if (statusFilter && String(row.status || '').toUpperCase() !== statusFilter) return false;
+
+    const partner = routeSafePartnerById(row.partner_id);
+
+    if (!search) return true;
+
+    const haystack = [
+      row.customer_name,
+      row.customer_phone,
+      row.service_address,
+      row.equipment_issue,
+      row.job_number,
+      row.invoice_number,
+      row.status,
+      row.notes,
+      partner?.partner_name,
+      partner?.partner_code
+    ].map(value => String(value || '').toLowerCase()).join(' ');
+
+    return haystack.includes(search);
+  });
+
+  tbody.innerHTML = '';
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8">No RouteSafe Referrals match the current filters.</td></tr>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const partner = routeSafePartnerById(row.partner_id);
+    const protectedThrough = getRouteSafeProtectedThrough(partner);
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${escapeHTML(formatShortDate(String(row.referral_at || '').slice(0, 10)))}</td>
+      <td class="wrap-cell">
+        <strong>${escapeHTML(partner?.partner_name || '—')}</strong>
+        <span class="routesafe-muted">${escapeHTML(partner?.partner_code || '')}</span>
+      </td>
+      <td class="wrap-cell">
+        <strong>${escapeHTML(row.customer_name || '—')}</strong>
+        <span class="routesafe-muted">${escapeHTML(formatPhone(row.customer_phone) || '')}</span>
+      </td>
+      <td class="wrap-cell">${escapeHTML(row.service_address || '—')}</td>
+      <td class="wrap-cell">${escapeHTML(truncateText(row.equipment_issue || row.notes, 140) || '—')}</td>
+      <td>${escapeHTML(row.job_number || '—')}</td>
+      <td>${routeSafeStatusBadge(row.status)}</td>
+      <td>${escapeHTML(protectedThrough)}</td>
+    `;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function getRouteSafeProtectedThrough(partner) {
+  return partner?.agreement_expiration_date
+    ? formatShortDate(partner.agreement_expiration_date)
+    : 'Not Set';
+}
+
+function clearRouteSafePartnerFilters() {
+  setValue('routeSafePartnerSearch', '');
+  setValue('routeSafePartnerStatusFilter', '');
+  renderRouteSafePartners();
+}
+
+function clearRouteSafeReferralFilters() {
+  setValue('routeSafeReferralSearch', '');
+  setValue('routeSafeReferralStatusFilter', '');
+  renderRouteSafeReferrals();
+}
+
+function clearRouteSafePartnerForm() {
+  setValue('routeSafePartnerName', '');
+  // New CSC-created RouteSafe Partners are always ACTIVE.
+  setValue('routeSafePartnerContact', '');
+  setValue('routeSafePartnerPhone', '');
+  setValue('routeSafePartnerEmail', '');
+  setValue('routeSafePartnerNotes', '');
+  setValue('routeSafePartnerCode', getNextRouteSafePartnerCode());
+}
+
+function clearRouteSafeReferralForm() {
+  setValue('routeSafeReferralPartner', '');
+  setValue('routeSafeReferralDate', getLocalDateISO());
+  setValue('routeSafeReferralCustomer', '');
+  setValue('routeSafeReferralPhone', '');
+  setValue('routeSafeReferralAddress', '');
+  setValue('routeSafeReferralUrgency', 'ROUTINE');
+  setValue('routeSafeReferralStatus', 'REFERRED');
+  setValue('routeSafeReferralJobNumber', '');
+  setValue('routeSafeReferralIssue', '');
+}
+
+async function addRouteSafePartnerFromCSC() {
+  const partnerName = String(document.getElementById('routeSafePartnerName')?.value || '').trim();
+  const partnerCode = String(document.getElementById('routeSafePartnerCode')?.value || '').trim().toUpperCase() || getNextRouteSafePartnerCode();
+
+  if (!partnerName) {
+    setMessage('routeSafeMessage', 'error', 'Partner Business / Name is required.');
+    document.getElementById('routeSafePartnerName')?.focus();
+    return;
+  }
+
+  const notesInput = String(document.getElementById('routeSafePartnerNotes')?.value || '').trim();
+  const enteredBy = currentProfile?.full_name || currentSession?.user?.email || 'CSC';
+  const cscNote = `CSC entry by ${enteredBy}${notesInput ? ': ' + notesInput : ''}`;
+
+  const payload = {
+    partner_name: partnerName,
+    partner_code: partnerCode,
+    contact_name: String(document.getElementById('routeSafePartnerContact')?.value || '').trim() || null,
+    phone: String(document.getElementById('routeSafePartnerPhone')?.value || '').trim() || null,
+    email: String(document.getElementById('routeSafePartnerEmail')?.value || '').trim() || null,
+    status: 'ACTIVE',
+    vendor_setup_complete: false,
+    qualified_enrollment: false,
+    qualified_enrollment_date: null,
+    notes: cscNote,
+    created_by: currentSession?.user?.id || null,
+    updated_by: currentSession?.user?.id || null
+  };
+
+  const { error } = await client
+    .from(ROUTESAFE_PARTNERS_TABLE)
+    .insert(payload);
+
+  if (error) {
+    setMessage('routeSafeMessage', 'error', 'Unable to add RouteSafe Partner: ' + error.message);
+    return;
+  }
+
+  setMessage('routeSafeMessage', 'success', `RouteSafe Partner added: ${partnerName}. CSC-entered RouteSafe Partners are operational records only.`);
+  clearRouteSafePartnerForm();
+  await loadRouteSafeOperationalData(false);
+}
+
+async function addRouteSafeReferralFromCSC() {
+  const partnerId = String(document.getElementById('routeSafeReferralPartner')?.value || '').trim();
+  const customerName = String(document.getElementById('routeSafeReferralCustomer')?.value || '').trim();
+  const serviceAddress = String(document.getElementById('routeSafeReferralAddress')?.value || '').trim();
+
+  if (!partnerId) {
+    setMessage('routeSafeMessage', 'error', 'RouteSafe Partner is required.');
+    document.getElementById('routeSafeReferralPartner')?.focus();
+    return;
+  }
+
+  if (!customerName) {
+    setMessage('routeSafeMessage', 'error', 'Referral Client Name is required.');
+    document.getElementById('routeSafeReferralCustomer')?.focus();
+    return;
+  }
+
+  if (!serviceAddress) {
+    setMessage('routeSafeMessage', 'error', 'Referral Service Address is required.');
+    document.getElementById('routeSafeReferralAddress')?.focus();
+    return;
+  }
+
+  const referralDate = document.getElementById('routeSafeReferralDate')?.value || getLocalDateISO();
+  const enteredBy = currentProfile?.full_name || currentSession?.user?.email || 'CSC';
+  const issue = String(document.getElementById('routeSafeReferralIssue')?.value || '').trim();
+  const notes = `CSC referral entry by ${enteredBy}${issue ? ': ' + issue : ''}`;
+
+  const payload = {
+    partner_id: partnerId,
+    referral_at: new Date(referralDate + 'T12:00:00').toISOString(),
+    customer_name: customerName,
+    customer_phone: String(document.getElementById('routeSafeReferralPhone')?.value || '').trim() || null,
+    service_address: serviceAddress,
+    equipment_issue: issue || null,
+    urgency: document.getElementById('routeSafeReferralUrgency')?.value || 'ROUTINE',
+    job_number: String(document.getElementById('routeSafeReferralJobNumber')?.value || '').trim() || null,
+    status: document.getElementById('routeSafeReferralStatus')?.value || 'REFERRED',
+    reward_type: 'REPAIR_REPLACEMENT',
+    eligible_collected_revenue: 0,
+    partner_reward_amount: 0,
+    partner_reward_status: 'ACCRUED',
+    notes,
+    created_by: currentSession?.user?.id || null,
+    updated_by: currentSession?.user?.id || null
+  };
+
+  const { error } = await client
+    .from(ROUTESAFE_REFERRALS_TABLE)
+    .insert(payload);
+
+  if (error) {
+    setMessage('routeSafeMessage', 'error', 'Unable to add RouteSafe Referral: ' + error.message);
+    return;
+  }
+
+  setMessage('routeSafeMessage', 'success', `RouteSafe Referral added for ${customerName}.`);
+  clearRouteSafeReferralForm();
+  await loadRouteSafeOperationalData(false);
+}
+
+
+
+</script>
+</body></html>
