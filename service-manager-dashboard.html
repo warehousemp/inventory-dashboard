@@ -327,7 +327,7 @@
 
     .analytics-grid-secondary {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(330px, .7fr);
+      grid-template-columns: minmax(0, 1.55fr) minmax(310px, .85fr);
       gap: 10px;
     }
 
@@ -580,19 +580,6 @@
       padding: 10px 2px;
     }
 
-    .payroll-summary {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 8px;
-      align-items: center;
-      margin-top: 6px;
-      padding-top: 6px;
-      border-top: 1px solid #edf2f7;
-    }
-
-    .payroll-summary div:first-child { color: var(--muted); font-size: 9px; line-height: 1.25; }
-    .payroll-summary strong { color: var(--header); font-size: 12px; }
-
     .attention-list { display: grid; gap: 6px; }
 
     .attention-row {
@@ -641,8 +628,7 @@
       .operations-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
       .op-card.wide { grid-column: auto; }
       .analytics-grid-secondary { grid-template-columns: 1fr 1fr; }
-      .analytics-grid-secondary .attention-panel { grid-column: 1 / -1; }
-      .growth-analytics-split { grid-template-columns: 1fr; }
+        .growth-analytics-split { grid-template-columns: 1fr; }
       .growth-analytics-split .chart-wrap.compact { height: 165px; }
       .attention-list { grid-template-columns: repeat(4, minmax(0,1fr)); }
     }
@@ -808,7 +794,7 @@
 
       .analytics-grid-secondary {
         display: grid !important;
-        grid-template-columns: 1.25fr .9fr .72fr !important;
+        grid-template-columns: 1.55fr .85fr !important;
         gap: 7px !important;
         align-items: stretch !important;
         break-before: page;
@@ -902,9 +888,7 @@
         font-size: 6.4pt !important;
       }
 
-      .data-note,
-      .payroll-summary,
-      #payrollBasisNote {
+      .data-note {
         font-size: 6.3pt !important;
         line-height: 1.2 !important;
       }
@@ -1218,21 +1202,6 @@
           </div>
         </article>
 
-        <article class="panel">
-          <div class="panel-header">
-            <div>
-              <h2 class="panel-title">Route Tech Payroll Breakdown</h2>
-              <p class="panel-subtitle">Gross payroll components from the PPV payroll system.</p>
-            </div>
-            <a class="panel-link" href="ppv-tracker.html">PPV TRACKER →</a>
-          </div>
-          <div class="chart-wrap compact"><canvas id="payrollBreakdownChart"></canvas></div>
-          <div class="payroll-summary">
-            <div id="payrollBasisNote">Payroll is pay-period based; the dashboard selects periods that best match the reporting range.</div>
-            <strong id="payrollGrossSummary">$0.00 Gross</strong>
-          </div>
-        </article>
-
         <article class="panel attention-panel">
           <div class="panel-header">
             <div>
@@ -1294,7 +1263,6 @@ const FILTER_CHECKLIST_VIEW = 'route_tech_filter_changeout_checklist_view';
 const FILTER_COMPLETED_TABLE = 'annual_filter_changeout_completed_work_orders';
 const PPV_PAY_PERIODS_TABLE = 'ppv_pay_periods';
 const PPV_SUMMARY_VIEW = 'ppv_live_pay_period_summary_view';
-const PPV_ADJUSTMENTS_TABLE = 'ppv_adjustments';
 
 let currentProfile = null;
 let currentSession = null;
@@ -1308,7 +1276,6 @@ let currentGrowthRange = { startDate: '', endDate: '' };
 let revenueCategoryChart = null;
 let clientMixChart = null;
 let clientGrowthChart = null;
-let payrollBreakdownChart = null;
 
 const dashboardState = {
   revenue: null,
@@ -2099,57 +2066,43 @@ async function loadPayrollAnalytics(startDate, endDate) {
   const selectedPeriods = periodSelection.periods;
 
   if (selectedPeriods.length === 0) {
-    dashboardState.payroll = { gross: 0, breakdown: emptyPayrollBreakdown(), basis: 'No PPV pay period matches this range', periodCount: 0 };
+    dashboardState.payroll = {
+      gross: 0,
+      basis: 'No PPV pay period matches this range',
+      periodCount: 0
+    };
     renderPayrollAnalytics(dashboardState.payroll);
     return;
   }
 
-  const aggregate = emptyPayrollBreakdown();
   let gross = 0;
   let routeTechRows = 0;
 
+  // Only the high-level Route Tech Payroll Cost is needed on this dashboard.
+  // Gross still uses the same PPV summary fields and pay-period selection.
   for (const period of selectedPeriods) {
-    const [summaryResult, adjustmentsResult] = await Promise.all([
-      selectRowsForPayPeriod(PPV_SUMMARY_VIEW, period.id),
-      client
-        .from(PPV_ADJUSTMENTS_TABLE)
-        .select('pay_period_id,route_tech_id,adjustment_type,adjustment_amount,reason,notes,status')
-        .eq('pay_period_id', period.id)
-    ]);
+    const summaryResult = await selectRowsForPayPeriod(PPV_SUMMARY_VIEW, period.id);
+    if (summaryResult.error) {
+      setPayrollUnavailable(summaryResult.error.message);
+      throw summaryResult.error;
+    }
 
-    if (summaryResult.error) throw summaryResult.error;
-    if (adjustmentsResult.error) throw adjustmentsResult.error;
-
-    const adjustments = adjustmentsResult.data || [];
     const rows = (summaryResult.rows || []).filter(isRouteTechPayrollRow);
     routeTechRows += rows.length;
-
     rows.forEach(row => {
-      const routeTechId = getFirstValue(row, ['route_tech_id']);
-      const manualBreakdown = getAdjustmentBreakdown(adjustments, routeTechId);
-
-      aggregate.base += firstNumberFrom(row, ['base_ppv_pay', 'regular_ppv_pay']);
-      aggregate.pickup += firstNumberFrom(row, ['pickup_pay', 'pickup_visit_pay']);
-      aggregate.ptoHoliday += firstNumberFrom(row, ['pto_holiday_pay']);
-      aggregate.meetings += firstNumberFrom(row, ['meeting_maintenance_pay']);
-      aggregate.otherPaid += firstNumberFrom(row, ['other_paid_visit_credit_pay']);
-      aggregate.manualAdjustments += manualBreakdown.manual;
-      aggregate.onCall += manualBreakdown.onCall;
-      aggregate.commissions += firstNumberFrom(row, ['quarterly_commission_pay', 'quarterly_commission_amount', 'commission_pay']);
-      aggregate.safeguards += firstNumberFrom(row, ['safeguard_impact_total']);
-      gross += firstNumberFrom(row, ['final_gross_before_taxes_deductions', 'net_ppv_pay', 'gross_pay']);
+      gross += firstNumberFrom(row, [
+        'final_gross_before_taxes_deductions', 'net_ppv_pay', 'gross_pay'
+      ]);
     });
   }
 
   dashboardState.payroll = {
     gross,
-    breakdown: aggregate,
     basis: periodSelection.basis,
     periodCount: selectedPeriods.length,
     routeTechRows,
     selectedPeriods
   };
-
   renderPayrollAnalytics(dashboardState.payroll);
 }
 
@@ -2210,85 +2163,15 @@ function isRouteTechPayrollRow(row) {
   return true;
 }
 
-function getAdjustmentBreakdown(adjustments, routeTechId) {
-  return (adjustments || []).reduce((totals, adjustment) => {
-    const id = getFirstValue(adjustment, ['route_tech_id']);
-    const status = String(getFirstValue(adjustment, ['status']) || '').toUpperCase();
-    const amount = firstNumberFrom(adjustment, ['adjustment_amount']);
-    if (String(id || '') !== String(routeTechId || '') || status !== 'APPROVED' || amount === 0) return totals;
-
-    const reason = String(getFirstValue(adjustment, ['reason', 'notes']) || '').trim();
-    const legacyDescription = reason.replace(/^Manual Adjustment\s*\/\s*On[- ]call Pay\s*-\s*/i, '').trim();
-    const onCall = /^On[- ]Call Pay\s*-\s*/i.test(reason) || /\bOn[- ]?Call\b/i.test(legacyDescription);
-
-    if (onCall) totals.onCall += amount;
-    else totals.manual += amount;
-    return totals;
-  }, { manual: 0, onCall: 0 });
-}
-
-function emptyPayrollBreakdown() {
-  return {
-    base: 0,
-    pickup: 0,
-    ptoHoliday: 0,
-    meetings: 0,
-    otherPaid: 0,
-    manualAdjustments: 0,
-    onCall: 0,
-    commissions: 0,
-    safeguards: 0
-  };
-}
-
 function renderPayrollAnalytics(payroll) {
   setText('kpiPayrollCost', formatCurrency(payroll.gross));
   setText('kpiPayrollCostSub', `${payroll.basis} · gross before taxes/deductions`);
-  setText('payrollBasisNote', payroll.basis);
-  setText('payrollGrossSummary', `${formatCurrency(payroll.gross)} Gross`);
-  renderPayrollBreakdownChart(payroll.breakdown);
 }
 
 function setPayrollUnavailable(message) {
   dashboardState.payroll = null;
   setText('kpiPayrollCost', 'Unavailable');
   setText('kpiPayrollCostSub', message || 'Payroll source unavailable');
-  setText('payrollBasisNote', message || 'Payroll source unavailable');
-  setText('payrollGrossSummary', 'Unavailable');
-  renderPayrollBreakdownChart(emptyPayrollBreakdown());
-}
-
-function renderPayrollBreakdownChart(breakdown) {
-  const canvas = document.getElementById('payrollBreakdownChart');
-  if (!canvas) return;
-  if (payrollBreakdownChart) payrollBreakdownChart.destroy();
-
-  const labels = ['PPV Base', 'Pickup', 'PTO/Holiday', 'RT Meetings/Maint', 'Manual Adjustments', 'On-Call Pay', 'Commissions', 'Safeguards'];
-  const values = [
-    breakdown.base,
-    breakdown.pickup,
-    breakdown.ptoHoliday,
-    breakdown.meetings,
-    breakdown.manualAdjustments,
-    breakdown.onCall,
-    breakdown.commissions,
-    breakdown.safeguards
-  ];
-
-  payrollBreakdownChart = new Chart(canvas, {
-    type: 'bar',
-    data: { labels, datasets: [{ label: 'Payroll', data: values, borderWidth: 1, borderRadius: 5, maxBarThickness: 28 }] },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => ` ${formatCurrency(context.raw)}` } } },
-      scales: {
-        x: { ticks: { font: { size: 9 }, callback: value => compactCurrency(value) } },
-        y: { grid: { display: false }, ticks: { font: { size: 8 } } }
-      }
-    }
-  });
 }
 
 function renderAttentionPanel() {
@@ -2436,7 +2319,7 @@ function updatePrintReportMeta() {
 }
 
 function resizeChartsForPrint() {
-  [revenueCategoryChart, clientMixChart, clientGrowthChart, payrollBreakdownChart]
+  [revenueCategoryChart, clientMixChart, clientGrowthChart]
     .filter(Boolean)
     .forEach(chart => {
       try { chart.resize(); } catch (error) { console.warn('Chart print resize warning:', error); }
