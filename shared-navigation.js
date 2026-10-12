@@ -283,6 +283,11 @@
           roles: ['WAREHOUSE', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
+          label: 'JobTread Workflow',
+          href: 'jobtread-workflow.html',
+          roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
           label: 'Warehouse Reports',
           href: 'warehouse-reports.html',
           roles: ['WAREHOUSE', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
