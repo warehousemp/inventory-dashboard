@@ -414,7 +414,7 @@
     }
 
     .op-card:hover { border-color: #b4cadb; }
-    .op-card.wide { grid-column: 1 / -1; }
+    .op-card.wide { grid-column: auto; }
 
     .op-label {
       color: var(--muted);
@@ -638,7 +638,7 @@
       .kpi-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
       .analytics-grid-primary { grid-template-columns: minmax(0,1.2fr) minmax(300px,.8fr); }
       .analytics-grid-primary .operations-panel { grid-column: 1 / -1; }
-      .operations-grid { grid-template-columns: repeat(5, minmax(0,1fr)); }
+      .operations-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
       .op-card.wide { grid-column: auto; }
       .analytics-grid-secondary { grid-template-columns: 1fr 1fr; }
       .analytics-grid-secondary .attention-panel { grid-column: 1 / -1; }
@@ -654,7 +654,7 @@
       .analytics-grid-primary,
       .analytics-grid-secondary { grid-template-columns: 1fr; }
       .operations-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-      .op-card.wide { grid-column: 1 / -1; }
+      .op-card.wide { grid-column: auto; }
       .attention-list { grid-template-columns: 1fr 1fr; }
     }
 
@@ -860,7 +860,7 @@
       }
 
       .op-card.wide {
-        grid-column: 1 / -1 !important;
+        grid-column: auto !important;
       }
 
       .op-label {
@@ -1138,7 +1138,7 @@
           <div class="panel-header">
             <div>
               <h2 class="panel-title">Route Operations</h2>
-              <p class="panel-subtitle">Current operational position plus selected-period growth.</p>
+              <p class="panel-subtitle">Current route clients, selected-period cleanings, and service growth.</p>
             </div>
           </div>
 
@@ -1147,6 +1147,12 @@
               <div class="op-label">Route Clients</div>
               <div class="op-value" id="opRouteClients">0</div>
               <div class="op-sub">Current active assessment population</div>
+            </div>
+
+            <div class="op-card" onclick="window.location.href='client-changes.html'" title="Completed cleanings imported from Skimmer Tech Details">
+              <div class="op-label">Total Cleanings</div>
+              <div class="op-value" id="opTotalCleanings">—</div>
+              <div class="op-sub" id="opTotalCleaningsSub">Completed cleanings · selected period</div>
             </div>
 
             <div class="op-card" onclick="window.location.href='client-changes.html'">
@@ -1283,6 +1289,7 @@ const INVOICE_REPORTING_VIEW = 'client_services_invoice_client_mix_reporting_vie
 const MECHANICAL_ASSESSMENT_VIEW = 'client_mechanical_assessment_tracking_view';
 const CLIENT_GROWTH_RPC = 'get_client_growth_retention_summary';
 const CLIENT_CANCELLATION_TABLE = 'client_cancellation_tracking';
+const ROUTE_CLEANINGS_RPC = 'get_service_analytics_cleaning_count';
 const FILTER_CHECKLIST_VIEW = 'route_tech_filter_changeout_checklist_view';
 const FILTER_COMPLETED_TABLE = 'annual_filter_changeout_completed_work_orders';
 const PPV_PAY_PERIODS_TABLE = 'ppv_pay_periods';
@@ -1308,6 +1315,7 @@ const dashboardState = {
   goals: null,
   invoiceMix: null,
   assessments: null,
+  cleanings: null,
   growth: null,
   filter: null,
   payroll: null
@@ -1444,7 +1452,7 @@ async function applyMasterPeriod() {
 
   currentRange = { startDate, endDate };
   setText('masterPeriodLabel', `${formatDate(startDate)} – ${formatDate(endDate)}`);
-  setText('masterPeriodNote', 'Revenue and invoice mix use this range. Client Growth defaults to this range but can be changed inside its panel; Route Clients are current; Mechanical Assessments show completions during the selected period plus overall program completion; filter completion is measured as of the end date; payroll is pay-period based.');
+  setText('masterPeriodNote', 'Revenue, invoice mix, and Total Cleanings use this range. Client Growth defaults to this range but can be changed inside its panel; Route Clients are current; Mechanical Assessments show completions during the selected period plus overall program completion; filter completion is measured as of the end date; payroll is pay-period based.');
 
   await refreshDashboard(true);
 }
@@ -1486,6 +1494,7 @@ async function refreshDashboard(rangeAlreadySet = false) {
     loadRevenueAnalytics(startDate, endDate),
     loadInvoiceMixAnalytics(startDate, endDate),
     loadMechanicalAssessmentAnalytics(),
+    loadRouteCleaningAnalytics(startDate, endDate),
     loadClientGrowthAnalytics(growthRange.startDate, growthRange.endDate),
     loadFilterCompletionAnalytics(endDate),
     loadPayrollAnalytics(startDate, endDate)
@@ -1757,6 +1766,32 @@ async function loadMechanicalAssessmentAnalytics() {
     'opAssessmentCompletionSub',
     `${formatNumber(completedInPeriod)} completed ${formatDate(startDate)} – ${formatDate(endDate)} | Overall ${formatNumber(completed)} / ${formatNumber(total)} (${pct.toFixed(1)}%) · ${formatNumber(needsReview)} review`
   );
+}
+
+async function loadRouteCleaningAnalytics(startDate, endDate) {
+  const { data, error } = await client.rpc(ROUTE_CLEANINGS_RPC, {
+    p_start_date: startDate,
+    p_end_date: endDate
+  });
+
+  if (error) {
+    dashboardState.cleanings = null;
+    setText('opTotalCleanings', '—');
+    setText('opTotalCleaningsSub', 'Skimmer cleaning data unavailable');
+    throw error;
+  }
+
+  const total = Number(data);
+  if (!Number.isSafeInteger(total) || total < 0) {
+    dashboardState.cleanings = null;
+    setText('opTotalCleanings', '—');
+    setText('opTotalCleaningsSub', 'Unable to calculate completed cleanings');
+    throw new Error('Unexpected completed-cleanings result from Supabase.');
+  }
+
+  dashboardState.cleanings = { total, startDate, endDate };
+  setText('opTotalCleanings', formatNumber(total));
+  setText('opTotalCleaningsSub', `${formatDate(startDate)} – ${formatDate(endDate)} · Skimmer Tech Details`);
 }
 
 function assessmentIsComplete(row) {
