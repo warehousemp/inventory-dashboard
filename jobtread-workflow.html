@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JobTread Warehouse Workflow - Molinari Inventory</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="shared-navigation.css">
+
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --navy: #0b3c5d;
+      --teal: #1aa3b0;
+      --slate: #64748b;
+      --light: #f4f8fb;
+      --border: #dbe5ec;
+      --text: #1f2933;
+      --muted: #667085;
+      --green: #15803d;
+      --green-bg: #ecfdf3;
+      --orange: #b45309;
+      --orange-bg: #fff7ed;
+      --red: #b91c1c;
+      --red-bg: #fef2f2;
+      --blue-bg: #eff6ff;
+      --purple: #6d28d9;
+      --purple-bg: #f5f3ff;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--light);
+      margin: 0;
+      color: var(--text);
+    }
+
+    .page-shell {
+      width: 100%;
+      min-height: 100vh;
+    }
+
+    .header-bar {
+      background: var(--navy);
+      color: white;
+      padding: 18px 28px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .header-title {
+      font-size: 21px;
+      font-weight: 700;
+    }
+
+    .header-subtitle {
+      margin-top: 3px;
+      color: rgba(255,255,255,.82);
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    .header-badge {
+      background: rgba(255,255,255,.14);
+      border: 1px solid rgba(255,255,255,.22);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .main {
+      width: min(1600px, 100%);
+      margin: 24px auto 50px;
+      padding: 0 20px;
+    }
+
+    .hidden { display: none !important; }
+
+    .access-layout {
+      width: min(760px, calc(100% - 40px));
+      margin: 40px auto;
+    }
+
+    .access-card,
+    .card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(15,23,42,.07);
+    }
+
+    .access-card {
+      padding: 28px;
+    }
+
+    h1, h2, h3 {
+      color: var(--navy);
+      margin-top: 0;
+    }
+
+    h2 { font-size: 20px; }
+    h3 { font-size: 16px; }
+
+    .warning-note,
+    .danger-note,
+    .status-note,
+    .info-note {
+      border-radius: 10px;
+      padding: 12px 14px;
+      line-height: 1.45;
+      font-size: 13px;
+      margin: 12px 0;
+      white-space: pre-wrap;
+    }
+
+    .warning-note {
+      background: var(--orange-bg);
+      color: #9a3412;
+      border: 1px solid #fed7aa;
+    }
+
+    .danger-note {
+      background: var(--red-bg);
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    .status-note {
+      background: var(--green-bg);
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+
+    .info-note {
+      background: var(--blue-bg);
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .access-actions,
+    .button-row,
+    .toolbar-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button,
+    .btn-link {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+    }
+
+    .btn-primary { background: var(--navy); color: white; }
+    .btn-teal { background: var(--teal); color: white; }
+    .btn-slate { background: var(--slate); color: white; }
+    .btn-orange { background: #d97706; color: white; }
+    .btn-danger { background: var(--red); color: white; }
+    .btn-light { background: #eaf0f5; color: var(--navy); border: 1px solid #d5e0e8; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .summary-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      box-shadow: 0 4px 12px rgba(15,23,42,.05);
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+
+    .summary-value {
+      margin-top: 7px;
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--navy);
+    }
+
+    .workflow-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(170px, 1fr));
+      gap: 8px;
+      margin: 0 0 18px;
+    }
+
+    .workflow-stage {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 86px;
+      position: relative;
+    }
+
+    .workflow-stage strong {
+      display: block;
+      color: var(--navy);
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .workflow-stage span {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .workflow-stage:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -10px;
+      top: 29px;
+      color: var(--slate);
+      font-size: 18px;
+      z-index: 2;
+    }
+
+    .toolbar-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .toolbar-row {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) 220px auto auto;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 11px;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      background: white;
+      color: var(--text);
+    }
+
+    textarea {
+      min-height: 78px;
+      resize: vertical;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(26,163,176,.13);
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 5px;
+      color: #334155;
+    }
+
+    .message {
+      min-height: 0;
+      margin: 10px 0;
+    }
+
+    .manual-panel {
+      margin-bottom: 18px;
+      overflow: hidden;
+    }
+
+    details.card > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 16px 18px;
+      font-weight: 800;
+      color: var(--navy);
+      background: #f8fafc;
+      border-radius: 14px;
+    }
+
+    details.card > summary::-webkit-details-marker { display: none; }
+    details.card > summary::after { content: "+"; float: right; font-size: 20px; }
+    details.card[open] > summary::after { content: "−"; }
+    details.card[open] > summary { border-bottom: 1px solid var(--border); border-radius: 14px 14px 0 0; }
+
+    .manual-content {
+      padding: 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .span-2 { grid-column: span 2; }
+    .span-4 { grid-column: 1 / -1; }
+
+    .line-entry {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.4fr) 150px auto;
+      gap: 10px;
+      align-items: end;
+      padding-top: 14px;
+      margin-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .manual-lines {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .request-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .request-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 5px 16px rgba(15,23,42,.06);
+      overflow: hidden;
+    }
+
+    .request-head {
+      padding: 15px 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--border);
+      background: #fbfdff;
+    }
+
+    .request-title {
+      font-weight: 800;
+      color: var(--navy);
+      font-size: 16px;
+    }
+
+    .request-meta {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+    }
+
+    .request-actions-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge-orange { color: #9a3412; background: #ffedd5; }
+    .badge-blue { color: #1d4ed8; background: #dbeafe; }
+    .badge-purple { color: #6d28d9; background: #ede9fe; }
+    .badge-green { color: #166534; background: #dcfce7; }
+    .badge-gray { color: #475569; background: #e2e8f0; }
+    .badge-red { color: #991b1b; background: #fee2e2; }
+
+    .request-body {
+      padding: 16px 18px 18px;
+    }
+
+    .request-help {
+      color: var(--muted);
+      font-size: 12px;
+      margin: 0 0 12px;
+      line-height: 1.45;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 1080px;
+      background: white;
+    }
+
+    th {
+      background: #eef4f8;
+      color: var(--navy);
+      text-align: left;
+      padding: 9px 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #edf2f6;
+      font-size: 12px;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    td.numeric, th.numeric { text-align: right; }
+
+    .qty-input {
+      min-width: 92px;
+      width: 92px;
+      padding: 7px 8px;
+      text-align: right;
+    }
+
+    .notes-input {
+      min-width: 190px;
+      padding: 7px 8px;
+    }
+
+    .stock-good { color: var(--green); font-weight: 800; }
+    .stock-low { color: var(--orange); font-weight: 800; }
+    .stock-none { color: var(--red); font-weight: 800; }
+
+    .request-footer {
+      margin-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .request-footer .left-info {
+      font-size: 11px;
+      color: var(--muted);
+      max-width: 760px;
+      line-height: 1.4;
+    }
+
+    .po-entry {
+      display: grid;
+      grid-template-columns: 190px 240px auto;
+      gap: 10px;
+      align-items: end;
+      width: min(760px, 100%);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin: 18px 0 12px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      background: #e8eef3;
+      color: var(--navy);
+    }
+
+    .tab-btn.active {
+      background: var(--navy);
+      color: white;
+    }
+
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin: 10px 0 12px;
+    }
+
+    .section-heading h2 { margin: 0; }
+
+    .commitment-table {
+      min-width: 1150px;
+    }
+
+    .empty-state {
+      background: white;
+      border: 1px dashed #b8c8d5;
+      border-radius: 12px;
+      padding: 28px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .api-mode {
+      background: #fff7ed;
+      color: #9a3412;
+      border: 1px solid #fed7aa;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    @media (max-width: 1050px) {
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .workflow-strip { grid-template-columns: 1fr; }
+      .workflow-stage::after { display: none; }
+      .toolbar-row { grid-template-columns: 1fr 1fr; }
+      .form-grid { grid-template-columns: repeat(2, 1fr); }
+      .span-4 { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 700px) {
+      .main { padding: 0 12px; }
+      .summary-grid { grid-template-columns: 1fr; }
+      .toolbar-row { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .span-2, .span-4 { grid-column: auto; }
+      .line-entry { grid-template-columns: 1fr; }
+      .po-entry { grid-template-columns: 1fr; }
+      .request-head { flex-direction: column; }
+      .request-actions-top { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="sharedNavigation"></div>
+
+<div class="page-shell">
+  <div class="header-bar">
+    <div>
+      <div class="header-title">Molinari Pools – JobTread Warehouse Workflow</div>
+      <div class="header-subtitle">Bid Request → Warehouse Response → Accepted Bid → PO → Inventory Commitment</div>
+    </div>
+    <div class="header-badge">WAREHOUSE / JOBTREAD</div>
+  </div>
+
+  <div id="accessGate" class="access-layout">
+    <div class="access-card">
+      <h2>Warehouse Access Required</h2>
+      <div id="accessMessage" class="warning-note">Checking access...</div>
+      <div class="access-actions">
+        <a class="btn-link btn-primary" href="login.html">GO TO LOGIN</a>
+        <a class="btn-link btn-light" href="index.html">BACK TO MAIN MENU</a>
+        <button class="btn-slate" type="button" onclick="appLogout()">LOGOUT</button>
+      </div>
+    </div>
+  </div>
+
+  <main id="workflowContent" class="main hidden">
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-label">Needs Warehouse Review</div>
+        <div class="summary-value" id="needsReviewCount">0</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Awaiting Projects Update</div>
+        <div class="summary-value" id="awaitingProjectsCount">0</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Accepted / Awaiting PO</div>
+        <div class="summary-value" id="awaitingPOCount">0</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Open Warehouse POs</div>
+        <div class="summary-value" id="openPOCount">0</div>
+      </div>
+    </div>
+
+    <div class="workflow-strip">
+      <div class="workflow-stage">
+        <strong>1. Projects Issues Bid Request</strong>
+        <span>Projects sends the JobTread Bid Request to Molinari Warehouse.</span>
+      </div>
+      <div class="workflow-stage">
+        <strong>2. Warehouse Checks Inventory</strong>
+        <span>Ken reviews On Hand, existing commitments, and Available to Commit.</span>
+      </div>
+      <div class="workflow-stage">
+        <strong>3. Projects Updates Bid</strong>
+        <span>Projects removes items Warehouse cannot supply and leaves only approved inventory items.</span>
+      </div>
+      <div class="workflow-stage">
+        <strong>4. Warehouse Accepts Bid</strong>
+        <span>The accepted Bid Request becomes the final list Warehouse will fulfill.</span>
+      </div>
+      <div class="workflow-stage">
+        <strong>5. PO Commits Inventory</strong>
+        <span>When Projects converts the Bid Request to a PO, inventory is reserved—not yet physically issued.</span>
+      </div>
+    </div>
+
+    <div class="toolbar-card">
+      <div class="toolbar-row">
+        <input id="workflowSearch" type="search" placeholder="Search Bid Request, Job, Client, PO, or Part..." oninput="renderWorkflow()">
+        <select id="statusFilter" onchange="renderWorkflow()">
+          <option value="ACTIVE">Active Workflow</option>
+          <option value="ALL">All Requests</option>
+          <option value="NEEDS_REVIEW">Needs Warehouse Review</option>
+          <option value="AWAITING_PROJECTS_UPDATE">Awaiting Projects Update</option>
+          <option value="ACCEPTED_AWAITING_PO">Accepted / Awaiting PO</option>
+          <option value="PO_CREATED">Open Warehouse POs</option>
+          <option value="FULFILLED">Fulfilled</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+        <button class="btn-slate" type="button" onclick="loadWorkflowData()">REFRESH</button>
+        <span class="api-mode">MANUAL PILOT / API READY</span>
+      </div>
+      <div id="pageMessage" class="message"></div>
+    </div>
+
+    <details id="manualPilotPanel" class="card manual-panel">
+      <summary>Temporary Manual Pilot – Log an Existing JobTread Bid Request</summary>
+      <div class="manual-content">
+        <div class="warning-note">
+          This section is only the bridge until the JobTread API feed is connected. Projects still creates the Bid Request in JobTread. Warehouse is only logging that existing request here so the inventory workflow can be tested.
+        </div>
+
+        <div class="form-grid">
+          <div>
+            <label for="manualBidNumber">Bid Request # *</label>
+            <input id="manualBidNumber" placeholder="Example: BR-1194-01">
+          </div>
+          <div>
+            <label for="manualRequestDate">Request Date</label>
+            <input id="manualRequestDate" type="date">
+          </div>
+          <div>
+            <label for="manualJobNumber">Job #</label>
+            <input id="manualJobNumber" placeholder="Example: 1194">
+          </div>
+          <div>
+            <label for="manualRequestedBy">Requested By</label>
+            <input id="manualRequestedBy" placeholder="Evelyn / Projects">
+          </div>
+
+          <div class="span-2">
+            <label for="manualJobName">Job Name</label>
+            <input id="manualJobName" placeholder="Job / Project name">
+          </div>
+          <div class="span-2">
+            <label for="manualClientName">Client</label>
+            <input id="manualClientName" placeholder="Client name">
+          </div>
+
+          <div class="span-4">
+            <label for="manualJobTreadUrl">JobTread Link</label>
+            <input id="manualJobTreadUrl" type="url" placeholder="Paste the JobTread Bid Request or Job URL">
+          </div>
+
+          <div class="span-4">
+            <label for="manualNotes">Notes</label>
+            <textarea id="manualNotes" placeholder="Optional Warehouse notes"></textarea>
+          </div>
+        </div>
+
+        <div class="line-entry">
+          <div>
+            <label for="manualPartNumber">Inventory Part #</label>
+            <input id="manualPartNumber" list="inventoryPartsList" placeholder="Type or select a part number">
+            <datalist id="inventoryPartsList"></datalist>
+          </div>
+          <div>
+            <label for="manualRequestedQty">Requested Qty</label>
+            <input id="manualRequestedQty" type="number" min="0.01" step="0.01" placeholder="0">
+          </div>
+          <button class="btn-teal" type="button" onclick="addManualLine()">ADD LINE</button>
+        </div>
+
+        <div id="manualLinesWrap" class="manual-lines hidden">
+          <table style="min-width:760px;">
+            <thead>
+              <tr>
+                <th>Part #</th>
+                <th>Description</th>
+                <th class="numeric">Requested</th>
+                <th class="numeric">On Hand</th>
+                <th class="numeric">Committed</th>
+                <th class="numeric">Available</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="manualLinesBody"></tbody>
+          </table>
+        </div>
+
+        <div class="button-row" style="margin-top:14px;">
+          <button class="btn-primary" type="button" onclick="saveManualBidRequest()">SAVE EXISTING BID REQUEST</button>
+          <button class="btn-light" type="button" onclick="clearManualBidRequest()">CLEAR</button>
+        </div>
+        <div id="manualMessage" class="message"></div>
+      </div>
+    </details>
+
+    <div class="tabs">
+      <button id="requestsTabBtn" class="tab-btn active" type="button" onclick="setTab('requests')">BID REQUEST WORKFLOW</button>
+      <button id="commitmentsTabBtn" class="tab-btn" type="button" onclick="setTab('commitments')">OPEN INVENTORY COMMITMENTS</button>
+    </div>
+
+    <section id="requestsTab">
+      <div class="section-heading">
+        <h2>Warehouse Bid Requests</h2>
+      </div>
+      <div id="requestList" class="request-list"></div>
+    </section>
+
+    <section id="commitmentsTab" class="hidden">
+      <div class="section-heading">
+        <h2>Committed Inventory</h2>
+        <a class="btn-link btn-light" href="warehouse.html">OPEN WAREHOUSE OPERATIONS</a>
+      </div>
+      <div class="info-note">
+        A JobTread PO reserves inventory. It does not reduce physical On Hand until Warehouse actually issues the material.
+      </div>
+      <div class="table-wrap">
+        <table class="commitment-table">
+          <thead>
+            <tr>
+              <th>PO #</th>
+              <th>Bid Request</th>
+              <th>Job</th>
+              <th>Client</th>
+              <th>Part #</th>
+              <th>Description</th>
+              <th class="numeric">Committed</th>
+              <th class="numeric">Issued</th>
+              <th class="numeric">Remaining</th>
+              <th class="numeric">On Hand</th>
+              <th class="numeric">Available to Commit</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="commitmentBody">
+            <tr><td colspan="12">Loading commitments...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="shared-navigation.js"></script>
+<script>
+const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentProfile = null;
+let currentSession = null;
+let requestSummary = [];
+let requestLines = [];
+let inventoryAvailability = [];
+let manualLines = [];
+let currentTab = 'requests';
+
+window.addEventListener('load', async () => {
+  document.getElementById('manualRequestDate').value = getLocalDateISO();
+
+  const hasAccess = await enforceAccess();
+  if (!hasAccess) return;
+
+  await loadWorkflowData();
+});
+
+async function enforceAccess() {
+  showAccess('Checking JobTread Warehouse Workflow access...', 'warning');
+
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+  if (sessionError) {
+    showAccess('Unable to verify login session: ' + sessionError.message, 'danger');
+    return false;
+  }
+
+  const session = sessionData?.session;
+
+  if (!session?.user) {
+    showAccess('You must be logged in to access this Warehouse page.', 'danger');
+    return false;
+  }
+
+  currentSession = session;
+
+  const { data: profile, error: profileError } = await client
+    .from('user_profiles')
+    .select('id, full_name, role, active')
+    .eq('id', session.user.id)
+    .single();
+
+  if (profileError) {
+    showAccess('Login found, but the user profile could not be loaded: ' + profileError.message, 'danger');
+    return false;
+  }
+
+  if (!profile || profile.active !== true) {
+    showAccess('This user profile is inactive or unavailable. Contact an admin.', 'danger');
+    return false;
+  }
+
+  const allowedRoles = ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN'];
+
+  if (!allowedRoles.includes(profile.role)) {
+    showAccess(
+      `Access denied.\n\nLogged in as: ${session.user.email}\nRole: ${profile.role}\n\nThis page is for Warehouse, Admin, and System Admin users.`,
+      'danger'
+    );
+    return false;
+  }
+
+  currentProfile = profile;
+  document.getElementById('accessGate').classList.add('hidden');
+  document.getElementById('workflowContent').classList.remove('hidden');
+  return true;
+}
+
+function showAccess(message, type = 'warning') {
+  const gate = document.getElementById('accessGate');
+  const content = document.getElementById('workflowContent');
+  const box = document.getElementById('accessMessage');
+
+  gate.classList.remove('hidden');
+  content.classList.add('hidden');
+  box.className = type === 'danger' ? 'danger-note' : type === 'success' ? 'status-note' : 'warning-note';
+  box.textContent = message;
+}
+
+async function appLogout() {
+  try { await client.auth.signOut(); } catch (error) { console.error(error); }
+  window.location.href = 'login.html';
+}
+
+async function loadWorkflowData() {
+  setMessage('pageMessage', 'info', 'Loading JobTread Warehouse workflow...');
+
+  const [summaryResult, lineResult, availabilityResult] = await Promise.all([
+    client
+      .from('jobtread_warehouse_request_summary_view')
+      .select('*')
+      .order('request_date', { ascending: false })
+      .order('created_at', { ascending: false }),
+
+    client
+      .from('jobtread_warehouse_request_lines_view')
+      .select('*')
+      .order('request_date', { ascending: false }),
+
+    client
+      .from('jobtread_inventory_availability_view')
+      .select('*')
+      .order('part_number', { ascending: true })
+  ]);
+
+  if (summaryResult.error) {
+    setMessage('pageMessage', 'danger', summaryResult.error.message);
+    return;
+  }
+
+  if (lineResult.error) {
+    setMessage('pageMessage', 'danger', lineResult.error.message);
+    return;
+  }
+
+  if (availabilityResult.error) {
+    setMessage('pageMessage', 'danger', availabilityResult.error.message);
+    return;
+  }
+
+  requestSummary = summaryResult.data || [];
+  requestLines = lineResult.data || [];
+  inventoryAvailability = availabilityResult.data || [];
+
+  populatePartsList();
+  updateSummary();
+  renderWorkflow();
+  renderCommitments();
+
+  setMessage('pageMessage', 'success', `Loaded ${requestSummary.length} Bid Request${requestSummary.length === 1 ? '' : 's'}.`);
+}
+
+function populatePartsList() {
+  const list = document.getElementById('inventoryPartsList');
+  list.innerHTML = '';
+
+  inventoryAvailability.forEach(part => {
+    const option = document.createElement('option');
+    option.value = part.part_number;
+    option.label = `${part.description || ''} | Available: ${formatNumber(part.available_to_commit)}`;
+    list.appendChild(option);
+  });
+}
+
+function updateSummary() {
+  const countStatus = status => requestSummary.filter(r => r.status === status).length;
+
+  document.getElementById('needsReviewCount').textContent = countStatus('NEEDS_REVIEW');
+  document.getElementById('awaitingProjectsCount').textContent = countStatus('AWAITING_PROJECTS_UPDATE');
+  document.getElementById('awaitingPOCount').textContent = countStatus('ACCEPTED_AWAITING_PO');
+  document.getElementById('openPOCount').textContent = requestSummary.filter(r => r.status === 'PO_CREATED').length;
+}
+
+function renderWorkflow() {
+  const container = document.getElementById('requestList');
+  const search = normalizeText(document.getElementById('workflowSearch').value);
+  const statusFilter = document.getElementById('statusFilter').value;
+
+  const activeStatuses = [
+    'NEEDS_REVIEW',
+    'AWAITING_PROJECTS_UPDATE',
+    'ACCEPTED_AWAITING_PO',
+    'PO_CREATED'
+  ];
+
+  const filtered = requestSummary.filter(request => {
+    const matchesStatus =
+      statusFilter === 'ALL'
+        ? true
+        : statusFilter === 'ACTIVE'
+        ? activeStatuses.includes(request.status)
+        : request.status === statusFilter;
+
+    if (!matchesStatus) return false;
+
+    if (!search) return true;
+
+    const lines = linesForRequest(request.id);
+    const haystack = normalizeText([
+      request.bid_request_number,
+      request.job_number,
+      request.job_name,
+      request.client_name,
+      request.requested_by,
+      request.jobtread_po_number,
+      ...lines.map(l => l.part_number),
+      ...lines.map(l => l.description)
+    ].join(' '));
+
+    return haystack.includes(search);
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-state">No Bid Requests match the current filter.</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(renderRequestCard).join('');
+}
+
+function renderRequestCard(request) {
+  const lines = linesForRequest(request.id);
+  const status = statusInfo(request.status);
+  const canEditResponse = request.status === 'NEEDS_REVIEW';
+  const canEditFinal = request.status === 'AWAITING_PROJECTS_UPDATE';
+
+  let help = '';
+  let footerAction = '';
+
+  if (request.status === 'NEEDS_REVIEW') {
+    help = 'Review current inventory availability. Enter the quantity Warehouse can supply for each line, then send the Warehouse response.';
+    footerAction = `
+      <button class="btn-teal" type="button" onclick="saveWarehouseResponse('${request.id}')">
+        SAVE WAREHOUSE RESPONSE
+      </button>
+    `;
+  } else if (request.status === 'AWAITING_PROJECTS_UPDATE') {
+    help = 'Projects should now modify the JobTread Bid Request so it contains only the inventory items Warehouse will supply. Confirm the final quantities below, then accept the final Bid Request.';
+    footerAction = `
+      <button class="btn-primary" type="button" onclick="acceptFinalBid('${request.id}')">
+        ACCEPT FINAL BID REQUEST
+      </button>
+    `;
+  } else if (request.status === 'ACCEPTED_AWAITING_PO') {
+    help = 'Warehouse accepted the final Bid Request. When Projects converts it to a JobTread PO, enter the PO number below to create the inventory commitment.';
+    footerAction = `
+      <div class="po-entry">
+        <div>
+          <label for="poNumber_${request.id}">JobTread PO # *</label>
+          <input id="poNumber_${request.id}" placeholder="Example: PO-1194-21">
+        </div>
+        <div>
+          <label for="poId_${request.id}">JobTread PO ID (optional)</label>
+          <input id="poId_${request.id}" placeholder="API ID can be added later">
+        </div>
+        <button class="btn-orange" type="button" onclick="commitPO('${request.id}')">
+          RECORD PO & COMMIT INVENTORY
+        </button>
+      </div>
+    `;
+  } else if (request.status === 'PO_CREATED') {
+    help = 'This PO has committed inventory. Physical On Hand is not reduced until Warehouse issues the material.';
+    footerAction = `
+      <div class="button-row">
+        <a class="btn-link btn-light" href="warehouse.html">OPEN WAREHOUSE OPERATIONS</a>
+        <button class="btn-danger" type="button" onclick="cancelCommitments('${request.id}')">CANCEL OPEN COMMITMENT</button>
+      </div>
+    `;
+  } else if (request.status === 'FULFILLED') {
+    help = 'This Warehouse PO has been fulfilled.';
+  } else if (request.status === 'CANCELLED') {
+    help = 'This Warehouse workflow was cancelled.';
+  }
+
+  const jtLink = request.jobtread_url
+    ? `<a class="btn-link btn-light" href="${escapeAttribute(request.jobtread_url)}" target="_blank" rel="noopener">OPEN JOBTREAD</a>`
+    : '';
+
+  return `
+    <article class="request-card">
+      <div class="request-head">
+        <div>
+          <div class="request-title">
+            Bid Request ${escapeHTML(request.bid_request_number || '')}
+            ${request.jobtread_po_number ? ` · PO ${escapeHTML(request.jobtread_po_number)}` : ''}
+          </div>
+          <div class="request-meta">
+            <span><strong>Job:</strong> ${escapeHTML(request.job_number || '—')} ${request.job_name ? '· ' + escapeHTML(request.job_name) : ''}</span>
+            <span><strong>Client:</strong> ${escapeHTML(request.client_name || '—')}</span>
+            <span><strong>Requested:</strong> ${formatDate(request.request_date)}</span>
+            <span><strong>By:</strong> ${escapeHTML(request.requested_by || '—')}</span>
+          </div>
+        </div>
+        <div class="request-actions-top">
+          <span class="status-badge ${status.className}">${status.label}</span>
+          ${jtLink}
+        </div>
+      </div>
+
+      <div class="request-body">
+        <p class="request-help">${escapeHTML(help)}</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Part #</th>
+                <th>Description</th>
+                <th class="numeric">Requested</th>
+                <th class="numeric">On Hand</th>
+                <th class="numeric">Committed</th>
+                <th class="numeric">Available</th>
+                <th>Shelf</th>
+                <th class="numeric">Warehouse Can Fulfill</th>
+                <th class="numeric">Final Commit Qty</th>
+                <th>Response Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lines.map(line => renderRequestLine(line, canEditResponse, canEditFinal)).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="request-footer">
+          <div class="left-info">
+            ${request.responded_by ? `Warehouse response: ${escapeHTML(request.responded_by)} · ${formatDateTime(request.responded_at)}<br>` : ''}
+            ${request.accepted_by ? `Accepted by Warehouse: ${escapeHTML(request.accepted_by)} · ${formatDateTime(request.accepted_at)}<br>` : ''}
+            ${request.po_committed_at ? `Inventory committed: ${formatDateTime(request.po_committed_at)}` : ''}
+          </div>
+          ${footerAction}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderRequestLine(line, canEditResponse, canEditFinal) {
+  const requested = Number(line.requested_qty || 0);
+  const available = Number(line.available_to_commit || 0);
+  const fulfill = Number(line.warehouse_fulfill_qty || 0);
+  const finalQty = line.final_commit_qty == null ? fulfill : Number(line.final_commit_qty || 0);
+
+  const stockClass = available <= 0 ? 'stock-none' : available < requested ? 'stock-low' : 'stock-good';
+
+  const fulfillCell = canEditResponse
+    ? `<input class="qty-input" id="fulfill_${line.line_id}" type="number" min="0" max="${requested}" step="0.01" value="${Math.min(requested, available)}">`
+    : `<strong>${formatNumber(fulfill)}</strong>`;
+
+  const finalCell = canEditFinal
+    ? `<input class="qty-input" id="final_${line.line_id}" type="number" min="0" max="${fulfill}" step="0.01" value="${finalQty}">`
+    : `<strong>${formatNumber(finalQty)}</strong>`;
+
+  const notesCell = canEditResponse
+    ? `<input class="notes-input" id="responseNote_${line.line_id}" value="${escapeAttribute(line.response_notes || '')}" placeholder="Optional note">`
+    : escapeHTML(line.response_notes || '—');
+
+  return `
+    <tr>
+      <td><strong>${escapeHTML(line.part_number || '')}</strong></td>
+      <td>${escapeHTML(line.description || '')}</td>
+      <td class="numeric">${formatNumber(requested)}</td>
+      <td class="numeric">${formatNumber(line.main_warehouse_on_hand)}</td>
+      <td class="numeric">${formatNumber(line.open_committed_qty)}</td>
+      <td class="numeric ${stockClass}">${formatNumber(available)}</td>
+      <td>${escapeHTML(line.shelf_location || '—')}</td>
+      <td class="numeric">${fulfillCell}</td>
+      <td class="numeric">${finalCell}</td>
+      <td>${notesCell}</td>
+    </tr>
+  `;
+}
+
+function renderCommitments() {
+  const body = document.getElementById('commitmentBody');
+
+  const rows = requestLines
+    .filter(line => line.commitment_id && ['OPEN', 'PARTIAL'].includes(line.commitment_status))
+    .sort((a, b) => String(a.jobtread_po_number || '').localeCompare(String(b.jobtread_po_number || '')));
+
+  if (rows.length === 0) {
+    body.innerHTML = '<tr><td colspan="12">No open inventory commitments.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows.map(line => `
+    <tr>
+      <td><strong>${escapeHTML(line.jobtread_po_number || '')}</strong></td>
+      <td>${escapeHTML(line.bid_request_number || '')}</td>
+      <td>${escapeHTML(line.job_number || '')} ${line.job_name ? '· ' + escapeHTML(line.job_name) : ''}</td>
+      <td>${escapeHTML(line.client_name || '')}</td>
+      <td><strong>${escapeHTML(line.part_number || '')}</strong></td>
+      <td>${escapeHTML(line.description || '')}</td>
+      <td class="numeric">${formatNumber(line.committed_qty)}</td>
+      <td class="numeric">${formatNumber(line.fulfilled_qty)}</td>
+      <td class="numeric">${formatNumber(line.commitment_remaining_qty)}</td>
+      <td class="numeric">${formatNumber(line.main_warehouse_on_hand)}</td>
+      <td class="numeric">${formatNumber(line.available_to_commit)}</td>
+      <td><span class="status-badge badge-green">${escapeHTML(line.commitment_status || '')}</span></td>
+    </tr>
+  `).join('');
+}
+
+function linesForRequest(requestId) {
+  return requestLines.filter(line => String(line.bid_request_id) === String(requestId));
+}
+
+async function saveWarehouseResponse(requestId) {
+  const lines = linesForRequest(requestId);
+
+  const payload = lines.map(line => ({
+    line_id: line.line_id,
+    warehouse_fulfill_qty: Number(document.getElementById(`fulfill_${line.line_id}`)?.value || 0),
+    response_notes: document.getElementById(`responseNote_${line.line_id}`)?.value || ''
+  }));
+
+  if (!window.confirm('Save the Warehouse response and move this Bid Request to Awaiting Projects Update?')) return;
+
+  setMessage('pageMessage', 'info', 'Saving Warehouse response...');
+
+  const { error } = await client.rpc('jobtread_save_warehouse_response', {
+    p_request_id: requestId,
+    p_response_lines: payload,
+    p_responded_by: getCurrentUserDisplayName()
+  });
+
+  if (error) {
+    setMessage('pageMessage', 'danger', error.message);
+    return;
+  }
+
+  await loadWorkflowData();
+  setMessage('pageMessage', 'success', 'Warehouse response saved. Projects can now update the JobTread Bid Request.');
+}
+
+async function acceptFinalBid(requestId) {
+  const lines = linesForRequest(requestId);
+
+  const payload = lines.map(line => ({
+    line_id: line.line_id,
+    final_commit_qty: Number(document.getElementById(`final_${line.line_id}`)?.value || 0)
+  }));
+
+  if (!window.confirm('Confirm Projects has updated the JobTread Bid Request and Warehouse is accepting these final quantities?')) return;
+
+  setMessage('pageMessage', 'info', 'Accepting final Bid Request...');
+
+  const { error } = await client.rpc('jobtread_save_final_quantities', {
+    p_request_id: requestId,
+    p_final_lines: payload,
+    p_saved_by: getCurrentUserDisplayName()
+  });
+
+  if (error) {
+    setMessage('pageMessage', 'danger', error.message);
+    return;
+  }
+
+  await loadWorkflowData();
+  setMessage('pageMessage', 'success', 'Final Bid Request accepted. Awaiting the JobTread PO.');
+}
+
+async function commitPO(requestId) {
+  const poNumber = document.getElementById(`poNumber_${requestId}`)?.value.trim();
+  const poId = document.getElementById(`poId_${requestId}`)?.value.trim();
+
+  if (!poNumber) {
+    setMessage('pageMessage', 'danger', 'JobTread PO number is required.');
+    return;
+  }
+
+  if (!window.confirm(`Commit the accepted Warehouse inventory to JobTread PO ${poNumber}?`)) return;
+
+  setMessage('pageMessage', 'info', 'Creating inventory commitments...');
+
+  const { error } = await client.rpc('jobtread_commit_po', {
+    p_request_id: requestId,
+    p_po_number: poNumber,
+    p_committed_by: getCurrentUserDisplayName(),
+    p_jobtread_po_id: poId || null
+  });
+
+  if (error) {
+    setMessage('pageMessage', 'danger', error.message);
+    return;
+  }
+
+  await loadWorkflowData();
+  setMessage('pageMessage', 'success', `Inventory committed to JobTread PO ${poNumber}. Physical On Hand has not been reduced.`);
+}
+
+async function cancelCommitments(requestId) {
+  const reason = window.prompt('Reason for cancelling this Warehouse inventory commitment:');
+  if (reason === null) return;
+
+  if (!reason.trim()) {
+    setMessage('pageMessage', 'danger', 'A cancellation reason is required.');
+    return;
+  }
+
+  if (!window.confirm('Cancel the open inventory commitment and release the reserved quantity?')) return;
+
+  const { error } = await client.rpc('jobtread_cancel_po_commitments', {
+    p_request_id: requestId,
+    p_reason: reason.trim()
+  });
+
+  if (error) {
+    setMessage('pageMessage', 'danger', error.message);
+    return;
+  }
+
+  await loadWorkflowData();
+  setMessage('pageMessage', 'success', 'Commitment cancelled and reserved inventory released.');
+}
+
+function addManualLine() {
+  const partNumber = document.getElementById('manualPartNumber').value.trim();
+  const qty = Number(document.getElementById('manualRequestedQty').value || 0);
+
+  const part = inventoryAvailability.find(
+    p => normalizeText(p.part_number) === normalizeText(partNumber)
+  );
+
+  if (!part) {
+    setMessage('manualMessage', 'danger', 'Select a valid inventory Part #.');
+    return;
+  }
+
+  if (!qty || qty <= 0) {
+    setMessage('manualMessage', 'danger', 'Requested quantity must be greater than zero.');
+    return;
+  }
+
+  const existing = manualLines.find(l => l.part_id === part.part_id);
+
+  if (existing) {
+    existing.requested_qty += qty;
+  } else {
+    manualLines.push({
+      part_id: part.part_id,
+      part_number: part.part_number,
+      description: part.description,
+      requested_qty: qty,
+      main_warehouse_on_hand: part.main_warehouse_on_hand,
+      open_committed_qty: part.open_committed_qty,
+      available_to_commit: part.available_to_commit
+    });
+  }
+
+  document.getElementById('manualPartNumber').value = '';
+  document.getElementById('manualRequestedQty').value = '';
+  renderManualLines();
+  setMessage('manualMessage', '', '');
+}
+
+function renderManualLines() {
+  const wrap = document.getElementById('manualLinesWrap');
+  const body = document.getElementById('manualLinesBody');
+
+  if (manualLines.length === 0) {
+    wrap.classList.add('hidden');
+    body.innerHTML = '';
+    return;
+  }
+
+  wrap.classList.remove('hidden');
+  body.innerHTML = manualLines.map((line, index) => `
+    <tr>
+      <td><strong>${escapeHTML(line.part_number)}</strong></td>
+      <td>${escapeHTML(line.description || '')}</td>
+      <td class="numeric">${formatNumber(line.requested_qty)}</td>
+      <td class="numeric">${formatNumber(line.main_warehouse_on_hand)}</td>
+      <td class="numeric">${formatNumber(line.open_committed_qty)}</td>
+      <td class="numeric">${formatNumber(line.available_to_commit)}</td>
+      <td><button class="btn-danger" style="padding:6px 9px;" type="button" onclick="removeManualLine(${index})">REMOVE</button></td>
+    </tr>
+  `).join('');
+}
+
+function removeManualLine(index) {
+  manualLines.splice(index, 1);
+  renderManualLines();
+}
+
+async function saveManualBidRequest() {
+  const bidNumber = document.getElementById('manualBidNumber').value.trim();
+
+  if (!bidNumber) {
+    setMessage('manualMessage', 'danger', 'Bid Request # is required.');
+    return;
+  }
+
+  if (manualLines.length === 0) {
+    setMessage('manualMessage', 'danger', 'Add at least one inventory line.');
+    return;
+  }
+
+  setMessage('manualMessage', 'info', 'Saving existing JobTread Bid Request...');
+
+  const { error } = await client.rpc('jobtread_create_manual_bid_request', {
+    p_bid_request_number: bidNumber,
+    p_job_number: document.getElementById('manualJobNumber').value.trim() || null,
+    p_job_name: document.getElementById('manualJobName').value.trim() || null,
+    p_client_name: document.getElementById('manualClientName').value.trim() || null,
+    p_requested_by: document.getElementById('manualRequestedBy').value.trim() || null,
+    p_request_date: document.getElementById('manualRequestDate').value || null,
+    p_jobtread_url: document.getElementById('manualJobTreadUrl').value.trim() || null,
+    p_notes: document.getElementById('manualNotes').value.trim() || null,
+    p_lines: manualLines.map(line => ({
+      part_number: line.part_number,
+      requested_qty: line.requested_qty
+    }))
+  });
+
+  if (error) {
+    setMessage('manualMessage', 'danger', error.message);
+    return;
+  }
+
+  clearManualBidRequest();
+  document.getElementById('manualPilotPanel').open = false;
+  await loadWorkflowData();
+  setMessage('pageMessage', 'success', `Bid Request ${bidNumber} added to the Warehouse workflow.`);
+}
+
+function clearManualBidRequest() {
+  document.getElementById('manualBidNumber').value = '';
+  document.getElementById('manualRequestDate').value = getLocalDateISO();
+  document.getElementById('manualJobNumber').value = '';
+  document.getElementById('manualRequestedBy').value = '';
+  document.getElementById('manualJobName').value = '';
+  document.getElementById('manualClientName').value = '';
+  document.getElementById('manualJobTreadUrl').value = '';
+  document.getElementById('manualNotes').value = '';
+  document.getElementById('manualPartNumber').value = '';
+  document.getElementById('manualRequestedQty').value = '';
+  manualLines = [];
+  renderManualLines();
+  setMessage('manualMessage', '', '');
+}
+
+function setTab(tab) {
+  currentTab = tab;
+  document.getElementById('requestsTab').classList.toggle('hidden', tab !== 'requests');
+  document.getElementById('commitmentsTab').classList.toggle('hidden', tab !== 'commitments');
+  document.getElementById('requestsTabBtn').classList.toggle('active', tab === 'requests');
+  document.getElementById('commitmentsTabBtn').classList.toggle('active', tab === 'commitments');
+}
+
+function statusInfo(status) {
+  const map = {
+    NEEDS_REVIEW: { label: 'NEEDS WAREHOUSE REVIEW', className: 'badge-orange' },
+    AWAITING_PROJECTS_UPDATE: { label: 'AWAITING PROJECTS UPDATE', className: 'badge-blue' },
+    ACCEPTED_AWAITING_PO: { label: 'ACCEPTED / AWAITING PO', className: 'badge-purple' },
+    PO_CREATED: { label: 'PO / INVENTORY COMMITTED', className: 'badge-green' },
+    FULFILLED: { label: 'FULFILLED', className: 'badge-gray' },
+    CANCELLED: { label: 'CANCELLED', className: 'badge-red' }
+  };
+
+  return map[status] || { label: status || 'UNKNOWN', className: 'badge-gray' };
+}
+
+function getCurrentUserDisplayName() {
+  return currentProfile?.full_name || currentSession?.user?.email || 'Warehouse';
+}
+
+function setMessage(id, type, message) {
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  if (!message) {
+    el.className = 'message';
+    el.textContent = '';
+    return;
+  }
+
+  el.className =
+    type === 'danger' ? 'danger-note' :
+    type === 'success' ? 'status-note' :
+    type === 'warning' ? 'warning-note' :
+    'info-note';
+
+  el.textContent = message;
+}
+
+function normalizeText(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function formatNumber(value) {
+  const n = Number(value || 0);
+  if (Number.isNaN(n)) return value ?? '';
+  return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+function formatDate(value) {
+  if (!value) return '—';
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    const [y, m, d] = String(value).split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString();
+  }
+
+  const dt = new Date(value);
+  return Number.isNaN(dt.getTime()) ? value : dt.toLocaleDateString();
+}
+
+function formatDateTime(value) {
+  if (!value) return '';
+  const dt = new Date(value);
+  return Number.isNaN(dt.getTime()) ? value : dt.toLocaleString();
+}
+
+function getLocalDateISO() {
+  const d = new Date();
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function escapeHTML(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeAttribute(value) {
+  return escapeHTML(value);
+}
+</script>
+
+</body>
+</html>
