@@ -264,7 +264,7 @@
 
     .toolbar-row {
       display: grid;
-      grid-template-columns: minmax(240px, 1fr) 220px auto auto auto;
+      grid-template-columns: minmax(240px, 1fr) 220px auto auto;
     }
 
     input, select, textarea {
@@ -663,6 +663,7 @@
           <option value="CANCELLED">Cancelled</option>
         </select>
         <button class="btn-slate" type="button" onclick="loadWorkflowData()">REFRESH</button>
+        <button id="syncJobTreadBtn" class="btn-orange" type="button" onclick="syncJobTread()">SYNC JOBTREAD</button>
         <button id="testJobTreadApiBtn" class="btn-teal hidden" type="button" onclick="testJobTreadConnection()">TEST JOBTREAD API</button>
         <span id="jobTreadApiStatus" class="api-mode">JOBTREAD API: NOT TESTED</span>
       </div>
@@ -837,16 +838,12 @@ window.addEventListener('load', async () => {
   const hasAccess = await enforceAccess();
   if (!hasAccess) return;
 
-  const testApiButton = document.getElementById('testJobTreadApiBtn');
-
-  if (['ADMIN', 'SYSTEM_ADMIN'].includes(currentProfile?.role)) {
-    testApiButton?.classList.remove('hidden');
-  } else {
-    testApiButton?.classList.add('hidden');
-  }
-
   await loadWorkflowData();
   await loadJobTreadConnectionStatus();
+
+  if (['ADMIN', 'SYSTEM_ADMIN'].includes(currentProfile?.role)) {
+    document.getElementById('testJobTreadApiBtn')?.classList.remove('hidden');
+  }
 });
 
 async function enforceAccess() {
@@ -923,7 +920,7 @@ async function loadJobTreadConnectionStatus() {
 
   const { data, error } = await client
     .from('jobtread_integration_config')
-    .select('organization_id, organization_name, connection_status, last_tested_at, last_error')
+    .select('organization_id, organization_name, connection_status, last_tested_at, last_error, last_sync_at, last_sync_status, last_sync_error, last_sync_documents, last_sync_bid_requests')
     .eq('id', 'primary')
     .maybeSingle();
 
@@ -940,9 +937,13 @@ async function loadJobTreadConnectionStatus() {
     badge.style.background = '#dcfce7';
     badge.style.color = '#166534';
     badge.style.borderColor = '#86efac';
-    badge.title = data?.last_tested_at
+    const testedText = data?.last_tested_at
       ? `Last tested: ${new Date(data.last_tested_at).toLocaleString()}`
       : 'Connected';
+    const syncText = data?.last_sync_at
+      ? `\nLast sync: ${new Date(data.last_sync_at).toLocaleString()} · ${data.last_sync_status || ''} · ${data.last_sync_bid_requests || 0} Bid Request(s)`
+      : '\nNo JobTread document sync has been run yet.';
+    badge.title = testedText + syncText;
     return;
   }
 
@@ -1005,6 +1006,59 @@ async function testJobTreadConnection() {
     if (button) {
       button.disabled = false;
       button.textContent = 'TEST JOBTREAD API';
+    }
+  }
+}
+
+
+async function syncJobTread() {
+  const button = document.getElementById('syncJobTreadBtn');
+
+  if (!['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN'].includes(currentProfile?.role)) {
+    setMessage('pageMessage', 'danger', 'Warehouse access is required to sync JobTread.');
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'SYNCING...';
+  }
+
+  setMessage('pageMessage', 'info', 'Reading live Bid Requests from JobTread and matching them to Molinari inventory...');
+
+  try {
+    const { data, error } = await client.functions.invoke('jobtread-sync-warehouse', {
+      body: { action: 'sync' }
+    });
+
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.error || 'JobTread sync did not complete.');
+
+    await loadWorkflowData();
+    await loadJobTreadConnectionStatus();
+
+    const imported = Number(data.requestsImported || 0);
+    const updated = Number(data.requestsUpdated || 0);
+    const synced = Number(data.bidRequestsSynced || 0);
+    const lines = Number(data.linesWritten || 0);
+    const preserved = Number(data.quantityOverridesPreserved || 0);
+
+    setMessage(
+      'pageMessage',
+      'success',
+      `JobTread sync complete. ${synced} Bid Request(s) synced · ${imported} new · ${updated} updated · ${lines} line(s) refreshed${preserved ? ` · ${preserved} manually confirmed quantity override(s) preserved` : ''}.`
+    );
+  } catch (error) {
+    await loadJobTreadConnectionStatus();
+    setMessage(
+      'pageMessage',
+      'danger',
+      'JobTread sync failed: ' + (error?.message || String(error))
+    );
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'SYNC JOBTREAD';
     }
   }
 }
@@ -1206,11 +1260,13 @@ function renderRequestCard(request) {
           <div class="request-meta">
             <span><strong>Job:</strong> ${escapeHTML(request.job_number || '—')} ${request.job_name ? '· ' + escapeHTML(request.job_name) : ''}</span>
             <span><strong>Client:</strong> ${escapeHTML(request.client_name || '—')}</span>
+            ${request.job_location_address ? `<span><strong>Location:</strong> ${escapeHTML(request.job_location_address)}</span>` : ''}
             <span><strong>Requested:</strong> ${formatDate(request.request_date)}</span>
             <span><strong>By:</strong> ${escapeHTML(request.requested_by || '—')}</span>
           </div>
         </div>
         <div class="request-actions-top">
+          ${request.jobtread_bid_request_id ? '<span class="status-badge badge-green">LIVE JOBTREAD</span>' : '<span class="status-badge badge-gray">MANUAL</span>'}
           <span class="status-badge ${status.className}">${status.label}</span>
           ${jtLink}
         </div>
@@ -1255,7 +1311,8 @@ function renderRequestCard(request) {
 }
 
 function renderRequestLine(line, canEditResponse, canEditFinal) {
-  const requested = Number(line.requested_qty || 0);
+  const requestedMissing = line.requested_qty == null || line.requested_qty === '';
+  const requested = requestedMissing ? null : Number(line.requested_qty);
   const available = Number(line.available_to_commit || 0);
   const fulfill = Number(line.warehouse_fulfill_qty || 0);
   const finalQty = line.final_commit_qty == null ? fulfill : Number(line.final_commit_qty || 0);
@@ -1263,24 +1320,25 @@ function renderRequestLine(line, canEditResponse, canEditFinal) {
 
   const stockClass = !matched || available <= 0
     ? 'stock-none'
-    : available < requested
+    : !requestedMissing && available < requested
     ? 'stock-low'
     : 'stock-good';
 
   const fulfillCell = canEditResponse
-    ? `<input class="qty-input" id="fulfill_${line.line_id}" type="number" min="0" max="${matched ? requested : 0}" step="0.01" value="${matched ? Math.min(requested, available) : 0}" ${matched ? '' : 'disabled'}>`
+    ? `<input class="qty-input" id="fulfill_${line.line_id}" type="number" min="0" max="${matched && !requestedMissing ? requested : 0}" step="0.01" value="${matched && !requestedMissing ? Math.min(requested, available) : 0}" ${matched && !requestedMissing ? '' : 'disabled'}>`
     : `<strong>${formatNumber(fulfill)}</strong>`;
 
   const finalCell = canEditFinal
-    ? `<input class="qty-input" id="final_${line.line_id}" type="number" min="0" max="${matched ? fulfill : 0}" step="0.01" value="${matched ? finalQty : 0}" ${matched ? '' : 'disabled'}>`
+    ? `<input class="qty-input" id="final_${line.line_id}" type="number" min="0" max="${matched && !requestedMissing ? fulfill : 0}" step="0.01" value="${matched && !requestedMissing ? finalQty : 0}" ${matched && !requestedMissing ? '' : 'disabled'}>`
     : `<strong>${formatNumber(finalQty)}</strong>`;
 
   const notesCell = canEditResponse
     ? `<input class="notes-input" id="responseNote_${line.line_id}" value="${escapeAttribute(line.response_notes || (!matched ? 'Not carried in Molinari inventory' : ''))}" placeholder="Optional note">`
     : escapeHTML(line.response_notes || (!matched ? 'Not carried in Molinari inventory' : '—'));
 
-  const requestedDisplay =
-    `${formatNumber(requested)}${line.requested_uom ? ' ' + escapeHTML(line.requested_uom) : ''}`;
+  const requestedDisplay = requestedMissing
+    ? '<span class="status-badge badge-red">QTY REQUIRED IN JOBTREAD</span>'
+    : `${formatNumber(requested)}${line.requested_uom ? ' ' + escapeHTML(line.requested_uom) : ''}`;
 
   const inventoryMatch = matched
     ? `<strong>${escapeHTML(line.part_number || '')}</strong><br><span style="color:#667085;">${escapeHTML(line.description || '')}</span>`
