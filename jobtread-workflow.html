@@ -187,7 +187,7 @@
 
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      grid-template-columns: repeat(5, minmax(160px, 1fr));
       gap: 14px;
       margin-bottom: 18px;
     }
@@ -337,7 +337,7 @@
 
     .line-entry {
       display: grid;
-      grid-template-columns: minmax(260px, 1.4fr) 150px auto;
+      grid-template-columns: minmax(260px, 1.5fr) minmax(210px, 1fr) 130px 150px auto;
       gap: 10px;
       align-items: end;
       padding-top: 14px;
@@ -620,6 +620,10 @@
         <div class="summary-label">Open Warehouse POs</div>
         <div class="summary-value" id="openPOCount">0</div>
       </div>
+      <div class="summary-card">
+        <div class="summary-label">Ready to Issue</div>
+        <div class="summary-value" id="readyToIssueCount">0</div>
+      </div>
     </div>
 
     <div class="workflow-strip">
@@ -668,7 +672,7 @@
       <summary>Temporary Manual Pilot – Log an Existing JobTread Bid Request</summary>
       <div class="manual-content">
         <div class="warning-note">
-          This section is only the bridge until the JobTread API feed is connected. Projects still creates the Bid Request in JobTread. Warehouse is only logging that existing request here so the inventory workflow can be tested.
+          This section is only the bridge until the JobTread API feed is connected. Enter the JobTread request exactly as received. Items that match Molinari inventory will show current availability; items we do not carry will remain on the request as NOT IN INVENTORY so Warehouse can respond that they cannot be fulfilled internally.
         </div>
 
         <div class="form-grid">
@@ -711,23 +715,31 @@
 
         <div class="line-entry">
           <div>
-            <label for="manualPartNumber">Inventory Part #</label>
-            <input id="manualPartNumber" list="inventoryPartsList" placeholder="Type or select a part number">
+            <label for="manualRequestedItem">JobTread Requested Item *</label>
+            <input id="manualRequestedItem" placeholder="Example: Alarm - PGRM-2">
+          </div>
+          <div>
+            <label for="manualPartNumber">Inventory Part # (optional)</label>
+            <input id="manualPartNumber" list="inventoryPartsList" placeholder="Leave blank to auto-match">
             <datalist id="inventoryPartsList"></datalist>
           </div>
           <div>
             <label for="manualRequestedQty">Requested Qty</label>
             <input id="manualRequestedQty" type="number" min="0.01" step="0.01" placeholder="0">
           </div>
+          <div>
+            <label for="manualRequestedUom">Unit</label>
+            <input id="manualRequestedUom" placeholder="Each / Linear Feet">
+          </div>
           <button class="btn-teal" type="button" onclick="addManualLine()">ADD LINE</button>
         </div>
 
         <div id="manualLinesWrap" class="manual-lines hidden">
-          <table style="min-width:760px;">
+          <table style="min-width:980px;">
             <thead>
               <tr>
-                <th>Part #</th>
-                <th>Description</th>
+                <th>JobTread Requested Item</th>
+                <th>Inventory Match</th>
                 <th class="numeric">Requested</th>
                 <th class="numeric">On Hand</th>
                 <th class="numeric">Committed</th>
@@ -749,7 +761,7 @@
 
     <div class="tabs">
       <button id="requestsTabBtn" class="tab-btn active" type="button" onclick="setTab('requests')">BID REQUEST WORKFLOW</button>
-      <button id="commitmentsTabBtn" class="tab-btn" type="button" onclick="setTab('commitments')">OPEN INVENTORY COMMITMENTS</button>
+      <button id="commitmentsTabBtn" class="tab-btn" type="button" onclick="setTab('commitments')">WAREHOUSE FULFILLMENT</button>
     </div>
 
     <section id="requestsTab">
@@ -761,18 +773,25 @@
 
     <section id="commitmentsTab" class="hidden">
       <div class="section-heading">
-        <h2>Committed Inventory</h2>
+        <div>
+          <h2>Warehouse Fulfillment</h2>
+          <div style="margin-top:4px; color:#667085; font-size:12px;">
+            Stage committed JobTread PO inventory, then issue it to the project when the material physically leaves Warehouse.
+          </div>
+        </div>
         <a class="btn-link btn-light" href="warehouse.html">OPEN WAREHOUSE OPERATIONS</a>
       </div>
+
       <div class="info-note">
-        A JobTread PO reserves inventory. It does not reduce physical On Hand until Warehouse actually issues the material.
+        PO commitment reserves inventory but does not reduce physical On Hand. Staging also does not reduce On Hand. Only ISSUE TO JOB creates the inventory transaction and reduces Main Warehouse quantity.
       </div>
+
       <div class="table-wrap">
-        <table class="commitment-table">
+        <table class="commitment-table" style="min-width:1480px;">
           <thead>
             <tr>
+              <th>Status</th>
               <th>PO #</th>
-              <th>Bid Request</th>
               <th>Job</th>
               <th>Client</th>
               <th>Part #</th>
@@ -780,13 +799,15 @@
               <th class="numeric">Committed</th>
               <th class="numeric">Issued</th>
               <th class="numeric">Remaining</th>
+              <th class="numeric">Staged</th>
               <th class="numeric">On Hand</th>
               <th class="numeric">Available to Commit</th>
-              <th>Status</th>
+              <th>Shelf</th>
+              <th>Warehouse Action</th>
             </tr>
           </thead>
           <tbody id="commitmentBody">
-            <tr><td colspan="12">Loading commitments...</td></tr>
+            <tr><td colspan="14">Loading commitments...</td></tr>
           </tbody>
         </table>
       </div>
@@ -952,6 +973,18 @@ function updateSummary() {
   document.getElementById('awaitingProjectsCount').textContent = countStatus('AWAITING_PROJECTS_UPDATE');
   document.getElementById('awaitingPOCount').textContent = countStatus('ACCEPTED_AWAITING_PO');
   document.getElementById('openPOCount').textContent = requestSummary.filter(r => r.status === 'PO_CREATED').length;
+
+  const readyPOs = new Set(
+    requestLines
+      .filter(line =>
+        line.commitment_id &&
+        ['OPEN', 'PARTIAL'].includes(line.commitment_status) &&
+        Number(line.staged_qty || 0) > 0
+      )
+      .map(line => line.jobtread_po_number)
+  );
+
+  document.getElementById('readyToIssueCount').textContent = readyPOs.size;
 }
 
 function renderWorkflow() {
@@ -1087,8 +1120,8 @@ function renderRequestCard(request) {
           <table>
             <thead>
               <tr>
-                <th>Part #</th>
-                <th>Description</th>
+                <th>JobTread Requested Item</th>
+                <th>Inventory Match</th>
                 <th class="numeric">Requested</th>
                 <th class="numeric">On Hand</th>
                 <th class="numeric">Committed</th>
@@ -1123,30 +1156,42 @@ function renderRequestLine(line, canEditResponse, canEditFinal) {
   const available = Number(line.available_to_commit || 0);
   const fulfill = Number(line.warehouse_fulfill_qty || 0);
   const finalQty = line.final_commit_qty == null ? fulfill : Number(line.final_commit_qty || 0);
+  const matched = line.inventory_matched === true;
 
-  const stockClass = available <= 0 ? 'stock-none' : available < requested ? 'stock-low' : 'stock-good';
+  const stockClass = !matched || available <= 0
+    ? 'stock-none'
+    : available < requested
+    ? 'stock-low'
+    : 'stock-good';
 
   const fulfillCell = canEditResponse
-    ? `<input class="qty-input" id="fulfill_${line.line_id}" type="number" min="0" max="${requested}" step="0.01" value="${Math.min(requested, available)}">`
+    ? `<input class="qty-input" id="fulfill_${line.line_id}" type="number" min="0" max="${matched ? requested : 0}" step="0.01" value="${matched ? Math.min(requested, available) : 0}" ${matched ? '' : 'disabled'}>`
     : `<strong>${formatNumber(fulfill)}</strong>`;
 
   const finalCell = canEditFinal
-    ? `<input class="qty-input" id="final_${line.line_id}" type="number" min="0" max="${fulfill}" step="0.01" value="${finalQty}">`
+    ? `<input class="qty-input" id="final_${line.line_id}" type="number" min="0" max="${matched ? fulfill : 0}" step="0.01" value="${matched ? finalQty : 0}" ${matched ? '' : 'disabled'}>`
     : `<strong>${formatNumber(finalQty)}</strong>`;
 
   const notesCell = canEditResponse
-    ? `<input class="notes-input" id="responseNote_${line.line_id}" value="${escapeAttribute(line.response_notes || '')}" placeholder="Optional note">`
-    : escapeHTML(line.response_notes || '—');
+    ? `<input class="notes-input" id="responseNote_${line.line_id}" value="${escapeAttribute(line.response_notes || (!matched ? 'Not carried in Molinari inventory' : ''))}" placeholder="Optional note">`
+    : escapeHTML(line.response_notes || (!matched ? 'Not carried in Molinari inventory' : '—'));
+
+  const requestedDisplay =
+    `${formatNumber(requested)}${line.requested_uom ? ' ' + escapeHTML(line.requested_uom) : ''}`;
+
+  const inventoryMatch = matched
+    ? `<strong>${escapeHTML(line.part_number || '')}</strong><br><span style="color:#667085;">${escapeHTML(line.description || '')}</span>`
+    : `<span class="status-badge badge-red">NOT IN INVENTORY</span>`;
 
   return `
     <tr>
-      <td><strong>${escapeHTML(line.part_number || '')}</strong></td>
-      <td>${escapeHTML(line.description || '')}</td>
-      <td class="numeric">${formatNumber(requested)}</td>
-      <td class="numeric">${formatNumber(line.main_warehouse_on_hand)}</td>
-      <td class="numeric">${formatNumber(line.open_committed_qty)}</td>
-      <td class="numeric ${stockClass}">${formatNumber(available)}</td>
-      <td>${escapeHTML(line.shelf_location || '—')}</td>
+      <td><strong>${escapeHTML(line.requested_item || line.description || line.part_number || '')}</strong></td>
+      <td>${inventoryMatch}</td>
+      <td class="numeric">${requestedDisplay}</td>
+      <td class="numeric">${matched ? formatNumber(line.main_warehouse_on_hand) : '—'}</td>
+      <td class="numeric">${matched ? formatNumber(line.open_committed_qty) : '—'}</td>
+      <td class="numeric ${stockClass}">${matched ? formatNumber(available) : '0'}</td>
+      <td>${matched ? escapeHTML(line.shelf_location || '—') : '—'}</td>
       <td class="numeric">${fulfillCell}</td>
       <td class="numeric">${finalCell}</td>
       <td>${notesCell}</td>
@@ -1159,29 +1204,215 @@ function renderCommitments() {
 
   const rows = requestLines
     .filter(line => line.commitment_id && ['OPEN', 'PARTIAL'].includes(line.commitment_status))
-    .sort((a, b) => String(a.jobtread_po_number || '').localeCompare(String(b.jobtread_po_number || '')));
+    .sort((a, b) => {
+      const poCompare = String(a.jobtread_po_number || '').localeCompare(String(b.jobtread_po_number || ''));
+      if (poCompare !== 0) return poCompare;
+      return String(a.part_number || '').localeCompare(String(b.part_number || ''));
+    });
 
   if (rows.length === 0) {
-    body.innerHTML = '<tr><td colspan="12">No open inventory commitments.</td></tr>';
+    body.innerHTML = '<tr><td colspan="14">No open JobTread inventory commitments.</td></tr>';
     return;
   }
 
-  body.innerHTML = rows.map(line => `
-    <tr>
-      <td><strong>${escapeHTML(line.jobtread_po_number || '')}</strong></td>
-      <td>${escapeHTML(line.bid_request_number || '')}</td>
-      <td>${escapeHTML(line.job_number || '')} ${line.job_name ? '· ' + escapeHTML(line.job_name) : ''}</td>
-      <td>${escapeHTML(line.client_name || '')}</td>
-      <td><strong>${escapeHTML(line.part_number || '')}</strong></td>
-      <td>${escapeHTML(line.description || '')}</td>
-      <td class="numeric">${formatNumber(line.committed_qty)}</td>
-      <td class="numeric">${formatNumber(line.fulfilled_qty)}</td>
-      <td class="numeric">${formatNumber(line.commitment_remaining_qty)}</td>
-      <td class="numeric">${formatNumber(line.main_warehouse_on_hand)}</td>
-      <td class="numeric">${formatNumber(line.available_to_commit)}</td>
-      <td><span class="status-badge badge-green">${escapeHTML(line.commitment_status || '')}</span></td>
-    </tr>
-  `).join('');
+  body.innerHTML = rows.map(line => {
+    const remaining = Number(line.commitment_remaining_qty || 0);
+    const staged = Number(line.staged_qty || 0);
+    const readyToIssue = staged > 0;
+    const statusBadge = readyToIssue
+      ? '<span class="status-badge badge-green">READY TO ISSUE</span>'
+      : '<span class="status-badge badge-purple">READY TO STAGE</span>';
+
+    const serialField = line.is_serialized
+      ? `
+        <div style="margin-top:7px;">
+          <label for="serial_${line.commitment_id}">Serial #</label>
+          <input id="serial_${line.commitment_id}" style="min-width:150px;" placeholder="Required">
+        </div>
+      `
+      : '';
+
+    return `
+      <tr>
+        <td>${statusBadge}</td>
+        <td><strong>${escapeHTML(line.jobtread_po_number || '')}</strong><br><span style="color:#667085;">BR ${escapeHTML(line.bid_request_number || '')}</span></td>
+        <td>${escapeHTML(line.job_number || '')}${line.job_name ? '<br><span style="color:#667085;">' + escapeHTML(line.job_name) + '</span>' : ''}</td>
+        <td>${escapeHTML(line.client_name || '')}</td>
+        <td><strong>${escapeHTML(line.part_number || '')}</strong></td>
+        <td>${escapeHTML(line.description || '')}</td>
+        <td class="numeric">${formatNumber(line.committed_qty)}</td>
+        <td class="numeric">${formatNumber(line.fulfilled_qty)}</td>
+        <td class="numeric"><strong>${formatNumber(remaining)}</strong></td>
+        <td class="numeric ${readyToIssue ? 'stock-good' : ''}">${formatNumber(staged)}</td>
+        <td class="numeric">${formatNumber(line.main_warehouse_on_hand)}</td>
+        <td class="numeric">${formatNumber(line.available_to_commit)}</td>
+        <td>${escapeHTML(line.shelf_location || '—')}</td>
+        <td>
+          <div style="min-width:260px;">
+            <div style="display:grid; grid-template-columns:100px 1fr; gap:6px; align-items:end;">
+              <div>
+                <label for="stageQty_${line.commitment_id}">Stage Qty</label>
+                <input
+                  id="stageQty_${line.commitment_id}"
+                  class="qty-input"
+                  type="number"
+                  min="0"
+                  max="${remaining}"
+                  step="0.01"
+                  value="${readyToIssue ? staged : remaining}"
+                >
+              </div>
+              <button class="btn-primary" type="button" onclick="stageCommitment('${line.commitment_id}')">
+                ${readyToIssue ? 'UPDATE STAGING' : 'STAGE / READY'}
+              </button>
+            </div>
+
+            ${readyToIssue ? `
+              <div style="display:grid; grid-template-columns:100px 1fr; gap:6px; align-items:end; margin-top:8px;">
+                <div>
+                  <label for="issueQty_${line.commitment_id}">Issue Qty</label>
+                  <input
+                    id="issueQty_${line.commitment_id}"
+                    class="qty-input"
+                    type="number"
+                    min="0.01"
+                    max="${Math.min(staged, remaining)}"
+                    step="0.01"
+                    value="${Math.min(staged, remaining)}"
+                  >
+                </div>
+                <button class="btn-teal" type="button" onclick="issueCommitment('${line.commitment_id}')">
+                  ISSUE TO JOB
+                </button>
+              </div>
+              ${serialField}
+              <button class="btn-light" style="margin-top:7px; padding:7px 10px;" type="button" onclick="unstageCommitment('${line.commitment_id}')">
+                UNSTAGE
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function stageCommitment(commitmentId) {
+  const input = document.getElementById(`stageQty_${commitmentId}`);
+  const qty = Number(input?.value || 0);
+
+  if (qty <= 0) {
+    setMessage('pageMessage', 'danger', 'Stage quantity must be greater than zero. Use UNSTAGE to clear staged inventory.');
+    return;
+  }
+
+  if (!window.confirm(`Stage ${formatNumber(qty)} unit(s) and mark them ready for this JobTread PO?`)) return;
+
+  setMessage('pageMessage', 'info', 'Updating staged inventory...');
+
+  const { error } = await client.rpc('jobtread_set_staged_qty', {
+    p_commitment_id: commitmentId,
+    p_staged_qty: qty,
+    p_staged_by: getCurrentUserDisplayName()
+  });
+
+  if (error) {
+    setMessage('pageMessage', 'danger', error.message);
+    return;
+  }
+
+  await loadWorkflowData();
+  setTab('commitments');
+  setMessage('pageMessage', 'success', 'Inventory staged and ready to issue.');
+}
+
+async function unstageCommitment(commitmentId) {
+  if (!window.confirm('Remove this material from Ready to Issue and return it to committed / not staged status?')) return;
+
+  const { error } = await client.rpc('jobtread_set_staged_qty', {
+    p_commitment_id: commitmentId,
+    p_staged_qty: 0,
+    p_staged_by: getCurrentUserDisplayName()
+  });
+
+  if (error) {
+    setMessage('pageMessage', 'danger', error.message);
+    return;
+  }
+
+  await loadWorkflowData();
+  setTab('commitments');
+  setMessage('pageMessage', 'success', 'Staging cleared. Inventory remains committed to the PO.');
+}
+
+async function issueCommitment(commitmentId, fifoOverrideReason = null) {
+  const line = requestLines.find(row => String(row.commitment_id) === String(commitmentId));
+  if (!line) {
+    setMessage('pageMessage', 'danger', 'Commitment line could not be found.');
+    return;
+  }
+
+  const qty = Number(document.getElementById(`issueQty_${commitmentId}`)?.value || 0);
+  const serialNumber = document.getElementById(`serial_${commitmentId}`)?.value.trim() || null;
+
+  if (qty <= 0) {
+    setMessage('pageMessage', 'danger', 'Issue quantity must be greater than zero.');
+    return;
+  }
+
+  if (line.is_serialized === true && !serialNumber) {
+    setMessage('pageMessage', 'danger', 'Serial number is required for this serialized part.');
+    return;
+  }
+
+  if (!fifoOverrideReason) {
+    const confirmed = window.confirm(
+      `Issue ${formatNumber(qty)} × ${line.part_number} to Job ${line.job_number || ''} against PO ${line.jobtread_po_number}?
+
+This WILL reduce physical Main Warehouse On Hand.`
+    );
+    if (!confirmed) return;
+  }
+
+  setMessage('pageMessage', 'info', 'Issuing committed inventory to the project...');
+
+  const { data, error } = await client.rpc('jobtread_issue_committed_inventory', {
+    p_commitment_id: commitmentId,
+    p_issue_qty: qty,
+    p_issued_by: getCurrentUserDisplayName(),
+    p_serial_number: serialNumber,
+    p_fifo_override_reason: fifoOverrideReason
+  });
+
+  if (error) {
+    if (!fifoOverrideReason && /FIFO warning/i.test(error.message || '')) {
+      const reason = window.prompt(
+        `${error.message}
+
+Enter the FIFO override reason to continue, or Cancel to stop:`
+      );
+
+      if (reason && reason.trim()) {
+        return issueCommitment(commitmentId, reason.trim());
+      }
+      return;
+    }
+
+    setMessage('pageMessage', 'danger', error.message);
+    return;
+  }
+
+  await loadWorkflowData();
+  setTab('commitments');
+
+  const remaining = Number(data?.remaining_qty || 0);
+  setMessage(
+    'pageMessage',
+    'success',
+    remaining > 0
+      ? `Inventory issued successfully. ${formatNumber(remaining)} committed unit(s) remain on this PO.`
+      : `Inventory issued successfully. This commitment is fully fulfilled.`
+  );
 }
 
 function linesForRequest(requestId) {
@@ -1298,15 +1529,13 @@ async function cancelCommitments(requestId) {
 }
 
 function addManualLine() {
-  const partNumber = document.getElementById('manualPartNumber').value.trim();
+  const requestedItem = document.getElementById('manualRequestedItem').value.trim();
+  const suppliedPartNumber = document.getElementById('manualPartNumber').value.trim();
   const qty = Number(document.getElementById('manualRequestedQty').value || 0);
+  const uom = document.getElementById('manualRequestedUom').value.trim();
 
-  const part = inventoryAvailability.find(
-    p => normalizeText(p.part_number) === normalizeText(partNumber)
-  );
-
-  if (!part) {
-    setMessage('manualMessage', 'danger', 'Select a valid inventory Part #.');
+  if (!requestedItem) {
+    setMessage('manualMessage', 'danger', 'JobTread Requested Item is required.');
     return;
   }
 
@@ -1315,24 +1544,43 @@ function addManualLine() {
     return;
   }
 
-  const existing = manualLines.find(l => l.part_id === part.part_id);
+  let part = null;
 
-  if (existing) {
-    existing.requested_qty += qty;
+  if (suppliedPartNumber) {
+    part = inventoryAvailability.find(
+      p => normalizeText(p.part_number) === normalizeText(suppliedPartNumber)
+    ) || null;
+
+    if (!part) {
+      setMessage('manualMessage', 'danger', 'The Inventory Part # entered does not exist in the active inventory database. Leave it blank if this JobTread item is not stocked.');
+      return;
+    }
   } else {
-    manualLines.push({
-      part_id: part.part_id,
-      part_number: part.part_number,
-      description: part.description,
-      requested_qty: qty,
-      main_warehouse_on_hand: part.main_warehouse_on_hand,
-      open_committed_qty: part.open_committed_qty,
-      available_to_commit: part.available_to_commit
-    });
+    const requestedNormalized = normalizeText(requestedItem);
+
+    part = inventoryAvailability
+      .filter(p => String(p.part_number || '').trim().length >= 4)
+      .sort((a, b) => String(b.part_number || '').length - String(a.part_number || '').length)
+      .find(p => requestedNormalized.includes(normalizeText(p.part_number))) || null;
   }
 
+  manualLines.push({
+    requested_item: requestedItem,
+    requested_uom: uom,
+    part_id: part?.part_id || null,
+    part_number: part?.part_number || '',
+    description: part?.description || '',
+    requested_qty: qty,
+    main_warehouse_on_hand: part?.main_warehouse_on_hand ?? 0,
+    open_committed_qty: part?.open_committed_qty ?? 0,
+    available_to_commit: part?.available_to_commit ?? 0,
+    inventory_matched: !!part
+  });
+
+  document.getElementById('manualRequestedItem').value = '';
   document.getElementById('manualPartNumber').value = '';
   document.getElementById('manualRequestedQty').value = '';
+  document.getElementById('manualRequestedUom').value = '';
   renderManualLines();
   setMessage('manualMessage', '', '');
 }
@@ -1350,12 +1598,16 @@ function renderManualLines() {
   wrap.classList.remove('hidden');
   body.innerHTML = manualLines.map((line, index) => `
     <tr>
-      <td><strong>${escapeHTML(line.part_number)}</strong></td>
-      <td>${escapeHTML(line.description || '')}</td>
-      <td class="numeric">${formatNumber(line.requested_qty)}</td>
-      <td class="numeric">${formatNumber(line.main_warehouse_on_hand)}</td>
-      <td class="numeric">${formatNumber(line.open_committed_qty)}</td>
-      <td class="numeric">${formatNumber(line.available_to_commit)}</td>
+      <td><strong>${escapeHTML(line.requested_item)}</strong></td>
+      <td>${
+        line.inventory_matched
+          ? `<strong>${escapeHTML(line.part_number)}</strong><br><span style="color:#667085;">${escapeHTML(line.description || '')}</span>`
+          : '<span class="status-badge badge-red">NOT IN INVENTORY</span>'
+      }</td>
+      <td class="numeric">${formatNumber(line.requested_qty)}${line.requested_uom ? ' ' + escapeHTML(line.requested_uom) : ''}</td>
+      <td class="numeric">${line.inventory_matched ? formatNumber(line.main_warehouse_on_hand) : '—'}</td>
+      <td class="numeric">${line.inventory_matched ? formatNumber(line.open_committed_qty) : '—'}</td>
+      <td class="numeric">${line.inventory_matched ? formatNumber(line.available_to_commit) : '0'}</td>
       <td><button class="btn-danger" style="padding:6px 9px;" type="button" onclick="removeManualLine(${index})">REMOVE</button></td>
     </tr>
   `).join('');
@@ -1391,7 +1643,9 @@ async function saveManualBidRequest() {
     p_jobtread_url: document.getElementById('manualJobTreadUrl').value.trim() || null,
     p_notes: document.getElementById('manualNotes').value.trim() || null,
     p_lines: manualLines.map(line => ({
-      part_number: line.part_number,
+      requested_item: line.requested_item,
+      requested_uom: line.requested_uom || null,
+      part_number: line.part_number || null,
       requested_qty: line.requested_qty
     }))
   });
@@ -1416,8 +1670,10 @@ function clearManualBidRequest() {
   document.getElementById('manualClientName').value = '';
   document.getElementById('manualJobTreadUrl').value = '';
   document.getElementById('manualNotes').value = '';
+  document.getElementById('manualRequestedItem').value = '';
   document.getElementById('manualPartNumber').value = '';
   document.getElementById('manualRequestedQty').value = '';
+  document.getElementById('manualRequestedUom').value = '';
   manualLines = [];
   renderManualLines();
   setMessage('manualMessage', '', '');
