@@ -663,7 +663,8 @@
           <option value="CANCELLED">Cancelled</option>
         </select>
         <button class="btn-slate" type="button" onclick="loadWorkflowData()">REFRESH</button>
-        <span class="api-mode">MANUAL PILOT / API READY</span>
+        <button id="testJobTreadApiBtn" class="btn-teal hidden" type="button" onclick="testJobTreadConnection()">TEST JOBTREAD API</button>
+        <span id="jobTreadApiStatus" class="api-mode">JOBTREAD API: NOT TESTED</span>
       </div>
       <div id="pageMessage" class="message"></div>
     </div>
@@ -837,6 +838,11 @@ window.addEventListener('load', async () => {
   if (!hasAccess) return;
 
   await loadWorkflowData();
+  await loadJobTreadConnectionStatus();
+
+  if (['ADMIN', 'SYSTEM_ADMIN'].includes(currentProfile?.role)) {
+    document.getElementById('testJobTreadApiBtn')?.classList.remove('hidden');
+  }
 });
 
 async function enforceAccess() {
@@ -904,6 +910,99 @@ function showAccess(message, type = 'warning') {
 async function appLogout() {
   try { await client.auth.signOut(); } catch (error) { console.error(error); }
   window.location.href = 'login.html';
+}
+
+
+async function loadJobTreadConnectionStatus() {
+  const badge = document.getElementById('jobTreadApiStatus');
+  if (!badge) return;
+
+  const { data, error } = await client
+    .from('jobtread_integration_config')
+    .select('organization_id, organization_name, connection_status, last_tested_at, last_error')
+    .eq('id', 'primary')
+    .maybeSingle();
+
+  if (error) {
+    badge.textContent = 'JOBTREAD API: STATUS ERROR';
+    badge.title = error.message;
+    return;
+  }
+
+  const status = data?.connection_status || 'NOT_TESTED';
+
+  if (status === 'CONNECTED') {
+    badge.textContent = `JOBTREAD API: CONNECTED${data?.organization_name ? ' · ' + data.organization_name : ''}`;
+    badge.style.background = '#dcfce7';
+    badge.style.color = '#166534';
+    badge.style.borderColor = '#86efac';
+    badge.title = data?.last_tested_at
+      ? `Last tested: ${new Date(data.last_tested_at).toLocaleString()}`
+      : 'Connected';
+    return;
+  }
+
+  if (status === 'ERROR') {
+    badge.textContent = 'JOBTREAD API: CONNECTION ERROR';
+    badge.style.background = '#fee2e2';
+    badge.style.color = '#991b1b';
+    badge.style.borderColor = '#fecaca';
+    badge.title = data?.last_error || 'Connection test failed.';
+    return;
+  }
+
+  badge.textContent = 'JOBTREAD API: NOT TESTED';
+  badge.title = 'Grant Key is stored in Supabase. Run the connection test.';
+}
+
+async function testJobTreadConnection() {
+  const button = document.getElementById('testJobTreadApiBtn');
+
+  if (!['ADMIN', 'SYSTEM_ADMIN'].includes(currentProfile?.role)) {
+    setMessage('pageMessage', 'danger', 'Admin or System Admin access is required to test the JobTread API connection.');
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'TESTING...';
+  }
+
+  setMessage('pageMessage', 'info', 'Testing the secure JobTread API connection...');
+
+  try {
+    const { data, error } = await client.functions.invoke('jobtread-connection-test', {
+      body: { action: 'test' }
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data?.connected) {
+      throw new Error(data?.error || 'JobTread did not confirm the connection.');
+    }
+
+    await loadJobTreadConnectionStatus();
+
+    setMessage(
+      'pageMessage',
+      'success',
+      `JobTread API connected successfully${data.organizationName ? ' to ' + data.organizationName : ''}. Organization ID saved securely in Supabase.`
+    );
+  } catch (error) {
+    await loadJobTreadConnectionStatus();
+    setMessage(
+      'pageMessage',
+      'danger',
+      'JobTread API connection test failed: ' + (error?.message || String(error))
+    );
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'TEST JOBTREAD API';
+    }
+  }
 }
 
 async function loadWorkflowData() {
