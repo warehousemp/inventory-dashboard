@@ -1209,7 +1209,8 @@ function renderWorkflow() {
       ...lines.map(l => l.part_number),
       ...lines.map(l => l.description),
       ...lines.map(l => l.requested_item),
-      ...lines.map(l => l.fulfillment_status)
+      ...lines.map(l => l.fulfillment_status),
+      ...lines.map(l => l.fulfillment_status === 'PART_NOT_AVAILABLE_CHANGE_ORDER' ? 'Part Not Available Change Order Needed' : '')
     ].join(' '));
 
     return haystack.includes(search);
@@ -1227,9 +1228,13 @@ function renderRequestCard(request) {
   const lines = linesForRequest(request.id);
   const status = statusInfo(request.status);
   const canEditResponse = request.status === 'NEEDS_REVIEW';
+  const hasChangeOrder = lines.some(line =>
+    line.fulfillment_status === 'PART_NOT_AVAILABLE_CHANGE_ORDER'
+  );
   const hasClarification = lines.some(line =>
     line.fulfillment_status === 'NEEDS_CLARIFICATION' ||
     line.fulfillment_status === 'PENDING' ||
+    line.fulfillment_status === 'PART_NOT_AVAILABLE_CHANGE_ORDER' ||
     line.requested_qty == null
   );
 
@@ -1244,8 +1249,15 @@ function renderRequestCard(request) {
       </button>
     `;
   } else if (request.status === 'AWAITING_PROJECTS_UPDATE') {
-    if (hasClarification) {
-      help = 'Warehouse has at least one line marked Needs Clarification. Projects must correct the quantity/specification in JobTread, then run SYNC JOBTREAD before Warehouse accepts the plan.';
+    if (hasChangeOrder) {
+      help = 'Warehouse has identified at least one requested part that is not available. Projects must process the required Change Order before Warehouse can complete the sourcing plan.';
+      footerAction = `
+        <button class="btn-danger" type="button" disabled>
+          CHANGE ORDER NEEDED
+        </button>
+      `;
+    } else if (hasClarification) {
+      help = 'Warehouse has at least one line marked Needs Clarification. Projects must correct the quantity/specification in JobTread, then run SYNC JOBTREAD before Warehouse can complete the plan.';
       footerAction = `
         <button class="btn-light" type="button" disabled>
           AWAITING CLARIFICATION
@@ -1374,6 +1386,7 @@ function fulfillmentStatusInfo(status) {
     FROM_INVENTORY: { label: 'FROM INVENTORY', className: 'badge-green' },
     PURCHASE_REQUIRED: { label: 'PURCHASE REQUIRED', className: 'badge-orange' },
     PARTIAL_STOCK_PURCHASE: { label: 'PARTIAL STOCK + PURCHASE', className: 'badge-purple' },
+    PART_NOT_AVAILABLE_CHANGE_ORDER: { label: 'PART NOT AVAILABLE - CHANGE ORDER NEEDED', className: 'badge-red' },
     NEEDS_CLARIFICATION: { label: 'NEEDS CLARIFICATION', className: 'badge-red' }
   };
 
@@ -1424,6 +1437,7 @@ function renderRequestLine(line, canEditResponse) {
         <option value="FROM_INVENTORY" ${selectedStatus === 'FROM_INVENTORY' ? 'selected' : ''}>FROM INVENTORY</option>
         <option value="PURCHASE_REQUIRED" ${selectedStatus === 'PURCHASE_REQUIRED' ? 'selected' : ''}>PURCHASE REQUIRED</option>
         <option value="PARTIAL_STOCK_PURCHASE" ${selectedStatus === 'PARTIAL_STOCK_PURCHASE' ? 'selected' : ''}>PARTIAL STOCK + PURCHASE</option>
+        <option value="PART_NOT_AVAILABLE_CHANGE_ORDER" ${selectedStatus === 'PART_NOT_AVAILABLE_CHANGE_ORDER' ? 'selected' : ''}>PART NOT AVAILABLE - CHANGE ORDER NEEDED</option>
         <option value="NEEDS_CLARIFICATION" ${selectedStatus === 'NEEDS_CLARIFICATION' ? 'selected' : ''}>NEEDS CLARIFICATION</option>
       </select>
     `
@@ -1799,9 +1813,14 @@ async function saveWarehouseResponse(requestId) {
     };
   });
 
-  const hasClarification = payload.some(line => line.fulfillment_status === 'NEEDS_CLARIFICATION');
+  const hasChangeOrder = payload.some(line => line.fulfillment_status === 'PART_NOT_AVAILABLE_CHANGE_ORDER');
+  const hasClarification = payload.some(line =>
+    ['NEEDS_CLARIFICATION', 'PART_NOT_AVAILABLE_CHANGE_ORDER'].includes(line.fulfillment_status)
+  );
 
-  const confirmMessage = hasClarification
+  const confirmMessage = hasChangeOrder
+    ? 'Save this Warehouse response and post it to the JobTread Bid Request Messaging thread? Items marked PART NOT AVAILABLE - CHANGE ORDER NEEDED will tell Projects that a Change Order is required before Warehouse can proceed.'
+    : hasClarification
     ? 'Save this Warehouse response and post it to the JobTread Bid Request Messaging thread? Lines marked NEEDS CLARIFICATION will tell Projects what must be corrected.'
     : 'Save this Warehouse response and post it to the JobTread Bid Request Messaging thread? Stock quantities will be reserved only after the JobTread PO is created; Purchase Required quantities will become Warehouse purchasing commitments at that time.';
 
@@ -1872,9 +1891,11 @@ async function saveWarehouseResponse(requestId) {
   setMessage(
     'pageMessage',
     hasClarification ? 'warning' : 'success',
-    hasClarification
+    hasChangeOrder
+      ? 'Warehouse response saved and posted to the JobTread Bid Request Messaging thread. Projects must process the Change Order for the unavailable part(s) before Warehouse can complete sourcing.'
+      : hasClarification
       ? 'Warehouse response saved and posted to the JobTread Bid Request Messaging thread. Projects must correct the clarification-required item(s), then run SYNC JOBTREAD.'
-      : 'Warehouse response saved and posted to the JobTread Bid Request Messaging thread. All lines are assigned to Inventory or Warehouse Purchasing and are ready for Warehouse acceptance.'
+      : 'Warehouse response saved and posted to the JobTread Bid Request Messaging thread. All lines are assigned to Inventory or Warehouse Purchasing.'
   );
 }
 
@@ -1883,7 +1904,7 @@ async function acceptFinalBid(requestId) {
 
   const unresolved = lines.filter(line =>
     line.requested_qty == null ||
-    ['PENDING', 'NEEDS_CLARIFICATION'].includes(line.fulfillment_status || 'PENDING')
+    ['PENDING', 'NEEDS_CLARIFICATION', 'PART_NOT_AVAILABLE_CHANGE_ORDER'].includes(line.fulfillment_status || 'PENDING')
   );
 
   if (unresolved.length > 0) {
