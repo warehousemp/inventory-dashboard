@@ -668,6 +668,9 @@
         <span id="jobTreadApiStatus" class="api-mode">JOBTREAD API: NOT TESTED</span>
       </div>
       <div id="pageMessage" class="message"></div>
+      <div style="margin-top:6px; color:#667085; font-size:11px;">
+        Warehouse responses are stored in the inventory database and automatically posted to the linked JobTread Bid Request Messaging thread.
+      </div>
     </div>
 
     <details id="manualPilotPanel" class="card manual-panel">
@@ -1234,10 +1237,10 @@ function renderRequestCard(request) {
   let footerAction = '';
 
   if (request.status === 'NEEDS_REVIEW') {
-    help = 'Set a Warehouse Fulfillment Status for every line. Warehouse owns the sourcing decision: use stock when available, purchase what is needed, or request clarification when Projects must correct the request.';
+    help = 'Set a Warehouse Fulfillment Status for every line. Warehouse owns the sourcing decision: use stock when available, purchase what is needed, or request clarification when Projects must correct the request. Saving the response also posts the Warehouse summary into the linked JobTread Bid Request Messaging thread.';
     footerAction = `
       <button class="btn-teal" type="button" onclick="saveWarehouseResponse('${request.id}')">
-        SAVE WAREHOUSE SOURCING PLAN
+        SAVE & POST WAREHOUSE RESPONSE
       </button>
     `;
   } else if (request.status === 'AWAITING_PROJECTS_UPDATE') {
@@ -1782,6 +1785,7 @@ function linesForRequest(requestId) {
 
 async function saveWarehouseResponse(requestId) {
   const lines = linesForRequest(requestId);
+  const request = requestSummary.find(row => String(row.id) === String(requestId));
 
   const payload = lines.map(line => {
     const status = document.getElementById(`fulfillmentStatus_${line.line_id}`)?.value || 'PENDING';
@@ -1798,31 +1802,80 @@ async function saveWarehouseResponse(requestId) {
   const hasClarification = payload.some(line => line.fulfillment_status === 'NEEDS_CLARIFICATION');
 
   const confirmMessage = hasClarification
-    ? 'Save the Warehouse sourcing plan? Lines marked NEEDS CLARIFICATION will remain blocked until Projects corrects JobTread and syncs again.'
-    : 'Save the Warehouse sourcing plan? Stock quantities will be reserved only after the JobTread PO is created; Purchase Required quantities will become Warehouse purchasing commitments at that time.';
+    ? 'Save this Warehouse response and post it to the JobTread Bid Request Messaging thread? Lines marked NEEDS CLARIFICATION will tell Projects what must be corrected.'
+    : 'Save this Warehouse response and post it to the JobTread Bid Request Messaging thread? Stock quantities will be reserved only after the JobTread PO is created; Purchase Required quantities will become Warehouse purchasing commitments at that time.';
 
   if (!window.confirm(confirmMessage)) return;
 
-  setMessage('pageMessage', 'info', 'Saving Warehouse sourcing plan...');
+  setMessage('pageMessage', 'info', 'Saving Warehouse response and posting it to JobTread...');
 
-  const { data, error } = await client.rpc('jobtread_save_warehouse_response', {
+  const { data: saveData, error: saveError } = await client.rpc('jobtread_save_warehouse_response', {
     p_request_id: requestId,
     p_response_lines: payload,
     p_responded_by: getCurrentUserDisplayName()
   });
 
-  if (error) {
-    setMessage('pageMessage', 'danger', error.message);
+  if (saveError) {
+    setMessage('pageMessage', 'danger', saveError.message);
     return;
+  }
+
+  let postData = null;
+  let postError = null;
+
+  if (request?.jobtread_bid_request_id) {
+    const result = await client.functions.invoke('jobtread-post-warehouse-response', {
+      body: { requestId }
+    });
+
+    postData = result.data;
+    postError = result.error;
+
+    if (!postError && postData?.success === false) {
+      postError = new Error(postData.error || 'JobTread Messaging post failed.');
+    }
   }
 
   await loadWorkflowData();
 
-  if (Number(data?.clarification_lines || 0) > 0) {
-    setMessage('pageMessage', 'warning', 'Warehouse sourcing plan saved. Projects must correct the lines marked Needs Clarification in JobTread, then run SYNC JOBTREAD.');
-  } else {
-    setMessage('pageMessage', 'success', 'Warehouse sourcing plan saved. All lines are assigned to Inventory or Warehouse Purchasing and are ready for Warehouse acceptance.');
+  if (!request?.jobtread_bid_request_id) {
+    setMessage(
+      'pageMessage',
+      'warning',
+      'Warehouse response saved in the database. This request is not linked to a live JobTread document, so no JobTread message was posted.'
+    );
+    return;
   }
+
+  if (postError) {
+    setMessage(
+      'pageMessage',
+      'warning',
+      'Warehouse response was saved in the database, but the JobTread message could not be posted: ' +
+      (postError?.message || String(postError)) +
+      ' Save the response again to retry the JobTread post.'
+    );
+    return;
+  }
+
+  if (postData?.alreadyPosted) {
+    setMessage(
+      'pageMessage',
+      hasClarification ? 'warning' : 'success',
+      hasClarification
+        ? 'Warehouse response saved. The same clarification response is already posted in the JobTread Bid Request Messaging thread.'
+        : 'Warehouse response saved. The same response is already posted in the JobTread Bid Request Messaging thread.'
+    );
+    return;
+  }
+
+  setMessage(
+    'pageMessage',
+    hasClarification ? 'warning' : 'success',
+    hasClarification
+      ? 'Warehouse response saved and posted to the JobTread Bid Request Messaging thread. Projects must correct the clarification-required item(s), then run SYNC JOBTREAD.'
+      : 'Warehouse response saved and posted to the JobTread Bid Request Messaging thread. All lines are assigned to Inventory or Warehouse Purchasing and are ready for Warehouse acceptance.'
+  );
 }
 
 async function acceptFinalBid(requestId) {
