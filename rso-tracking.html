@@ -221,6 +221,15 @@
     .btn-danger { background: var(--danger); color: white; }
     .btn-small { min-height: 32px; padding: 6px 9px; font-size: 12px; }
 
+    /* Tracking-quarter controls: deliberately separate from commission payouts. */
+    .quarter-actions { display:flex;align-items:center;gap:9px;flex-wrap:wrap; }
+    .quarter-actions .btn { white-space:nowrap; }
+    .quarter-note { font-size:12px;color:var(--muted);line-height:1.45;margin-top:10px; }
+    .quarter-message { font-size:12px;font-weight:700;line-height:1.5;margin-top:8px;white-space:pre-line; }
+    .quarter-message.success { color:var(--success); }
+    .quarter-message.danger { color:var(--danger); }
+    .quarter-message.info { color:var(--info); }
+
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(6, minmax(150px, 1fr));
@@ -903,6 +912,10 @@
                   <select id="quarterSelect"></select>
                 </div>
                 <button id="refreshBtn" class="btn btn-secondary" type="button">Refresh Data</button>
+                <div class="quarter-actions">
+                  <button id="closeQuarterBtn" class="btn btn-primary" type="button" disabled>Close Quarter &amp; Start Next</button>
+                  <button id="startNextQuarterBtn" class="btn btn-secondary" type="button" disabled>Start Next Quarter</button>
+                </div>
               </div>
               <div class="toolbar-right">
                 <button id="participantsBtn" class="btn btn-secondary" type="button">Manage Participants</button>
@@ -910,6 +923,8 @@
                 <button id="addQuoteBtn" class="btn btn-accent" type="button">Add Route Sales Opportunity</button>
               </div>
             </div>
+            <div id="quarterActionHelp" class="quarter-note">Quarter closure affects reporting status only; it does not submit or mark commissions paid.</div>
+            <div id="quarterActionMessage" class="quarter-message" role="status" aria-live="polite"></div>
 
             <div id="metricsGrid" class="metrics-grid"></div>
           </section>
@@ -1428,14 +1443,18 @@
     function bindEvents() {
       document.getElementById('quarterSelect').addEventListener('change', async event => {
         state.selectedQuarter = state.quarters.find(item => item.id === event.target.value) || null;
+        setQuarterMessage('');
         await loadQuarterData();
       });
 
       document.getElementById('refreshBtn').addEventListener('click', async () => {
         await loadReferenceData(true);
         await loadQuarterData();
+        setQuarterMessage('');
       });
 
+      document.getElementById('closeQuarterBtn').addEventListener('click', closeTrackingQuarter);
+      document.getElementById('startNextQuarterBtn').addEventListener('click', startNextTrackingQuarter);
       document.getElementById('addQuoteBtn').addEventListener('click', () => openQuoteModal());
       document.getElementById('participantsBtn').addEventListener('click', openParticipantsModal);
       document.getElementById('importQuotesBtn').addEventListener('click', openImportModal);
@@ -1565,8 +1584,10 @@
 
       state.quarters = quarterResult.data || [];
       state.participants = participantResult.data || [];
+      const today = todayIso();
       state.selectedQuarter =
         state.quarters.find(item => item.id === previousQuarterId) ||
+        state.quarters.find(item => item.tracking_status === 'OPEN' && item.quarter_start_date <= today && item.quarter_end_date >= today) ||
         state.quarters.find(item => item.tracking_status === 'OPEN') ||
         state.quarters[0] ||
         null;
@@ -1643,6 +1664,163 @@
       renderAccountingDetails();
       renderQuoteTable();
       renderQuarterRange();
+      updateQuarterControls();
+    }
+
+    // RSO fiscal year runs July 1 through June 30 (Q1 Jul-Sep, Q2 Oct-Dec,
+    // Q3 Jan-Mar, Q4 Apr-Jun). Never infer the next quarter from local timezone.
+    function quarterSpec(fiscalYear, fiscalQuarter) {
+      const quarter = String(fiscalQuarter).toUpperCase();
+      const quarters = {Q1:[fiscalYear - 1, 7], Q2:[fiscalYear - 1, 10], Q3:[fiscalYear, 1], Q4:[fiscalYear, 4]};
+      if (!quarters[quarter] || !Number.isInteger(fiscalYear)) throw new Error('Invalid fiscal quarter.');
+      const [calendarYear, startMonth] = quarters[quarter];
+      const start = new Date(Date.UTC(calendarYear, startMonth - 1, 1));
+      const end = new Date(Date.UTC(calendarYear, startMonth + 2, 0));
+      return {
+        fiscal_year: fiscalYear,
+        fiscal_quarter: quarter,
+        quarter_start_date: start.toISOString().slice(0, 10),
+        quarter_end_date: end.toISOString().slice(0, 10)
+      };
+    }
+
+    function nextQuarterSpec(quarter) {
+      const n = Number(String(quarter.fiscal_quarter || '').replace('Q', ''));
+      if (![1, 2, 3, 4].includes(n)) throw new Error('Unknown fiscal quarter.');
+      return quarterSpec(Number(quarter.fiscal_year) + (n === 4 ? 1 : 0), `Q${n === 4 ? 1 : n + 1}`);
+    }
+
+    function getNextConfiguredQuarter(quarter) {
+      if (!quarter) return null;
+      const next = nextQuarterSpec(quarter);
+      return state.quarters.find(item => item.fiscal_year === next.fiscal_year && item.fiscal_quarter === next.fiscal_quarter) || null;
+    }
+
+    function quarterLabel(quarter) {
+      return `FY${quarter.fiscal_year} ${quarter.fiscal_quarter}`;
+    }
+
+    function setQuarterMessage(message = '', type = '') {
+      const el = document.getElementById('quarterActionMessage');
+      el.textContent = message;
+      el.className = `quarter-message${type ? ` ${type}` : ''}`;
+    }
+
+    function updateQuarterControls() {
+      const quarter = state.selectedQuarter;
+      const close = document.getElementById('closeQuarterBtn');
+      const next = document.getElementById('startNextQuarterBtn');
+      const help = document.getElementById('quarterActionHelp');
+      if (!close || !next || !help) return;
+      if (!quarter) {
+        close.disabled = true;
+        next.disabled = true;
+        help.textContent = 'No quarter is selected.';
+        return;
+      }
+      const isOpen = quarter.tracking_status === 'OPEN';
+      const hasEnded = quarter.quarter_end_date < todayIso();
+      const nextConfigured = getNextConfiguredQuarter(quarter);
+      close.disabled = !isOpen || !hasEnded;
+      close.textContent = isOpen ? 'Close Quarter & Start Next' : 'Quarter Closed';
+      next.disabled = isOpen;
+      next.textContent = nextConfigured ? 'View Next Quarter' : 'Start Next Quarter';
+      if (isOpen && !hasEnded) {
+        help.textContent = `${quarterLabel(quarter)} ends ${formatDate(quarter.quarter_end_date)}. It can be closed beginning the following day. Quarter status never authorizes payroll.`;
+      } else if (isOpen) {
+        help.textContent = `${quarterLabel(quarter)} has ended. Close it to mark it CLOSED and create or select the following quarter. Commission payments remain separate.`;
+      } else {
+        help.textContent = `${quarterLabel(quarter)} is ${quarter.tracking_status}. Historical quotes and approved commission details remain available for review and authorized corrections.`;
+      }
+    }
+
+    async function ensureNextQuarterExists(current) {
+      const desired = nextQuarterSpec(current);
+      let existing = getNextConfiguredQuarter(current);
+      if (existing) return existing;
+      // Check the server as another administrator may have created this quarter.
+      const {data: found, error: lookupError} = await client.from('rso_tracking_quarters')
+        .select('*').eq('fiscal_year', desired.fiscal_year).eq('fiscal_quarter', desired.fiscal_quarter).maybeSingle();
+      if (lookupError) throw lookupError;
+      if (found) return found;
+      const payload = {
+        ...desired,
+        tracking_status: 'OPEN',
+        default_commission_rate: Number(current.default_commission_rate ?? 0.04),
+        notes: `Created from ${quarterLabel(current)} using RSO Tracking quarter controls. Closing a tracking quarter does not authorize commissions.`
+      };
+      const {data: created, error: insertError} = await client.from('rso_tracking_quarters').insert(payload).select('*').single();
+      if (!insertError) return created;
+      if (insertError.code !== '23505') throw insertError;
+      // Idempotent if another admin creates the quarter simultaneously.
+      const {data: concurrent, error: retryError} = await client.from('rso_tracking_quarters')
+        .select('*').eq('fiscal_year', desired.fiscal_year).eq('fiscal_quarter', desired.fiscal_quarter).single();
+      if (retryError) throw retryError;
+      return concurrent;
+    }
+
+    async function selectQuarterFromDatabase(id) {
+      await loadReferenceData();
+      state.selectedQuarter = state.quarters.find(item => item.id === id) || state.selectedQuarter;
+      renderQuarterSelect();
+      await loadQuarterData();
+    }
+
+    async function closeTrackingQuarter() {
+      const quarter = state.selectedQuarter;
+      if (!quarter || !state.profile || !RSO_ALLOWED_ROLES.includes(state.profile.role)) return;
+      if (quarter.tracking_status !== 'OPEN') {
+        setQuarterMessage('This quarter is already closed or archived.', 'info');
+        return;
+      }
+      if (quarter.quarter_end_date >= todayIso()) {
+        setQuarterMessage('A quarter can be closed only after its end date.', 'danger');
+        return;
+      }
+      const label = quarterLabel(quarter);
+      const nextSpec = nextQuarterSpec(quarter);
+      const confirmed = window.confirm(`Close ${label} (${formatDate(quarter.quarter_start_date)}–${formatDate(quarter.quarter_end_date)}) and start FY${nextSpec.fiscal_year} ${nextSpec.fiscal_quarter}?\n\nThe quarter status will change to CLOSED. Quote history and approved commissions will remain in place; no payroll or Accounting submission will occur.`);
+      if (!confirmed) return;
+      setBusy(true);
+      setQuarterMessage(`Closing ${label} and preparing the next quarter...`, 'info');
+      try {
+        // Create the successor BEFORE changing the prior status; an insert failure
+        // therefore cannot leave the business with no configured next quarter.
+        const successor = await ensureNextQuarterExists(quarter);
+        const {data: changed, error: updateError} = await client.from('rso_tracking_quarters')
+          .update({tracking_status: 'CLOSED', updated_at: new Date().toISOString()})
+          .eq('id', quarter.id).eq('tracking_status', 'OPEN').select('id').maybeSingle();
+        if (updateError) throw updateError;
+        if (!changed) throw new Error('Quarter status changed elsewhere. Refresh and review the quarter before continuing.');
+        await selectQuarterFromDatabase(successor.id);
+        setQuarterMessage(`${label} is CLOSED. ${quarterLabel(successor)} is selected (${successor.tracking_status}). No commissions were submitted or marked paid.`, 'success');
+      } catch (error) {
+        console.error('Unable to close RSO quarter:', error);
+        setQuarterMessage(`Unable to finish quarter rollover: ${friendlyError(error)}. Refresh to check the quarter statuses.`, 'danger');
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function startNextTrackingQuarter() {
+      const quarter = state.selectedQuarter;
+      if (!quarter || !state.profile || !RSO_ALLOWED_ROLES.includes(state.profile.role)) return;
+      if (quarter.tracking_status === 'OPEN') {
+        setQuarterMessage('Close this quarter first. It will automatically start the next one.', 'info');
+        return;
+      }
+      setBusy(true);
+      setQuarterMessage('Loading the next quarter...', 'info');
+      try {
+        const successor = await ensureNextQuarterExists(quarter);
+        await selectQuarterFromDatabase(successor.id);
+        setQuarterMessage(`${quarterLabel(successor)} is selected (${successor.tracking_status}).`, 'success');
+      } catch (error) {
+        console.error('Unable to start next RSO quarter:', error);
+        setQuarterMessage(`Unable to start the next quarter: ${friendlyError(error)}`, 'danger');
+      } finally {
+        setBusy(false);
+      }
     }
 
     function renderQuarterSelect() {
@@ -2784,10 +2962,11 @@
     }
 
     function setBusy(busy) {
-      ['refreshBtn', 'addQuoteBtn', 'importQuotesBtn', 'participantsBtn', 'quarterSelect'].forEach(id => {
+      ['refreshBtn', 'addQuoteBtn', 'importQuotesBtn', 'participantsBtn', 'quarterSelect', 'closeQuarterBtn', 'startNextQuarterBtn'].forEach(id => {
         const element = document.getElementById(id);
         if (element) element.disabled = busy;
       });
+      if (!busy) updateQuarterControls();
     }
 
     function showMessage(id, message, type) {
