@@ -34,6 +34,15 @@ input,select,textarea{border:1px solid #c3d4e2;border-radius:8px;padding:10px;co
 .pdf-dropzone button{background:#fff}
 .pdf-hidden-input{position:absolute;width:1px;height:1px;padding:0;opacity:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .pdf-import-actions{margin-top:10px}
+/* Finished CSV drop target mirrors Scheduled PDF importing */
+.csv-dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed #81a9c3;background:#f6fbfe;border-radius:15px;padding:29px 18px;margin:16px 0 12px;text-align:center;min-height:185px;transition:background-color .12s ease,border-color .12s ease}
+.csv-dropzone.is-dragging,.csv-dropzone:focus-within{background:#e4f5fa;border-color:var(--teal);box-shadow:0 0 0 3px #b8e4e7}
+.csv-dropzone .csv-drop-icon{display:flex;align-items:center;justify-content:center;width:47px;height:47px;border-radius:50%;background:#e2f1f8;color:var(--navy);font-size:23px}
+.csv-dropzone strong{font-size:16px;color:var(--navy)}
+.csv-dropzone .csv-file-name{font-size:12px;color:#2b607f;word-break:break-word;max-width:100%}
+.csv-hidden-input{position:absolute;width:1px;height:1px;padding:0;opacity:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.csv-import-actions{margin-top:10px}
+
 .pdf-page-overlay{position:fixed;inset:12px;z-index:99999;pointer-events:none;display:flex;align-items:center;justify-content:center;background:rgba(9,53,79,.83);border:4px dashed #a5dfe5;border-radius:15px;color:white;font-size:24px;font-weight:800;text-align:center;padding:18px}
 .pdf-page-overlay .subline{display:block;font-size:14px;font-weight:500;margin-top:10px}
 fieldset{border:1px solid var(--line);border-radius:9px;margin:0;padding:12px 14px}legend{padding:0 7px;color:#335c76;font-size:12px;font-weight:800}.radio-row{display:flex;flex-wrap:wrap;gap:16px}.radio-row label{display:flex;align-items:center;gap:5px;font-size:13px}.radio-row input{width:auto}
@@ -46,7 +55,7 @@ fieldset{border:1px solid var(--line);border-radius:9px;margin:0;padding:12px 14
 <div id="sharedNavigation"></div>
 <header class="hero"><div><h1>RSO Renovation Review &amp; Tracking</h1><p>Pending Skimmer requests • Leadership decisions • Sales handoff • Finished ticket reconciliation</p></div><div><a style="color:white" href="performance-hub.html">Performance Hub ↗</a></div></header>
 <main class="main">
-<div id="pdfPageDropOverlay" class="pdf-page-overlay" hidden aria-hidden="true"><div>Drop your Scheduled Skimmer PDF to import<span class="subline">The Review Page will open the PDF preview automatically</span></div></div>
+<div id="pdfPageDropOverlay" class="pdf-page-overlay" hidden aria-hidden="true"><div>Drop your Skimmer PDF or Finished CSV<span class="subline">The correct import tab and preview will open automatically</span></div></div>
 <section id="accessGate" class="panel"><h2>Checking access…</h2><p id="accessText" class="muted">Only authorized Molinari Pools users may access these records.</p></section>
 <div id="content" hidden>
 <div class="banner"><strong>Operational rule:</strong> Unfinished RSO Renovation Tickets remain assigned to <strong>*****RT - Renovation Requests</strong> in Skimmer. Import the <strong>Scheduled Work Orders PDF</strong> to populate the pending queue. Leadership then selects <strong>Approved for Sales</strong> or <strong>Invalid Request</strong>, completes the original ticket in Skimmer, and uses the weekly Finished Tickets CSV to verify closure. Only the qualifying <strong>Skimmer “Created By” team member</strong> can be attributed the eventual 1% commission.</div>
@@ -79,14 +88,22 @@ fieldset{border:1px solid var(--line);border-radius:9px;margin:0;padding:12px 14
 <div class="tablebox"><table class="import-rows"><thead><tr><th>Include</th><th>Customer</th><th>Address</th><th>Scheduled / Submitted Date</th><th>Assigned Bucket</th><th>Source Page</th></tr></thead><tbody id="pdfRows"></tbody></table></div><p id="pdfSummary" class="note"></p></div>
 </div>
 <div id="tab-csv" hidden>
-<h2>Reconcile Weekly Finished Skimmer Tickets</h2><p class="hint">This CSV is used <strong>only</strong> to confirm Skimmer ticket completion. It does not approve requests or determine the commission recipient. Exact Skimmer Work Order # matching is required. Since the CSV format hasn't yet been provided, choose the relevant columns when uploading.</p>
-<div class="flex"><input style="max-width:480px" type="file" id="finishedCsv" accept=".csv,text/csv"><button id="previewCsv" class="primary" type="button">Preview Finished CSV</button></div>
+<h2>Reconcile Weekly Finished Skimmer Tickets</h2><p class="hint">This CSV is used <strong>only</strong> to confirm Skimmer ticket completion. It does not approve requests or determine the commission recipient. Exact Skimmer Work Order # matching is required. The Skimmer Tech Details CSV uses <strong>Work Order Number</strong>, <strong>Customer</strong>, <strong>Work Order Type</strong>, and <strong>Service Date</strong>. These columns are automatically selected when present; verify the preview before importing.</p>
+<div id="finishedCsvDropzone" class="csv-dropzone" role="group" aria-label="Drag and drop the Skimmer Finished Tickets CSV here">
+  <span class="csv-drop-icon" aria-hidden="true">⇧</span>
+  <strong>Drag &amp; drop your Finished Skimmer CSV here</strong>
+  <span class="hint">Or drop the CSV anywhere on the page. CSV only; maximum 25 MB.</span>
+  <button type="button" id="chooseFinishedCsv">Choose CSV File</button>
+  <span id="selectedCsvName" class="csv-file-name" role="status" aria-live="polite">No CSV selected</span>
+</div>
+<input class="csv-hidden-input" type="file" id="finishedCsv" accept=".csv,text/csv,application/vnd.ms-excel" aria-label="Choose a Finished Skimmer CSV">
+<div class="flex csv-import-actions"><button id="previewCsv" class="primary" type="button" disabled>Preview Finished CSV</button><span id="csvProgress" class="progress" aria-live="polite"></span></div>
 <div id="csvPreview" hidden style="margin-top:18px"><div class="grid">
  <div class="field"><label for="mapNumber">Skimmer Work Order Number *</label><select id="mapNumber"></select></div>
  <div class="field"><label for="mapFinished">Finished / Completed Date *</label><select id="mapFinished"></select></div>
  <div class="field"><label for="mapClient">Client Name (Optional)</label><select id="mapClient"></select></div>
  <div class="field"><label for="mapType">Work Order Type (Optional)</label><select id="mapType"></select></div>
-</div><div class="alert" style="margin-top:14px">Only upload a report of <strong>finished</strong> tickets. Records without a work order number or finished date cannot be reconciled. A missing record in this CSV does <strong>not</strong> mean the Skimmer ticket was invalid or closed.</div>
+</div><div class="alert" style="margin-top:14px">Only upload a report of <strong>finished</strong> tickets. Tech Details CSV files do not have a separate Finished status column, so <strong>Service Date is used as the finish date only after you confirm this is a Finished-only export.</strong> Records without a work order number or service/finished date cannot be reconciled. A missing record in this CSV does <strong>not</strong> mean the Skimmer ticket was invalid or closed.</div>
 <div class="flex between" style="margin-top:15px"><span id="csvCount" class="hint"></span><button id="importCsv" type="button" class="teal">Import &amp; Reconcile</button></div><div class="tablebox"><table><thead><tr><th>Row</th><th>Work Order #</th><th>Client</th><th>Completed</th><th>Type</th></tr></thead><tbody id="csvRows"></tbody></table></div></div>
 </div>
 <div id="tab-tracking" hidden>
@@ -124,7 +141,7 @@ const $=s=>document.getElementById(s),esc=x=>String(x??'').replace(/[&<>"']/g,ch
 const money=x=>Number(x||0).toLocaleString('en-US',{style:'currency',currency:'USD'});const isoToday=()=>{const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const get=k=>parts.find(x=>x.type===k).value;return get('year')+'-'+get('month')+'-'+get('day')};
 const dateView=d=>d?new Date(d+'T12:00:00Z').toLocaleDateString('en-US',{timeZone:'UTC',month:'short',day:'numeric',year:'numeric'}):'—';
 const clean=x=>String(x??'').toLowerCase().replace(/[^a-z0-9]/g,'');const blank=x=>String(x??'').trim();
-let records=[],role='',editable=false,period='ALL',decision='PENDING',search='',activeTab='review',drafts=[],csvFileRows=[],csvHeaders=[],csvFilename='',pdfFilename='';
+let records=[],role='',editable=false,period='ALL',decision='PENDING',search='',activeTab='review',drafts=[],csvFileRows=[],csvHeaders=[],csvFilename='',pdfFilename='',selectedFinishedCsv=null,csvIsReading=false;
 let selectedScheduledPdf=null,pdfIsReading=false,pdfDragDepth=0;
 function notice(s,k='info'){$('notice').hidden=false;$('notice').className='status '+k;$('notice').textContent=s}
 function hideNotice(){$('notice').hidden=true}
@@ -166,7 +183,36 @@ function splitCustomer(text){const lines=text.split(/\n/).map(s=>s.trim()).filte
 function pdfDraftRow(row,i){return '<tr data-i="'+i+'"><td><input type="checkbox" data-key="include" '+(row.include?'checked':'')+'></td><td><input aria-label="Client" data-key="client" value="'+esc(row.client)+'"></td><td><input aria-label="Service address" data-key="address" value="'+esc(row.address)+'"></td><td><input type="date" aria-label="Submitted date" data-key="date" value="'+esc(row.date)+'"></td><td><input aria-label="Skimmer assigned bucket" data-key="bucket" value="'+esc(row.bucket)+'"></td><td>'+row.page+'</td></tr>'}
 function syncDrafts(){document.querySelectorAll('#pdfRows tr[data-i]').forEach(tr=>{const d=drafts[Number(tr.dataset.i)];if(!d)return;tr.querySelectorAll('[data-key]').forEach(input=>{const k=input.dataset.key;d[k]=input.type==='checkbox'?input.checked:input.value})})}
 function isScheduledPdf(file){return !!file && (file.type==='application/pdf'||/\.pdf$/i.test(file.name||''))}
-function hidePdfDropFeedback(){pdfDragDepth=0;$('pdfPageDropOverlay').hidden=true;$('pdfDropzone').classList.remove('is-dragging')}
+function isFinishedCsv(file){return !!file && /\.csv$/i.test(file.name||'')}
+function validateFinishedCsv(file){
+ if(!isFinishedCsv(file)){notice('Only a CSV file can be imported into Finished Tickets. Use Import Scheduled PDF for PDF files.','error');return false}
+ if(file.size===0){notice('The selected CSV file is empty.','error');return false}
+ if(file.size>25*1024*1024){notice('This CSV exceeds 25 MB. Export a smaller Finished Work Orders report.','error');return false}
+ return true;
+}
+async function useFinishedCsv(file,autoPreview=false){
+ hidePdfDropFeedback();
+ if(!editable){notice('An authorized Service Manager or Admin role is required to import Finished CSV files.','error');return}
+ tab('csv');
+ if(!validateFinishedCsv(file))return;
+ if(csvIsReading){notice('The previous CSV is still loading. Please wait for the preview to finish.','info');return}
+ selectedFinishedCsv=file;
+ $('selectedCsvName').textContent=file.name+' · '+(file.size/1024/1024).toFixed(2)+' MB';
+ $('previewCsv').disabled=false;
+ $('csvPreview').hidden=true;
+ csvFilename='';csvFileRows=[];csvHeaders=[];
+ if(autoPreview)await previewCSV();
+ else notice('CSV selected. Click Preview Finished CSV to check the columns before importing.','info');
+}
+function wireFinishedCsvDrop(){
+ $('chooseFinishedCsv').addEventListener('click',()=>{if(editable&&!csvIsReading)$('finishedCsv').click()});
+ $('finishedCsv').addEventListener('change',async e=>{
+   const file=e.target.files&&e.target.files[0];
+   if(file)await useFinishedCsv(file,true);
+   e.target.value='';
+ });
+}
+function hidePdfDropFeedback(){pdfDragDepth=0;$('pdfPageDropOverlay').hidden=true;$('pdfDropzone').classList.remove('is-dragging');$('finishedCsvDropzone').classList.remove('is-dragging')}
 function validateScheduledPdf(file){
  if(!isScheduledPdf(file)){notice('Only a PDF file can be imported here. Use Reconcile Finished CSV for completed-ticket exports.','error');return false}
  if(file.size===0){notice('The selected PDF is empty.','error');return false}
@@ -193,17 +239,20 @@ function wireScheduledPdfDrop(){
    e.target.value='';
  });
  const fileDrag=e=>!!e.dataTransfer&&Array.from(e.dataTransfer.types||[]).includes('Files');
- // Accept PDF drops anywhere, including while the Review Queue tab is active.
+ // Accept PDF and CSV drops anywhere; route each file to the correct import workflow.
  document.addEventListener('dragenter',e=>{
    if(!editable||!fileDrag(e))return;
    e.preventDefault();pdfDragDepth++;
    $('pdfPageDropOverlay').hidden=false;
-   $('pdfDropzone').classList.add('is-dragging');
+   $('pdfDropzone').classList.toggle('is-dragging',!!e.target?.closest?.('#pdfDropzone'));
+   $('finishedCsvDropzone').classList.toggle('is-dragging',!!e.target?.closest?.('#finishedCsvDropzone'));
  });
  document.addEventListener('dragover',e=>{
    if(!editable||!fileDrag(e))return;
    e.preventDefault();e.dataTransfer.dropEffect='copy';
    $('pdfPageDropOverlay').hidden=false;
+   $('pdfDropzone').classList.toggle('is-dragging',!!e.target?.closest?.('#pdfDropzone'));
+   $('finishedCsvDropzone').classList.toggle('is-dragging',!!e.target?.closest?.('#finishedCsvDropzone'));
  });
  document.addEventListener('dragleave',e=>{
    if(!fileDrag(e))return;
@@ -214,8 +263,11 @@ function wireScheduledPdfDrop(){
    if(!editable||!fileDrag(e))return;
    e.preventDefault();hidePdfDropFeedback();
    const files=Array.from(e.dataTransfer.files||[]);
-   if(files.length!==1){notice('Drop one Scheduled Skimmer PDF at a time.','error');return}
-   await useScheduledPdf(files[0],true);
+   if(files.length!==1){notice('Drop one Skimmer PDF or CSV file at a time.','error');return}
+   const file=files[0];
+   if(isScheduledPdf(file))await useScheduledPdf(file,true);
+   else if(isFinishedCsv(file))await useFinishedCsv(file,true);
+   else notice('Unsupported file type. Drop a Scheduled PDF or Finished Tickets CSV.','error');
  });
  document.addEventListener('dragend',hidePdfDropFeedback);
  window.addEventListener('blur',hidePdfDropFeedback);
@@ -236,17 +288,58 @@ const key='SKIMMER-PDF|'+date+'|'+clean(client)+'|'+clean(addr);const match=reco
 const payload={submitted_on:date,client_name:client,service_address:addr||null,scheduled_import_key:key,scheduled_pdf_file_name:pdfFilename,import_source:'SCHEDULED_PDF',last_imported_at:new Date().toISOString(),review_decision:'PENDING',existing_client:true};const q=await db.from('rso_renovation_opportunities').insert(payload).select('id').single();if(q.error){if(q.error.code==='23505')skipped++;else failed.push('Page '+row.page+': '+q.error.message)}else{inserted++;records.push({...payload,id:q.data.id})}}
 await load();tab('review');notice('Scheduled PDF import complete: '+inserted+' added, '+skipped+' already present / duplicate, '+failed.length+' need correction.'+(failed.length?'\n'+failed.join('\n'):''),failed.length?'error':'success')}
 finally{b.disabled=false}}
-function mapOptions(){const selectNames=['mapNumber','mapFinished','mapClient','mapType'];const synonyms={mapNumber:/work.?order.*(number|#)|^number$|^#|^wo.?number|ticket.?number|work.?order.?id/i,mapFinished:/complet|finish|service.?date|work.?date/i,mapClient:/customer|client|name/i,mapType:/work.?order.?type|^type$|ticket.?type/i};for(const id of selectNames){const sel=$(id);sel.innerHTML='<option value="">-- '+(id==='mapClient'||id==='mapType'?'Not in report':'Select column')+' --</option>'+csvHeaders.map((h,i)=>'<option value="'+i+'">'+esc(h)+'</option>').join('');const ix=csvHeaders.findIndex(x=>synonyms[id].test(x));if(ix>=0)sel.value=String(ix)}}
+function mapOptions(){
+ const maps={
+   mapNumber:[/^work\s*order\s*(?:number|#|no\.?|id)$/i,/^ticket\s*(?:number|#|id)$/i,/^wo\s*(?:number|#|id)$/i,/^(?:number|#)$/i],
+   mapFinished:[/^(?:finished|completed|completion)\s*(?:date|on)?$/i,/^service\s*date$/i,/^work\s*date$/i],
+   mapClient:[/^customer$/i,/^customer\s*name$/i,/^client$/i,/^client\s*name$/i,/^name$/i],
+   mapType:[/^work\s*order\s*type$/i,/^ticket\s*type$/i,/^type$/i]
+ };
+ const fallback={mapNumber:/work.?order.*(number|#)|ticket.?number|work.?order.?id/i,
+   mapFinished:/complet|finish|service.?date|work.?date/i,
+   mapClient:/^(?:customer|client)(?:\s+name)?$/i,
+   mapType:/work.?order.?type|ticket.?type/i};
+ for(const id of ['mapNumber','mapFinished','mapClient','mapType']){
+   const sel=$(id);
+   sel.innerHTML='<option value="">-- '+(id==='mapClient'||id==='mapType'?'Not in report':'Select column')+' --</option>'+csvHeaders.map((h,i)=>'<option value="'+i+'">'+esc(h)+'</option>').join('');
+   const headings=csvHeaders.map(h=>String(h).trim().replace(/\s+/g,' '));
+   let ix=-1;
+   for(const pattern of maps[id]){ix=headings.findIndex(h=>pattern.test(h));if(ix>=0)break}
+   if(ix<0)ix=headings.findIndex(h=>fallback[id].test(h));
+   if(ix>=0)sel.value=String(ix);
+ }
+}
 function getCSV(row,id){const i=$(id).value;return i!==''?String(row[Number(i)]??'').trim():''}
 function renderCSV(){const data=csvFileRows.slice(0,12);$('csvRows').innerHTML=data.map((row,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(getCSV(row,'mapNumber'))+'</td><td>'+esc(getCSV(row,'mapClient'))+'</td><td>'+esc(getCSV(row,'mapFinished'))+'</td><td>'+esc(getCSV(row,'mapType'))+'</td></tr>').join('');$('csvCount').textContent=csvFileRows.length+' data rows in source file; showing first '+data.length+' for verification.'}
 function dateCSV(s){s=blank(s);let m=s.match(/^(20\d{2})-(\d{2})-(\d{2})/);if(m)return m[0];m=s.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](20\d{2})\b/);return m?m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0'):''}
-async function previewCSV(){const file=$('finishedCsv').files[0];if(!file){notice('Choose the Finished Skimmer Tickets CSV.','error');return}if(typeof Papa==='undefined'){notice('CSV parser failed to load.','error');return}csvFilename=file.name;const text=await file.text();const result=Papa.parse(text,{skipEmptyLines:'greedy'});if(result.errors?.some(e=>e.type==='Quotes')){notice('The CSV has a quoting error. Export the CSV again from Skimmer.','error');return}csvHeaders=(result.data[0]||[]).map(x=>String(x).trim());csvFileRows=result.data.slice(1).filter(row=>row.some(c=>blank(c)));if(!csvHeaders.length||!csvFileRows.length){notice('CSV is empty or missing its header row.','error');return}mapOptions();renderCSV();$('csvPreview').hidden=false;notice('CSV loaded for review. Confirm Work Order Number and Finished Date column mappings before importing.','info')}
+async function previewCSV(){
+ if(!editable||csvIsReading)return;
+ const file=selectedFinishedCsv||$('finishedCsv').files[0];
+ if(!file){notice('Drop or choose the Finished Skimmer Tickets CSV first.','error');return}
+ if(!validateFinishedCsv(file))return;
+ if(typeof Papa==='undefined'){notice('CSV parser failed to load.','error');return}
+ const button=$('previewCsv');csvIsReading=true;button.disabled=true;$('chooseFinishedCsv').disabled=true;
+ $('csvProgress').textContent='Reading '+file.name+'…';
+ $('csvPreview').hidden=true;
+ try{
+   const text=await file.text();
+   const result=Papa.parse(text,{skipEmptyLines:'greedy'});
+   if(result.errors?.some(e=>e.type==='Quotes')){notice('The CSV has a quoting error. Export the CSV again from Skimmer.','error');return}
+   csvFilename=file.name;
+   csvHeaders=(result.data[0]||[]).map(x=>String(x).replace(/^\uFEFF/,'').trim());
+   csvFileRows=result.data.slice(1).filter(row=>row.some(c=>blank(c)));
+   if(!csvHeaders.length||!csvFileRows.length){notice('CSV is empty or missing its header row.','error');return}
+   mapOptions();renderCSV();$('csvPreview').hidden=false;
+   notice('Finished CSV loaded for review. Confirm Work Order Number and Finished/Service Date mappings before importing. No records have been changed.','info');
+ }catch(e){notice('CSV could not be read: '+(e.message||e),'error')}
+ finally{csvIsReading=false;button.disabled=false;$('chooseFinishedCsv').disabled=false;$('csvProgress').textContent=''}
+}
 async function importCSV(){if(!editable)return;if(!$('mapNumber').value||!$('mapFinished').value){notice('Map both Work Order Number and Finished Date columns.','error');return}if(!confirm('Confirm that this CSV was exported from the Finished Work Orders report in Skimmer, not Scheduled/Unfinished?'))return;
 const jobs=[],warnings=[];for(let i=0;i<csvFileRows.length;i++){const row=csvFileRows[i],num=blank(getCSV(row,'mapNumber')),day=dateCSV(getCSV(row,'mapFinished')),type=blank(getCSV(row,'mapType'));if($('mapType').value!==''&&!/rso\s*renovation/i.test(type))continue;if(!/\d/.test(num)||!day){warnings.push(i+2);continue}jobs.push({work_order_number:num,finished_on:day,customer_name:getCSV(row,'mapClient')||null,work_order_type:type||null,source_file_name:csvFilename,import_key:'FINISHED|'+clean(num)+'|'+day,raw_line:Object.fromEntries(csvHeaders.map((h,ix)=>[h,row[ix]??'']))})}
 if(!jobs.length){notice('No Finished RSO renovation rows with valid work order number and date were found. Review column mapping.','error');return}let stored=0,duplicates=0,errors=[];const b=$('importCsv');b.disabled=true;
 try{for(let ix=0;ix<jobs.length;ix+=100){const batch=jobs.slice(ix,ix+100);const res=await db.from('rso_renovation_finished_csv_rows').upsert(batch,{onConflict:'import_key',ignoreDuplicates:true}).select('id');if(res.error){errors.push(res.error.message);break}stored+=res.data?.length||0;duplicates+=batch.length-(res.data?.length||0)}
 if(errors.length){notice('CSV storage problem: '+errors.join('; '),'error');return}const recon=await db.rpc('reconcile_rso_renovation_finished_tickets');if(recon.error)throw recon.error;await load();tab('review');notice('Finished CSV processed: '+stored+' new completion records; '+duplicates+' already recorded; '+recon.data.updated+' RSO records newly confirmed Finished. '+recon.data.unmatchedFinishedRows+' finished rows remain unmatched across imported files.'+(warnings.length?'\nSkipped rows requiring corrected # or date: '+warnings.slice(0,20).join(', '):''),'success')}
 catch(e){notice('CSV import/reconciliation failed: '+(e.message||e),'error')}finally{b.disabled=false}}
-window.addEventListener('load',async()=>{document.querySelectorAll('[data-tab]').forEach(el=>el.addEventListener('click',()=>tab(el.dataset.tab)));$('refresh').onclick=load;$('addManual').onclick=()=>openEditor(null);$('filterQuarter').onchange=e=>{period=e.target.value;draw()};$('filterDecision').onchange=e=>{decision=e.target.value;draw()};$('filterSearch').oninput=e=>{search=e.target.value.toLowerCase().trim();draw()};$('closeEditor').onclick=()=>$('editor').close();$('cancelEditor').onclick=()=>$('editor').close();$('form').onsubmit=save;document.querySelectorAll('input[name=decision]').forEach(el=>el.addEventListener('change',modalRules));$('draftEmail').onclick=draftEmail;$('confirmEmail').onclick=confirmNotice;$('readPdf').onclick=readPDF;wireScheduledPdfDrop();$('savePdf').onclick=importPdf;$('previewCsv').onclick=previewCSV;$('importCsv').onclick=importCSV;['mapNumber','mapFinished','mapClient','mapType'].forEach(x=>$(x).onchange=renderCSV);if(await auth())await load()});
+window.addEventListener('load',async()=>{document.querySelectorAll('[data-tab]').forEach(el=>el.addEventListener('click',()=>tab(el.dataset.tab)));$('refresh').onclick=load;$('addManual').onclick=()=>openEditor(null);$('filterQuarter').onchange=e=>{period=e.target.value;draw()};$('filterDecision').onchange=e=>{decision=e.target.value;draw()};$('filterSearch').oninput=e=>{search=e.target.value.toLowerCase().trim();draw()};$('closeEditor').onclick=()=>$('editor').close();$('cancelEditor').onclick=()=>$('editor').close();$('form').onsubmit=save;document.querySelectorAll('input[name=decision]').forEach(el=>el.addEventListener('change',modalRules));$('draftEmail').onclick=draftEmail;$('confirmEmail').onclick=confirmNotice;$('readPdf').onclick=readPDF;wireScheduledPdfDrop();wireFinishedCsvDrop();$('savePdf').onclick=importPdf;$('previewCsv').onclick=previewCSV;$('importCsv').onclick=importCSV;['mapNumber','mapFinished','mapClient','mapType'].forEach(x=>$(x).onchange=renderCSV);if(await auth())await load()});
 })();
 </script></body></html>
