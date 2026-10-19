@@ -138,11 +138,6 @@
           label: 'Inspection Requests',
           href: 'inspection-requests-office.html',
           roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
-          label: 'Client Marketing Sync',
-          href: 'client-marketing-sync.html',
-          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
