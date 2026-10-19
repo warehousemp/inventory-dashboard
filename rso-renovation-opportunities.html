@@ -25,6 +25,17 @@ input,select,textarea{border:1px solid #c3d4e2;border-radius:8px;padding:10px;co
 .tablebox{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin-top:14px}table{border-collapse:collapse;width:100%;min-width:1050px}th{text-align:left;background:#ebf2f7;padding:12px;color:#33536c;text-transform:uppercase;letter-spacing:.04em;font-size:11px}td{border-top:1px solid #e3ecf4;padding:11px;font-size:12px;vertical-align:top}td strong{font-weight:750;color:#15374f}a{color:#106b88}.pill{display:inline-block;background:#e5f1fa;padding:4px 9px;border-radius:18px;color:#265d83;font-size:11px;font-weight:800;white-space:nowrap}.pill.ok{background:#e5f6e9;color:var(--green)}.pill.warn{background:#fff2d9;color:var(--amber)}.pill.bad{background:#fce8e8;color:var(--red)}.empty{text-align:center;color:var(--muted);padding:29px}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.span{grid-column:1/-1}.check{display:flex;gap:9px;align-items:center}.check input{width:auto}
 .import-rows input{min-width:120px}.import-rows td:first-child input{width:17px;min-width:17px}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.note{font-size:11px;color:#677c91;margin-top:10px}
+/* Scheduled PDF drop target and full-page drop guidance */
+.pdf-dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border:2px dashed #81a9c3;background:#f6fbfe;border-radius:15px;padding:29px 18px;margin:16px 0 12px;text-align:center;min-height:185px;transition:background-color .12s ease,border-color .12s ease}
+.pdf-dropzone.is-dragging,.pdf-dropzone:focus-within{background:#e4f5fa;border-color:var(--teal);box-shadow:0 0 0 3px #b8e4e7}
+.pdf-dropzone .pdf-drop-icon{display:flex;align-items:center;justify-content:center;width:47px;height:47px;border-radius:50%;background:#e2f1f8;color:var(--navy);font-size:23px}
+.pdf-dropzone strong{font-size:16px;color:var(--navy)}
+.pdf-dropzone .pdf-file-name{font-size:12px;color:#2b607f;word-break:break-word;max-width:100%}
+.pdf-dropzone button{background:#fff}
+.pdf-hidden-input{position:absolute;width:1px;height:1px;padding:0;opacity:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.pdf-import-actions{margin-top:10px}
+.pdf-page-overlay{position:fixed;inset:12px;z-index:99999;pointer-events:none;display:flex;align-items:center;justify-content:center;background:rgba(9,53,79,.83);border:4px dashed #a5dfe5;border-radius:15px;color:white;font-size:24px;font-weight:800;text-align:center;padding:18px}
+.pdf-page-overlay .subline{display:block;font-size:14px;font-weight:500;margin-top:10px}
 fieldset{border:1px solid var(--line);border-radius:9px;margin:0;padding:12px 14px}legend{padding:0 7px;color:#335c76;font-size:12px;font-weight:800}.radio-row{display:flex;flex-wrap:wrap;gap:16px}.radio-row label{display:flex;align-items:center;gap:5px;font-size:13px}.radio-row input{width:auto}
 .modal{border:0;padding:0;border-radius:14px;width:min(820px,calc(100vw - 24px));max-height:94vh;overflow:auto;box-shadow:0 30px 90px #001b3957}.modal::backdrop{background:#0b2b47aa}.modal header{display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:#fff;padding:15px 20px}.modal header h2{margin:0}.modal header button{background:transparent;color:white;border-color:#ffffff66}.modal main{padding:20px}.divider{border:0;border-top:1px solid var(--line);margin:19px 0}.actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:20px}
 .progress{font-size:12px;color:var(--muted)}.badge-note{font-size:12px;font-weight:700;color:#8d5100}.mini{font-size:12px}.alert{border-left:3px solid #cf8d30;background:#fff7ea;padding:9px 12px;font-size:12px}
@@ -35,6 +46,7 @@ fieldset{border:1px solid var(--line);border-radius:9px;margin:0;padding:12px 14
 <div id="sharedNavigation"></div>
 <header class="hero"><div><h1>RSO Renovation Review &amp; Tracking</h1><p>Pending Skimmer requests • Leadership decisions • Sales handoff • Finished ticket reconciliation</p></div><div><a style="color:white" href="performance-hub.html">Performance Hub ↗</a></div></header>
 <main class="main">
+<div id="pdfPageDropOverlay" class="pdf-page-overlay" hidden aria-hidden="true"><div>Drop your Scheduled Skimmer PDF to import<span class="subline">The Review Page will open the PDF preview automatically</span></div></div>
 <section id="accessGate" class="panel"><h2>Checking access…</h2><p id="accessText" class="muted">Only authorized Molinari Pools users may access these records.</p></section>
 <div id="content" hidden>
 <div class="banner"><strong>Operational rule:</strong> Unfinished RSO Renovation Tickets remain assigned to <strong>*****RT - Renovation Requests</strong> in Skimmer. Import the <strong>Scheduled Work Orders PDF</strong> to populate the pending queue. Leadership then selects <strong>Approved for Sales</strong> or <strong>Invalid Request</strong>, completes the original ticket in Skimmer, and uses the weekly Finished Tickets CSV to verify closure. Only the qualifying <strong>Skimmer “Created By” team member</strong> can be attributed the eventual 1% commission.</div>
@@ -54,7 +66,15 @@ fieldset{border:1px solid var(--line);border-radius:9px;margin:0;padding:12px 14
 </div>
 <div id="tab-pdf" hidden>
 <h2>Import Unfinished Tickets — Scheduled Work Orders PDF</h2><p class="hint">Select the Skimmer report for tickets assigned to *****RT - Renovation Requests. This particular PDF is outline-based rather than searchable, so the importer uses on-device visual text recognition. <strong>Review and correct every extracted client/date before saving.</strong> The PDF cannot supply Skimmer Work Order # or Created By.</p>
-<div class="flex"><input style="max-width:480px" type="file" id="scheduledPdf" accept="application/pdf,.pdf"><button class="primary" id="readPdf" type="button">Read PDF &amp; Preview</button><span id="ocrProgress" class="progress"></span></div>
+<div id="pdfDropzone" class="pdf-dropzone" role="group" aria-label="Drag and drop the Skimmer Scheduled Work Orders PDF here">
+  <span class="pdf-drop-icon" aria-hidden="true">⇧</span>
+  <strong>Drag &amp; drop your Scheduled Skimmer PDF here</strong>
+  <span class="hint">Or drop the PDF anywhere on this page. PDF only; maximum 25 MB.</span>
+  <button type="button" id="chooseScheduledPdf">Choose PDF File</button>
+  <span id="selectedPdfName" class="pdf-file-name" role="status" aria-live="polite">No PDF selected</span>
+</div>
+<input class="pdf-hidden-input" type="file" id="scheduledPdf" accept="application/pdf,.pdf" aria-label="Choose a Scheduled Skimmer PDF">
+<div class="flex pdf-import-actions"><button class="primary" id="readPdf" type="button" disabled>Read PDF &amp; Preview</button><span id="ocrProgress" class="progress" aria-live="polite"></span></div>
 <div id="pdfPreview" hidden><div class="flex between top" style="margin-top:20px"><div><h3>Import Preview — Edit Before Saving</h3><p class="hint">Rows are staged from the PDF, not automatically approved. Reimporting an already matched record leaves its prior review decision unchanged.</p></div><button type="button" id="savePdf" class="teal">Import Selected Pending Requests</button></div>
 <div class="tablebox"><table class="import-rows"><thead><tr><th>Include</th><th>Customer</th><th>Address</th><th>Scheduled / Submitted Date</th><th>Assigned Bucket</th><th>Source Page</th></tr></thead><tbody id="pdfRows"></tbody></table></div><p id="pdfSummary" class="note"></p></div>
 </div>
@@ -105,6 +125,7 @@ const money=x=>Number(x||0).toLocaleString('en-US',{style:'currency',currency:'U
 const dateView=d=>d?new Date(d+'T12:00:00Z').toLocaleDateString('en-US',{timeZone:'UTC',month:'short',day:'numeric',year:'numeric'}):'—';
 const clean=x=>String(x??'').toLowerCase().replace(/[^a-z0-9]/g,'');const blank=x=>String(x??'').trim();
 let records=[],role='',editable=false,period='ALL',decision='PENDING',search='',activeTab='review',drafts=[],csvFileRows=[],csvHeaders=[],csvFilename='',pdfFilename='';
+let selectedScheduledPdf=null,pdfIsReading=false,pdfDragDepth=0;
 function notice(s,k='info'){$('notice').hidden=false;$('notice').className='status '+k;$('notice').textContent=s}
 function hideNotice(){$('notice').hidden=true}
 function fy(ymd){const y=Number(ymd.slice(0,4)),m=Number(ymd.slice(5,7));return (m>=7?y+1:y)+'-Q'+(m>=7&&m<=9?1:m>=10?2:m<=3?3:4)}
@@ -144,11 +165,71 @@ function detectDate(s){const m=String(s).match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-]
 function splitCustomer(text){const lines=text.split(/\n/).map(s=>s.trim()).filter(Boolean);let index=lines.findIndex(x=>/\b\d{2,6}\s+\w/.test(x));if(index<0){const flat=lines.join(' ');const m=flat.match(/^(.*?)(\d{2,6}\s+.*)$/);if(m)return {name:blank(m[1]),addr:blank(m[2])};return {name:blank(lines.slice(0,2).join(' ')),addr:blank(lines.slice(2).join(' '))}}return {name:blank(lines.slice(0,index).join(' ')),addr:blank(lines.slice(index).join(' '))}}
 function pdfDraftRow(row,i){return '<tr data-i="'+i+'"><td><input type="checkbox" data-key="include" '+(row.include?'checked':'')+'></td><td><input aria-label="Client" data-key="client" value="'+esc(row.client)+'"></td><td><input aria-label="Service address" data-key="address" value="'+esc(row.address)+'"></td><td><input type="date" aria-label="Submitted date" data-key="date" value="'+esc(row.date)+'"></td><td><input aria-label="Skimmer assigned bucket" data-key="bucket" value="'+esc(row.bucket)+'"></td><td>'+row.page+'</td></tr>'}
 function syncDrafts(){document.querySelectorAll('#pdfRows tr[data-i]').forEach(tr=>{const d=drafts[Number(tr.dataset.i)];if(!d)return;tr.querySelectorAll('[data-key]').forEach(input=>{const k=input.dataset.key;d[k]=input.type==='checkbox'?input.checked:input.value})})}
-async function readPDF(){if(!editable)return;const file=$('scheduledPdf').files[0];if(!file){notice('Choose the Skimmer Scheduled Work Orders PDF first.','error');return}if(typeof pdfjsLib==='undefined'||typeof Tesseract==='undefined'){notice('PDF/OCR libraries are not available. Check the internet connection.','error');return}pdfFilename=file.name;const b=$('readPdf');b.disabled=true;drafts=[];$('pdfPreview').hidden=true;let worker;
+function isScheduledPdf(file){return !!file && (file.type==='application/pdf'||/\.pdf$/i.test(file.name||''))}
+function hidePdfDropFeedback(){pdfDragDepth=0;$('pdfPageDropOverlay').hidden=true;$('pdfDropzone').classList.remove('is-dragging')}
+function validateScheduledPdf(file){
+ if(!isScheduledPdf(file)){notice('Only a PDF file can be imported here. Use Reconcile Finished CSV for completed-ticket exports.','error');return false}
+ if(file.size===0){notice('The selected PDF is empty.','error');return false}
+ if(file.size>25*1024*1024){notice('This PDF is larger than 25 MB. Export a smaller Scheduled Work Orders PDF.','error');return false}
+ return true;
+}
+async function useScheduledPdf(file,autoPreview=false){
+ hidePdfDropFeedback();
+ if(!editable){notice('You need an authorized Service Manager or Admin role to import Scheduled PDFs.','error');return}
+ if(!validateScheduledPdf(file))return;
+ if(pdfIsReading){notice('The previous PDF is still being read. Wait for it to finish before choosing another file.','info');return}
+ selectedScheduledPdf=file;
+ $('selectedPdfName').textContent=file.name+' · '+(file.size/1024/1024).toFixed(2)+' MB';
+ $('readPdf').disabled=false;
+ $('pdfPreview').hidden=true;
+ drafts=[];
+ if(autoPreview){tab('pdf');await readPDF()}
+ else{notice('PDF selected. Click Read PDF & Preview to extract the pending requests.','info')}
+}
+function wireScheduledPdfDrop(){
+ $('chooseScheduledPdf').addEventListener('click',()=>{if(editable&&!pdfIsReading)$('scheduledPdf').click()});
+ $('scheduledPdf').addEventListener('change',async e=>{
+   const file=e.target.files&&e.target.files[0];if(file)await useScheduledPdf(file,true);
+   e.target.value='';
+ });
+ const fileDrag=e=>!!e.dataTransfer&&Array.from(e.dataTransfer.types||[]).includes('Files');
+ // Accept PDF drops anywhere, including while the Review Queue tab is active.
+ document.addEventListener('dragenter',e=>{
+   if(!editable||!fileDrag(e))return;
+   e.preventDefault();pdfDragDepth++;
+   $('pdfPageDropOverlay').hidden=false;
+   $('pdfDropzone').classList.add('is-dragging');
+ });
+ document.addEventListener('dragover',e=>{
+   if(!editable||!fileDrag(e))return;
+   e.preventDefault();e.dataTransfer.dropEffect='copy';
+   $('pdfPageDropOverlay').hidden=false;
+ });
+ document.addEventListener('dragleave',e=>{
+   if(!fileDrag(e))return;
+   pdfDragDepth=Math.max(0,pdfDragDepth-1);
+   if(pdfDragDepth===0)hidePdfDropFeedback();
+ });
+ document.addEventListener('drop',async e=>{
+   if(!editable||!fileDrag(e))return;
+   e.preventDefault();hidePdfDropFeedback();
+   const files=Array.from(e.dataTransfer.files||[]);
+   if(files.length!==1){notice('Drop one Scheduled Skimmer PDF at a time.','error');return}
+   await useScheduledPdf(files[0],true);
+ });
+ document.addEventListener('dragend',hidePdfDropFeedback);
+ window.addEventListener('blur',hidePdfDropFeedback);
+}
+async function readPDF(){
+ if(!editable||pdfIsReading)return;
+ const file=selectedScheduledPdf||$('scheduledPdf').files[0];
+ if(!file){notice('Drop or choose the Skimmer Scheduled Work Orders PDF first.','error');return}
+ if(!validateScheduledPdf(file))return;
+if(typeof pdfjsLib==='undefined'||typeof Tesseract==='undefined'){notice('PDF/OCR libraries are not available. Check the internet connection.','error');return}pdfFilename=file.name;const b=$('readPdf');pdfIsReading=true;b.disabled=true;$('chooseScheduledPdf').disabled=true;drafts=[];$('pdfPreview').hidden=true;let worker;
 try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;worker=await Tesseract.createWorker('eng');for(let n=1;n<=pdf.numPages;n++){const p=await pdf.getPage(n);$('ocrProgress').textContent='Reading PDF page '+n+' of '+pdf.numPages+'…';const type=await cropOCR(p,worker,.075,.26,.09,.27);if(!/renovati|rso/i.test(type))continue;const client=splitCustomer(await cropOCR(p,worker,.27,.425,.11,.33));const date=detectDate(await cropOCR(p,worker,.65,.79,.1,.33));const bucket=blank((await cropOCR(p,worker,.79,.944,.11,.27)).replace(/\s+/g,' '));if(!client.name&&!date)continue;drafts.push({include:true,client:client.name,address:client.addr,date,bucket,page:n});}
 if(!drafts.length){notice('No reliably identifiable renovation row was found. This PDF layout may differ; use Add Missing Request on the Review Queue or contact us with the new report format. No records were changed.','error');return}
 $('pdfRows').innerHTML=drafts.map(pdfDraftRow).join('');$('pdfPreview').hidden=false;$('pdfSummary').textContent=drafts.length+' candidate row(s) found. The PDF has no usable Work Order # or Created By field: those will be verified at review time.';notice('PDF preview extracted. Inspect and correct every row before selecting Import.','info')}
-catch(e){notice('PDF import could not complete: '+(e.message||e),'error')}finally{try{if(worker)await worker.terminate()}catch{}b.disabled=false;$('ocrProgress').textContent=''}}
+catch(e){notice('PDF import could not complete: '+(e.message||e),'error')}finally{try{if(worker)await worker.terminate()}catch{}pdfIsReading=false;b.disabled=false;$('chooseScheduledPdf').disabled=false;$('ocrProgress').textContent=''}}
 async function importPdf(){syncDrafts();const selected=drafts.filter(x=>x.include);if(!selected.length){notice('Select at least one row.','error');return}if(!editable)return;const b=$('savePdf');b.disabled=true;let inserted=0,skipped=0,failed=[];
 try{for(const row of selected){const client=blank(row.client),addr=blank(row.address),date=blank(row.date),bucket=blank(row.bucket);if(!client||!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/renovation\s*requests?/i.test(bucket)){failed.push('Page '+row.page+': verify client, date and *****RT - Renovation Requests assignment.');continue}
 const key='SKIMMER-PDF|'+date+'|'+clean(client)+'|'+clean(addr);const match=records.find(x=>x.scheduled_import_key===key||(x.submitted_on===date&&clean(x.client_name)===clean(client)&&clean(x.service_address)===clean(addr)));if(match){skipped++;continue}
@@ -166,6 +247,6 @@ if(!jobs.length){notice('No Finished RSO renovation rows with valid work order n
 try{for(let ix=0;ix<jobs.length;ix+=100){const batch=jobs.slice(ix,ix+100);const res=await db.from('rso_renovation_finished_csv_rows').upsert(batch,{onConflict:'import_key',ignoreDuplicates:true}).select('id');if(res.error){errors.push(res.error.message);break}stored+=res.data?.length||0;duplicates+=batch.length-(res.data?.length||0)}
 if(errors.length){notice('CSV storage problem: '+errors.join('; '),'error');return}const recon=await db.rpc('reconcile_rso_renovation_finished_tickets');if(recon.error)throw recon.error;await load();tab('review');notice('Finished CSV processed: '+stored+' new completion records; '+duplicates+' already recorded; '+recon.data.updated+' RSO records newly confirmed Finished. '+recon.data.unmatchedFinishedRows+' finished rows remain unmatched across imported files.'+(warnings.length?'\nSkipped rows requiring corrected # or date: '+warnings.slice(0,20).join(', '):''),'success')}
 catch(e){notice('CSV import/reconciliation failed: '+(e.message||e),'error')}finally{b.disabled=false}}
-window.addEventListener('load',async()=>{document.querySelectorAll('[data-tab]').forEach(el=>el.addEventListener('click',()=>tab(el.dataset.tab)));$('refresh').onclick=load;$('addManual').onclick=()=>openEditor(null);$('filterQuarter').onchange=e=>{period=e.target.value;draw()};$('filterDecision').onchange=e=>{decision=e.target.value;draw()};$('filterSearch').oninput=e=>{search=e.target.value.toLowerCase().trim();draw()};$('closeEditor').onclick=()=>$('editor').close();$('cancelEditor').onclick=()=>$('editor').close();$('form').onsubmit=save;document.querySelectorAll('input[name=decision]').forEach(el=>el.addEventListener('change',modalRules));$('draftEmail').onclick=draftEmail;$('confirmEmail').onclick=confirmNotice;$('readPdf').onclick=readPDF;$('savePdf').onclick=importPdf;$('previewCsv').onclick=previewCSV;$('importCsv').onclick=importCSV;['mapNumber','mapFinished','mapClient','mapType'].forEach(x=>$(x).onchange=renderCSV);if(await auth())await load()});
+window.addEventListener('load',async()=>{document.querySelectorAll('[data-tab]').forEach(el=>el.addEventListener('click',()=>tab(el.dataset.tab)));$('refresh').onclick=load;$('addManual').onclick=()=>openEditor(null);$('filterQuarter').onchange=e=>{period=e.target.value;draw()};$('filterDecision').onchange=e=>{decision=e.target.value;draw()};$('filterSearch').oninput=e=>{search=e.target.value.toLowerCase().trim();draw()};$('closeEditor').onclick=()=>$('editor').close();$('cancelEditor').onclick=()=>$('editor').close();$('form').onsubmit=save;document.querySelectorAll('input[name=decision]').forEach(el=>el.addEventListener('change',modalRules));$('draftEmail').onclick=draftEmail;$('confirmEmail').onclick=confirmNotice;$('readPdf').onclick=readPDF;wireScheduledPdfDrop();$('savePdf').onclick=importPdf;$('previewCsv').onclick=previewCSV;$('importCsv').onclick=importCSV;['mapNumber','mapFinished','mapClient','mapType'].forEach(x=>$(x).onchange=renderCSV);if(await auth())await load()});
 })();
 </script></body></html>
