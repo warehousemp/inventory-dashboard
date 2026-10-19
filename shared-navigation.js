@@ -180,6 +180,7 @@
         'ACCOUNTING',
         'SERVICE',
         'SERVICE_MANAGER',
+        'PROJECTS',
         'ADMIN',
         'SYSTEM_ADMIN'
       ],
@@ -226,6 +227,11 @@
             'ADMIN',
             'SYSTEM_ADMIN'
           ]
+        },
+        {
+          label: 'RSO Renovation Opportunities',
+          href: 'rso-renovation-opportunities.html',
+          roles: ['SERVICE_MANAGER', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
           label: 'RSO Tracking',
@@ -431,9 +437,16 @@
       .filter(section => isAllowed(section.roles, role))
       .map(section => ({
         ...section,
-        links: section.links.filter(link =>
-          isAllowed(link.roles, role)
-        )
+        // Alphabetize the visible links in every dropdown (A-Z),
+        // without changing the main menu order or role permissions.
+        links: section.links
+          .filter(link => isAllowed(link.roles, role))
+          .sort((a, b) =>
+            a.label.localeCompare(b.label, 'en', {
+              sensitivity: 'base',
+              numeric: true
+            })
+          )
       }))
       .filter(section =>
         section.links.length > 0 ||
