@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11233b">
+  <title>Company Gas Card Tracking | Molinari Pools</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    :root { color-scheme:light; --ink:#15263a; --muted:#617185; --primary:#0a548f; --border:#dce5ec; --bg:#f5f7fa; --white:#fff; --green:#117a55; --red:#b63838; --gold:#a26606; --shadow:0 8px 28px rgba(23,48,77,.06); }
+    * { box-sizing:border-box; }
+    body { margin:0; font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--ink); background:var(--bg); }
+    button,input,select,textarea { font:inherit; }
+    button { cursor:pointer; }
+    button:disabled { cursor:not-allowed; opacity:.45; }
+    .shell { max-width:1480px; margin:0 auto; padding:28px 26px 55px; }
+    header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; flex-wrap:wrap; margin-bottom:23px; }
+    .eyebrow { font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--primary); }
+    h1 { margin:3px 0 6px; font-size:29px; letter-spacing:-.025em; font-weight:780; }
+    .sub { margin:0; color:var(--muted); max-width:790px; }
+    .actions { display:flex; align-items:center; flex-wrap:wrap; gap:9px; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; min-height:37px; padding:8px 14px; border-radius:8px; border:1px solid #bdcddd; color:#1b3f5d; background:#fff; font-weight:650; text-decoration:none; gap:8px; white-space:nowrap; }
+    .btn:hover:not(:disabled) { background:#eff5fb; }
+    .btn.primary { color:#fff; background:var(--primary); border-color:var(--primary); }
+    .btn.primary:hover:not(:disabled) { background:#06436f; }
+    .btn.danger { color:var(--red); border-color:#e8c8c8; }
+    .btn.small { min-height:29px; padding:4px 9px; font-size:12px; }
+    .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; margin-bottom:20px; }
+    .stat { background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px 19px; box-shadow:var(--shadow); }
+    .stat .label { color:var(--muted); font-size:12px; font-weight:700; margin-bottom:5px; }
+    .stat .value { font-weight:790; font-size:27px; line-height:1.15; font-variant-numeric:tabular-nums; }
+    .stat .hint { color:var(--muted); font-size:11px; margin-top:5px; }
+    .panel { background:#fff; border:1px solid var(--border); box-shadow:var(--shadow); border-radius:12px; overflow:hidden; }
+    .panel-head { padding:18px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; gap:12px; }
+    h2 { font-size:17px; letter-spacing:-.01em; margin:0; }
+    .panel-head p { margin:2px 0 0; color:var(--muted); font-size:12px; }
+    .tabs { display:flex; gap:6px; flex-wrap:wrap; padding:12px 20px 0; border-bottom:1px solid var(--border); }
+    .tab { border:0; background:none; color:#59718c; padding:10px 14px 12px; font-weight:700; border-bottom:3px solid transparent; }
+    .tab[aria-selected=true] { border-color:var(--primary); color:var(--primary); }
+    .filters { display:flex; gap:9px; flex-wrap:wrap; align-items:center; padding:15px 20px; }
+    .control { border:1px solid #cdd9e4; background:white; color:var(--ink); border-radius:7px; padding:8px 10px; min-height:36px; }
+    .filters .search { width:min(370px,100%); flex:1; }
+    .filters .spacer { margin-left:auto; }
+    .table-wrap { overflow-x:auto; }
+    table { border-collapse:collapse; width:100%; min-width:830px; }
+    th { font-size:11px; letter-spacing:.045em; text-transform:uppercase; color:#637285; font-weight:800; background:#f7f9fb; }
+    td,th { text-align:left; border-top:1px solid #e7edf2; padding:11px 15px; vertical-align:middle; }
+    tbody tr:hover { background:#fbfdff; }
+    .number { font-variant-numeric:tabular-nums; font-weight:720; white-space:nowrap; }
+    .quiet { color:var(--muted); }
+    .pill { display:inline-flex; align-items:center; border-radius:100px; font-size:11px; padding:3px 9px; font-weight:800; background:#e7f7ef; color:var(--green); white-space:nowrap; }
+    .pill.issued { background:#fff1d8; color:var(--gold); }
+    .pill.inactive { background:#fce9e9; color:var(--red); }
+    .empty { padding:32px 18px; text-align:center; color:var(--muted); }
+    .foot { margin-top:15px; font-size:12px; color:var(--muted); }
+    .notice { padding:12px 15px; border:1px solid #d3e6f5; color:#1d4f72; background:#eff7fc; border-radius:9px; margin-bottom:18px; }
+    .notice.error { border-color:#efc3c3; background:#fff1f1; color:#982f2f; }
+    .notice.success { border-color:#b5e2c8; background:#edfcf3; color:#11643b; }
+    .hidden { display:none!important; }
+    dialog { border:0; padding:0; border-radius:13px; box-shadow:0 24px 90px rgba(13,38,66,.28); width:min(540px,calc(100vw - 28px)); max-height:90vh; overflow:auto; }
+    dialog::backdrop { background:rgba(11,33,55,.5); }
+    dialog form { padding:22px; }
+    .modal-title { font-size:20px; margin:0 0 3px; }
+    .modal-desc { margin:0 0 20px; color:var(--muted); font-size:12px; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:13px; }
+    .field { display:grid; gap:5px; min-width:0; }
+    .field.full { grid-column:1/-1; }
+    label { color:#394e65; font-weight:700; font-size:12px; }
+    .field .control { width:100%; }
+    textarea.control { resize:vertical; min-height:80px; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:9px; flex-wrap:wrap; margin-top:24px; }
+    .muted-note { padding:12px 14px; background:#f3f7fa; color:var(--muted); border-radius:8px; font-size:12px; }
+    #loading { color:var(--muted); padding:30px 0; }
+    @media(max-width:760px) { .shell { padding:17px 13px 32px; } h1{font-size:24px;} .stats{grid-template-columns:repeat(2,minmax(0,1fr));} .stat{padding:13px;} .stat .value{font-size:23px;} .panel-head,.filters{padding-left:13px;padding-right:13px;} .tabs{padding-left:12px;} .form-grid{grid-template-columns:1fr;} .field.full{grid-column:auto;} }
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header>
+    <div>
+      <div class="eyebrow">Company Tools / Fleet &amp; Assets</div>
+      <h1>Company Gas Card Tracking</h1>
+      <p class="sub">Company-wide Comdata card control, employee sign-outs and returns, and a permanent transaction history.</p>
+    </div>
+    <div class="actions">
+      <button class="btn" id="refreshBtn" type="button">↻ Refresh</button>
+      <button class="btn" id="exportBtn" type="button">↓ Export History</button>
+      <button class="btn primary write-only" id="issueBtn" type="button">+ Issue Gas Card</button>
+    </div>
+  </header>
+
+  <div id="notice" class="notice hidden" role="status"></div>
+  <div id="loading">Checking company access and loading gas cards…</div>
+  <div id="app" class="hidden">
+    <section class="stats" aria-label="Gas card overview">
+      <div class="stat"><div class="label">Total Cards</div><div class="value" id="totalCards">0</div><div class="hint">Inventory records</div></div>
+      <div class="stat"><div class="label">Available</div><div class="value" id="availableCards">0</div><div class="hint">Active and not issued</div></div>
+      <div class="stat"><div class="label">Signed Out</div><div class="value" id="issuedCards">0</div><div class="hint">Currently checked out</div></div>
+      <div class="stat"><div class="label">Unavailable</div><div class="value" id="unavailableCards">0</div><div class="hint">Inactive, lost, or damaged</div></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head">
+        <div><h2>Gas Card Register</h2><p>Check current possession and review every recorded sign-out.</p></div>
+        <button type="button" class="btn write-only" id="addCardBtn">+ Add New Card</button>
+      </div>
+      <nav class="tabs" aria-label="Tracking sections">
+        <button type="button" class="tab" data-tab="active" aria-selected="true">Currently Signed Out</button>
+        <button type="button" class="tab" data-tab="inventory" aria-selected="false">All Gas Cards</button>
+        <button type="button" class="tab" data-tab="history" aria-selected="false">Sign-Out History</button>
+      </nav>
+      <div class="filters">
+        <input class="control search" type="search" id="search" placeholder="Search by employee, card, or vehicle…" aria-label="Search register">
+        <select class="control hidden" id="historyFilter" aria-label="History status"><option value="all">All Transactions</option><option value="out">Not Returned</option><option value="returned">Returned</option></select>
+        <span id="resultCount" class="quiet spacer" aria-live="polite"></span>
+      </div>
+      <div class="table-wrap" id="tableArea"></div>
+    </section>
+    <p class="foot">The employee listed on the historical paper sheet is a reference only. A card is considered signed out only after an issuance is recorded here. Vehicle assignment is optional.</p>
+  </div>
+</main>
+
+<dialog id="issueDialog" aria-labelledby="issueTitle">
+  <form id="issueForm" novalidate>
+    <h3 class="modal-title" id="issueTitle">Issue Gas Card</h3><p class="modal-desc">Select an available card and record the receiving team member.</p>
+    <div class="form-grid">
+      <div class="field full"><label for="issueCard">Gas Card *</label><select class="control" id="issueCard" required></select></div>
+      <div class="field full"><label for="issueEmployee">Team Member Name *</label><input class="control" id="issueEmployee" list="teamSuggestions" maxlength="150" required autocomplete="off"><datalist id="teamSuggestions"></datalist></div>
+      <div class="field"><label for="issueDate">Sign-Out Date *</label><input class="control" type="date" id="issueDate" required></div>
+      <div class="field"><label for="issueVehicle">Vehicle # (optional)</label><input class="control" id="issueVehicle" maxlength="30" placeholder="e.g. 37"></div>
+      <div class="field"><label for="issueInitials">Employee Initials</label><input class="control" id="issueInitials" maxlength="15"></div>
+      <div class="field"><label for="issueDept">Department (optional)</label><input class="control" id="issueDept" maxlength="100" placeholder="e.g. Projects"></div>
+      <div class="field full"><label for="issueNotes">Special Notes</label><textarea class="control" id="issueNotes" maxlength="2000"></textarea></div>
+    </div>
+    <div class="modal-actions"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn primary" id="issueSubmit">Record Sign-Out</button></div>
+  </form>
+</dialog>
+
+<dialog id="returnDialog" aria-labelledby="returnTitle">
+  <form id="returnForm" novalidate>
+    <h3 class="modal-title" id="returnTitle">Return Gas Card</h3><p class="modal-desc" id="returnSubtitle"></p>
+    <input id="returnIssueId" type="hidden">
+    <div class="form-grid">
+      <div class="field full"><label for="returnDate">Date Returned *</label><input class="control" type="date" id="returnDate" required></div>
+      <div class="field"><label for="returnMileage">Mileage (optional)</label><input class="control" type="number" id="returnMileage" min="0" step="1" placeholder="e.g. 25781"></div>
+      <div class="field"><label for="returnGallons">Gallons Purchased (optional)</label><input class="control" type="number" id="returnGallons" min="0" step="0.01" placeholder="e.g. 22.50"></div>
+      <div class="field full"><label for="returnNotes">Return Notes</label><textarea class="control" id="returnNotes" maxlength="2000"></textarea></div>
+    </div>
+    <div class="modal-actions"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn primary" id="returnSubmit">Confirm Return</button></div>
+  </form>
+</dialog>
+
+<dialog id="cardDialog" aria-labelledby="cardTitle">
+  <form id="cardForm" novalidate>
+    <h3 class="modal-title" id="cardTitle">Add Gas Card</h3><p class="modal-desc">The card number is its permanent inventory identifier.</p>
+    <input id="cardId" type="hidden">
+    <div class="form-grid">
+      <div class="field"><label for="cardNumber">Comdata Card # *</label><input class="control" id="cardNumber" maxlength="40" required autocomplete="off"></div>
+      <div class="field"><label for="cardVehicle">Vehicle # (optional)</label><input class="control" id="cardVehicle" maxlength="30"></div>
+      <div class="field"><label for="cardLegacy">Reference / Assigned Name</label><input class="control" id="cardLegacy" maxlength="150" placeholder="Optional"></div>
+      <div class="field"><label for="cardStatus">Card Status</label><select class="control" id="cardStatus"><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="LOST">Lost</option><option value="DAMAGED">Damaged</option></select></div>
+      <div class="field full"><label for="cardNotes">Card Notes</label><textarea class="control" id="cardNotes" maxlength="2000"></textarea></div>
+    </div>
+    <div class="modal-actions"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn primary" id="cardSubmit">Save Card</button></div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+  // Supabase PUBLISHABLE key only; never put a service-role or secret key in browser code.
+  // If the existing shared application initializes its own client, this standalone client
+  // will reuse the same Supabase browser-auth session for this project and origin.
+  const SUPABASE_URL = 'https://icqkuhbhcennhhbbwqgo.supabase.co';
+  const PUBLISHABLE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+  const $ = id => document.getElementById(id);
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const text = value => value === null || value === undefined || value === '' ? '—' : String(value);
+  const today = () => {const d = new Date(); return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
+  const niceDate = d => !d ? '—' : new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const db = window.supabase?.createClient(SUPABASE_URL, PUBLISHABLE_KEY);
+  let cards = [], history = [], active = [], canWrite = false, tab = 'active', search = '', historyFilter = 'all', busy = false;
+  const alerts = (message,kind='') => {
+    const el=$('notice');el.textContent=message;el.className='notice'+(kind?' '+kind:'');el.classList.remove('hidden');
+    const openDialog=[...document.querySelectorAll('dialog')].find(d=>d.open);
+    if(openDialog){
+      let inline=openDialog.querySelector('.form-alert');
+      if(!inline){inline=document.createElement('div');inline.className='form-alert';openDialog.querySelector('form').insertBefore(inline,openDialog.querySelector('.form-grid'));}
+      inline.className='notice form-alert'+(kind?' '+kind:'');inline.textContent=message;
+    }
+    if(kind==='success')window.scrollTo({top:0,behavior:'smooth'});
+  };
+  const hideAlert = () => $('notice').classList.add('hidden');
+  const nullable = id => $(id).value.trim() || null;
+  const numOrNull = id => $(id).value.trim() === '' ? null : Number($(id).value);
+  const cardById = id => cards.find(c => c.id === id);
+  const openByCardId = id => active.find(a => a.gas_card_id === id);
+  const currentStatus = c => c.status !== 'ACTIVE' ? c.status : (openByCardId(c.id) ? 'SIGNED OUT':'AVAILABLE');
+  const statusHTML = state => `<span class="pill ${state==='SIGNED OUT'?'issued':state==='AVAILABLE'?'':'inactive'}">${esc(state)}</span>`;
+  const line = s => esc(text(s));
+  function setBusy(v) { busy=v; document.querySelectorAll('dialog button[type="submit"]').forEach(btn=>btn.disabled=v); }
+  async function readAllHistory() {
+    // Supabase REST APIs may cap each response. Page through all records so a
+    // long-running checkout never disappears from the availability calculation.
+    const all = [], pageSize = 1000;
+    for (let offset=0; ; offset+=pageSize) {
+      const {data,error} = await db.from('company_gas_card_issuances')
+        .select('id,gas_card_id,employee_name,employee_initials,employee_department,vehicle_number,signed_out_date,returned_date,mileage,gallons_purchased,notes,return_notes,issued_by,returned_by')
+        .order('signed_out_date',{ascending:false}).order('id',{ascending:false})
+        .range(offset,offset+pageSize-1);
+      if(error)throw error;
+      all.push(...(data||[]));
+      if(!data||data.length<pageSize)break;
+    }
+    return all;
+  }
+  async function load() {
+    if (!db) { $('loading').textContent='Could not load Supabase client library.'; return; }
+    $('loading').classList.remove('hidden');
+    try {
+      const {data:{session},error:authError} = await db.auth.getSession();
+      if(authError)throw authError;
+      if(!session)throw new Error('Please sign in to Molinari Pools, then open this page again.');
+      const [{data:cardData,error:cardError},historyData,{data:writeAllowed,error:roleError}] = await Promise.all([
+        db.from('company_gas_cards').select('id,card_number,vehicle_number,legacy_assigned_to,status,notes,source').order('card_number'),
+        readAllHistory(),
+        db.rpc('company_gas_cards_can_write')
+      ]);
+      if(cardError)throw cardError;if(roleError)throw roleError;
+      // RLS only returns allowed records; a signed-in user without card access gets none.
+      cards=cardData||[];history=historyData||[];active=history.filter(r=>!r.returned_date);canWrite=writeAllowed===true;
+      document.querySelectorAll('.write-only').forEach(el=>el.classList.toggle('hidden',!canWrite));
+      $('loading').classList.add('hidden');$('app').classList.remove('hidden');
+      if(!canWrite && cards.length===0)alerts('Your current role cannot view gas-card data. Please contact a system administrator.','error');
+      render();
+    }catch(e){ $('loading').classList.add('hidden'); $('app').classList.add('hidden'); alerts(e.message||'Unable to load gas cards.','error'); }
+  }
+  function render() {
+    const available = cards.filter(c => currentStatus(c)==='AVAILABLE');
+    $('totalCards').textContent=cards.length;$('availableCards').textContent=available.length;
+    $('issuedCards').textContent=active.length;$('unavailableCards').textContent=cards.filter(c=>c.status!=='ACTIVE').length;
+    document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===tab)));
+    $('historyFilter').classList.toggle('hidden',tab!=='history');
+    let rows=[];const q=search.toLowerCase();
+    const match = (...values) => values.some(v=>String(v??'').toLowerCase().includes(q));
+    if(tab==='active') {
+      rows=active.map(a=>({...a,card:cardById(a.gas_card_id)})).filter(a=>match(a.employee_name,a.employee_department,a.vehicle_number,a.card?.card_number,a.notes));
+      $('tableArea').innerHTML=`<table><thead><tr><th>Gas Card</th><th>Issued To</th><th>Department</th><th>Vehicle</th><th>Date Signed Out</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(a=>`<tr><td class="number">${line(a.card?.card_number)}</td><td><strong>${line(a.employee_name)}</strong></td><td>${line(a.employee_department)}</td><td>${line(a.vehicle_number)}</td><td>${esc(niceDate(a.signed_out_date))}</td><td>${statusHTML('SIGNED OUT')}</td><td>${canWrite?`<button class="btn small" data-return="${esc(a.id)}">Record Return</button>`:''}</td></tr>`).join('')}</tbody></table>`;
+    } else if(tab==='inventory') {
+      rows=cards.filter(c=>match(c.card_number,c.vehicle_number,c.legacy_assigned_to,c.status,openByCardId(c.id)?.employee_name,c.notes));
+      $('tableArea').innerHTML=`<table><thead><tr><th>Comdata Card #</th><th>Reference Vehicle</th><th>Paper Log Name</th><th>Currently Held By</th><th>Current Status</th><th></th></tr></thead><tbody>${rows.map(c=>`<tr><td class="number">${line(c.card_number)}</td><td>${line(c.vehicle_number)}</td><td>${line(c.legacy_assigned_to)}</td><td>${line(openByCardId(c.id)?.employee_name)}</td><td>${statusHTML(currentStatus(c))}</td><td>${canWrite?`<button class="btn small" data-edit="${esc(c.id)}">Edit Card</button>`:''}</td></tr>`).join('')}</tbody></table>`;
+    } else {
+      rows=history.map(a=>({...a,card:cardById(a.gas_card_id)}))
+        .filter(a=>historyFilter==='all'||(historyFilter==='out'?!a.returned_date:!!a.returned_date))
+        .filter(a=>match(a.employee_name,a.employee_department,a.vehicle_number,a.card?.card_number,a.notes,a.return_notes,a.signed_out_date,a.returned_date));
+      $('tableArea').innerHTML=`<table><thead><tr><th>Gas Card</th><th>Team Member</th><th>Vehicle</th><th>Signed Out</th><th>Returned</th><th>Mileage</th><th>Gallons</th><th>Notes</th></tr></thead><tbody>${rows.map(a=>`<tr><td class="number">${line(a.card?.card_number)}</td><td><strong>${line(a.employee_name)}</strong>${a.employee_initials?` <span class="quiet">(${esc(a.employee_initials)})</span>`:''}</td><td>${line(a.vehicle_number)}</td><td>${esc(niceDate(a.signed_out_date))}</td><td>${a.returned_date?esc(niceDate(a.returned_date)):statusHTML('SIGNED OUT')}</td><td>${a.mileage==null?'—':Number(a.mileage).toLocaleString()}</td><td>${a.gallons_purchased==null?'—':Number(a.gallons_purchased).toFixed(2)}</td><td>${line([a.notes,a.return_notes].filter(Boolean).join(' / '))}</td></tr>`).join('')}</tbody></table>`;
+    }
+    $('resultCount').textContent=`${rows.length.toLocaleString()} ${tab==='inventory'?'cards':'records'}`;
+    if(!rows.length)$('tableArea').innerHTML='<div class="empty">No matching records.</div>';
+  }
+  function showDialog(id) {$(id).querySelector('.form-alert')?.remove();$(id).showModal();}
+  function openIssue() {
+    if(!canWrite)return;
+    $('issueForm').reset();$('issueDate').value=today();
+    const available=cards.filter(c=>currentStatus(c)==='AVAILABLE');
+    $('issueCard').innerHTML=available.map(c=>`<option value="${esc(c.id)}">Card ${esc(c.card_number)}${c.vehicle_number?' · Vehicle '+esc(c.vehicle_number):''}</option>`).join('');
+    const suggestions=[...new Set([...history.map(h=>h.employee_name),...cards.map(c=>c.legacy_assigned_to)].filter(Boolean))].sort();
+    $('teamSuggestions').innerHTML=suggestions.map(name=>`<option value="${esc(name)}"></option>`).join('');
+    if(!available.length){alerts('No active gas cards are currently available to issue.','error');return;}
+    syncIssueVehicle();showDialog('issueDialog');
+  }
+  function syncIssueVehicle(){ const c=cardById($('issueCard').value);$('issueVehicle').value=c?.vehicle_number||''; }
+  function openReturn(id) {
+    if(!canWrite)return;
+    const a=active.find(r=>r.id===id);if(!a)return;
+    $('returnForm').reset();$('returnIssueId').value=id;$('returnDate').value=today();
+    $('returnDate').min=a.signed_out_date;
+    $('returnSubtitle').textContent=`Card ${cardById(a.gas_card_id)?.card_number||'—'} · ${a.employee_name} · Signed out ${niceDate(a.signed_out_date)}`;
+    showDialog('returnDialog');
+  }
+  function openCard(id) {
+    if(!canWrite)return;
+    $('cardForm').reset();const c=id?cardById(id):null;
+    $('cardTitle').textContent=c?'Edit Gas Card':'Add Gas Card';$('cardId').value=c?.id||'';
+    $('cardNumber').value=c?.card_number||'';$('cardNumber').readOnly=!!c;
+    $('cardVehicle').value=c?.vehicle_number||'';
+    $('cardLegacy').value=c?.legacy_assigned_to||'';$('cardStatus').value=c?.status||'ACTIVE';$('cardNotes').value=c?.notes||'';
+    showDialog('cardDialog');
+  }
+  async function submitIssue(e) {
+    e.preventDefault();if(busy)return;
+    const payload={p_card_id:$('issueCard').value,p_employee_name:$('issueEmployee').value.trim(),p_issue_date:$('issueDate').value,p_vehicle_number:nullable('issueVehicle'),p_employee_initials:nullable('issueInitials'),p_employee_department:nullable('issueDept'),p_notes:nullable('issueNotes')};
+    if(!payload.p_card_id||!payload.p_employee_name||!payload.p_issue_date){alerts('Please fill in card, employee name, and sign-out date.','error');return;}
+    setBusy(true);
+    try{const {error}=await db.rpc('company_gas_card_issue',payload);if(error)throw error;$('issueDialog').close();await load();alerts('Gas card sign-out recorded successfully.','success');}
+    catch(ex){alerts(ex.message||'Could not issue gas card.','error');}
+    finally{setBusy(false);}
+  }
+  async function submitReturn(e) {
+    e.preventDefault();if(busy)return;
+    const mileage=numOrNull('returnMileage'), gallons=numOrNull('returnGallons');
+    if(mileage!==null&&(!Number.isInteger(mileage)||mileage<0)){alerts('Mileage must be a whole nonnegative number.','error');return;}
+    if(gallons!==null&&(!Number.isFinite(gallons)||gallons<0)){alerts('Gallons must be nonnegative.','error');return;}
+    setBusy(true);
+    try{const {error}=await db.rpc('company_gas_card_return',{p_issuance_id:$('returnIssueId').value,p_return_date:$('returnDate').value,p_mileage:mileage,p_gallons_purchased:gallons,p_return_notes:nullable('returnNotes')});if(error)throw error;$('returnDialog').close();await load();alerts('Gas card return recorded successfully.','success');}
+    catch(ex){alerts(ex.message||'Could not return gas card.','error');}
+    finally{setBusy(false);}
+  }
+  async function submitCard(e) {
+    e.preventDefault();if(busy)return;
+    const id=$('cardId').value;
+    const payload={vehicle_number:nullable('cardVehicle'),legacy_assigned_to:nullable('cardLegacy'),status:$('cardStatus').value,notes:nullable('cardNotes')};
+    const cardNum=$('cardNumber').value.trim();if(!cardNum){alerts('Comdata card number is required.','error');return;}
+    if(!id){payload.card_number=cardNum;payload.source='MANUAL';}
+    setBusy(true);
+    try{const result=id?await db.from('company_gas_cards').update(payload).eq('id',id).select('id'):await db.from('company_gas_cards').insert(payload).select('id');if(result.error)throw result.error;$('cardDialog').close();await load();alerts(id?'Gas card updated successfully.':'New gas card added successfully.','success');}
+    catch(ex){alerts(ex.message||'Could not save gas card.','error');}
+    finally{setBusy(false);}
+  }
+  function csvCell(value) {let s=String(value??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
+  function exportHistory() {
+    const names=['Card #','Employee','Employee Initials','Department','Vehicle #','Sign-Out Date','Return Date','Mileage','Gallons Purchased','Sign-Out Notes','Return Notes','Recorded By User ID','Returned By User ID'];
+    const rows=history.map(h=>[cardById(h.gas_card_id)?.card_number,h.employee_name,h.employee_initials,h.employee_department,h.vehicle_number,h.signed_out_date,h.returned_date,h.mileage,h.gallons_purchased,h.notes,h.return_notes,h.issued_by,h.returned_by]);
+    const csv=[names,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
+    const url=URL.createObjectURL(new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='company-gas-card-history-'+today()+'.csv';document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }
+  document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>btn.closest('dialog').close()));
+  document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>{tab=btn.dataset.tab;render();}));
+  $('refreshBtn').addEventListener('click',()=>{hideAlert();load();});
+  $('issueBtn').addEventListener('click',openIssue);
+  $('addCardBtn').addEventListener('click',()=>openCard());
+  $('exportBtn').addEventListener('click',exportHistory);
+  $('search').addEventListener('input',e=>{search=e.target.value.trim();render();});
+  $('historyFilter').addEventListener('change',e=>{historyFilter=e.target.value;render();});
+  $('issueCard').addEventListener('change',syncIssueVehicle);
+  $('issueForm').addEventListener('submit',submitIssue);
+  $('returnForm').addEventListener('submit',submitReturn);
+  $('cardForm').addEventListener('submit',submitCard);
+  $('tableArea').addEventListener('click',e=>{const ret=e.target.closest('[data-return]');const edit=e.target.closest('[data-edit]');if(ret)openReturn(ret.dataset.return);else if(edit)openCard(edit.dataset.edit);});
+  load();
+})();
+</script>
+</body>
+</html>
