@@ -78,9 +78,9 @@
 <main class="shell">
   <header>
     <div>
-      <div class="eyebrow">Company Tools / Fleet &amp; Assets</div>
+      <div class="eyebrow">Warehouse / Fleet Management</div>
       <h1>Company Gas Card Tracking</h1>
-      <p class="sub">Company-wide Comdata card control, employee sign-outs and returns, and a permanent transaction history.</p>
+      <p class="sub">Warehouse-controlled gas card sign-outs, returns with mileage and gallons purchased, and a permanent company-wide audit history.</p>
     </div>
     <div class="actions">
       <button class="btn" id="refreshBtn" type="button">↻ Refresh</button>
@@ -115,21 +115,17 @@
       </div>
       <div class="table-wrap" id="tableArea"></div>
     </section>
-    <p class="foot">The employee listed on the historical paper sheet is a reference only. A card is considered signed out only after an issuance is recorded here. Vehicle assignment is optional.</p>
+    <p class="foot">Employee and vehicle assignments can be updated under All Gas Cards. When a card is signed out, the assigned employee and vehicle are recorded automatically. At return, mileage and gallons purchased may be entered. The issuing and returning users are captured from their secure logins.</p>
   </div>
 </main>
 
 <dialog id="issueDialog" aria-labelledby="issueTitle">
   <form id="issueForm" novalidate>
-    <h3 class="modal-title" id="issueTitle">Issue Gas Card</h3><p class="modal-desc">Select an available card and record the receiving team member.</p>
+    <h3 class="modal-title" id="issueTitle">Issue Gas Card</h3>
+    <p class="modal-desc">Select the card and record when it was signed out. The employee, vehicle, and issuing user are captured automatically.</p>
     <div class="form-grid">
-      <div class="field full"><label for="issueCard">Gas Card *</label><select class="control" id="issueCard" required></select></div>
-      <div class="field full"><label for="issueEmployee">Team Member Name *</label><input class="control" id="issueEmployee" list="teamSuggestions" maxlength="150" required autocomplete="off"><datalist id="teamSuggestions"></datalist></div>
-      <div class="field"><label for="issueDate">Sign-Out Date *</label><input class="control" type="date" id="issueDate" required></div>
-      <div class="field"><label for="issueVehicle">Vehicle # (optional)</label><input class="control" id="issueVehicle" maxlength="30" placeholder="e.g. 37"></div>
-      <div class="field"><label for="issueInitials">Employee Initials</label><input class="control" id="issueInitials" maxlength="15"></div>
-      <div class="field"><label for="issueDept">Department (optional)</label><input class="control" id="issueDept" maxlength="100" placeholder="e.g. Projects"></div>
-      <div class="field full"><label for="issueNotes">Special Notes</label><textarea class="control" id="issueNotes" maxlength="2000"></textarea></div>
+      <div class="field full"><label for="issueCard">Gas Card # / Vehicle # / Employee Name *</label><select class="control" id="issueCard" required></select></div>
+      <div class="field full"><label for="issueDate">Date Signed Out *</label><input class="control" type="date" id="issueDate" required></div>
     </div>
     <div class="modal-actions"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn primary" id="issueSubmit">Record Sign-Out</button></div>
   </form>
@@ -137,13 +133,13 @@
 
 <dialog id="returnDialog" aria-labelledby="returnTitle">
   <form id="returnForm" novalidate>
-    <h3 class="modal-title" id="returnTitle">Return Gas Card</h3><p class="modal-desc" id="returnSubtitle"></p>
+    <h3 class="modal-title" id="returnTitle">Return Gas Card</h3>
+    <p class="modal-desc" id="returnSubtitle"></p>
     <input id="returnIssueId" type="hidden">
     <div class="form-grid">
       <div class="field full"><label for="returnDate">Date Returned *</label><input class="control" type="date" id="returnDate" required></div>
-      <div class="field"><label for="returnMileage">Mileage (optional)</label><input class="control" type="number" id="returnMileage" min="0" step="1" placeholder="e.g. 25781"></div>
-      <div class="field"><label for="returnGallons">Gallons Purchased (optional)</label><input class="control" type="number" id="returnGallons" min="0" step="0.01" placeholder="e.g. 22.50"></div>
-      <div class="field full"><label for="returnNotes">Return Notes</label><textarea class="control" id="returnNotes" maxlength="2000"></textarea></div>
+      <div class="field"><label for="returnMileage">Mileage (optional)</label><input class="control" type="number" inputmode="numeric" id="returnMileage" min="0" step="1" placeholder="e.g. 45820"></div>
+      <div class="field"><label for="returnGallons">Gallons Purchased (optional)</label><input class="control" type="number" inputmode="decimal" id="returnGallons" min="0" step="0.01" placeholder="e.g. 18.75"></div>
     </div>
     <div class="modal-actions"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn primary" id="returnSubmit">Confirm Return</button></div>
   </form>
@@ -156,7 +152,7 @@
     <div class="form-grid">
       <div class="field"><label for="cardNumber">Comdata Card # *</label><input class="control" id="cardNumber" maxlength="40" required autocomplete="off"></div>
       <div class="field"><label for="cardVehicle">Vehicle # (optional)</label><input class="control" id="cardVehicle" maxlength="30"></div>
-      <div class="field"><label for="cardLegacy">Reference / Assigned Name</label><input class="control" id="cardLegacy" maxlength="150" placeholder="Optional"></div>
+      <div class="field"><label for="cardLegacy">Employee Name (assigned to card)</label><input class="control" id="cardLegacy" maxlength="150" placeholder="Required before sign-out"></div>
       <div class="field"><label for="cardStatus">Card Status</label><select class="control" id="cardStatus"><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option><option value="LOST">Lost</option><option value="DAMAGED">Damaged</option></select></div>
       <div class="field full"><label for="cardNotes">Card Notes</label><textarea class="control" id="cardNotes" maxlength="2000"></textarea></div>
     </div>
@@ -191,7 +187,6 @@
   };
   const hideAlert = () => $('notice').classList.add('hidden');
   const nullable = id => $(id).value.trim() || null;
-  const numOrNull = id => $(id).value.trim() === '' ? null : Number($(id).value);
   const cardById = id => cards.find(c => c.id === id);
   const openByCardId = id => active.find(a => a.gas_card_id === id);
   const currentStatus = c => c.status !== 'ACTIVE' ? c.status : (openByCardId(c.id) ? 'SIGNED OUT':'AVAILABLE');
@@ -204,7 +199,7 @@
     const all = [], pageSize = 1000;
     for (let offset=0; ; offset+=pageSize) {
       const {data,error} = await db.from('company_gas_card_issuances')
-        .select('id,gas_card_id,employee_name,employee_initials,employee_department,vehicle_number,signed_out_date,returned_date,mileage,gallons_purchased,notes,return_notes,issued_by,returned_by')
+        .select('id,gas_card_id,employee_name,vehicle_number,signed_out_date,returned_date,mileage,gallons_purchased,issued_by,issued_by_name,returned_by,returned_by_name')
         .order('signed_out_date',{ascending:false}).order('id',{ascending:false})
         .range(offset,offset+pageSize-1);
       if(error)throw error;
@@ -243,16 +238,17 @@
     let rows=[];const q=search.toLowerCase();
     const match = (...values) => values.some(v=>String(v??'').toLowerCase().includes(q));
     if(tab==='active') {
-      rows=active.map(a=>({...a,card:cardById(a.gas_card_id)})).filter(a=>match(a.employee_name,a.employee_department,a.vehicle_number,a.card?.card_number,a.notes));
-      $('tableArea').innerHTML=`<table><thead><tr><th>Gas Card</th><th>Issued To</th><th>Department</th><th>Vehicle</th><th>Date Signed Out</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(a=>`<tr><td class="number">${line(a.card?.card_number)}</td><td><strong>${line(a.employee_name)}</strong></td><td>${line(a.employee_department)}</td><td>${line(a.vehicle_number)}</td><td>${esc(niceDate(a.signed_out_date))}</td><td>${statusHTML('SIGNED OUT')}</td><td>${canWrite?`<button class="btn small" data-return="${esc(a.id)}">Record Return</button>`:''}</td></tr>`).join('')}</tbody></table>`;
+      rows=active.map(a=>({...a,card:cardById(a.gas_card_id)}))
+        .filter(a=>match(a.employee_name,a.vehicle_number,a.card?.card_number,a.issued_by_name));
+      $('tableArea').innerHTML=`<table><thead><tr><th>Gas Card #</th><th>Vehicle #</th><th>Employee Name</th><th>Date Signed Out</th><th>Issued By</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(a=>`<tr><td class="number">${line(a.card?.card_number)}</td><td>${line(a.vehicle_number)}</td><td><strong>${line(a.employee_name)}</strong></td><td>${esc(niceDate(a.signed_out_date))}</td><td>${line(a.issued_by_name||a.issued_by)}</td><td>${statusHTML('SIGNED OUT')}</td><td>${canWrite?`<button class="btn small" data-return="${esc(a.id)}">Record Return</button>`:''}</td></tr>`).join('')}</tbody></table>`;
     } else if(tab==='inventory') {
       rows=cards.filter(c=>match(c.card_number,c.vehicle_number,c.legacy_assigned_to,c.status,openByCardId(c.id)?.employee_name,c.notes));
-      $('tableArea').innerHTML=`<table><thead><tr><th>Comdata Card #</th><th>Reference Vehicle</th><th>Paper Log Name</th><th>Currently Held By</th><th>Current Status</th><th></th></tr></thead><tbody>${rows.map(c=>`<tr><td class="number">${line(c.card_number)}</td><td>${line(c.vehicle_number)}</td><td>${line(c.legacy_assigned_to)}</td><td>${line(openByCardId(c.id)?.employee_name)}</td><td>${statusHTML(currentStatus(c))}</td><td>${canWrite?`<button class="btn small" data-edit="${esc(c.id)}">Edit Card</button>`:''}</td></tr>`).join('')}</tbody></table>`;
+      $('tableArea').innerHTML=`<table><thead><tr><th>Gas Card #</th><th>Vehicle #</th><th>Assigned Employee</th><th>Signed Out To</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(c=>`<tr><td class="number">${line(c.card_number)}</td><td>${line(c.vehicle_number)}</td><td>${line(c.legacy_assigned_to)}</td><td>${line(openByCardId(c.id)?.employee_name)}</td><td>${statusHTML(currentStatus(c))}</td><td>${canWrite?`<button class="btn small" data-edit="${esc(c.id)}">Edit Card</button>`:''}</td></tr>`).join('')}</tbody></table>`;
     } else {
       rows=history.map(a=>({...a,card:cardById(a.gas_card_id)}))
         .filter(a=>historyFilter==='all'||(historyFilter==='out'?!a.returned_date:!!a.returned_date))
-        .filter(a=>match(a.employee_name,a.employee_department,a.vehicle_number,a.card?.card_number,a.notes,a.return_notes,a.signed_out_date,a.returned_date));
-      $('tableArea').innerHTML=`<table><thead><tr><th>Gas Card</th><th>Team Member</th><th>Vehicle</th><th>Signed Out</th><th>Returned</th><th>Mileage</th><th>Gallons</th><th>Notes</th></tr></thead><tbody>${rows.map(a=>`<tr><td class="number">${line(a.card?.card_number)}</td><td><strong>${line(a.employee_name)}</strong>${a.employee_initials?` <span class="quiet">(${esc(a.employee_initials)})</span>`:''}</td><td>${line(a.vehicle_number)}</td><td>${esc(niceDate(a.signed_out_date))}</td><td>${a.returned_date?esc(niceDate(a.returned_date)):statusHTML('SIGNED OUT')}</td><td>${a.mileage==null?'—':Number(a.mileage).toLocaleString()}</td><td>${a.gallons_purchased==null?'—':Number(a.gallons_purchased).toFixed(2)}</td><td>${line([a.notes,a.return_notes].filter(Boolean).join(' / '))}</td></tr>`).join('')}</tbody></table>`;
+        .filter(a=>match(a.employee_name,a.vehicle_number,a.card?.card_number,a.issued_by_name,a.returned_by_name,a.signed_out_date,a.returned_date));
+      $('tableArea').innerHTML=`<table><thead><tr><th>Gas Card #</th><th>Vehicle #</th><th>Employee Name</th><th>Date Signed Out</th><th>Issued By</th><th>Date Returned</th><th>Mileage</th><th>Gallons Purchased</th><th>Returned By</th></tr></thead><tbody>${rows.map(a=>`<tr><td class="number">${line(a.card?.card_number)}</td><td>${line(a.vehicle_number)}</td><td><strong>${line(a.employee_name)}</strong></td><td>${esc(niceDate(a.signed_out_date))}</td><td>${line(a.issued_by_name||a.issued_by)}</td><td>${a.returned_date?esc(niceDate(a.returned_date)):statusHTML('SIGNED OUT')}</td><td class="number">${a.mileage==null?'—':Number(a.mileage).toLocaleString('en-US')}</td><td class="number">${a.gallons_purchased==null?'—':Number(a.gallons_purchased).toFixed(2)}</td><td>${line(a.returned_by_name||a.returned_by)}</td></tr>`).join('')}</tbody></table>`;
     }
     $('resultCount').textContent=`${rows.length.toLocaleString()} ${tab==='inventory'?'cards':'records'}`;
     if(!rows.length)$('tableArea').innerHTML='<div class="empty">No matching records.</div>';
@@ -262,13 +258,19 @@
     if(!canWrite)return;
     $('issueForm').reset();$('issueDate').value=today();
     const available=cards.filter(c=>currentStatus(c)==='AVAILABLE');
-    $('issueCard').innerHTML=available.map(c=>`<option value="${esc(c.id)}">Card ${esc(c.card_number)}${c.vehicle_number?' · Vehicle '+esc(c.vehicle_number):''}</option>`).join('');
-    const suggestions=[...new Set([...history.map(h=>h.employee_name),...cards.map(c=>c.legacy_assigned_to)].filter(Boolean))].sort();
-    $('teamSuggestions').innerHTML=suggestions.map(name=>`<option value="${esc(name)}"></option>`).join('');
+    const sorted=available.slice().sort((a,b)=>
+      (a.vehicle_number||'zzzz').localeCompare(b.vehicle_number||'zzzz','en',{numeric:true}) ||
+      (a.legacy_assigned_to||'').localeCompare(b.legacy_assigned_to||'','en',{sensitivity:'base'})
+    );
+    $('issueCard').innerHTML='<option value="">Select a gas card…</option>'+sorted.map(c=>
+      `<option value="${esc(c.id)}" ${!c.legacy_assigned_to?.trim()?'disabled':''}>${esc(c.card_number)} / ${esc(c.vehicle_number||'No vehicle')} / ${esc(c.legacy_assigned_to||'Unassigned — edit card first')}</option>`
+    ).join('');
     if(!available.length){alerts('No active gas cards are currently available to issue.','error');return;}
-    syncIssueVehicle();showDialog('issueDialog');
+    if(!available.some(c=>c.legacy_assigned_to?.trim())){
+      alerts('Available cards do not have assigned employees. Open All Gas Cards and use Edit Card to assign an employee before signing out.','error');return;
+    }
+    showDialog('issueDialog');
   }
-  function syncIssueVehicle(){ const c=cardById($('issueCard').value);$('issueVehicle').value=c?.vehicle_number||''; }
   function openReturn(id) {
     if(!canWrite)return;
     const a=active.find(r=>r.id===id);if(!a)return;
@@ -288,8 +290,12 @@
   }
   async function submitIssue(e) {
     e.preventDefault();if(busy)return;
-    const payload={p_card_id:$('issueCard').value,p_employee_name:$('issueEmployee').value.trim(),p_issue_date:$('issueDate').value,p_vehicle_number:nullable('issueVehicle'),p_employee_initials:nullable('issueInitials'),p_employee_department:nullable('issueDept'),p_notes:nullable('issueNotes')};
-    if(!payload.p_card_id||!payload.p_employee_name||!payload.p_issue_date){alerts('Please fill in card, employee name, and sign-out date.','error');return;}
+    const payload={p_card_id:$('issueCard').value,p_issue_date:$('issueDate').value};
+    if(!payload.p_card_id||!payload.p_issue_date){alerts('Please select a card and sign-out date.','error');return;}
+    const card=cardById(payload.p_card_id);
+    if(!card?.legacy_assigned_to?.trim()){
+      alerts('Assign an employee to this card in All Gas Cards before signing out.','error');return;
+    }
     setBusy(true);
     try{const {error}=await db.rpc('company_gas_card_issue',payload);if(error)throw error;$('issueDialog').close();await load();alerts('Gas card sign-out recorded successfully.','success');}
     catch(ex){alerts(ex.message||'Could not issue gas card.','error');}
@@ -297,11 +303,24 @@
   }
   async function submitReturn(e) {
     e.preventDefault();if(busy)return;
-    const mileage=numOrNull('returnMileage'), gallons=numOrNull('returnGallons');
-    if(mileage!==null&&(!Number.isInteger(mileage)||mileage<0)){alerts('Mileage must be a whole nonnegative number.','error');return;}
-    if(gallons!==null&&(!Number.isFinite(gallons)||gallons<0)){alerts('Gallons must be nonnegative.','error');return;}
+    if(!$('returnIssueId').value||!$('returnDate').value){alerts('Please enter the return date.','error');return;}
+    const mileageText=$('returnMileage').value.trim();
+    const gallonsText=$('returnGallons').value.trim();
+    const mileage=mileageText===''?null:Number(mileageText);
+    const gallons=gallonsText===''?null:Number(gallonsText);
+    if(mileage!==null&&(!Number.isSafeInteger(mileage)||mileage<0)){
+      alerts('Mileage must be a nonnegative whole number.','error');return;
+    }
+    if(gallons!==null&&(!Number.isFinite(gallons)||gallons<0||!/^\d+(?:\.\d{1,2})?$/.test(gallonsText))){
+      alerts('Gallons Purchased must be a nonnegative number with up to two decimal places.','error');return;
+    }
     setBusy(true);
-    try{const {error}=await db.rpc('company_gas_card_return',{p_issuance_id:$('returnIssueId').value,p_return_date:$('returnDate').value,p_mileage:mileage,p_gallons_purchased:gallons,p_return_notes:nullable('returnNotes')});if(error)throw error;$('returnDialog').close();await load();alerts('Gas card return recorded successfully.','success');}
+    try{const {error}=await db.rpc('company_gas_card_return',{
+      p_issuance_id:$('returnIssueId').value,
+      p_return_date:$('returnDate').value,
+      p_mileage:mileage,
+      p_gallons_purchased:gallons
+    });if(error)throw error;$('returnDialog').close();await load();alerts('Gas card return recorded successfully.','success');}
     catch(ex){alerts(ex.message||'Could not return gas card.','error');}
     finally{setBusy(false);}
   }
@@ -318,8 +337,8 @@
   }
   function csvCell(value) {let s=String(value??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
   function exportHistory() {
-    const names=['Card #','Employee','Employee Initials','Department','Vehicle #','Sign-Out Date','Return Date','Mileage','Gallons Purchased','Sign-Out Notes','Return Notes','Recorded By User ID','Returned By User ID'];
-    const rows=history.map(h=>[cardById(h.gas_card_id)?.card_number,h.employee_name,h.employee_initials,h.employee_department,h.vehicle_number,h.signed_out_date,h.returned_date,h.mileage,h.gallons_purchased,h.notes,h.return_notes,h.issued_by,h.returned_by]);
+    const names=['Card #','Vehicle #','Employee Name','Date Signed Out','Issued By','Date Returned','Mileage','Gallons Purchased','Returned By'];
+    const rows=history.map(h=>[cardById(h.gas_card_id)?.card_number,h.vehicle_number,h.employee_name,h.signed_out_date,h.issued_by_name||h.issued_by,h.returned_date,h.mileage,h.gallons_purchased,h.returned_by_name||h.returned_by]);
     const csv=[names,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
     const url=URL.createObjectURL(new Blob(['\uFEFF',csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='company-gas-card-history-'+today()+'.csv';document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
   }
@@ -331,7 +350,6 @@
   $('exportBtn').addEventListener('click',exportHistory);
   $('search').addEventListener('input',e=>{search=e.target.value.trim();render();});
   $('historyFilter').addEventListener('change',e=>{historyFilter=e.target.value;render();});
-  $('issueCard').addEventListener('change',syncIssueVehicle);
   $('issueForm').addEventListener('submit',submitIssue);
   $('returnForm').addEventListener('submit',submitReturn);
   $('cardForm').addEventListener('submit',submitCard);
