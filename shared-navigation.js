@@ -259,10 +259,16 @@
         'WAREHOUSE',
         'ACCOUNTING',
         'PROJECTS',
+        'SERVICE_MANAGER',
         'ADMIN',
         'SYSTEM_ADMIN'
       ],
       links: [
+        {
+          label: 'Gas Card Tracking',
+          href: 'company-gas-card-tracking.html',
+          roles: ['WAREHOUSE', 'ACCOUNTING', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+        },
         {
           label: 'Chemical Tracking',
           href: 'chemical-tracking.html',
