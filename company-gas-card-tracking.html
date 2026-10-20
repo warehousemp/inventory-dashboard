@@ -268,8 +268,15 @@
     let rows=[];const q=search.toLowerCase();
     const match = (...values) => values.some(v=>String(v??'').toLowerCase().includes(q));
     if(tab==='active') {
+      // Longest-outstanding cards first: oldest sign-out date at the top.
+      // Same-day records are ordered by card number for predictable results.
       rows=active.map(a=>({...a,card:cardById(a.gas_card_id)}))
-        .filter(a=>match(a.employee_name,a.vehicle_number,a.card?.card_number,a.issued_by_name));
+        .filter(a=>match(a.employee_name,a.vehicle_number,a.card?.card_number,a.issued_by_name))
+        .sort((a,b)=>
+          String(a.signed_out_date||'').localeCompare(String(b.signed_out_date||'')) ||
+          String(a.card?.card_number||'').localeCompare(String(b.card?.card_number||''),'en',{numeric:true}) ||
+          String(a.id||'').localeCompare(String(b.id||''))
+        );
       $('tableArea').innerHTML=`<table><thead><tr><th>Gas Card #</th><th>Vehicle #</th><th>Employee Name</th><th>Date Signed Out</th><th>Issued By</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(a=>`<tr><td class="number">${line(a.card?.card_number)}</td><td>${line(a.vehicle_number)}</td><td><strong>${line(a.employee_name)}</strong></td><td>${esc(niceDate(a.signed_out_date))}</td><td>${line(a.issued_by_name||a.issued_by)}</td><td>${statusHTML('SIGNED OUT')}</td><td>${canWrite?`<button class="btn small" data-return="${esc(a.id)}">Record Return</button>`:''}</td></tr>`).join('')}</tbody></table>`;
     } else if(tab==='inventory') {
       rows=cards.filter(c=>match(c.card_number,c.vehicle_number,c.legacy_assigned_to,c.status,openByCardId(c.id)?.employee_name,c.notes));
@@ -288,10 +295,16 @@
     if(!canWrite)return;
     $('issueForm').reset();$('issueDate').value=today();
     const available=cards.filter(c=>currentStatus(c)==='AVAILABLE');
-    const sorted=available.slice().sort((a,b)=>
-      (a.vehicle_number||'zzzz').localeCompare(b.vehicle_number||'zzzz','en',{numeric:true}) ||
-      (a.legacy_assigned_to||'').localeCompare(b.legacy_assigned_to||'','en',{sensitivity:'base'})
-    );
+    // Order the Issue Gas Card dropdown alphabetically by the employee assigned
+    // to each card, regardless of vehicle or card number. Unassigned last.
+    const sorted=available.slice().sort((a,b)=>{
+      const employeeA=(a.legacy_assigned_to||'').trim();
+      const employeeB=(b.legacy_assigned_to||'').trim();
+      return (employeeA?0:1)-(employeeB?0:1) ||
+        employeeA.localeCompare(employeeB,'en',{sensitivity:'base',numeric:true}) ||
+        String(a.vehicle_number||'').localeCompare(String(b.vehicle_number||''),'en',{numeric:true}) ||
+        String(a.card_number||'').localeCompare(String(b.card_number||''),'en',{numeric:true});
+    });
     $('issueCard').innerHTML='<option value="">Select a gas card…</option>'+sorted.map(c=>
       `<option value="${esc(c.id)}" ${!c.legacy_assigned_to?.trim()?'disabled':''}>${esc(c.card_number)} / ${esc(c.vehicle_number||'No vehicle')} / ${esc(c.legacy_assigned_to||'Unassigned — edit card first')}</option>`
     ).join('');
