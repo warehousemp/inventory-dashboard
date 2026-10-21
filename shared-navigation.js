@@ -26,6 +26,11 @@
           label: 'Accounting Warehouse',
           href: 'accounting.html',
           roles: ['ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'Company Ops P&L Review',
+          href: 'company-ops-pl-review.html',
+          roles: ['ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
