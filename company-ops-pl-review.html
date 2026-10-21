@@ -51,6 +51,20 @@
     .cost-bad-note{margin-top:10px;font-size:11px;color:var(--amber)}
     @media(max-width:1220px){.cost-breakdown-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:790px){.cost-breakdown-grid{grid-template-columns:1fr;padding:12px}.cost-breakdown-grid.solo{grid-template-columns:1fr}}
+    /* COO-friendly overhead visuals: diverging variance + operating margin, separate tables, explicit profit impact. */
+    .allocation-grid .chart-box{height:275px;padding:12px 19px 17px}
+    .alloc-mini-table{padding:0 13px 15px}
+    .alloc-mini-table table{width:100%;border-collapse:collapse;min-width:390px;font-size:12px}
+    .alloc-mini-table th,.alloc-mini-table td{padding:8px 10px}
+    .alloc-mini-table td:nth-child(n+2),.alloc-mini-table th:nth-child(n+2){text-align:right}
+    .alloc-mini-table .total{background:#f3f8fc;font-weight:800}
+    .allocation-punchline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+    .allocation-impact{padding:15px 18px;border:1px solid var(--line);border-radius:11px;background:#fff}
+    .allocation-impact .impact-label{color:var(--muted);font-size:11px;letter-spacing:.04em;text-transform:uppercase;font-weight:800}
+    .allocation-impact .impact-value{font-size:26px;line-height:1.25;font-weight:850;letter-spacing:-.025em;font-variant-numeric:tabular-nums;margin:6px 0 1px}
+    .allocation-impact small{font-size:11px;color:var(--muted)}
+    .allocation-source{font-size:12px;color:#566c83;margin:12px 0 0;line-height:1.55}
+    @media(max-width:850px){.allocation-punchline{grid-template-columns:1fr}}
     #gate{min-height:35vh;display:grid;place-items:center;text-align:center} #gate h2{font-size:22px}.data-badge{margin-left:8px}
     @media(max-width:1130px){.stats{grid-template-columns:repeat(3,1fr)}.alloc-entry{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:760px){main{padding:17px 12px 38px}.topbar{padding:14px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat .value{font-size:22px}.grid2,.allocation-grid{grid-template-columns:1fr}.alloc-entry{grid-template-columns:repeat(2,minmax(0,1fr))}.controls{padding:12px}.field{min-width:115px}.head h1{font-size:24px}}
@@ -69,7 +83,7 @@
     <div class="field"><label for="fy">FISCAL YEAR (JUL–JUN)</label><select id="fy"></select></div>
     <div class="field"><label for="quarter">REPORTING PERIOD</label><select id="quarter"><option value="Q1">Q1 · Jul–Sep</option><option value="Q2">Q2 · Oct–Dec</option><option value="Q3">Q3 · Jan–Mar</option><option value="Q4">Q4 · Apr–Jun</option><option value="FY">Full fiscal year</option></select></div>
     <div class="field"><label for="dept">DEPARTMENT</label><select id="dept"><option value="ALL">Combined departments</option><option value="SERVICE">Service</option><option value="PROJECTS">Projects</option></select></div>
-    <div class="field" style="flex:1;min-width:230px"><label for="basis">OVERHEAD ALLOCATION VIEW</label><select id="basis"><option value="ACTUAL">Actual Accounting Allocations</option><option value="REVENUE">Revenue-Proportional Scenario</option><option value="NONE">Before Allocations</option></select></div>
+    <div class="field" style="flex:1;min-width:230px"><label for="basis">OVERHEAD ALLOCATION VIEW</label><select id="basis"><option value="ACTUAL">Actual Accounting Allocations</option><option value="REVENUE">Revenue-Based ADMIN Scenario (SM Unchanged)</option><option value="NONE">Before Allocations</option></select></div>
     <span class="pill amber" id="scenarioTag">Actual allocations</span>
   </div>
   <div id="dataQuality" class="notice hidden"></div>
@@ -99,12 +113,22 @@
     <div class="panel"><div class="panel-head"><div><h2>Detailed P&amp;L Accounts</h2><p>Actual and budget line items by category, taken from imported FYTD PDF statements.</p></div></div><div class="table-scroll" id="detailTable"></div><p class="note" id="detailNote"></p></div>
   </section>
   <section class="tabpanel" id="tab-allocations">
-    <div class="notice"><b>Scenario only — not an accounting change.</b> Revenue-proportional analysis redistributes each month's combined ADMIN and SM allocations based on each department's share of that same month's revenue. The original accounting amounts remain stored as submitted. Allocation policy belongs to the COO.</div>
+    <div class="notice"><b>COO scenario only — no accounting changes.</b> Revenue-based analysis redistributes each month's <b>Administrative Allocation</b> using the department's share of that month's revenue. <b>SM allocations remain unchanged</b>. The dashboard stores and preserves Accounting's actual amounts; a scenario never updates them. This comparison always includes both departments, even when the filter above is set to one.</div>
     <div class="allocation-grid">
-      <div class="panel"><div class="panel-head"><div><h2>Administrative Overhead Comparison</h2><p>Actual vs revenue-proportional distribution</p></div></div><div class="chart-box"><canvas id="allocChart"></canvas></div></div>
-      <div class="panel"><div class="panel-head"><div><h2>Effect on Department Profitability</h2><p>How departmental margins change when overhead is distributed by revenue</p></div></div><div class="chart-box"><canvas id="allocProfitChart"></canvas></div></div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>Administrative Allocation Difference</h2><p>Accounting assignment minus revenue-based assignment. Right of zero = charged more; left = charged less.</p></div></div>
+        <div class="chart-box"><canvas id="allocChart" role="img" aria-label="Difference in quarterly administrative allocation between accounting and monthly revenue-based scenario"></canvas></div>
+        <div id="allocAdminComparisonTable" class="table-scroll alloc-mini-table"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>Department Operating Margin — Before &amp; After</h2><p>Accounting allocation versus revenue-based ADMIN scenario; SM unchanged. Zero is break-even.</p></div></div>
+        <div class="chart-box"><canvas id="allocProfitChart" role="img" aria-label="Service and Projects operating margins under actual accounting and revenue-based admin allocation"></canvas></div>
+        <div id="allocMarginComparisonTable" class="table-scroll alloc-mini-table"></div>
+      </div>
     </div>
-    <div class="panel section"><div class="panel-head"><div><h2>Actual vs Revenue-Based Allocation</h2><p>Separate ADMIN and SM allocation calculations, month by month</p></div></div><div class="table-scroll" id="allocationTable"></div></div>
+    <div class="allocation-punchline" id="allocationImpactCards" aria-live="polite"></div>
+    <p class="allocation-source" id="allocationModelNote">Each monthly Administrative Allocation pool is redistributed using that month's Service and Projects revenue shares. Total combined operating profit does not change.</p>
+    <div class="panel section"><div class="panel-head"><div><h2>Allocation Detail — Accounting vs Scenario</h2><p>Monthly ADMIN reallocations and unchanged SM allocations, including the variance by department.</p></div></div><div class="table-scroll" id="allocationTable"></div></div>
     <div class="panel section"><div class="panel-head"><div><h2>Record / Correct Allocation</h2><p>New entries create an audit trail; earlier allocations remain in the database. Use unrounded figures when available.</p></div></div>
       <div class="panel-body"><form id="allocationForm" class="alloc-entry">
         <div class="field"><label>Department</label><select id="allocDept" required><option value="SERVICE">Service</option><option value="PROJECTS">Projects</option></select></div>
@@ -201,7 +225,7 @@
  function allocation(dep,month,type){return S.allocations.find(a=>a.department===dep&&a.period_month===month&&a.allocation_type===type)}
  function allocationAmt(dep,month,type,basis){
    if(basis==='NONE')return 0;
-   if(basis==='ACTUAL')return n(allocation(dep,month,type)?.amount);
+   if(basis==='ACTUAL'||type==='SM')return n(allocation(dep,month,type)?.amount);
    const allRev=total(D,dep2=>report(dep2,month)?.revenue);if(!allRev)return 0;
    const pool=total(D,d=>allocation(d,month,type)?.amount);return pool*n(report(dep,month)?.revenue)/allRev;
  }
@@ -216,7 +240,7 @@
   const missingAlloc=needed.filter(x=>report(x.d,x.m)).flatMap(x=>['ADMIN','SM'].filter(k=>!allocation(x.d,x.m,k)).map(k=>`${x.d} ${monthTitle(x.m)} ${k}`));
   const warnings=[];if(missingReports.length)warnings.push(`${missingReports.length} department-month financial statements are missing`);if(S.basis!=='NONE'&&missingAlloc.length)warnings.push(`Missing allocation entries: ${missingAlloc.slice(0,8).join(', ')}${missingAlloc.length>8?'…':''}`);
   $('dataQuality').classList.toggle('hidden',!warnings.length);$('dataQuality').textContent=warnings.length?'Data completeness warning: '+warnings.join('. ')+'. Missing values are not estimates. Upload the missing report or enter allocations before relying on adjusted profitability.':'';
-  $('scenarioTag').textContent= S.basis==='ACTUAL'?'Actual Accounting Allocation': S.basis==='REVENUE'?'Revenue-Based What-If Only':'Before Allocations';
+  $('scenarioTag').textContent= S.basis==='ACTUAL'?'Actual Accounting Allocation': S.basis==='REVENUE'?'Revenue-Based ADMIN Only · What-If':'Before Allocations';
   $('scenarioTag').className='pill '+(S.basis==='REVENUE'?'amber':'');
   $('summaryScenario').textContent=$('scenarioTag').textContent;
   const kpis=[['Revenue',money(s.revenue),`Budget: ${money(s.budget_revenue)}`],['Gross Profit',money(s.revenue-s.cogs),`${pct((s.revenue-s.cogs)/s.revenue)} gross margin`],['Total COGS',money(s.cogs),`${pct(s.cogs/s.revenue)} of revenue`],['Admin + SM Allocations',money(s.admin+s.sm),`${pct((s.admin+s.sm)/s.revenue)} of revenue`],['Adjusted Operating Income',money(s.adjusted),`${pct(s.adjusted/s.revenue)} operating margin`]];
@@ -237,7 +261,7 @@
  function renderAllocations(){
   let out=[];const rows=S.selectedMonths.flatMap(month=>D.map(department=>({month,department}))).filter(x=>report(x.department,x.month));
   rows.forEach(({month,department})=>['ADMIN','SM'].forEach(kind=>{const a=allocation(department,month,kind);const actual=n(a?.amount),hyp=allocationAmt(department,month,kind,'REVENUE');out.push(`<tr><td>${monthTitle(month)}</td><td>${department==='SERVICE'?'Service':'Projects'}</td><td>${kind}</td><td>${money(actual)}</td><td>${money(hyp)}</td><td class="${actual-hyp>0?'danger':''}">${money(actual-hyp)}</td><td>${a?.evidence==='SCREENSHOT_ROUNDED'?'Approx.':'Exact/manual'}</td></tr>`)}));
-  $('allocationTable').innerHTML=`<table><thead><tr><th>Month</th><th>Department</th><th>Type</th><th>Actual</th><th>Revenue-Based</th><th>Actual − Scenario</th><th>Source</th></tr></thead><tbody>${out.join('')}</tbody></table>`;
+  $('allocationTable').innerHTML=`<table><thead><tr><th>Month</th><th>Department</th><th>Type</th><th>Actual</th><th>Scenario</th><th>Actual − Scenario</th><th>Source</th></tr></thead><tbody>${out.join('')}</tbody></table>`;
  }
  function renderHistory(){
   $('historyTable').innerHTML=`<table><thead><tr><th>Uploaded</th><th>Source</th><th>Type</th><th>Status</th><th>PDF</th></tr></thead><tbody>${S.batches.map(b=>`<tr><td>${new Date(b.uploaded_at).toLocaleString()}</td><td>${esc(b.source_filename)}</td><td>${esc(b.source_kind)}</td><td>${esc(b.status)}</td><td>${b.storage_path?`<button class="btn small" data-pdf="${esc(b.storage_path)}">View Original</button>`:'Reference only'}</td></tr>`).join('')}</tbody></table>`;
@@ -256,7 +280,7 @@
    {name:'SM Allocation',field:'sm',color:COLORS.sm}
   ];
   const showAlloc=S.basis!=='NONE';
-  const basisText=S.basis==='ACTUAL'?'Actual Accounting Allocations':S.basis==='REVENUE'?'Revenue-Proportional Scenario':'Before Allocations';
+  const basisText=S.basis==='ACTUAL'?'Actual Accounting Allocations':S.basis==='REVENUE'?'Revenue-Based ADMIN Scenario (SM Unchanged)':'Before Allocations';
   $('costBasisTag').textContent=basisText;
   $('costBasisTag').className='pill'+(S.basis==='REVENUE'?' amber':'');
   $('costBreakdown').className='cost-breakdown-grid'+(displayDepts.length===1?' solo':'');
@@ -290,16 +314,85 @@
   }).join('');
   $('costBreakdownNote').textContent=`Each cost bar is measured against 100% of the revenue for that department; bars do not add together visually. Total costs can exceed 100% when there is an operating loss. ${showAlloc?'Amounts reflect '+basisText.toLowerCase()+'.':'Administrative and SM costs are excluded in this view.'} Original financial records are unchanged.`;
  }
+ // Chart-only data labels: show signed amounts/percentages at the end of each bar, without additional dependencies.
+ const allocationValueLabels={
+  id:'allocationValueLabels',
+  afterDatasetsDraw(chart,args,options){
+   const xAxis=chart.scales.x,ctx=chart.ctx,rect=chart.chartArea;
+   if(!xAxis||!rect)return;
+   ctx.save();ctx.font='bold 12px system-ui, Segoe UI, sans-serif';ctx.textBaseline='middle';
+   for(let k=0;k<chart.data.datasets.length;k++){
+    const series=chart.data.datasets[k],meta=chart.getDatasetMeta(k);
+    if(meta.hidden)continue;
+    meta.data.forEach((bar,i)=>{
+     const value=Number(series.data[i]);if(!Number.isFinite(value))return;
+     const format=options.format==='percent'?(Math.abs(value)<0.05?'0.0%':(value>0?'+':'')+value.toFixed(1)+'%'):(value>0?'+':'')+money(value);
+     const textWidth=ctx.measureText(format).width;
+     const end=xAxis.getPixelForValue(value);
+     const proposed=value>=0?end+7:end-7-textWidth;
+     const xx=Math.max(rect.left+2,Math.min(rect.right-textWidth-2,proposed));
+     ctx.fillStyle='#243c54';ctx.textAlign='left';ctx.fillText(format,xx,bar.y);
+    });
+   }
+   ctx.restore();
+  }
+ };
+ function renderAllocationVisuals(months){
+  const requiredComplete=months.every(m=>D.every(d=>report(d,m)&&['ADMIN','SM'].every(t=>allocation(d,m,t))));
+  // Comparisons require BOTH departments and both types of allocation in every month.
+  if(!requiredComplete){
+   ['allocChart','allocProfitChart'].forEach(id=>{if(S.charts[id]){S.charts[id].destroy();delete S.charts[id]}const ctx=$(id).getContext('2d');ctx.clearRect(0,0,$(id).width,$(id).height)});
+   $('allocAdminComparisonTable').innerHTML='<div class="notice">Comparison unavailable: one or more departmental statements or monthly ADMIN/SM allocations are missing.</div>';
+   $('allocMarginComparisonTable').innerHTML='<div class="notice">Complete both departments before comparing operating margins.</div>';
+   $('allocationImpactCards').innerHTML='';
+   $('allocationModelNote').textContent='Missing figures are not estimated. Enter the required monthly statements and allocations to unlock a valid comparison.';
+   return;
+  }
+  const labels=['Service','Projects'];
+  const adminActual=D.map(d=>total(months,m=>allocationAmt(d,m,'ADMIN','ACTUAL')));
+  const adminScenario=D.map(d=>total(months,m=>allocationAmt(d,m,'ADMIN','REVENUE')));
+  const adminDifference=D.map((d,i)=>adminActual[i]-adminScenario[i]);
+  const revenues=D.map(d=>total(months,m=>n(report(d,m)?.revenue)));
+  const operating=(d,b)=>total(months,m=>adjusted(report(d,m),b));
+  const actualProfits=D.map(d=>operating(d,'ACTUAL'));
+  const scenarioProfits=D.map(d=>operating(d,'REVENUE'));
+  const actualMargins=D.map((d,i)=>revenues[i]?actualProfits[i]/revenues[i]*100:0);
+  const scenarioMargins=D.map((d,i)=>revenues[i]?scenarioProfits[i]/revenues[i]*100:0);
+  const moneyTicks=v=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',notation:'compact',maximumFractionDigits:0}).format(v);
+  const make=(id,config)=>{if(S.charts[id])S.charts[id].destroy();if(!window.Chart)return;S.charts[id]=new Chart($(id).getContext('2d'),config)};
+  const basePlugins={legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${money(ctx.parsed.x)}`}}};
+  make('allocChart',{
+   type:'bar',data:{labels,datasets:[{label:'Difference from monthly revenue-based ADMIN',data:adminDifference,backgroundColor:[COLORS.service,COLORS.projects],borderRadius:4,barThickness:33}]},
+   plugins:[allocationValueLabels],options:{responsive:true,maintainAspectRatio:false,animation:false,indexAxis:'y',layout:{padding:{left:7,right:45,top:7,bottom:5}},
+    plugins:{...basePlugins,allocationValueLabels:{format:'money'}},
+    scales:{x:{grid:{color:'#e8edf3'},ticks:{callback:moneyTicks},title:{display:true,text:'Actual ADMIN less revenue-based ADMIN ($)'}},y:{grid:{display:false},ticks:{font:{weight:'bold'}}}}
+   }
+  });
+  $('allocAdminComparisonTable').innerHTML=`<table><thead><tr><th>Department</th><th>Accounting Admin</th><th>Revenue-Based Admin</th><th>Difference</th></tr></thead><tbody>${labels.map((d,i)=>`<tr><td>${d}</td><td>${money(adminActual[i])}</td><td>${money(adminScenario[i])}</td><td class="${adminDifference[i]>0?'danger':adminDifference[i]<0?'success':''}">${adminDifference[i]>0?'+':''}${money(adminDifference[i])}</td></tr>`).join('')}<tr class="total"><td>Combined</td><td>${money(total(adminActual,x=>x))}</td><td>${money(total(adminScenario,x=>x))}</td><td>${money(total(adminDifference,x=>x))}</td></tr></tbody></table>`;
+  make('allocProfitChart',{
+   type:'bar',data:{labels,datasets:[
+    {label:'Actual Accounting',data:actualMargins,backgroundColor:COLORS.service,borderRadius:3,maxBarThickness:29},
+    {label:'Revenue-Based Admin',data:scenarioMargins,backgroundColor:COLORS.projects,borderRadius:3,maxBarThickness:29}
+   ]},plugins:[allocationValueLabels],
+   options:{responsive:true,maintainAspectRatio:false,animation:false,indexAxis:'y',layout:{padding:{left:6,right:42,top:10,bottom:5}},
+    plugins:{legend:{position:'bottom',labels:{boxWidth:11,usePointStyle:true}},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.x.toFixed(1)}% (${money(ctx.datasetIndex===0?actualProfits[ctx.dataIndex]:scenarioProfits[ctx.dataIndex])})`}},allocationValueLabels:{format:'percent'}},
+    scales:{x:{grid:{color:'#e8edf3'},ticks:{callback:v=>v+'%'},title:{display:true,text:'Operating margin (% of department revenue)'}},y:{grid:{display:false},ticks:{font:{weight:'bold'}}}}
+   }
+  });
+  $('allocMarginComparisonTable').innerHTML=`<table><thead><tr><th>Department</th><th>Accounting Margin</th><th>Revenue-Based Margin</th><th>Profit Change</th></tr></thead><tbody>${labels.map((d,i)=>`<tr><td>${d}</td><td>${actualMargins[i].toFixed(1)}%</td><td>${scenarioMargins[i].toFixed(1)}%</td><td class="${scenarioProfits[i]-actualProfits[i]<0?'danger':'success'}">${scenarioProfits[i]-actualProfits[i]>0?'+':''}${money(scenarioProfits[i]-actualProfits[i])}</td></tr>`).join('')}<tr class="total"><td>Combined</td><td>${pct(total(actualProfits,x=>x)/total(revenues,x=>x))}</td><td>${pct(total(scenarioProfits,x=>x)/total(revenues,x=>x))}</td><td>${money(total(scenarioProfits,x=>x)-total(actualProfits,x=>x))}</td></tr></tbody></table>`;
+  const changes=D.map((_,i)=>scenarioProfits[i]-actualProfits[i]);
+  const combinedChange=total(changes,x=>x);
+  const labelsCard=[['Service — Profit Change',changes[0],'Less ADMIN expense allocated when positive'],['Projects — Profit Change',changes[1],'More ADMIN expense allocated when negative'],['Combined — Profit Change',Math.abs(combinedChange)<.01?0:combinedChange,'Allocation method does not change total company profit']];
+  $('allocationImpactCards').innerHTML=labelsCard.map(([label,value,detail])=>`<div class="allocation-impact"><div class="impact-label">${label}</div><div class="impact-value ${value>0?'success':value<0?'danger':''}">${value>0?'+':''}${money(value)}</div><small>${detail}</small></div>`).join('');
+  $('allocationModelNote').textContent=`Monthly ADMIN pools redistributed using each month's revenue share; SM stays at Accounting's actual assigned amounts. ${months.length} month${months.length!==1?'s':''} compared across both departments. Figures sourced from the stored monthly financials and allocation history; no accounting records were changed. Rounded dashboard allocations may cause small approximations.`;
+ }
  function renderCharts(){
   const ms=S.selectedMonths,years=ms.map(monthTitle),byMonth=m=>D.map(d=>report(d,m)).filter(x=>x&&(S.dept==='ALL'||x.department===S.dept));
   chart('revenueChart','bar',{labels:years,datasets:[{label:'Actual',backgroundColor:COLORS.service,data:ms.map(m=>total(byMonth(m),'revenue'))},{label:'Budget',backgroundColor:COLORS.budget,data:ms.map(m=>total(byMonth(m),'budget_revenue'))}]});
   chart('marginChart','line',{labels:years,datasets:[{label:'Actual Margin',data:ms.map(m=>{let r=byMonth(m),s=summary(r);return s.revenue?100*(s.revenue-s.cogs)/s.revenue:0}),borderColor:COLORS.service,pointRadius:4,tension:.24},{label:'Budget Margin',data:ms.map(m=>{let r=byMonth(m),s=summary(r);return s.budget_revenue?100*(s.budget_revenue-s.budget_cogs)/s.budget_revenue:0}),borderColor:COLORS.projects,pointRadius:4,tension:.24,borderDash:[5,5]}]});
   const depts=S.dept==='ALL'?D:[S.dept];chart('operatingChart','bar',{labels:years,datasets:depts.map(d=>({label:d==='SERVICE'?'Service':'Projects',backgroundColor:d==='SERVICE'?COLORS.service:COLORS.projects,data:ms.map(m=>{const r=report(d,m);return r?adjusted(r):0})}))},{scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,ticks:{callback:v=>money(v)}}}});
 
-  const allocBy=(kind,basis,dep)=>total(ms,m=>allocationAmt(dep,m,kind,basis));
-  chart('allocChart','bar',{labels:['Accounting Allocation','Revenue-Proportional'],datasets:D.map(d=>({label:d==='SERVICE'?'Service':'Projects',backgroundColor:d==='SERVICE'?COLORS.service:COLORS.projects,data:[allocBy('ADMIN','ACTUAL',d),allocBy('ADMIN','REVENUE',d)]}))},{indexAxis:'y',scales:{x:{stacked:true,ticks:{callback:v=>money(v)}},y:{stacked:true,grid:{display:false}}}});
-  const pBy=(d,b)=>total(ms,m=>{const r=report(d,m);return r?adjusted(r,b):0}); const revBy=d=>total(ms,m=>n(report(d,m)?.revenue));
-  chart('allocProfitChart','bar',{labels:['Service','Projects'],datasets:[{label:'Accounting Allocation',backgroundColor:COLORS.service,data:D.map(d=>revBy(d)?100*pBy(d,'ACTUAL')/revBy(d):0)},{label:'Revenue-Proportional',backgroundColor:COLORS.projects,data:D.map(d=>revBy(d)?100*pBy(d,'REVENUE')/revBy(d):0)}]});
+  renderAllocationVisuals(ms);
  }
  async function saveAllocation(e){e.preventDefault();const department=$('allocDept').value,period_month=$('allocMonth').value+'-01',allocation_type=$('allocKind').value,amount=Number($('allocAmount').value),notes=$('allocNote').value.trim();if(!Number.isFinite(amount)||amount<0||!notes){$('allocMessage').textContent='Enter a valid amount and reference note.';return;}if(!confirm(`Append ${moneyExact(amount)} ${allocation_type} allocation for ${department} ${monthTitle(period_month)}? Previous records will remain available.`))return;
   const {error}=await S.db.from('company_ops_pl_allocations').insert({department,period_month,allocation_type,amount,evidence:'MANUAL',notes});$('allocMessage').textContent=error?'Unable to save: '+error.message:'New allocation recorded with history retained.';if(!error){e.target.reset();await load();tab('allocations')}
