@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skimmer / Heritage Vendor Pricing — Molinari Pools</title>
+  <link rel="stylesheet" href="shared-navigation.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.5.3/papaparse.min.js"></script>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f3f7fa;color:#1c3345;font-family:Arial,Helvetica,sans-serif}
+    main{max-width:1210px;margin:28px auto 70px;padding:0 20px}h1{font-size:27px;color:#0c3c5b;margin:6px 0}
+    h2{font-size:18px;color:#0c3c5b;margin:0 0 13px}p{line-height:1.55}small,.muted{color:#62788b}
+    .kicker{color:#337291;font-size:12px;letter-spacing:.09em;text-transform:uppercase;font-weight:800}
+    .header{display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap;margin:12px 0 21px}
+    .navlinks{display:flex;gap:10px;align-items:center;flex-wrap:wrap}a{color:#12619b;text-decoration:none}
+    .navlinks a{border:1px solid #bdd0dd;background:white;border-radius:8px;padding:9px 12px;font-weight:600}
+    .panel{background:#fff;border:1px solid #dce6ee;border-radius:13px;padding:23px;margin:18px 0;box-shadow:0 5px 16px #19384c0d}
+    .explain{background:#eaf3f8;border-left:4px solid #176995;padding:12px 16px;border-radius:6px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:11px;margin:18px 0}
+    .stat{border-radius:9px;border:1px solid #dce6ee;background:#f7fafc;padding:13px 15px}
+    .stat .value{display:block;font-weight:800;font-size:23px;color:#0b3c5d;margin-bottom:5px}
+    .stat .description{font-size:12px;color:#577184}
+    .drop-zone{border:2px dashed #9cbbcf;background:#f6fbfd;border-radius:12px;padding:32px;text-align:center;position:relative;transition:.2s}
+    .drop-zone.dragover{background:#e3f4fe;border-color:#0671bb}.drop-zone strong{display:block;font-size:18px;margin:8px 0}
+    input[type=file]{display:block;margin:13px auto;max-width:100%;font-size:14px}
+    button{font:inherit;cursor:pointer;border:0;border-radius:8px;background:#0c5f90;color:#fff;font-weight:700;padding:12px 17px}
+    button:hover:not(:disabled){background:#08466d}button:disabled{background:#aab9c4;cursor:not-allowed}
+    button.secondary{background:#edf3f7;color:#0b496f;border:1px solid #cddce7}
+    .actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:20px}
+    .actions label{display:flex;align-items:center;gap:9px;font-size:14px;line-height:1.35;max-width:720px}
+    input[type=checkbox]{width:18px;height:18px;flex-shrink:0}
+    .notice{padding:13px 15px;border-radius:8px;margin:16px 0;background:#eaf5fc;border:1px solid #b9dcec;color:#164763;white-space:pre-wrap}
+    .notice.error{background:#fff1ef;border-color:#f1c5bf;color:#87291c}
+    .notice.success{background:#e7f6ec;border-color:#badfca;color:#21613e}
+    .scroll{overflow:auto;max-height:340px;border:1px solid #dce6ee;border-radius:9px}
+    table{border-collapse:collapse;width:100%;font-size:13px}th{color:#315569;background:#f2f6fa;text-align:left;position:sticky;top:0}
+    td,th{padding:10px;border-bottom:1px solid #e6edf2;white-space:nowrap}tr:last-child td{border-bottom:0}
+    .tag{display:inline-block;border-radius:30px;background:#eaf2f8;color:#215575;padding:3px 8px;font-size:11px;font-weight:bold}
+    .tag.warn{background:#ffefcf;color:#825500}.tag.good{background:#e0f2e6;color:#23613d}
+    .checklist{margin:7px 0 0;padding-left:20px}.checklist li{margin:7px 0;line-height:1.5}
+    #app[hidden],#denied[hidden],#previewPanel[hidden],#historySection[hidden]{display:none}
+    @media(max-width:600px){main{padding:0 12px}h1{font-size:22px}.panel{padding:16px}.drop-zone{padding:22px 12px}}
+  </style>
+</head>
+<body>
+  <div id="sharedNavigation"></div>
+  <main>
+    <div id="denied" class="panel" hidden><h2>Access restricted</h2><p>This importer is available to active Service Managers and Administrators only.</p></div>
+    <div id="app" hidden>
+      <div class="header">
+        <div><div class="kicker">Molinari Operating System · Estimating catalog</div><h1>Skimmer / Heritage Vendor Pricing</h1><p class="muted" style="margin:4px 0">Monday Products CSV import · <span id="userBadge"></span></p></div>
+        <div class="navlinks"><a href="data-import-center.html">← Data Import Center</a></div>
+      </div>
+      <div class="explain">
+        <strong>Two independent costs, one estimating source.</strong> Heritage-linked products use the vendor cost in the latest approved Skimmer Products export. All other Molinari inventory parts use their latest recorded receiving cost, falling back to the part master cost when no receipt exists. This import <strong>never edits stock quantities, FIFO lots, purchase costs, or previous JobTread quotes.</strong>
+      </div>
+      <section class="panel drop-zone" id="heritageUploadPanel" aria-label="Import Products CSV">
+        <div class="kicker">Step 1 · Load a complete export</div>
+        <strong>Drop the Skimmer Products CSV here</strong>
+        <div class="muted">Or select the file below. No database changes occur until you confirm the preview.</div>
+        <input id="heritagePricingFile" type="file" accept=".csv,text/csv" aria-label="Skimmer Products CSV">
+        <div id="selectedName" class="muted">Expected columns include SPID, ProductName, Cost, HeritageId and ManufacturerId.</div>
+      </section>
+      <div id="notice" class="notice" hidden role="status"></div>
+      <section class="panel" id="previewPanel" hidden>
+        <div class="kicker">Step 2 · Review the price update</div>
+        <h2>File preview</h2>
+        <div class="grid">
+          <div class="stat"><span class="value" id="allCount">—</span><span class="description">Skimmer products in file</span></div>
+          <div class="stat"><span class="value" id="heritageCount">—</span><span class="description">Heritage-linked products</span></div>
+          <div class="stat"><span class="value" id="matchedCount">—</span><span class="description">Priced &amp; matched to inventory</span></div>
+          <div class="stat"><span class="value" id="unmatchedCount">—</span><span class="description">Priced but unmatched</span></div>
+          <div class="stat"><span class="value" id="reviewCount">—</span><span class="description">Zero/missing cost or discontinued</span></div>
+          <div class="stat"><span class="value" id="otherCount">—</span><span class="description">Non-Heritage (not overwritten)</span></div>
+        </div>
+        <p class="muted">Preview matches only exact inventory part numbers against Skimmer ProductName or, as a fallback, ManufacturerId. Unmatched parts are staged for review and are not created in inventory.</p>
+        <h2>Items needing attention <small id="issueCaption"></small></h2>
+        <div class="scroll"><table><thead><tr><th>Skimmer product</th><th>Heritage ID</th><th>Vendor cost</th><th>Reason</th></tr></thead><tbody id="issueRows"></tbody></table></div>
+        <div class="actions">
+          <label><input id="confirmBox" type="checkbox"> I reviewed the file and understand that it replaces the current Heritage estimating-price snapshot, without changing inventory or committed job costs.</label>
+          <button id="confirmImport" disabled>Confirm Heritage price import</button>
+        </div>
+      </section>
+      <section class="panel" id="historySection" hidden>
+        <h2>Completed pricing imports</h2>
+        <div class="scroll"><table><thead><tr><th>Imported</th><th>File</th><th>Heritage rows</th><th>Matched prices</th><th>Unmatched</th><th>Review</th><th>Status</th></tr></thead><tbody id="historyRows"></tbody></table></div>
+      </section>
+      <section class="panel">
+        <h2>Monday workflow</h2>
+        <ol class="checklist">
+          <li>Allow Skimmer's Heritage vendor-cost refresh to complete, then export the <strong>full Products list</strong> as CSV.</li>
+          <li>Drop the file here and review how many Heritage items match Molinari inventory.</li>
+          <li>Confirm import. The Data Import Center marks this step complete for the week.</li>
+          <li>The estimating-cost feed is then ready for the separate database-to-JobTread nightly catalog synchronization. That synchronization must be enabled and validated independently.</li>
+        </ol>
+      </section>
+    </div>
+  </main>
+  <script src="shared-navigation.js"></script>
+  <script>
+  (()=>{'use strict';
+    const URL='https://icqkuhbhcennhhbbwqgo.supabase.co';
+    const KEY='sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+    const ROLES=['SERVICE_MANAGER','ADMIN','SYSTEM_ADMIN'];
+    const $=id=>document.getElementById(id);
+    const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    let db=null,selectedFile=null,heritageRows=[],sourceRowCount=0,busy=false;
+    function notice(message,kind=''){$('notice').textContent=message;$('notice').className=`notice ${kind}`;$('notice').hidden=!message}
+    function normalize(value){return String(value??'').trim().toUpperCase()}
+    function number(value){if(value==null||String(value).trim()==='')return null;const n=Number(String(value).replace(/[,$\s]/g,''));return Number.isFinite(n)?n:NaN}
+    function bool(value){return ['TRUE','YES','Y','1'].includes(normalize(value))}
+    function money(value){return Number.isFinite(value)?'$'+value.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}
+    async function authenticate(){
+      if(!window.supabase||!window.Papa)throw new Error('Unable to load required import libraries. Refresh and try again.');
+      db=window.supabase.createClient(URL,KEY);
+      const{data:{session},error:sessionError}=await db.auth.getSession();
+      if(sessionError)throw sessionError;
+      if(!session?.user){location.href='index.html';return false}
+      const{data:profile,error}=await db.from('user_profiles').select('full_name,role,active').eq('id',session.user.id).maybeSingle();
+      if(error)throw error;
+      if(!profile?.active||!ROLES.includes(profile.role)){$('denied').hidden=false;return false}
+      $('userBadge').textContent=`${profile.full_name||session.user.email} · ${profile.role}`;
+      $('app').hidden=false;return true;
+    }
+    async function fetchPartNumbers(){
+      let from=0;const all=[];
+      while(true){
+        const{data,error}=await db.from('parts').select('part_number').eq('active',true).range(from,from+999);
+        if(error)throw error;
+        all.push(...(data||[]));
+        if(!data||data.length<1000)break;
+        from+=1000;
+        if(from>20000)throw new Error('Inventory list exceeded safe preview size');
+      }
+      return new Set(all.map(p=>normalize(p.part_number)).filter(Boolean));
+    }
+    function readCSV(file){return new Promise((resolve,reject)=>{
+      Papa.parse(file,{header:true,skipEmptyLines:'greedy',complete:result=>{
+        const serious=result.errors.filter(e=>e.code!=='UndetectableDelimiter');
+        if(serious.length)return reject(new Error(`CSV parse issue near row ${serious[0].row+1}: ${serious[0].message}`));
+        resolve(result);
+      },error:reject});
+    })}
+    function cellsFor(row){const out={};for(const [key,value] of Object.entries(row)){out[normalize(key).replace(/^\uFEFF/,'')]=value}return out}
+    async function preview(file){
+      if(busy)return;busy=true;$('previewPanel').hidden=true;$('confirmBox').checked=false;$('confirmImport').disabled=true;
+      try{
+        if(!/\.csv$/i.test(file.name))throw new Error('Please choose the full Skimmer Products CSV export.');
+        notice('Reading the Skimmer file and matching inventory part numbers…');
+        const [parsed,inventory]=await Promise.all([readCSV(file),fetchPartNumbers()]);
+        const fields=new Set(parsed.meta.fields.map(v=>normalize(v).replace(/^\uFEFF/,'')));
+        for(const field of ['SPID','PRODUCTNAME','COST','HERITAGEID'])if(!fields.has(field))throw new Error(`Incorrect Skimmer export: missing ${field} column.`);
+        const products=parsed.data.map(cellsFor);
+        if(!products.length)throw new Error('The CSV does not contain any products.');
+        const heritage=[],issues=[],seen=new Set();let matched=0,unmatched=0,review=0;
+        for(const p of products){
+          const heritageId=String(p.HERITAGEID??'').trim();if(!heritageId)continue;
+          const spid=String(p.SPID??'').trim(),name=String(p.PRODUCTNAME??'').trim();
+          if(!spid||!name)throw new Error('At least one Heritage row is missing SPID or ProductName. The export cannot be safely imported.');
+          if(seen.has(spid))throw new Error(`Duplicate Skimmer product SPID in export: ${spid}`);seen.add(spid);
+          const cost=number(p.COST);if(Number.isNaN(cost)||cost<0)throw new Error(`Invalid vendor cost on ${name}: ${p.COST}`);
+          const discontinued=bool(p.DISCONTINUED);
+          const sku=normalize(name),manufacturer=normalize(p.MANUFACTURERID);
+          const isMatched=inventory.has(sku)||(!!manufacturer&&inventory.has(manufacturer));
+          const valid=cost>0&&!discontinued;
+          if(valid&&isMatched)matched++;
+          else if(valid)unmatched++;
+          else review++;
+          if(!valid||!isMatched){
+            const reason=discontinued?'Discontinued':!(cost>0)?'No positive vendor cost':'No inventory part-number match';
+            issues.push({name,heritageId,cost,reason});
+          }
+          heritage.push({spid,product_name:name,manufacturer_id:String(p.MANUFACTURERID??'').trim(),
+            heritage_id:heritageId,product_category:String(p.CATEGORY??'').trim(),vendor_cost:cost,
+            discontinued});
+        }
+        if(!heritage.length)throw new Error('No HeritageId values were found in this Products export. Nothing to import.');
+        selectedFile=file;heritageRows=heritage;sourceRowCount=products.length;
+        const stats={allCount:products.length,heritageCount:heritage.length,matchedCount:matched,
+          unmatchedCount:unmatched,reviewCount:review,otherCount:products.length-heritage.length};
+        for(const [id,v] of Object.entries(stats))$(id).textContent=v.toLocaleString();
+        $('selectedName').textContent=`Selected: ${file.name}`;
+        $('issueCaption').textContent=`(${issues.length} total; showing up to 100)`;
+        $('issueRows').innerHTML=issues.length?issues.slice(0,100).map(x=>
+          `<tr><td>${esc(x.name)}</td><td>${esc(x.heritageId)}</td><td>${esc(money(x.cost))}</td><td><span class="tag warn">${esc(x.reason)}</span></td></tr>`).join(''):
+          '<tr><td colspan="4">All valid Heritage prices matched existing inventory parts.</td></tr>';
+        $('previewPanel').hidden=false;
+        notice(`Preview ready. ${matched} Heritage prices match inventory. Review ${unmatched+review} unmatched, missing-cost or discontinued rows before confirming.`);
+        $('previewPanel').scrollIntoView({behavior:'smooth',block:'start'});
+      }catch(e){selectedFile=null;heritageRows=[];sourceRowCount=0;notice(e.message||'Unable to preview the file.','error')}
+      finally{busy=false}
+    }
+    async function importPrices(){
+      if(busy||!selectedFile||!heritageRows.length||!$('confirmBox').checked)return;
+      busy=true;$('confirmImport').disabled=true;$('heritagePricingFile').disabled=true;
+      try{
+        notice('Importing the reviewed Heritage pricing snapshot…');
+        const{data,error}=await db.rpc('import_jobtread_heritage_pricing',{
+          p_source_file_name:selectedFile.name,p_source_row_count:sourceRowCount,p_rows:heritageRows});
+        if(error)throw error;
+        notice(`Import completed. ${data.matched} Heritage vendor prices matched inventory; ${data.unmatched} priced products were unmatched and ${data.needs_review} need price review. Non-Heritage receiving costs and FIFO inventory values were not changed.`,'success');
+        $('confirmBox').checked=false;$('previewPanel').hidden=true;selectedFile=null;heritageRows=[];
+        $('heritagePricingFile').value='';$('selectedName').textContent='Ready for another complete Skimmer Products export.';
+        await loadHistory();
+      }catch(e){notice(`Import failed. No partial pricing import was saved. ${e.message||e}`,'error')}
+      finally{busy=false;$('heritagePricingFile').disabled=false;$('confirmImport').disabled=!$('confirmBox').checked||!heritageRows.length}
+    }
+    async function loadHistory(){
+      const{data,error}=await db.from('jobtread_heritage_pricing_import_batches')
+        .select('imported_at,source_file_name,heritage_row_count,matched_price_count,unmatched_price_count,review_count,status')
+        .order('imported_at',{ascending:false}).limit(12);
+      if(error)throw error;
+      $('historySection').hidden=false;
+      $('historyRows').innerHTML=(data||[]).map(x=>`<tr>
+        <td>${esc(new Date(x.imported_at).toLocaleString())}</td><td>${esc(x.source_file_name)}</td>
+        <td>${esc(x.heritage_row_count)}</td><td>${esc(x.matched_price_count)}</td>
+        <td>${esc(x.unmatched_price_count)}</td><td>${esc(x.review_count)}</td>
+        <td><span class="tag good">${esc(x.status)}</span></td></tr>`).join('')||'<tr><td colspan="7">No completed pricing imports yet.</td></tr>';
+    }
+    const zone=$('heritageUploadPanel');
+    for(const ev of ['dragenter','dragover'])zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.add('dragover')});
+    for(const ev of ['dragleave','drop'])zone.addEventListener(ev,e=>{e.preventDefault();zone.classList.remove('dragover')});
+    zone.addEventListener('drop',e=>{const f=e.dataTransfer?.files?.[0];if(f)preview(f)});
+    $('heritagePricingFile').addEventListener('change',e=>{const f=e.target.files?.[0];if(f)preview(f)});
+    $('confirmBox').addEventListener('change',e=>$('confirmImport').disabled=!e.target.checked||busy||!heritageRows.length);
+    $('confirmImport').addEventListener('click',importPrices);
+    (async()=>{try{if(await authenticate()){try{await loadHistory()}catch(e){notice(`Import history unavailable: ${e.message}`,'error')}}}catch(e){notice(e.message||'Unable to load importer.','error')}})();
+  })();
+  </script>
+</body>
+</html>
