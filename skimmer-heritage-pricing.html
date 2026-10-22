@@ -105,6 +105,9 @@
     const ROLES=['SERVICE_MANAGER','ADMIN','SYSTEM_ADMIN'];
     const $=id=>document.getElementById(id);
     const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    // Known product-mapping exceptions are handled here, never by editing the weekly Skimmer CSV.
+    // These inventory parts must use the latest Molinari receiving/master cost instead of Heritage.
+    const NON_HERITAGE_PARTS=new Set(['05601-0014Z']);
     let db=null,selectedFile=null,heritageRows=[],sourceRowCount=0,busy=false;
     function notice(message,kind=''){$('notice').textContent=message;$('notice').className=`notice ${kind}`;$('notice').hidden=!message}
     function normalize(value){return String(value??'').trim().toUpperCase()}
@@ -153,10 +156,13 @@
         for(const field of ['SPID','PRODUCTNAME','COST','HERITAGEID'])if(!fields.has(field))throw new Error(`Incorrect Skimmer export: missing ${field} column.`);
         const products=parsed.data.map(cellsFor);
         if(!products.length)throw new Error('The CSV does not contain any products.');
-        const heritage=[],issues=[],seen=new Set();let matched=0,unmatched=0,review=0;
+        const heritage=[],issues=[],seen=new Set();let matched=0,unmatched=0,review=0,excluded=0;
         for(const p of products){
           const heritageId=String(p.HERITAGEID??'').trim();if(!heritageId)continue;
           const spid=String(p.SPID??'').trim(),name=String(p.PRODUCTNAME??'').trim();
+          // Skimmer may report a HeritageId for a part that Molinari does not buy from Heritage.
+          // Skip the incorrect mapping and preserve the inventory's normal vendor-cost fallback.
+          if(NON_HERITAGE_PARTS.has(normalize(name))||NON_HERITAGE_PARTS.has(normalize(p.MANUFACTURERID))){excluded++;continue}
           if(!spid||!name)throw new Error('At least one Heritage row is missing SPID or ProductName. The export cannot be safely imported.');
           if(seen.has(spid))throw new Error(`Duplicate Skimmer product SPID in export: ${spid}`);seen.add(spid);
           const cost=number(p.COST);if(Number.isNaN(cost)||cost<0)throw new Error(`Invalid vendor cost on ${name}: ${p.COST}`);
@@ -186,7 +192,7 @@
           `<tr><td>${esc(x.name)}</td><td>${esc(x.heritageId)}</td><td>${esc(money(x.cost))}</td><td><span class="tag warn">${esc(x.reason)}</span></td></tr>`).join(''):
           '<tr><td colspan="4">All valid Heritage prices matched existing inventory parts.</td></tr>';
         $('previewPanel').hidden=false;
-        notice(`Preview ready. ${matched} Heritage prices match inventory. Review ${unmatched+review} unmatched, missing-cost or discontinued rows before confirming.`);
+        notice(`Preview ready. ${matched} Heritage prices match inventory. Review ${unmatched+review} unmatched, missing-cost or discontinued rows before confirming.${excluded?` ${excluded} known non-Heritage mapping${excluded===1?' was':'s were'} automatically excluded; original Skimmer CSV unchanged.`:''}`);
         $('previewPanel').scrollIntoView({behavior:'smooth',block:'start'});
       }catch(e){selectedFile=null;heritageRows=[];sourceRowCount=0;notice(e.message||'Unable to preview the file.','error')}
       finally{busy=false}
