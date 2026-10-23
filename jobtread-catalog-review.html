@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>JobTread Catalog Review — Molinari Pools</title>
+  <title>Molinari Pools Inventory Catalog — JobTread Review</title>
   <link rel="stylesheet" href="shared-navigation.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
   <style>
@@ -53,8 +53,8 @@
       <div class="header">
         <div>
           <div class="kicker">Molinari Operating System · JobTread integration</div>
-          <h1>JobTread Catalog Review</h1>
-          <p class="muted" style="margin:3px 0">Live estimating-cost preview · <span id="userBadge"></span></p>
+          <h1>Molinari Pools Inventory Catalog</h1>
+          <p class="muted" style="margin:3px 0">JobTread Unit Cost review · <span id="userBadge"></span></p>
         </div>
         <div class="links">
           <a href="skimmer-heritage-pricing.html">← Skimmer / Heritage Pricing</a>
@@ -62,7 +62,7 @@
         </div>
       </div>
       <div class="info">
-        <strong>Read-only preparation.</strong> Prices come from the Molinari inventory database,
+        <strong>Read-only preparation · Molinari-managed cost items only.</strong> Unit Costs come from the Molinari inventory database,
         including Heritage updates from the weekly Skimmer import. This page never changes
         JobTread items, budgets, formulas, or existing quotes. Inventory commitments continue
         to use the actual inventory cost, separately from estimating.
@@ -77,16 +77,18 @@
           <div class="stat"><span class="number">1410</span><span class="label">Required JobTread cost code</span></div>
         </div>
         <p class="muted">
-          The vendor cost is before tax. Previewed client prices use <strong>1.07 × 1.70</strong>
-          for normal parts and <strong>1.07 × 1.50</strong> for complete heaters and heat pumps.
-          These are previews only; JobTread's actual formulas must be checked before any sync.
+          <strong>JobTread catalog Unit Cost = current vendor/purchase cost × 1.07.</strong>
+          Heritage-mapped items use the latest Skimmer/Heritage vendor cost; other items use
+          the latest inventory receiving cost (or the current inventory master cost when no receipt exists).
+          All values below are estimating <strong>costs</strong>, not customer selling prices.
+          JobTread controls markups separately and no pricing formulas are changed here.
           <strong>Chemicals and consumables are always excluded</strong>, as are unpriced,
           discontinued, and unapproved obsolete/deadstock items.
         </p>
         <div id="notice" class="notice" role="status">Loading live catalog candidates…</div>
         <div class="scroll">
           <table>
-            <thead><tr><th>Part #</th><th>Description</th><th>Category</th><th>Vendor cost</th><th>Price source</th><th>Markup</th><th>Price preview</th><th>Availability</th></tr></thead>
+            <thead><tr><th>Part #</th><th>Description</th><th>Category</th><th>Vendor / purchase cost</th><th>Price source</th><th>Tax (7%)</th><th>JobTread Unit Cost</th><th>Availability</th></tr></thead>
             <tbody id="partsRows"><tr><td colspan="8">Loading…</td></tr></tbody>
           </table>
         </div>
@@ -115,7 +117,7 @@
         <ol>
           <li>Audit all existing JobTread item IDs and reconcile exact part-number matches.</li>
           <li>Resolve additional order-on-demand parts and stale deadstock flags.</li>
-          <li>Validate JobTread cost code <strong>1410</strong> and the two markup formulas.</li>
+          <li>Validate JobTread cost code <strong>1410</strong> and tax-inclusive Unit Cost. Selling-price formulas are out of scope.</li>
           <li>Review a change-only dry run, then explicitly enable synchronization.</li>
         </ol>
         <p class="muted">All JobTread catalog mappings are disabled for writing by default.</p>
@@ -131,6 +133,12 @@
     const $=id=>document.getElementById(id);
     const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const money=value=>(value===null||value===undefined||value==='')?'—':'$'+Number(value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const sourceLabel=value=>({
+      HERITAGE_SKIMMER:'Skimmer / Heritage',
+      LATEST_RECEIPT:'Latest warehouse receipt',
+      PARTS_COST_FALLBACK:'Inventory master cost (no receipt)',
+      HERITAGE_MANUAL_VERIFIED:'Verified vendor price'
+    })[value]||value||'—';
     let db=null,rows=[],total=0,busy=false;
     function notice(message,isError=false,target='notice'){
       const box=$(target);box.textContent=message;box.className='notice'+(isError?' error':'');box.hidden=false;
@@ -151,9 +159,9 @@
         '<td class="description">'+esc(x.part_description)+'</td>'+
         '<td>'+esc(x.category)+'</td>'+
         '<td>'+esc(money(x.vendor_cost_ex_tax))+'</td>'+
-        '<td>'+esc(x.cost_source)+'</td>'+
-        '<td>'+esc('×'+Number(x.markup_multiplier).toFixed(2))+'</td>'+
-        '<td><strong>'+esc(money(x.estimated_client_price_preview))+'</strong></td>'+
+        '<td>'+esc(sourceLabel(x.cost_source))+'</td>'+ 
+        '<td>'+esc(money(Number(x.vendor_cost_ex_tax)*0.07))+'</td>'+ 
+        '<td><strong>'+esc(money(Math.round((Number(x.vendor_cost_ex_tax)*1.07+Number.EPSILON)*100)/100))+'</strong></td>'+ 
         '<td>'+esc(x.inventory_disposition==='ORDER_ON_DEMAND'?'Order on demand':'Current use')+'</td></tr>').join('')||
         '<tr><td colspan="8">No eligible items returned.</td></tr>';
       $('moreButton').disabled=busy||rows.length>=total;
@@ -167,7 +175,7 @@
         const result=await api({limit:50,offset:rows.length,includeJobTread:false});
         total=Number(result.totalCandidates||0);
         rows.push(...(result.rows||[]));
-        notice('Live pricing preview loaded. JobTread has not been changed.');
+        notice('Tax-inclusive catalog Unit Cost preview loaded. JobTread has not been changed.');
       }catch(error){notice(error.message||'Unable to load catalog candidates.',true)}
       finally{busy=false;$('refreshButton').disabled=false;render()}
     }
