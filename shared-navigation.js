@@ -300,6 +300,11 @@
           roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
+          label: 'JobTread Catalog Review',
+          href: 'jobtread-catalog-review.html',
+          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
           label: 'Warehouse Reports',
           href: 'warehouse-reports.html',
           roles: ['WAREHOUSE', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
