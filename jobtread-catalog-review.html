@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JobTread Catalog Review — Molinari Pools</title>
+  <link rel="stylesheet" href="shared-navigation.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#f3f7fa;color:#1c3345;font-family:Arial,Helvetica,sans-serif}
+    main{max-width:1320px;margin:28px auto 75px;padding:0 20px}
+    h1{font-size:28px;color:#0c3c5b;margin:7px 0}
+    h2{font-size:19px;color:#0c3c5b;margin:0 0 15px}
+    p,li{line-height:1.55}
+    small,.muted{color:#657c8f}
+    .kicker{color:#337291;font-size:12px;letter-spacing:.09em;text-transform:uppercase;font-weight:800}
+    .header{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:22px}
+    .links{display:flex;gap:10px;flex-wrap:wrap}
+    .links a{color:#12619b;text-decoration:none;background:white;border:1px solid #c1d3df;border-radius:8px;padding:10px 13px;font-weight:600}
+    .panel{background:white;border:1px solid #dce6ee;border-radius:13px;padding:23px;margin:17px 0;box-shadow:0 5px 16px #19384c0d}
+    .info{background:#eaf3f8;border-left:4px solid #176995;padding:13px 17px;border-radius:7px}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:18px 0}
+    .stat{border:1px solid #dde8ee;background:#f7fafc;border-radius:9px;padding:15px}
+    .stat .number{display:block;font-size:26px;font-weight:800;color:#0b3c5d}
+    .stat .label{font-size:12px;color:#577184}
+    .actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:15px 0}
+    button{font:inherit;cursor:pointer;background:#0c5f90;color:white;border:0;border-radius:8px;font-weight:700;padding:11px 16px}
+    button:hover:not(:disabled){background:#08466d}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    button.secondary{color:#0b496f;background:#edf3f7;border:1px solid #cddce7}
+    .notice{background:#eaf5fc;border:1px solid #b9dcec;padding:12px 14px;border-radius:8px;white-space:pre-wrap;margin:13px 0}
+    .notice.error{background:#fff1ef;border-color:#f1c5bf;color:#87291c}
+    .scroll{max-height:640px;overflow:auto;border:1px solid #dce6ee;border-radius:9px}
+    table{border-collapse:collapse;width:100%;font-size:13px}
+    th{text-align:left;position:sticky;top:0;background:#eaf1f5;color:#315569}
+    td,th{padding:10px;border-bottom:1px solid #e6edf2;vertical-align:top}
+    td{white-space:nowrap}
+    td.description{min-width:280px;max-width:450px;white-space:normal}
+    code{background:#f2f6fa;padding:3px 6px;border-radius:4px}
+    #app[hidden],#denied[hidden],#jtPanel[hidden],#jtNotice[hidden]{display:none}
+    @media(max-width:600px){main{padding:0 12px}h1{font-size:22px}.panel{padding:16px}}
+  </style>
+</head>
+<body>
+  <div id="sharedNavigation"></div>
+  <main>
+    <div id="denied" class="panel" hidden>
+      <h2>Access restricted</h2>
+      <p>Active Service Managers and Administrators can review JobTread catalog pricing.</p>
+    </div>
+    <div id="app" hidden>
+      <div class="header">
+        <div>
+          <div class="kicker">Molinari Operating System · JobTread integration</div>
+          <h1>JobTread Catalog Review</h1>
+          <p class="muted" style="margin:3px 0">Live estimating-cost preview · <span id="userBadge"></span></p>
+        </div>
+        <div class="links">
+          <a href="skimmer-heritage-pricing.html">← Skimmer / Heritage Pricing</a>
+          <a href="data-import-center.html">Data Import Center</a>
+        </div>
+      </div>
+      <div class="info">
+        <strong>Read-only preparation.</strong> Prices come from the Molinari inventory database,
+        including Heritage updates from the weekly Skimmer import. This page never changes
+        JobTread items, budgets, formulas, or existing quotes. Inventory commitments continue
+        to use the actual inventory cost, separately from estimating.
+      </div>
+      <section class="panel">
+        <div class="kicker">Stage 1 · Live estimating candidates</div>
+        <h2>Current-use parts and order-on-demand equipment</h2>
+        <div class="stats">
+          <div class="stat"><span class="number" id="totalCandidates">—</span><span class="label">Eligible catalog candidates</span></div>
+          <div class="stat"><span class="number" id="loaded">—</span><span class="label">Candidates currently displayed</span></div>
+          <div class="stat"><span class="number" id="heritageLoaded">—</span><span class="label">Heritage-priced among displayed</span></div>
+          <div class="stat"><span class="number">1410</span><span class="label">Required JobTread cost code</span></div>
+        </div>
+        <p class="muted">
+          The vendor cost is before tax. Previewed client prices use <strong>1.07 × 1.70</strong>
+          for normal parts and <strong>1.07 × 1.50</strong> for complete heaters and heat pumps.
+          These are previews only; JobTread's actual formulas must be checked before any sync.
+          <strong>Chemicals and consumables are always excluded</strong>, as are unpriced,
+          discontinued, and unapproved obsolete/deadstock items.
+        </p>
+        <div id="notice" class="notice" role="status">Loading live catalog candidates…</div>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Part #</th><th>Description</th><th>Category</th><th>Vendor cost</th><th>Price source</th><th>Markup</th><th>Price preview</th><th>Availability</th></tr></thead>
+            <tbody id="partsRows"><tr><td colspan="8">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button id="moreButton" disabled>Load next 50</button>
+          <button id="refreshButton" class="secondary">Refresh vendor costs</button>
+          <span id="paging" class="muted"></span>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="kicker">Stage 2 · Existing JobTread items</div>
+        <h2>Read the JobTread cost-item catalog</h2>
+        <p>
+          This retrieves a sample of up to 50 existing JobTread catalog items to check the
+          connection and catalog fields. It does not add or change items. This first sample is
+          <strong>not a complete catalog audit</strong> and will not create part-number mappings.
+        </p>
+        <div class="actions"><button id="inspectButton">Inspect JobTread catalog sample</button></div>
+        <div id="jtNotice" class="notice" role="status" hidden></div>
+        <div id="jtPanel" class="scroll" hidden>
+          <table><thead><tr><th>JobTread ID</th><th>Item name</th><th>Description</th><th>Cost</th><th>Unit cost</th><th>Cost code</th></tr></thead><tbody id="jtRows"></tbody></table>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>Before enabling the nightly sync</h2>
+        <ol>
+          <li>Audit all existing JobTread item IDs and reconcile exact part-number matches.</li>
+          <li>Resolve additional order-on-demand parts and stale deadstock flags.</li>
+          <li>Validate JobTread cost code <strong>1410</strong> and the two markup formulas.</li>
+          <li>Review a change-only dry run, then explicitly enable synchronization.</li>
+        </ol>
+        <p class="muted">All JobTread catalog mappings are disabled for writing by default.</p>
+      </section>
+    </div>
+  </main>
+  <script src="shared-navigation.js"></script>
+  <script>
+  (()=>{'use strict';
+    const URL='https://icqkuhbhcennhhbbwqgo.supabase.co';
+    const KEY='sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+    const ROLES=['SERVICE_MANAGER','ADMIN','SYSTEM_ADMIN'];
+    const $=id=>document.getElementById(id);
+    const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const money=value=>(value===null||value===undefined||value==='')?'—':'$'+Number(value).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    let db=null,rows=[],total=0,busy=false;
+    function notice(message,isError=false,target='notice'){
+      const box=$(target);box.textContent=message;box.className='notice'+(isError?' error':'');box.hidden=false;
+    }
+    async function api(body){
+      const {data,error}=await db.functions.invoke('jobtread-catalog-readonly-audit',{body});
+      if(error)throw new Error(error.message||String(error));
+      if(data?.error)throw new Error(data.error);
+      if(data?.mode!=='READ_ONLY'||data?.noJobTreadWrites!==true)throw new Error('Unexpected audit response. No catalog updates were made.');
+      return data;
+    }
+    function render(){
+      $('totalCandidates').textContent=total.toLocaleString();
+      $('loaded').textContent=rows.length.toLocaleString();
+      $('heritageLoaded').textContent=rows.filter(x=>x.cost_source==='HERITAGE_SKIMMER').length.toLocaleString();
+      $('partsRows').innerHTML=rows.map(x=>'<tr>'+
+        '<td><strong>'+esc(x.part_number)+'</strong></td>'+
+        '<td class="description">'+esc(x.part_description)+'</td>'+
+        '<td>'+esc(x.category)+'</td>'+
+        '<td>'+esc(money(x.vendor_cost_ex_tax))+'</td>'+
+        '<td>'+esc(x.cost_source)+'</td>'+
+        '<td>'+esc('×'+Number(x.markup_multiplier).toFixed(2))+'</td>'+
+        '<td><strong>'+esc(money(x.estimated_client_price_preview))+'</strong></td>'+
+        '<td>'+esc(x.inventory_disposition==='ORDER_ON_DEMAND'?'Order on demand':'Current use')+'</td></tr>').join('')||
+        '<tr><td colspan="8">No eligible items returned.</td></tr>';
+      $('moreButton').disabled=busy||rows.length>=total;
+      $('paging').textContent=rows.length+' of '+total+' candidates loaded';
+    }
+    async function load(reset=false){
+      if(busy)return;busy=true;$('moreButton').disabled=true;$('refreshButton').disabled=true;
+      try{
+        if(reset)rows=[];
+        notice('Loading live vendor prices and eligible parts…');
+        const result=await api({limit:50,offset:rows.length,includeJobTread:false});
+        total=Number(result.totalCandidates||0);
+        rows.push(...(result.rows||[]));
+        notice('Live pricing preview loaded. JobTread has not been changed.');
+      }catch(error){notice(error.message||'Unable to load catalog candidates.',true)}
+      finally{busy=false;$('refreshButton').disabled=false;render()}
+    }
+    async function inspect(){
+      const button=$('inspectButton');button.disabled=true;
+      notice('Reading the first JobTread catalog sample…',false,'jtNotice');
+      try{
+        const result=await api({limit:1,offset:0,includeJobTread:true});
+        if(result.jobtreadCatalogAuditError)throw new Error(result.jobtreadCatalogAuditError);
+        const items=result.jobtreadSample||[];
+        $('jtRows').innerHTML=items.map(x=>'<tr>'+
+          '<td><code>'+esc(x.id)+'</code></td><td>'+esc(x.name)+'</td>'+
+          '<td class="description">'+esc(x.description)+'</td>'+
+          '<td>'+esc(money(x.cost))+'</td><td>'+esc(money(x.unitCost))+'</td>'+
+          '<td>'+esc(x.costCode)+'</td></tr>').join('')||
+          '<tr><td colspan="6">No items returned in this sample.</td></tr>';
+        $('jtPanel').hidden=false;
+        notice('Read-only JobTread query returned '+items.length+' items. Full-catalog reconciliation is still required.',false,'jtNotice');
+      }catch(error){notice(error.message||'Unable to inspect JobTread.',true,'jtNotice')}
+      finally{button.disabled=false}
+    }
+    $('moreButton').addEventListener('click',()=>load());
+    $('refreshButton').addEventListener('click',()=>load(true));
+    $('inspectButton').addEventListener('click',inspect);
+    (async()=>{
+      try{
+        if(!window.supabase)throw new Error('Unable to load the database library.');
+        db=window.supabase.createClient(URL,KEY);
+        const {data:{session},error:sessionError}=await db.auth.getSession();
+        if(sessionError)throw sessionError;
+        if(!session?.user){location.href='index.html';return}
+        const {data:profile,error}=await db.from('user_profiles')
+          .select('full_name,role,active').eq('id',session.user.id).maybeSingle();
+        if(error)throw error;
+        if(!profile?.active||!ROLES.includes(profile.role)){$('denied').hidden=false;return}
+        $('userBadge').textContent=(profile.full_name||session.user.email)+' · '+profile.role;
+        $('app').hidden=false;await load(true);
+      }catch(error){$('app').hidden=false;notice(error.message||'Unable to initialize catalog review.',true)}
+    })();
+  })();
+  </script>
+</body>
+</html>
