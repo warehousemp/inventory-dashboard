@@ -216,6 +216,10 @@
     .summary-card.replacement { background: #fffcf5; border-color: #fedf89; }
     .summary-card.skipped { background: #eff8ff; border-color: #b2ddff; }
 
+    .rate-review-box { margin: 18px 0 24px; padding: 18px; border: 1px solid #bdd5e4; background: #f5fafd; border-radius: 12px; }
+    .rate-review-controls { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) auto auto; gap: 12px; align-items: end; margin-bottom: 14px; }
+    .rate-review-box .entry-count { margin: 10px 0; }
+
     .tabs {
       display: flex;
       flex-wrap: wrap;
@@ -692,11 +696,13 @@
 
     @media (max-width: 900px) {
       .toolbar, .import-grid, .growth-controls { grid-template-columns: 1fr 1fr; }
+      .rate-review-controls { grid-template-columns: 1fr 1fr; }
       .entry-form-grid, .checklist-grid { grid-template-columns: 1fr 1fr; }
       .summary-grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
     }
 
     @media (max-width: 600px) {
+      .rate-review-controls { grid-template-columns: 1fr; }
       .main-layout { padding: 0 12px; margin: 18px auto; }
       .card { padding: 18px; }
       .toolbar, .import-grid, .summary-grid, .import-preview, .growth-controls, .entry-form-grid, .checklist-grid { grid-template-columns: 1fr; }
@@ -1078,6 +1084,25 @@
             <input id="newClientSearch" class="entry-search" type="search" placeholder="Search client, address, route tech, or status">
           </div>
 
+          <div class="rate-review-box">
+            <h3>Rate Increase — Recent Client Review</h3>
+            <p class="section-description">Find clients by their First Cleaning Date (inclusive). Use this report to review potential rate-increase exclusions; confirm current service status in Skimmer before applying an exclusion.</p>
+            <div class="rate-review-controls">
+              <div><label for="rateReviewStart">First Cleaning Date From</label><input id="rateReviewStart" type="date" value="2026-06-01"></div>
+              <div><label for="rateReviewEnd">Through</label><input id="rateReviewEnd" type="date"></div>
+              <button id="rateReviewApply" class="btn-primary" type="button">Apply Date Range</button>
+              <button id="rateReviewPrint" class="btn-secondary" type="button" disabled>Print Results</button>
+            </div>
+            <div id="rateReviewMessage" class="message" aria-live="polite"></div>
+            <div id="rateReviewCount" class="entry-count"></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>First Clean</th><th>Client</th><th>Service Location</th><th>Route Tech</th><th>Cleaning Day</th><th>Record Status</th></tr></thead>
+                <tbody id="rateReviewTbody"><tr><td colspan="6">Apply a date range to load clients.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="table-wrap">
             <table>
               <thead>
@@ -1361,6 +1386,8 @@ let entryTab = 'newClient';
 let newClientRecords = [];
 let cancellationRecords = [];
 let suspensionRecords = [];
+let rateReviewRows = [];
+let rateReviewRange = null;
 
 const datasets = {
   added: [],
@@ -1386,7 +1413,10 @@ async function initializePage() {
 
   initializeGrowthPeriodControls();
   initializeEntryForms();
+  const rateReviewEnd = document.getElementById('rateReviewEnd');
+  if (rateReviewEnd) rateReviewEnd.value = toIsoDate(new Date());
   await loadAllData();
+  await loadRateReview();
 }
 
 function initializeWorkspaceTabs() {
@@ -1462,6 +1492,15 @@ function bindEvents() {
   document.getElementById('cancellationForm')?.addEventListener('submit', saveCancellationRecord);
   document.getElementById('suspensionForm')?.addEventListener('submit', saveSuspensionRecord);
   document.getElementById('newClientSearch')?.addEventListener('input', renderNewClientRecords);
+  document.getElementById('rateReviewApply')?.addEventListener('click', loadRateReview);
+  document.getElementById('rateReviewPrint')?.addEventListener('click', printRateReview);
+  ['rateReviewStart', 'rateReviewEnd'].forEach(id => document.getElementById(id)?.addEventListener('change', () => {
+    rateReviewRows = [];
+    rateReviewRange = null;
+    document.getElementById('rateReviewPrint').disabled = true;
+    document.getElementById('rateReviewCount').textContent = 'Date range changed — apply to refresh results.';
+    renderRows('rateReviewTbody', [], () => '', 6, 'Apply the date range to refresh this report.');
+  }));
   document.getElementById('cancellationSearch')?.addEventListener('input', renderCancellationRecords);
   document.getElementById('suspensionSearch')?.addEventListener('input', renderSuspensionRecords);
 }
@@ -1642,6 +1681,102 @@ function getRecordStatusBadge(status) {
   if (normalized === 'CANCELLED') className = 'record-status-cancelled';
 
   return `<span class="badge ${className}">${escapeHtml(normalized)}</span>`;
+}
+
+async function loadRateReview() {
+  const start = document.getElementById('rateReviewStart')?.value;
+  const end = document.getElementById('rateReviewEnd')?.value;
+  const printButton = document.getElementById('rateReviewPrint');
+  rateReviewRows = [];
+  rateReviewRange = null;
+  if (printButton) printButton.disabled = true;
+
+  if (!start || !end || end < start) {
+    setMessage('rateReviewMessage', 'error', 'Enter a valid start and end date. The end date must be on or after the start date.');
+    renderRows('rateReviewTbody', [], () => '', 6, 'Enter a valid date range.');
+    document.getElementById('rateReviewCount').textContent = '';
+    return;
+  }
+
+  setButtonLoading('rateReviewApply', true, 'Loading...');
+  setMessage('rateReviewMessage', 'info', 'Loading clients whose first cleaning dates fall in the selected range...');
+  try {
+    const rows = [];
+    const pageSize = 500;
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await client
+        .from('client_new_client_tracking')
+        .select('id,first_clean_date,client_name,service_location,route_tech,cleaning_day,record_status')
+        .gte('first_clean_date', start)
+        .lte('first_clean_date', end)
+        .order('first_clean_date', { ascending: true })
+        .order('id', { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw new Error(error.message);
+      rows.push(...(data || []));
+      if (!data || data.length < pageSize) break;
+    }
+    rateReviewRows = rows;
+    rateReviewRange = { start, end };
+    renderRows('rateReviewTbody', rows, row => `
+      <td>${escapeHtml(formatDate(row.first_clean_date))}</td>
+      <td><strong>${escapeHtml(row.client_name)}</strong></td>
+      <td>${escapeHtml(row.service_location)}</td>
+      <td>${escapeHtml(row.route_tech)}</td>
+      <td>${escapeHtml(row.cleaning_day)}</td>
+      <td>${getRecordStatusBadge(row.record_status)}</td>
+    `, 6, 'No clients with a First Cleaning Date in this range.');
+    document.getElementById('rateReviewCount').textContent =
+      `${rows.length.toLocaleString()} client record${rows.length === 1 ? '' : 's'} · ${formatDate(start)} through ${formatDate(end)}`;
+    if (printButton) printButton.disabled = rows.length === 0;
+    setMessage('rateReviewMessage', 'success',
+      'Results loaded. This list includes all record statuses; verify active clients and any account-specific exclusions before changing rates.');
+  } catch (error) {
+    renderRows('rateReviewTbody', [], () => '', 6, 'Unable to load report.');
+    document.getElementById('rateReviewCount').textContent = '';
+    setMessage('rateReviewMessage', 'error', 'Unable to load recent-client review: ' + (error.message || String(error)));
+  } finally {
+    setButtonLoading('rateReviewApply', false, 'Apply Date Range');
+  }
+}
+
+function printRateReview() {
+  if (!rateReviewRange || !rateReviewRows.length) return;
+  const { start, end } = rateReviewRange;
+  const popup = window.open('', '_blank');
+  if (!popup) {
+    setMessage('rateReviewMessage', 'error', 'Allow pop-ups for this page to print the report.');
+    return;
+  }
+  const bodyRows = rateReviewRows.map(row => `<tr>
+    <td>${escapeHtml(formatDate(row.first_clean_date))}</td>
+    <td>${escapeHtml(row.client_name)}</td>
+    <td>${escapeHtml(row.service_location)}</td>
+    <td>${escapeHtml(row.route_tech)}</td>
+    <td>${escapeHtml(row.cleaning_day)}</td>
+    <td>${escapeHtml(row.record_status || 'ACTIVE')}</td>
+  </tr>`).join('');
+  popup.document.open();
+  popup.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+    <title>Recent Clients - Rate Increase Review</title>
+    <style>
+      body{font:12px Arial,sans-serif;color:#182b3a;margin:24px}
+      h1{font-size:20px;margin:0 0 8px}p{line-height:1.4}
+      table{width:100%;border-collapse:collapse;margin-top:18px}
+      th,td{border:1px solid #cad5df;text-align:left;padding:7px;vertical-align:top;overflow-wrap:anywhere}
+      th{background:#e8f0f5}thead{display:table-header-group}tr{break-inside:avoid}
+      .no-print{margin-bottom:16px;padding:9px 14px;cursor:pointer}
+      @media print{.no-print{display:none}body{margin:0}@page{size:landscape;margin:12mm}}
+    </style></head><body>
+    <button class="no-print" onclick="window.print()">Print Report</button>
+    <h1>Molinari Pools — Recent Client Rate Increase Review</h1>
+    <p><strong>First Cleaning Date:</strong> ${escapeHtml(formatDate(start))} through ${escapeHtml(formatDate(end))}<br>
+    <strong>Records:</strong> ${rateReviewRows.length.toLocaleString()}</p>
+    <p>Review list only. Confirm current service status and account eligibility in Skimmer before excluding any client from a rate increase.</p>
+    <table><thead><tr><th>First Clean</th><th>Client</th><th>Service Location</th><th>Route Tech</th><th>Cleaning Day</th><th>Record Status</th></tr></thead>
+    <tbody>${bodyRows}</tbody></table></body></html>`);
+  popup.document.close();
+  popup.focus();
 }
 
 function renderNewClientRecords() {
