@@ -300,11 +300,6 @@
           roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
-          label: 'JobTread Catalog Review',
-          href: 'jobtread-catalog-review.html',
-          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
-        },
-        {
           label: 'Warehouse Reports',
           href: 'warehouse-reports.html',
           roles: ['WAREHOUSE', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
@@ -392,10 +387,10 @@
         <a
           class="shared-nav-brand"
           href="index.html"
-          aria-label="Molinari Pools main menu"
+          aria-label="Molinari Operating System main menu"
         >
           <span class="shared-nav-brand-mark">MP</span>
-          <span>MOLINARI POOLS</span>
+          <span>MOLINARI OPERATING SYSTEM</span>
         </a>
 
         <div class="shared-nav-account">
