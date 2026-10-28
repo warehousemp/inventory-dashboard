@@ -1661,6 +1661,47 @@
       }
     }
 
+    .non-inventory-parts-list {
+      border: 1px solid #d9e2ec;
+      border-radius: 10px;
+      overflow-x: auto;
+      background: white;
+      margin: 8px 0 14px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    .non-inventory-parts-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 94px;
+      gap: 10px;
+      padding: 12px;
+      align-items: center;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .non-inventory-parts-item:last-child { border-bottom: 0; }
+    .non-inventory-parts-item.selected { background: #eef8fa; }
+    .non-inventory-parts-item label {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      cursor: pointer;
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+    .non-inventory-parts-item input[type="checkbox"] {
+      width: 18px; height: 18px; margin: 2px 0 0; flex: 0 0 auto; padding: 0;
+    }
+    .non-inventory-parts-item input[type="number"] { margin: 4px 0 0; padding: 8px; }
+    .non-inventory-parts-item input[type="number"]:disabled { background: #edf2f7; }
+    .non-inventory-part-detail { display: block; font-weight: normal; color: #667085; font-size: 12px; line-height: 1.5; }
+    .non-inventory-part-name { display: block; color: #0b3c5d; font-size: 13px; font-weight: 700; }
+    .non-inventory-po-grid {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+      gap: 10px;
+    }
+    .non-inventory-po-grid input[readonly] { background: #eef3f7; color: #0b3c5d; font-weight: bold; }
+    @media (max-width: 540px) { .non-inventory-po-grid { grid-template-columns: 1fr; } }
     .client-purchase-block {border:1px solid #c4dce5;background:#f0f8fa;border-radius:10px;padding:15px 15px 2px;margin:12px 0 18px;}
     .non-inventory-availability {border:1px solid #b8dce3;background:#eef8fa;border-radius:8px;padding:12px;white-space:pre-wrap;margin-bottom:14px;}
   </style>
@@ -1851,7 +1892,13 @@
           <div id="issueJobTreadContainer" style="display:none;">
             <label for="issueJobTreadJobNumber">JobTread Job Number (Required)</label>
             <input id="issueJobTreadJobNumber" placeholder="Example: 1252" maxlength="40" autocomplete="off">
-            <div class="help-text">Only receipts matching this exact JobTread job AND part number can be issued.</div>
+            <div class="help-text">The available NON_INVENTORY parts received for this job will appear below.</div>
+            <div id="issueNonInventoryAvailability" class="help-text non-inventory-availability" role="status" style="display:none;"></div>
+            <div id="issueNonInventoryPartsBlock" style="display:none;">
+              <label>NON_INVENTORY Parts Available for This Job (Select All You Want to Issue)</label>
+              <div id="issueNonInventoryPartsList" class="non-inventory-parts-list" aria-live="polite"></div>
+              <div id="issueNonInventorySelectionSummary" class="help-text">Select one or more parts, then enter the quantity to issue for each.</div>
+            </div>
           </div>
         </div>
 
@@ -1859,9 +1906,10 @@
           Use this section when inventory is issued to a technician, job, work order, or client.
         </div>
 
-        <label>Part Number:</label>
-        <input id="issuePart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
-        <div id="issuePartDescription" class="part-description-display">Part description will appear here after a part number is selected.</div>
+        <div id="issueRegularPartBlock">
+          <label>Part Number:</label>
+          <input id="issuePart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
+          <div id="issuePartDescription" class="part-description-display">Part description will appear here after a part number is selected.</div>
 
         <div id="issueSourceLocationBlock">
           <label>Issue From Location:</label>
@@ -1890,8 +1938,9 @@
           </div>
         </div>
 
-        <label>Quantity:</label>
-        <input id="issueQty" type="number" value="1">
+          <label>Quantity:</label>
+          <input id="issueQty" type="number" value="1">
+        </div>
 
         <label>Job Type / Class:</label>
         <select id="issueJobType" required>
@@ -1907,13 +1956,25 @@
         <label>Issued To:</label>
         <input id="issueTech" placeholder="Technician or team member">
 
-        <label>Work Order / PO # Issued (Quote # or Job #):</label>
-        <input id="issueJob" placeholder="Work order, quote #, or job #">
+        <div id="issueRegularPoBlock">
+          <label>Work Order / PO # Issued (Quote # or Job #):</label>
+          <input id="issueJob" placeholder="Work order, quote #, or job #">
+        </div>
+        <div id="issueNonInventoryPoBlock" style="display:none;">
+          <div class="non-inventory-po-grid">
+            <div>
+              <label for="issueNonInventoryPo">PO# Issued (Required)</label>
+              <input id="issueNonInventoryPo" placeholder="Enter PO number issued by warehouse" autocomplete="off">
+            </div>
+            <div>
+              <label for="issueNonInventoryJobDisplay">JobTread Job #</label>
+              <input id="issueNonInventoryJobDisplay" readonly placeholder="Automatically populated from JobTread Job Number">
+            </div>
+          </div>
+        </div>
 
-        <label>Client:</label>
+        <label id="issueClientLabel" for="issueClient">Client:</label>
         <input id="issueClient" placeholder="Client name">
-
-        <div id="issueNonInventoryAvailability" class="help-text non-inventory-availability" role="status" style="display:none;"></div>
 
         <button class="issue-btn" onclick="issue()">ISSUE INVENTORY</button>
 
@@ -2798,54 +2859,142 @@ function updateReceiveClientPurchaseMode() {
   if (box) box.style.display = isYes ? 'block' : 'none';
   if (job) { job.required = isYes; if (!isYes) job.value = ''; }
 }
+/* List of individual received NON_INVENTORY receipt lines for the selected JobTread job. */
+let nonInventoryIssueRows = [];
 function updateIssueClientPurchaseMode() {
   const isYes = document.getElementById('issueClientPurchase')?.value === 'YES';
-  const box = document.getElementById('issueJobTreadContainer');
-  const location = document.getElementById('issueSourceLocationBlock');
-  const job = document.getElementById('issueJobTreadJobNumber');
-  const info = document.getElementById('issueNonInventoryAvailability');
-  const serial = document.getElementById('issueSerial');
-  if (box) box.style.display = isYes ? 'block' : 'none';
-  if (location) location.style.display = isYes ? 'none' : 'block';
-  if (job) { job.required = isYes; if (!isYes) job.value = ''; }
-  if (serial) serial.value = '';
-  if (info) { info.style.display = 'none'; info.textContent = ''; }
+  const jobBlock = document.getElementById('issueJobTreadContainer');
+  const regularBlock = document.getElementById('issueRegularPartBlock');
+  const regularPoBlock = document.getElementById('issueRegularPoBlock');
+  const nonInventoryPoBlock = document.getElementById('issueNonInventoryPoBlock');
+  const jobInput = document.getElementById('issueJobTreadJobNumber');
+  const poInput = document.getElementById('issueNonInventoryPo');
+  const clientLabel = document.getElementById('issueClientLabel');
+
+  if (jobBlock) jobBlock.style.display = isYes ? 'block' : 'none';
+  if (regularBlock) regularBlock.style.display = isYes ? 'none' : 'block';
+  if (regularPoBlock) regularPoBlock.style.display = isYes ? 'none' : 'block';
+  if (nonInventoryPoBlock) nonInventoryPoBlock.style.display = isYes ? 'block' : 'none';
+  if (clientLabel) clientLabel.textContent = isYes ? 'Client Name:' : 'Client:';
+  if (jobInput) { jobInput.required = isYes; jobInput.value = ''; }
+  if (poInput) { poInput.required = isYes; poInput.value = ''; }
+  if (!isYes) document.getElementById('issueNonInventoryJobDisplay').value = '';
+
+  nonInventoryIssueRows = [];
   nonInventoryAvailabilityRequest++;
-  checkIssueSerialized();
+  const list = document.getElementById('issueNonInventoryPartsList');
+  const summary = document.getElementById('issueNonInventorySelectionSummary');
+  const availability = document.getElementById('issueNonInventoryAvailability');
+  const partsBlock = document.getElementById('issueNonInventoryPartsBlock');
+  if (list) list.replaceChildren();
+  if (summary) summary.textContent = 'Select one or more parts, then enter the quantity to issue for each.';
+  if (availability) { availability.style.display = 'none'; availability.textContent = ''; }
+  if (partsBlock) partsBlock.style.display = 'none';
+  if (!isYes) checkIssueSerialized();
+}
+function updateNonInventorySelectionSummary() {
+  const root = document.getElementById('issueNonInventoryPartsList');
+  const summary = document.getElementById('issueNonInventorySelectionSummary');
+  if (!root || !summary) return;
+  const checked = [...root.querySelectorAll('input[type="checkbox"][data-receipt-id]:checked')];
+  let qty = 0;
+  for (const cb of checked) {
+    const row = cb.closest('.non-inventory-parts-item');
+    qty += Number(row?.querySelector('input[type="number"]')?.value || 0);
+  }
+  summary.textContent = checked.length + ' part line(s) selected; ' +
+    formatNumber(qty) + ' total unit(s) entered for issue.';
+}
+function renderNonInventoryIssueLines(rows) {
+  const list = document.getElementById('issueNonInventoryPartsList');
+  if (!list) return;
+  list.replaceChildren();
+  for (const receipt of rows) {
+    const available = Number(receipt.quantity_remaining || 0);
+    if (available <= 0) continue;
+    const item = document.createElement('div');
+    item.className = 'non-inventory-parts-item';
+
+    const label = document.createElement('label');
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.dataset.receiptId = receipt.id;
+    check.setAttribute('aria-label','Select part ' + receipt.part_number +
+      (receipt.serial_number ? ' serial ' + receipt.serial_number : ''));
+
+    const details = document.createElement('span');
+    const name = document.createElement('span');
+    name.className = 'non-inventory-part-name';
+    name.textContent = (receipt.part_number || 'Unknown Part') + ' — ' + (receipt.part_name || 'No description');
+    const detail = document.createElement('span');
+    detail.className = 'non-inventory-part-detail';
+    detail.textContent = 'Available: ' + formatNumber(available) +
+      ' of ' + formatNumber(receipt.quantity_received) + ' received' +
+      (receipt.po_number ? ' | Receipt PO: ' + receipt.po_number : '') +
+      (receipt.vendor_order_number ? ' | Vendor Order: ' + receipt.vendor_order_number : '') +
+      (receipt.serial_number ? ' | Serial: ' + receipt.serial_number : '') +
+      (receipt.received_at ? ' | Received: ' + formatDateOnly(receipt.received_at) : '');
+    details.append(name,detail);
+    label.append(check,details);
+
+    const qtyWrap = document.createElement('div');
+    const qtyLabel = document.createElement('label');
+    qtyLabel.textContent = 'Issue Qty';
+    const quantity = document.createElement('input');
+    quantity.type = 'number';
+    quantity.min = '0.000001';
+    quantity.max = String(available);
+    quantity.step = receipt.serial_number ? '1' : 'any';
+    quantity.value = '1';
+    quantity.disabled = true;
+    quantity.setAttribute('aria-label','Issue quantity for ' + receipt.part_number);
+    qtyWrap.append(qtyLabel,quantity);
+
+    check.addEventListener('change', () => {
+      item.classList.toggle('selected',check.checked);
+      quantity.disabled = !check.checked;
+      updateNonInventorySelectionSummary();
+    });
+    quantity.addEventListener('input',updateNonInventorySelectionSummary);
+    item.append(label,qtyWrap);
+    list.appendChild(item);
+  }
+  updateNonInventorySelectionSummary();
 }
 async function loadNonInventoryIssueAvailability() {
   const requestId = ++nonInventoryAvailabilityRequest;
   const info = document.getElementById('issueNonInventoryAvailability');
-  const serialSelect = document.getElementById('issueSerial');
-  const serialHelp = document.getElementById('issueSerialHelp');
-  const part = getMatchedPart('issuePart');
+  const partsBlock = document.getElementById('issueNonInventoryPartsBlock');
+  const list = document.getElementById('issueNonInventoryPartsList');
   const job = (document.getElementById('issueJobTreadJobNumber')?.value || '').trim().toUpperCase();
-  updateIssueFifoWarningFromSelection();
-  if (info) { info.style.display = 'block'; info.textContent = 'Enter a part number and JobTread job number to check available NON_INVENTORY receipts.'; }
-  if (serialSelect) { serialSelect.innerHTML = '<option value="">Select job-specific received serial...</option>'; serialSelect.disabled = true; }
-  if (!part || !validJobTreadNumber(job)) return;
-  if (info) info.textContent = 'Checking NON_INVENTORY received for JobTread job ' + job + '...';
-  let partId;
-  try { partId = await getPartIdForMatchedPart(part, 'issuePart'); }
-  catch (err) { if (requestId === nonInventoryAvailabilityRequest && info) info.textContent = 'Part lookup error: ' + err.message; return; }
-  if (requestId !== nonInventoryAvailabilityRequest || document.getElementById('issueClientPurchase')?.value !== 'YES') return;
-  if (!partId) { if (info) info.textContent = 'Part ID unavailable.'; return; }
+  const jobDisplay = document.getElementById('issueNonInventoryJobDisplay');
+  if (jobDisplay) jobDisplay.value = job;
+  nonInventoryIssueRows = [];
+  if (partsBlock) partsBlock.style.display = 'none';
+  if (list) list.replaceChildren();
+  if (info) { info.style.display = 'block'; info.textContent = 'Enter a JobTread Job Number to display its available NON_INVENTORY parts.'; }
+  if (document.getElementById('issueClientPurchase')?.value !== 'YES' || !validJobTreadNumber(job)) return;
+  if (info) info.textContent = 'Loading received NON_INVENTORY parts for JobTread Job #' + job + '...';
   const { data, error } = await client.from('non_inventory_receipt_balances')
-    .select('id,part_id,jobtread_job_number,quantity_remaining,serial_number,received_at')
-    .eq('jobtread_job_number', job).eq('part_id', partId)
-    .gt('quantity_remaining', 0).order('received_at', { ascending: true });
-  if (requestId !== nonInventoryAvailabilityRequest || document.getElementById('issueClientPurchase')?.value !== 'YES') return;
-  if (error) { if (info) info.textContent = 'Could not load job receipts: ' + error.message; return; }
-  const rows = data || [];
-  const available = rows.reduce((sum, row) => sum + Number(row.quantity_remaining || 0), 0);
-  if (info) info.textContent = 'JobTread Job #: ' + job + '\nPart #: ' + part.part_number +
-    '\nNON_INVENTORY Available to Issue: ' + formatNumber(available) +
-    (available ? '\nExcluded from regular inventory valuation.' : '\nNo matching received items remain for this job and part.');
-  if (part.is_serialized === true && serialSelect) {
-    serialSelect.innerHTML = '<option value="">Select received serial for this job...</option>';
-    rows.forEach(row => { if (!row.serial_number) return; const opt = document.createElement('option'); opt.value = row.serial_number; opt.textContent = row.serial_number; serialSelect.appendChild(opt); });
-    serialSelect.disabled = rows.length === 0;
-    if (serialHelp) serialHelp.textContent = 'Choose the serial received specifically for this JobTread job.';
+    .select('id,part_number,part_name,jobtread_job_number,quantity_received,quantity_issued,quantity_remaining,po_number,vendor_order_number,serial_number,received_at')
+    .eq('jobtread_job_number', job)
+    .gt('quantity_remaining',0)
+    .order('received_at',{ascending:true});
+  if (requestId !== nonInventoryAvailabilityRequest ||
+      document.getElementById('issueClientPurchase')?.value !== 'YES') return;
+  if (error) {
+    if (info) info.textContent = 'Unable to load job-specific NON_INVENTORY parts: ' + error.message;
+    return;
+  }
+  nonInventoryIssueRows = data || [];
+  const totalAvailable = nonInventoryIssueRows.reduce((sum,r) => sum + Number(r.quantity_remaining || 0),0);
+  if (info) info.textContent = nonInventoryIssueRows.length ?
+    'JobTread Job #' + job + ': ' + nonInventoryIssueRows.length +
+    ' available receipt line(s), ' + formatNumber(totalAvailable) + ' unit(s). Choose the parts to issue below.' :
+    'No unissued NON_INVENTORY parts have been received for JobTread Job #' + job + '.';
+  if (nonInventoryIssueRows.length && partsBlock) {
+    partsBlock.style.display = 'block';
+    renderNonInventoryIssueLines(nonInventoryIssueRows);
   }
 }
 
@@ -2874,10 +3023,7 @@ async function checkIssueSerialized() {
     }
   }
 
-  if (document.getElementById('issueClientPurchase')?.value === 'YES') {
-    await loadNonInventoryIssueAvailability();
-    return;
-  }
+  if (document.getElementById('issueClientPurchase')?.value === 'YES') return;
 
   if (!isSerialized) {
     if (serialSelect) {
@@ -3592,6 +3738,15 @@ function resetIssueFields() {
   document.getElementById('issueSourceLocationBlock').style.display = 'block';
   const info = document.getElementById('issueNonInventoryAvailability');
   if (info) { info.style.display = 'none'; info.textContent = ''; }
+  document.getElementById('issueRegularPartBlock').style.display = 'block';
+  document.getElementById('issueRegularPoBlock').style.display = 'block';
+  document.getElementById('issueNonInventoryPoBlock').style.display = 'none';
+  document.getElementById('issueClientLabel').textContent = 'Client:';
+  document.getElementById('issueNonInventoryPo').value = '';
+  document.getElementById('issueNonInventoryJobDisplay').value = '';
+  document.getElementById('issueNonInventoryPartsBlock').style.display = 'none';
+  document.getElementById('issueNonInventoryPartsList').replaceChildren();
+  nonInventoryIssueRows = [];
   nonInventoryAvailabilityRequest++;
   updateIssuePartDescription();
 }
@@ -4268,14 +4423,7 @@ async function issue() {
   */
   updateIssuePartDescription();
 
-  const matchedPart = getMatchedPart('issuePart');
   const output = document.getElementById('issueOutput');
-
-  if (!matchedPart) {
-    output.textContent = 'Select a valid active part number before issuing inventory.';
-    return;
-  }
-
   const clientPurchaseMode = document.getElementById('issueClientPurchase').value;
   if (clientPurchaseMode !== 'YES' && clientPurchaseMode !== 'NO') {
     output.textContent = 'Required: Is this part being issued from a specific purchase for a client? Select Yes or No.';
@@ -4284,28 +4432,66 @@ async function issue() {
   if (clientPurchaseMode === 'YES') {
     const job = document.getElementById('issueJobTreadJobNumber').value.trim().toUpperCase();
     const jobType = document.getElementById('issueJobType').value.trim().toUpperCase();
-    const serialized = matchedPart.is_serialized === true;
-    const qty = serialized ? 1 : Number(document.getElementById('issueQty').value);
-    const serial = serialized ? document.getElementById('issueSerial').value.trim() : '';
-    if (!validJobTreadNumber(job)) { output.textContent = 'A valid JobTread job number is required.'; return; }
+    const poNumber = document.getElementById('issueNonInventoryPo').value.trim();
+    const partList = document.getElementById('issueNonInventoryPartsList');
+    if (!validJobTreadNumber(job)) { output.textContent = 'Enter a valid JobTread Job Number.'; return; }
     if (!['PROJECT','REPAIR','ANNUAL FILTER CHANGEOUT'].includes(jobType)) { output.textContent = 'Select Job Type / Class.'; return; }
-    if (!Number.isFinite(qty) || qty<=0) { output.textContent = 'Issue quantity must be greater than zero.'; return; }
-    if (serialized && !serial) { output.textContent = 'Select a serial number received for this job and part.'; return; }
-    output.textContent = 'Issuing client-specific NON_INVENTORY...';
-    const { data, error } = await client.rpc('issue_non_inventory_for_job', {
-      p_part_number: matchedPart.part_number, p_quantity: qty, p_jobtread_job_number: job,
-      p_job_type: jobType, p_issued_to: document.getElementById('issueTech').value.trim() || null,
-      p_work_order: document.getElementById('issueJob').value.trim() || null,
-      p_client_name: document.getElementById('issueClient').value.trim() || null,
-      p_serial_number: serial || null, p_created_by: getCurrentUserDisplayName()
-    });
-    if (error) { output.textContent = 'NON_INVENTORY issue not recorded: ' + error.message; return; }
-    output.textContent = 'NON_INVENTORY issued successfully.\nJobTread Job #: ' + job +
-      '\nPart #: ' + matchedPart.part_number + '\nQuantity Issued: ' + formatNumber(data?.quantity_issued || qty) +
-      (serial ? '\nSerial Number: ' + serial : '') +
-      '\nPurchase Cost Issued: ' + formatCurrency(data?.total_purchase_cost || 0) +
-      '\nRegular stock and inventory valuation: UNCHANGED.';
+    if (!poNumber) { output.textContent = 'PO# Issued must be entered by the warehouse team.'; return; }
+    if (!nonInventoryIssueRows.length) { output.textContent = 'No NON_INVENTORY parts are loaded for this JobTread job.'; return; }
+    const selected = [];
+    for (const checkbox of partList.querySelectorAll('input[type="checkbox"][data-receipt-id]:checked')) {
+      const receipt = nonInventoryIssueRows.find(r => r.id === checkbox.dataset.receiptId);
+      if (!receipt) { output.textContent = 'One selected item is no longer available. Reload this job.'; return; }
+      const qtyInput = checkbox.closest('.non-inventory-parts-item')?.querySelector('input[type="number"]');
+      const quantity = Number(qtyInput?.value);
+      if (!Number.isFinite(quantity) || quantity <= 0 || quantity > Number(receipt.quantity_remaining || 0)) {
+        output.textContent = 'Invalid quantity for ' + receipt.part_number + '. Available: ' + formatNumber(receipt.quantity_remaining);
+        return;
+      }
+      if (receipt.serial_number && quantity !== 1) {
+        output.textContent = 'Serialized part ' + receipt.part_number + ' must be issued one at a time.';
+        return;
+      }
+      selected.push({ receipt_id: receipt.id, quantity });
+    }
+    if (!selected.length) { output.textContent = 'Select at least one NON_INVENTORY part to issue.'; return; }
+    output.textContent = 'Issuing ' + selected.length + ' NON_INVENTORY part line(s) for JobTread Job #' + job + '...';
+    const button = document.querySelector('.issue-panel .issue-btn');
+    if (button) button.disabled = true;
+    let result;
+    try {
+      result = await client.rpc('issue_non_inventory_job_lines', {
+        p_jobtread_job_number: job,
+        p_issue_lines: selected,
+        p_job_type: jobType,
+        p_issued_to: document.getElementById('issueTech').value.trim() || null,
+        p_po_number_issued: poNumber,
+        p_client_name: document.getElementById('issueClient').value.trim() || null,
+        p_created_by: getCurrentUserDisplayName()
+      });
+    } catch (err) {
+      output.textContent = 'Issue failed: ' + err.message;
+      return;
+    } finally { if (button) button.disabled = false; }
+    if (result.error) { output.textContent = 'NON_INVENTORY issue not recorded: ' + result.error.message; return; }
+    const data = result.data || {};
+    output.textContent = 'NON_INVENTORY issued successfully.\n' +
+      'JobTread Job #: ' + job + '\nPO# Issued: ' + poNumber +
+      '\nPart Lines: ' + formatNumber(data.line_count || selected.length) +
+      '\nTotal Quantity Issued: ' + formatNumber(data.total_quantity_issued || 0) +
+      '\nPurchase Cost Issued: ' + formatCurrency(data.total_purchase_cost || 0) +
+      '\n' + (Array.isArray(data.allocation_lines) ? data.allocation_lines.map(r =>
+        r.part_number + (r.serial_number ? ' (SN: ' + r.serial_number + ')' : '') +
+        ' — Issued ' + formatNumber(r.quantity_issued) + ', Remaining ' + formatNumber(r.quantity_remaining)
+      ).join('\n') : '') +
+      '\nRegular inventory on hand and valuation: UNCHANGED.';
     resetIssueFields();
+    return;
+  }
+
+  const matchedPart = getMatchedPart('issuePart');
+  if (!matchedPart) {
+    output.textContent = 'Select a valid active part number before issuing inventory.';
     return;
   }
 
