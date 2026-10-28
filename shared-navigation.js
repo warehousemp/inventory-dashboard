@@ -381,7 +381,48 @@
       .replace(/'/g, '&#039;');
   }
 
+
+  /* Molinari Pools brand logo — shared header only. */
+  function installMolinariBrandStyles() {
+    if (document.getElementById('molinariSharedBrandStyles')) return;
+    const element = document.createElement('style');
+    element.id = 'molinariSharedBrandStyles';
+    element.textContent = `
+      .shared-nav-topline { min-height: 68px; padding-top: 7px; padding-bottom: 7px; }
+      .shared-nav-brand { display: flex; align-items: center; min-width: 0; gap: 13px; white-space: normal; }
+      .shared-nav-logo {
+        display: block; width: 150px; height: auto; max-height: 51px;
+        flex-shrink: 0; object-fit: contain; border-radius: 6px;
+        background: #fff; border: 1px solid rgba(255,255,255,.4);
+      }
+      .shared-nav-brand-title {
+        display: block; line-height: 1.2; white-space: normal;
+        letter-spacing: .045em; max-width: 240px;
+      }
+      @media (max-width: 900px) {
+        .shared-nav-topline { min-height: 64px; }
+        .shared-nav-logo { width: 132px; max-height: 44px; }
+        .shared-nav-brand-title { max-width: 176px; }
+        .shared-nav-menubar { top: 100%; max-height: calc(100vh - 64px); }
+      }
+      @media (max-width: 520px) {
+        .shared-nav-topline { padding-left: 10px; padding-right: 10px; gap: 8px; }
+        .shared-nav-brand { gap: 8px; }
+        .shared-nav-logo { width: clamp(100px, 30vw, 120px); max-height: 42px; }
+        .shared-nav-brand-title { font-size: 11px; line-height: 1.15; letter-spacing: 0; max-width: 120px; }
+        .shared-nav-account { gap: 4px; }
+        .shared-nav-mobile-toggle { width: 36px; min-width: 36px; }
+      }
+      @media (max-width: 370px) {
+        .shared-nav-logo { width: 95px; }
+        .shared-nav-brand-title { max-width: 100px; font-size: 10px; }
+      }
+    `;
+    document.head.appendChild(element);
+  }
+
   function renderShell(container) {
+    installMolinariBrandStyles();
     container.innerHTML = `
       <div class="shared-nav-topline">
         <a
@@ -389,8 +430,8 @@
           href="index.html"
           aria-label="Molinari Operating System main menu"
         >
-          <span class="shared-nav-brand-mark">MP</span>
-          <span>MOLINARI OPERATING SYSTEM</span>
+          <img class="shared-nav-logo" src="molinari-pools-logo.png" alt="Molinari Pools" width="150" height="48" loading="eager" decoding="async">
+          <span class="shared-nav-brand-title">MOLINARI OPERATING SYSTEM</span>
         </a>
 
         <div class="shared-nav-account">
