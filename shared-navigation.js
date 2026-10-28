@@ -280,7 +280,7 @@
           roles: ['WAREHOUSE', 'ACCOUNTING', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
-          label: 'Warehouse Operations',
+          label: 'Inventory Receiving / Issuing',
           href: 'warehouse.html',
           roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
         },
