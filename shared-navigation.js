@@ -285,7 +285,7 @@
           roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
-          label: 'Warehouse Management',
+          label: 'Parts / Cycle Counts',
           href: 'warehouse-management.html',
           roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
         },
