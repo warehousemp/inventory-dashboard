@@ -83,7 +83,7 @@
       <h1>Molinari Operating System — Projects Materials by Job Review</h1>
       <p>JobTread Budget (Cost Code 1410) → Projects Verification → Warehouse Fulfillment</p>
     </div>
-    <span class="header-label">PROJECTS / ESTIMATING · READ-ONLY TEST</span>
+    <span class="header-label">PROJECTS / ESTIMATING · WAREHOUSE HANDOFF</span>
   </header>
 
   <section id="accessGate" class="gate card">
@@ -97,8 +97,8 @@
   </section>
 
   <main id="app" class="hidden">
-    <div class="notice warn">
-      <strong>Phase 1 — Read-Only Integration Test.</strong> This page retrieves JobTread budget lines and compares them with Molinari Warehouse availability. Selecting items and entering notes is a temporary on-screen review only. No requests, reservations, Purchase Orders, Inventory Bills, Expenses, or inventory transactions are created.
+    <div class="notice">
+      <strong>Projects verification:</strong> Retrieve JobTread cost-code 1410 materials, check the exact part matches and quantities, then select the lines Warehouse needs to fulfill. <strong>Verify &amp; Send</strong> creates a Warehouse review request. It does not create Purchase Orders, Bills, Expenses, inventory reservations, or inventory transactions.
     </div>
 
     <section class="card search-card">
@@ -149,7 +149,7 @@
         <div class="footer-actions">
           <div class="muted small" id="reviewCount">No materials selected.</div>
           <div class="buttons">
-            <button class="dark" type="button" disabled title="Phase 2: Database handoff and approvals are not enabled">VERIFY &amp; SEND TO WAREHOUSE — PHASE 2</button>
+            <button class="dark" type="button" id="sendWarehouseBtn" disabled>VERIFY &amp; SEND TO WAREHOUSE</button>
           </div>
         </div>
         <div class="safety" style="margin-top:16px"><strong>Accounting and inventory protection:</strong> Existing-stock fulfillment will be issued through regular inventory, and job-specific purchases will use the separate NON_INVENTORY process. Molinari Pools Inventory Bills must never push to QuickBooks. Those actions are deliberately not active on this review page.</div>
@@ -174,6 +174,7 @@
       byId('printBtn').addEventListener('click', () => window.print());
       byId('exportBtn').addEventListener('click', exportCSV);
       byId('materialsBody').addEventListener('change', handleRowChange);
+      byId('sendWarehouseBtn').addEventListener('click', sendVerifiedToWarehouse);
       await verifyAccess();
     });
 
@@ -220,7 +221,7 @@
           const key=normalizePart(part.part_number);
           if (key && !state.partMap.has(key)) state.partMap.set(key,part);
         }
-        state.materials=(payload.items||[]).map((item,index)=>({ ...item, rowKey:String(item.jobtreadBudgetItemId||index), selected:false, notes:'', partNumber:exactMatch(item.requestedItem) }));
+        state.materials=(payload.items||[]).filter(item=>Number(item.quantity)>0).map((item,index)=>({ ...item, rowKey:String(item.jobtreadBudgetItemId||index), selected:false, notes:'', partNumber:exactMatch(item.requestedItem) }));
         byId('jobHeading').textContent='Job '+state.job.number+' — '+(state.job.name||'Unnamed Job');
         byId('jobDetails').textContent='JobTread Job ID: '+state.job.id+' · Job Status: '+(state.job.status||'—')+' · Source: JobTread Budget';
         byId('reviewArea').classList.remove('hidden');
@@ -229,7 +230,7 @@
         byId('inventoryWarning').classList.toggle('hidden',!state.availabilityError);
         byId('inventoryWarning').textContent=state.availabilityError?'Budget loaded, but Warehouse availability could not be read: '+state.availabilityError+'. Inventory matching is incomplete.':'';
         populatePartNumbers(); renderTable();
-        setStatus('Retrieved '+state.materials.length+' cost-code 1410 material line(s) for Job '+state.job.number+'. No records were changed.','success');
+        setStatus('Retrieved '+state.materials.length+' positive-quantity cost-code 1410 line(s) for Job '+state.job.number+'. Select and verify the materials for Warehouse.','success');
       } catch (error) {
         setStatus('JobTread budget lookup failed: '+(error?.message||String(error))+' — no records were changed.','danger');
       } finally { byId('lookupBtn').disabled=false;byId('lookupBtn').textContent='RETRIEVE JOB BUDGET'; }
@@ -305,14 +306,57 @@
       byId('stockCount').textContent=state.materials.filter(row=>{const s=statusFor(row);return s.stock!==null&&s.stock>0;}).length;
       const count=state.materials.filter(row=>row.selected).length;
       byId('selectedCount').textContent=count;
-      byId('reviewCount').textContent=count+' of '+state.materials.length+' material line(s) selected for preliminary Warehouse review. Not saved.';
+      byId('reviewCount').textContent=count+' of '+state.materials.length+' material line(s) selected for Warehouse verification.';
+      byId('sendWarehouseBtn').disabled=!state.profile||!state.job||count===0||state.possiblyTruncated||Boolean(state.availabilityError);
     }
 
     function clearReview(clearInput=true) {
       state.job=null;state.materials=[];state.availability=[];state.partMap=new Map();
       state.possiblyTruncated=false;state.availabilityError=null;
       byId('reviewArea').classList.add('hidden');
+      byId('sendWarehouseBtn').disabled=true;
       if(clearInput){byId('jobNumber').value='';setStatus('Review cleared. Nothing was saved.');}
+    }
+
+    async function sendVerifiedToWarehouse() {
+      if (!state.profile || !state.job) return setStatus('Retrieve a job and verify your session first.','danger');
+      if (state.availabilityError || state.possiblyTruncated) return setStatus('Warehouse inventory or JobTread budget is incomplete. Refresh and try again.','danger');
+      const selected=state.materials.filter(row=>row.selected);
+      if (!selected.length) return setStatus('Select at least one material line to send.','danger');
+      const seen=new Set();
+      const lines=[];
+      for (const row of selected) {
+        const qty=number(row.quantity);
+        const itemId=String(row.jobtreadBudgetItemId||'').trim();
+        if(!itemId || seen.has(itemId)) return setStatus('A selected budget item is missing its unique JobTread ID or appears twice. Refresh the job before sending.','danger');
+        seen.add(itemId);
+        if(qty===null||qty<=0||!Number.isFinite(qty)||Math.round(qty*1000)!==qty*1000) return setStatus('Selected material '+row.requestedItem+' has an invalid quantity.','danger');
+        if(row.partNumber&&!state.partMap.has(normalizePart(row.partNumber))) return setStatus('Inventory part match is no longer valid for '+row.requestedItem+'.','danger');
+        lines.push({
+          budgetItemId:itemId,requestedItem:String(row.requestedItem||''),
+          description:String(row.description||''),costCode:'1410',requestedQty:String(qty),
+          unit:String(row.unit||''),partNumber:normalizePart(row.partNumber),notes:String(row.notes||'')
+        });
+      }
+      if (!window.confirm('Verify and send '+lines.length+' selected JobTread budget line(s) for Job '+state.job.number+' to Warehouse? This creates a review request only.')) return;
+      const button=byId('sendWarehouseBtn');button.disabled=true;button.textContent='SENDING TO WAREHOUSE...';
+      setStatus('Saving verified material request for Warehouse...');
+      try {
+        const {data,error}=await db.rpc('jobtread_send_project_materials_to_warehouse',{
+          p_jobtread_job_id:String(state.job.id),p_job_number:String(state.job.number),
+          p_job_name:String(state.job.name||''),p_job_status:String(state.job.status||''),p_lines:lines
+        });
+        if(error) throw error;
+        if(!data?.success) throw new Error('No confirmation returned from Warehouse handoff.');
+        setStatus('SUCCESS: Job '+data.jobNumber+' — '+data.lineCount+' verified material line(s) sent to Warehouse. Open JobTread Warehouse Workflow to review.','success');
+        button.textContent='SENT TO WAREHOUSE';
+        state.materials.forEach(row=>{row.selected=false;});
+        renderTable();
+      }catch(error){
+        setStatus('Warehouse handoff did not complete: '+(error?.message||String(error)), 'danger');
+        button.textContent='VERIFY & SEND TO WAREHOUSE';
+        refreshSummary();
+      }
     }
 
     function exportCSV() {
