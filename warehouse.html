@@ -1714,6 +1714,28 @@
       font-size: 13px;
       line-height: 1.45;
     }
+
+    /* Selectable serial numbers for copying into Skimmer, without changing the issue choice. */
+    .issue-serial-copy-row { align-items: flex-end; gap: 10px; flex-wrap: wrap; margin: 10px 0 8px; }
+    .issue-serial-copy-input-wrap { flex: 1 1 230px; min-width: 0; }
+    .issue-serial-copy-input-wrap input[readonly] {
+      background: #f7fbfd; color: #082e4c; cursor: text; font-weight: 700;
+      font-family: Consolas, "Courier New", monospace; letter-spacing: .02em;
+      user-select: text; -webkit-user-select: text;
+    }
+    .serial-copy-btn {
+      width: auto !important; min-width: 112px; flex: 0 0 auto;
+      background: #0b3c5d !important; color: #fff !important;
+      border: 1px solid #0b3c5d !important; border-radius: 8px;
+      font: 700 13px "Segoe UI", Arial, sans-serif;
+      padding: 12px !important; margin: 0 !important; cursor: pointer;
+    }
+    .serial-copy-btn:hover:not(:disabled) { background: #116080 !important; }
+    .serial-copy-btn:disabled { opacity: .55; cursor: not-allowed; }
+    .non-inventory-parts-item .serial-copy-btn { font-size: 11px; padding: 7px !important; min-width: 88px; margin-top: 6px !important; }
+    @media (max-width: 520px) {
+      .issue-serial-copy-row .serial-copy-btn { width: 100% !important; }
+    }
   </style>
 </head>
 
@@ -1936,6 +1958,14 @@
           <select id="issueSerial">
             <option value="">Select available serial number...</option>
           </select>
+          <div id="issueSerialCopyRow" class="issue-serial-copy-row" style="display:none;">
+            <div class="issue-serial-copy-input-wrap">
+              <label for="issueSerialCopyText">Selected Serial Number — click in the box to select and copy</label>
+              <input id="issueSerialCopyText" type="text" readonly spellcheck="false" autocomplete="off" aria-label="Selected serial number to copy into Skimmer" title="Click, then right-click Copy or press Ctrl+C to paste into Skimmer">
+            </div>
+            <button type="button" id="issueCopySerialButton" class="serial-copy-btn" onclick="copySelectedIssueSerialNumber()" disabled>Copy Serial</button>
+          </div>
+          <div id="issueSerialCopyStatus" class="help-text" role="status" aria-live="polite" style="display:none;"></div>
           <div id="issueSerialHelp" class="help-text">
             Select an on-hand serial number for the selected serialized part.
           </div>
@@ -2894,7 +2924,13 @@ function updateIssueClientPurchaseMode() {
   if (summary) summary.textContent = 'Select one or more parts, then enter the quantity to issue for each.';
   if (availability) { availability.style.display = 'none'; availability.textContent = ''; }
   if (partsBlock) partsBlock.style.display = 'none';
-  if (!isYes) checkIssueSerialized();
+  if (isYes) {
+    const select = document.getElementById('issueSerial');
+    if (select) select.value = '';
+    updateIssueSerialCopyField();
+  } else {
+    checkIssueSerialized();
+  }
 }
 function updateNonInventorySelectionSummary() {
   const root = document.getElementById('issueNonInventoryPartsList');
@@ -2953,6 +2989,17 @@ function renderNonInventoryIssueLines(rows) {
     quantity.disabled = true;
     quantity.setAttribute('aria-label','Issue quantity for ' + receipt.part_number);
     qtyWrap.append(qtyLabel,quantity);
+    if (receipt.serial_number) {
+      const serialCopyButton = document.createElement('button');
+      serialCopyButton.type = 'button';
+      serialCopyButton.className = 'serial-copy-btn';
+      serialCopyButton.textContent = 'Copy Serial';
+      serialCopyButton.setAttribute('aria-label','Copy serial ' + receipt.serial_number + ' for Skimmer');
+      serialCopyButton.addEventListener('click', () => {
+        copySerialNumberToClipboard(receipt.serial_number,serialCopyButton,null);
+      });
+      qtyWrap.appendChild(serialCopyButton);
+    }
 
     check.addEventListener('change', () => {
       item.classList.toggle('selected',check.checked);
@@ -3000,6 +3047,61 @@ async function loadNonInventoryIssueAvailability() {
   }
 }
 
+
+/* Serial number copy helper: chosen dropdown serial remains the single source of truth.
+   No inventory mutation; clipboard is user-initiated and supports older browsers. */
+async function copySerialNumberToClipboard(serialNumber, button, statusNode) {
+  const serial = String(serialNumber || '').trim();
+  if (!serial) return false;
+  let copied = false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(serial);
+      copied = true;
+    }
+  } catch (error) { /* Manual selection fallback below. */ }
+  if (!copied) {
+    const helper = document.createElement('textarea');
+    helper.value = serial;
+    helper.setAttribute('readonly', '');
+    helper.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+    document.body.appendChild(helper);
+    helper.select();
+    try { copied = document.execCommand('copy'); } catch (error) { copied = false; }
+    helper.remove();
+  }
+  if (button) button.textContent = copied ? 'Copied!' : 'Select & Copy';
+  if (statusNode) {
+    statusNode.style.display = 'block';
+    statusNode.textContent = copied
+      ? 'Serial number copied. Paste it into Skimmer with Ctrl+V.'
+      : 'Clipboard permission unavailable. Select the serial number in the text box, then right-click Copy or press Ctrl+C.';
+  }
+  if (!copied) {
+    const copyInput = document.getElementById('issueSerialCopyText');
+    if (copyInput && copyInput.value === serial) { copyInput.focus(); copyInput.select(); }
+  }
+  return copied;
+}
+function updateIssueSerialCopyField() {
+  const serial = (document.getElementById('issueSerial')?.value || '').trim();
+  const copyRow = document.getElementById('issueSerialCopyRow');
+  const copyInput = document.getElementById('issueSerialCopyText');
+  const copyButton = document.getElementById('issueCopySerialButton');
+  const status = document.getElementById('issueSerialCopyStatus');
+  if (copyRow) copyRow.style.display = serial ? 'flex' : 'none';
+  if (copyInput) copyInput.value = serial;
+  if (copyButton) { copyButton.disabled = !serial; copyButton.textContent = 'Copy Serial'; }
+  if (status) { status.textContent = ''; status.style.display = 'none'; }
+}
+function copySelectedIssueSerialNumber() {
+  const serial = (document.getElementById('issueSerial')?.value || '').trim();
+  if (!serial) return;
+  return copySerialNumberToClipboard(serial,
+    document.getElementById('issueCopySerialButton'),
+    document.getElementById('issueSerialCopyStatus'));
+}
+
 async function checkIssueSerialized() {
   updateIssuePartDescription();
 
@@ -3025,7 +3127,10 @@ async function checkIssueSerialized() {
     }
   }
 
-  if (document.getElementById('issueClientPurchase')?.value === 'YES') return;
+  if (document.getElementById('issueClientPurchase')?.value === 'YES') {
+    updateIssueSerialCopyField();
+    return;
+  }
 
   if (!isSerialized) {
     if (serialSelect) {
@@ -3033,6 +3138,7 @@ async function checkIssueSerialized() {
       serialSelect.value = '';
       serialSelect.disabled = false;
     }
+    updateIssueSerialCopyField();
 
     if (serialHelp) {
       serialHelp.textContent = 'Select an on-hand serial number for the selected serialized part.';
@@ -3094,6 +3200,7 @@ async function loadAvailableIssueSerials(matchedPart) {
 
   serialSelect.innerHTML = '<option value="">Loading available serial numbers...</option>';
   serialSelect.disabled = true;
+  updateIssueSerialCopyField();
 
   if (!matchedPart || !matchedPart.part_number) {
     serialSelect.innerHTML = '<option value="">Select available serial number...</option>';
@@ -3605,6 +3712,12 @@ document.getElementById('issueJobTreadJobNumber').addEventListener('input', load
 const issueSerialElement = document.getElementById('issueSerial');
 if (issueSerialElement) {
   issueSerialElement.addEventListener('change', updateIssueFifoWarningFromSelection);
+  issueSerialElement.addEventListener('change', updateIssueSerialCopyField);
+}
+const issueSerialCopyText = document.getElementById('issueSerialCopyText');
+if (issueSerialCopyText) {
+  issueSerialCopyText.addEventListener('click', () => issueSerialCopyText.select());
+  issueSerialCopyText.addEventListener('focus', () => issueSerialCopyText.select());
 }
 
 const issueSourceLocationElement = document.getElementById('issueSourceLocation');
@@ -3711,6 +3824,7 @@ function resetIssueFields() {
     serialSelect.innerHTML = '<option value="">Select available serial number...</option>';
     serialSelect.disabled = false;
   }
+  updateIssueSerialCopyField();
 
   const serialHelp = document.getElementById('issueSerialHelp');
   if (serialHelp) {
