@@ -1704,6 +1704,16 @@
     @media (max-width: 540px) { .non-inventory-po-grid { grid-template-columns: 1fr; } }
     .client-purchase-block {border:1px solid #c4dce5;background:#f0f8fa;border-radius:10px;padding:15px 15px 2px;margin:12px 0 18px;}
     .non-inventory-availability {border:1px solid #b8dce3;background:#eef8fa;border-radius:8px;padding:12px;white-space:pre-wrap;margin-bottom:14px;}
+    .non-inventory-po-info {
+      background: #eef8fa;
+      color: #184660;
+      border: 1px solid #b8dce3;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin: 10px 0 16px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
   </style>
 </head>
 
@@ -1803,7 +1813,7 @@
           Select from the approved vendor list. New vendors must be added through Vendor Management.
         </div>
 
-        <label>PO #:</label>
+        <label id="receivePOLabel" for="receivePO">PO #:</label>
         <input id="receivePO" placeholder="Internal Molinari PO #, if used" autocomplete="off">
         <div class="help-text">
           Internal Molinari PO number. Use Vendor Order # below for the actual UAG/vendor order number.
@@ -1960,17 +1970,9 @@
           <label>Work Order / PO # Issued (Quote # or Job #):</label>
           <input id="issueJob" placeholder="Work order, quote #, or job #">
         </div>
-        <div id="issueNonInventoryPoBlock" style="display:none;">
-          <div class="non-inventory-po-grid">
-            <div>
-              <label for="issueNonInventoryPo">PO# Issued (Required)</label>
-              <input id="issueNonInventoryPo" placeholder="Enter PO number issued by warehouse" autocomplete="off">
-            </div>
-            <div>
-              <label for="issueNonInventoryJobDisplay">JobTread Job #</label>
-              <input id="issueNonInventoryJobDisplay" readonly placeholder="Automatically populated from JobTread Job Number">
-            </div>
-          </div>
+        <div id="issueNonInventoryPoInfo" class="non-inventory-po-info" style="display:none;">
+          <strong>PO # is recorded automatically for each selected part.</strong>
+          The issue records will use the original PO # entered at receiving, even when the selected parts come from several POs. Location: <strong>NON-INVENTORY</strong> (reporting only).
         </div>
 
         <label id="issueClientLabel" for="issueClient">Client:</label>
@@ -2858,6 +2860,11 @@ function updateReceiveClientPurchaseMode() {
   const job = document.getElementById('receiveJobTreadJobNumber');
   if (box) box.style.display = isYes ? 'block' : 'none';
   if (job) { job.required = isYes; if (!isYes) job.value = ''; }
+  const receivePo = document.getElementById('receivePO');
+  const receivePoLabel = document.getElementById('receivePOLabel');
+  if (receivePo) receivePo.required = isYes;
+  if (receivePoLabel) receivePoLabel.textContent = isYes ?
+    'PO # (Required for NON-INVENTORY):' : 'PO #:';
 }
 /* List of individual received NON_INVENTORY receipt lines for the selected JobTread job. */
 let nonInventoryIssueRows = [];
@@ -2866,19 +2873,16 @@ function updateIssueClientPurchaseMode() {
   const jobBlock = document.getElementById('issueJobTreadContainer');
   const regularBlock = document.getElementById('issueRegularPartBlock');
   const regularPoBlock = document.getElementById('issueRegularPoBlock');
-  const nonInventoryPoBlock = document.getElementById('issueNonInventoryPoBlock');
+  const nonInventoryPoInfo = document.getElementById('issueNonInventoryPoInfo');
   const jobInput = document.getElementById('issueJobTreadJobNumber');
-  const poInput = document.getElementById('issueNonInventoryPo');
   const clientLabel = document.getElementById('issueClientLabel');
 
   if (jobBlock) jobBlock.style.display = isYes ? 'block' : 'none';
   if (regularBlock) regularBlock.style.display = isYes ? 'none' : 'block';
   if (regularPoBlock) regularPoBlock.style.display = isYes ? 'none' : 'block';
-  if (nonInventoryPoBlock) nonInventoryPoBlock.style.display = isYes ? 'block' : 'none';
+  if (nonInventoryPoInfo) nonInventoryPoInfo.style.display = isYes ? 'block' : 'none';
   if (clientLabel) clientLabel.textContent = isYes ? 'Client Name:' : 'Client:';
   if (jobInput) { jobInput.required = isYes; jobInput.value = ''; }
-  if (poInput) { poInput.required = isYes; poInput.value = ''; }
-  if (!isYes) document.getElementById('issueNonInventoryJobDisplay').value = '';
 
   nonInventoryIssueRows = [];
   nonInventoryAvailabilityRequest++;
@@ -2930,7 +2934,7 @@ function renderNonInventoryIssueLines(rows) {
     detail.className = 'non-inventory-part-detail';
     detail.textContent = 'Available: ' + formatNumber(available) +
       ' of ' + formatNumber(receipt.quantity_received) + ' received' +
-      (receipt.po_number ? ' | Receipt PO: ' + receipt.po_number : '') +
+      ' | Receiving PO: ' + (receipt.po_number || 'Not recorded') +
       (receipt.vendor_order_number ? ' | Vendor Order: ' + receipt.vendor_order_number : '') +
       (receipt.serial_number ? ' | Serial: ' + receipt.serial_number : '') +
       (receipt.received_at ? ' | Received: ' + formatDateOnly(receipt.received_at) : '');
@@ -2967,8 +2971,6 @@ async function loadNonInventoryIssueAvailability() {
   const partsBlock = document.getElementById('issueNonInventoryPartsBlock');
   const list = document.getElementById('issueNonInventoryPartsList');
   const job = (document.getElementById('issueJobTreadJobNumber')?.value || '').trim().toUpperCase();
-  const jobDisplay = document.getElementById('issueNonInventoryJobDisplay');
-  if (jobDisplay) jobDisplay.value = job;
   nonInventoryIssueRows = [];
   if (partsBlock) partsBlock.style.display = 'none';
   if (list) list.replaceChildren();
@@ -3740,10 +3742,8 @@ function resetIssueFields() {
   if (info) { info.style.display = 'none'; info.textContent = ''; }
   document.getElementById('issueRegularPartBlock').style.display = 'block';
   document.getElementById('issueRegularPoBlock').style.display = 'block';
-  document.getElementById('issueNonInventoryPoBlock').style.display = 'none';
+  document.getElementById('issueNonInventoryPoInfo').style.display = 'none';
   document.getElementById('issueClientLabel').textContent = 'Client:';
-  document.getElementById('issueNonInventoryPo').value = '';
-  document.getElementById('issueNonInventoryJobDisplay').value = '';
   document.getElementById('issueNonInventoryPartsBlock').style.display = 'none';
   document.getElementById('issueNonInventoryPartsList').replaceChildren();
   nonInventoryIssueRows = [];
@@ -4432,11 +4432,9 @@ async function issue() {
   if (clientPurchaseMode === 'YES') {
     const job = document.getElementById('issueJobTreadJobNumber').value.trim().toUpperCase();
     const jobType = document.getElementById('issueJobType').value.trim().toUpperCase();
-    const poNumber = document.getElementById('issueNonInventoryPo').value.trim();
     const partList = document.getElementById('issueNonInventoryPartsList');
     if (!validJobTreadNumber(job)) { output.textContent = 'Enter a valid JobTread Job Number.'; return; }
     if (!['PROJECT','REPAIR','ANNUAL FILTER CHANGEOUT'].includes(jobType)) { output.textContent = 'Select Job Type / Class.'; return; }
-    if (!poNumber) { output.textContent = 'PO# Issued must be entered by the warehouse team.'; return; }
     if (!nonInventoryIssueRows.length) { output.textContent = 'No NON_INVENTORY parts are loaded for this JobTread job.'; return; }
     const selected = [];
     for (const checkbox of partList.querySelectorAll('input[type="checkbox"][data-receipt-id]:checked')) {
@@ -4465,7 +4463,7 @@ async function issue() {
         p_issue_lines: selected,
         p_job_type: jobType,
         p_issued_to: document.getElementById('issueTech').value.trim() || null,
-        p_po_number_issued: poNumber,
+        p_po_number_issued: null, // Legacy parameter ignored; Supabase logs each receipt's original PO automatically.
         p_client_name: document.getElementById('issueClient').value.trim() || null,
         p_created_by: getCurrentUserDisplayName()
       });
@@ -4476,12 +4474,13 @@ async function issue() {
     if (result.error) { output.textContent = 'NON_INVENTORY issue not recorded: ' + result.error.message; return; }
     const data = result.data || {};
     output.textContent = 'NON_INVENTORY issued successfully.\n' +
-      'JobTread Job #: ' + job + '\nPO# Issued: ' + poNumber +
+      'JobTread Job #: ' + job + '\nLocation: NON-INVENTORY (reporting only)' +
       '\nPart Lines: ' + formatNumber(data.line_count || selected.length) +
       '\nTotal Quantity Issued: ' + formatNumber(data.total_quantity_issued || 0) +
       '\nPurchase Cost Issued: ' + formatCurrency(data.total_purchase_cost || 0) +
       '\n' + (Array.isArray(data.allocation_lines) ? data.allocation_lines.map(r =>
         r.part_number + (r.serial_number ? ' (SN: ' + r.serial_number + ')' : '') +
+        ' — Receiving PO: ' + (r.receipt_po_number || 'Not recorded') +
         ' — Issued ' + formatNumber(r.quantity_issued) + ', Remaining ' + formatNumber(r.quantity_remaining)
       ).join('\n') : '') +
       '\nRegular inventory on hand and valuation: UNCHANGED.';
@@ -4652,6 +4651,7 @@ async function receive() {
   if (clientPurchaseMode === 'YES') {
     const job = document.getElementById('receiveJobTreadJobNumber').value.trim().toUpperCase();
     if (!validJobTreadNumber(job)) { output.textContent = 'Enter a valid JobTread job number.'; return; }
+    if (!poValue) { output.textContent = 'PO # is required when receiving client-specific NON-INVENTORY.'; return; }
     if (!vendorValue) { output.textContent = 'Vendor is required for client-specific purchases.'; return; }
     output.textContent = 'Receiving client-specific NON_INVENTORY...';
     const { data, error } = await client.rpc('receive_non_inventory_for_job', {
