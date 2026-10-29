@@ -130,7 +130,7 @@
 
       <section class="card">
         <div class="job-head" style="margin-bottom:14px">
-          <div><h2>Project Materials — Estimator Review</h2><div class="muted small">Use the exact part-number field to resolve unmatched materials before future verification.</div></div>
+          <div><h2>Project Materials — Estimator Review</h2><div class="muted small">Enter either an inventory part number or a manufacturer's non-stock part number. Only exact inventory matches count as stock; unmatched parts remain purchase-required.</div></div>
           <div class="buttons no-print" style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="secondary" id="printBtn" type="button">PRINT REVIEW</button>
             <button class="secondary" id="exportBtn" type="button">EXPORT CSV</button>
@@ -139,7 +139,7 @@
         <div class="table-scroll">
           <table>
             <thead><tr>
-              <th class="center">Include</th><th style="min-width:240px">JobTread Budget Item</th><th style="min-width:185px">Inventory Match / Part #</th>
+              <th class="center">Include</th><th style="min-width:240px">JobTread Budget Item</th><th style="min-width:185px">Part # / Inventory Match</th>
               <th class="num">Requested</th><th class="num">On Hand</th><th class="num">Committed</th><th class="num">Available</th>
               <th>Shelf</th><th>Proposed Fulfillment</th><th class="num">From Inventory</th><th class="num">Purchase Qty</th><th style="min-width:160px">Estimator Notes</th>
             </tr></thead>
@@ -221,7 +221,10 @@
           const key=normalizePart(part.part_number);
           if (key && !state.partMap.has(key)) state.partMap.set(key,part);
         }
-        state.materials=(payload.items||[]).filter(item=>Number(item.quantity)>0).map((item,index)=>({ ...item, rowKey:String(item.jobtreadBudgetItemId||index), selected:false, notes:'', partNumber:exactMatch(item.requestedItem) }));
+        state.materials=(payload.items||[]).filter(item=>Number(item.quantity)>0).map((item,index)=>{
+          const match=exactMatch(item.requestedItem);
+          return {...item,rowKey:String(item.jobtreadBudgetItemId||index),selected:false,notes:'',partNumber:match,materialPartNumber:match};
+        });
         byId('jobHeading').textContent='Job '+state.job.number+' — '+(state.job.name||'Unnamed Job');
         byId('jobDetails').textContent='JobTread Job ID: '+state.job.id+' · Job Status: '+(state.job.status||'—')+' · Source: JobTread Budget';
         byId('reviewArea').classList.remove('hidden');
@@ -256,7 +259,7 @@
       const qty=number(row.quantity);
       const part=state.partMap.get(normalizePart(row.partNumber));
       if (qty===null || qty<=0) return {label:'REVIEW QUANTITY',kind:'gray',stock:null,buy:null,part};
-      if (!part) return {label:'NO INVENTORY MATCH',kind:'orange',stock:0,buy:qty,part:null};
+      if (!part) return {label:row.materialPartNumber?'PURCHASE REQUIRED':'NO INVENTORY MATCH',kind:'orange',stock:0,buy:qty,part:null};
       const available=Math.max(0,number(part.available_to_commit)||0);
       const stock=Math.min(qty,available),buy=Math.max(0,qty-stock);
       return {label:buy===0?'FROM INVENTORY':stock>0?'PARTIAL STOCK + PURCHASE':'PURCHASE REQUIRED',kind:buy===0?'green':'orange',stock,buy,part};
@@ -271,8 +274,8 @@
         const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.className='row-check';checkbox.checked=row.selected;checkbox.dataset.row=row.rowKey;checkbox.dataset.field='selected';checkbox.setAttribute('aria-label','Select '+row.requestedItem+' for Warehouse');checked.appendChild(checkbox);tr.appendChild(checked);
         const itemCell=cell('');const label=document.createElement('div');label.className='item-name';label.textContent=row.requestedItem||'(Unnamed Budget Item)';itemCell.appendChild(label);
         if(row.description){const desc=document.createElement('div');desc.className='item-desc';desc.textContent=row.description;itemCell.appendChild(desc);}tr.appendChild(itemCell);
-        const matchCell=cell('');const input=document.createElement('input');input.type='text';input.className='part-input';input.value=row.partNumber||'';input.placeholder='Exact part number';input.setAttribute('list','partNumbers');input.dataset.row=row.rowKey;input.dataset.field='part';input.setAttribute('aria-label','Inventory part for '+row.requestedItem);matchCell.appendChild(input);
-        const matchBadge=document.createElement('div');matchBadge.style.marginTop='5px';matchBadge.className='badge '+(status.part?'green':'gray');matchBadge.textContent=status.part?'EXACT PART MATCH':'MATCH REQUIRED';matchCell.appendChild(matchBadge);tr.appendChild(matchCell);
+        const matchCell=cell('');const input=document.createElement('input');input.type='text';input.className='part-input';input.value=row.materialPartNumber||'';input.placeholder='Inventory or vendor part #';input.maxLength=100;input.setAttribute('list','partNumbers');input.dataset.row=row.rowKey;input.dataset.field='part';input.setAttribute('aria-label','Material part number for '+row.requestedItem);matchCell.appendChild(input);
+        const matchBadge=document.createElement('div');matchBadge.style.marginTop='5px';matchBadge.className='badge '+(status.part?'green':row.materialPartNumber?'orange':'gray');matchBadge.textContent=status.part?'EXACT INVENTORY MATCH':row.materialPartNumber?'NON-STOCK · PURCHASE':'NO INVENTORY MATCH';matchCell.appendChild(matchBadge);tr.appendChild(matchCell);
         tr.appendChild(cell(fmt(row.quantity)+(row.unit?' '+row.unit:''),'num'));
         tr.appendChild(cell(status.part?fmt(status.part.main_warehouse_on_hand):'—','num'));
         tr.appendChild(cell(status.part?fmt(status.part.open_committed_qty):'—','num'));
@@ -293,8 +296,10 @@
       if(target.dataset.field==='notes')row.notes=target.value;
       if(target.dataset.field==='part') {
         const partKey=normalizePart(target.value);
+        row.materialPartNumber=partKey;
         row.partNumber=state.partMap.has(partKey)?partKey:'';
-        if(!row.partNumber&&target.value.trim())setStatus('Exact part number not found in Warehouse availability. No approximate substitution was made.','danger');
+        if(row.materialPartNumber&&!row.partNumber)setStatus('Part '+row.materialPartNumber+' retained as a purchase-required, non-stock material. It will not affect warehouse inventory.');
+        if(row.partNumber)setStatus('Exact inventory part '+row.partNumber+' matched. Warehouse availability and shelf have been updated.','success');
         renderTable();return;
       }
       refreshSummary();
@@ -335,7 +340,8 @@
         lines.push({
           budgetItemId:itemId,requestedItem:String(row.requestedItem||''),
           description:String(row.description||''),costCode:'1410',requestedQty:String(qty),
-          unit:String(row.unit||''),partNumber:normalizePart(row.partNumber),notes:String(row.notes||'')
+          unit:String(row.unit||''),partNumber:normalizePart(row.partNumber),
+          requestedPartNumber:normalizePart(row.materialPartNumber),notes:String(row.notes||'')
         });
       }
       if (!window.confirm('Verify and send '+lines.length+' selected JobTread budget line(s) for Job '+state.job.number+' to Warehouse? This creates a review request only.')) return;
@@ -361,8 +367,8 @@
 
     function exportCSV() {
       if(!state.job)return;
-      const header=['Job Number','JobTread Budget Item ID','Cost Code','Requested Item','Description','Requested Qty','Unit','Inventory Part #','On Hand','Committed','Available','Shelf','Fulfillment','From Inventory','Purchase Qty','Selected for Warehouse','Estimator Notes'];
-      const rows=state.materials.map(row=>{const status=statusFor(row),part=status.part;return [state.job.number,row.jobtreadBudgetItemId,'1410',row.requestedItem,row.description,row.quantity,row.unit,row.partNumber,part?.main_warehouse_on_hand,part?.open_committed_qty,part?.available_to_commit,part?.shelf_location,status.label,status.stock,status.buy,row.selected?'YES':'NO',row.notes];});
+      const header=['Job Number','JobTread Budget Item ID','Cost Code','Requested Item','Description','Requested Qty','Unit','Material Part #','Exact Inventory Match #','On Hand','Committed','Available','Shelf','Fulfillment','From Inventory','Purchase Qty','Selected for Warehouse','Estimator Notes'];
+      const rows=state.materials.map(row=>{const status=statusFor(row),part=status.part;return [state.job.number,row.jobtreadBudgetItemId,'1410',row.requestedItem,row.description,row.quantity,row.unit,row.materialPartNumber,row.partNumber,part?.main_warehouse_on_hand,part?.open_committed_qty,part?.available_to_commit,part?.shelf_location,status.label,status.stock,status.buy,row.selected?'YES':'NO',row.notes];});
       const escapeCSV=value=>{let text=String(value??'');if(/^[=+@\-\t\r]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
       const csv=[header,...rows].map(row=>row.map(escapeCSV).join(',')).join('\r\n');
       const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
