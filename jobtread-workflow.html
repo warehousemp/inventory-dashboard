@@ -88,6 +88,26 @@
     .material-request th { text-align:left; }
     .material-queue-counts { display:flex; gap:10px; flex-wrap:wrap; margin-top:5px; color:#43566a; font-size:12px; }
     .material-queue-counts span { padding:6px 8px; background:#f1f6fa; border-radius:7px; }
+    .fulfillment-overview { padding:19px 22px; margin-bottom:18px; }
+    .fulfillment-overview h2 { color:#062f4f; margin:0 0 7px; font-size:18px; }
+    .fulfillment-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:14px 0; }
+    .fulfillment-path { min-width:0; border:1px solid #a7dbbb; background:#edf8f0; border-radius:12px; padding:16px; }
+    .fulfillment-path.purchase { border-color:#fdc992; background:#fff7ee; }
+    .fulfillment-path h3 { color:#123d2c; font-size:16px; margin:0 0 9px; }
+    .fulfillment-path.purchase h3 { color:#81430b; }
+    .fulfillment-path .path-step { display:block; font-size:12px; color:#415467; padding:4px 0; }
+    .fulfillment-path .path-result { border-radius:9px; background:rgba(255,255,255,.72); margin-top:9px; padding:9px; font-size:12px; font-weight:700; }
+    .fulfillment-path .table-wrap { margin:12px 0; }
+    .fulfillment-path table { min-width:600px; background:#fff; }
+    .fulfillment-path table th { background:#f2f6f8; }
+    .fulfillment-path .path-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:11px 0; }
+    .fulfillment-path .path-note { color:#64748b; font-size:11px; line-height:1.5; margin-top:7px; }
+    .fulfillment-path select { font-size:12px; max-width:240px; min-width:145px; padding:8px 9px; }
+    .fulfillment-path button:disabled { opacity:.55; cursor:not-allowed; }
+    .vendor-groups { background:#fff; border:1px solid #fbd6ad; border-radius:9px; padding:10px; margin-top:10px; font-size:12px; }
+    .vendor-groups p { margin:5px 0; }
+    .path-empty { font-size:12px; color:#667085; padding:16px 0; }
+    @media(max-width:900px) { .fulfillment-grid { grid-template-columns:1fr; } }
 
     .header-badge {
       background: rgba(255,255,255,.14);
@@ -621,10 +641,31 @@
 
   <main id="workflowContent" class="main hidden">
 
-    <section id="materialTab">
+    <section class="card fulfillment-overview" aria-label="Projects Materials fulfillment paths">
+      <h2>Step 3 — Warehouse Reviews the Verified Request</h2>
+      <div style="color:#667085;font-size:13px;line-height:1.6;">Projects decides which cost-code 1410 materials Warehouse must fulfill. Warehouse determines the sourcing path for each approved quantity.</div>
+      <div class="fulfillment-grid">
+        <div class="fulfillment-path">
+          <h3>Path A — Available Inventory</h3>
+          <span class="path-step">1. Review stock and print the Warehouse Pick List.</span>
+          <span class="path-step">2. Confirm Yes — Fulfill from Inventory.</span>
+          <span class="path-step">3. Create a JobTread PO for vendor Molinari Inventory and record the inventory commitment.</span>
+          <div class="path-result">Molinari Inventory PO · Stock is reduced only when issued</div>
+        </div>
+        <div class="fulfillment-path purchase">
+          <h3>Path B — Purchase Required</h3>
+          <span class="path-step">1. Select the supplier for each required material.</span>
+          <span class="path-step">2. Place the vendor order and mark it Ordered.</span>
+          <span class="path-step">3. Create a separate JobTread PO per supplier.</span>
+          <div class="path-result">Vendor Purchase Order · Receive through NON_INVENTORY for the job</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="materialsQueue">
       <div class="card material-queue-card">
         <h2 style="margin:0;color:#062f4f;">Warehouse — Verified Projects Materials</h2>
-        <div class="material-safe"><strong>New workflow test:</strong> Projects sends the verified JobTread cost-code 1410 budget lines here. Warehouse may review, print an inventory pick list, and acknowledge receipt. <strong>No JobTread PO, vendor order, inventory reservation, issue, Bill, Expense, or QuickBooks posting is created at this stage.</strong></div>
+        <div class="material-safe"><strong>Current stage:</strong> Verified JobTread 1410 materials are separated below into Available Inventory and Purchase Required. The pick list and acknowledgement are active. <strong>JobTread PO creation, inventory commitment, vendor ordering and accounting automation are pending integration verification; those buttons are protected until connected.</strong></div>
         <div class="material-queue-tools">
           <input type="search" id="materialJobSearch" placeholder="Search Job number, Job name or material..." oninput="renderProjectMaterialHandoffs()" aria-label="Search new Projects material requests">
           <select id="materialStatusFilter" onchange="renderProjectMaterialHandoffs()" aria-label="Filter Projects material request status">
@@ -640,275 +681,24 @@
       </div>
     </section>
 
-    <div id="legacyWorkflowTop" class="hidden">
-
-    <div class="summary-grid">
-      <div class="summary-card">
-        <div class="summary-label">Needs Warehouse Review</div>
-        <div class="summary-value" id="needsReviewCount">0</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">Plan Saved / Clarification</div>
-        <div class="summary-value" id="awaitingProjectsCount">0</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">Accepted / Awaiting PO</div>
-        <div class="summary-value" id="awaitingPOCount">0</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">Open Warehouse POs</div>
-        <div class="summary-value" id="openPOCount">0</div>
-      </div>
-      <div class="summary-card">
-        <div class="summary-label">Ready to Issue</div>
-        <div class="summary-value" id="readyToIssueCount">0</div>
-      </div>
-    </div>
-
-    <div class="workflow-strip">
-      <div class="workflow-stage">
-        <strong>1. Projects Issues Bid Request</strong>
-        <span>Projects sends the JobTread Bid Request to Molinari Warehouse.</span>
-      </div>
-      <div class="workflow-stage">
-        <strong>2. Warehouse Sets Fulfillment</strong>
-        <span>Each line is sourced From Inventory, Purchase Required, Partial Stock + Purchase, or Needs Clarification.</span>
-      </div>
-      <div class="workflow-stage">
-        <strong>3. Clarify Only If Needed</strong>
-        <span>Projects only updates JobTread when Warehouse needs a quantity, specification, or item clarified.</span>
-      </div>
-      <div class="workflow-stage">
-        <strong>4. Warehouse Accepts Plan</strong>
-        <span>Warehouse accepts responsibility for supplying every approved line, whether pulled from stock or purchased.</span>
-      </div>
-      <div class="workflow-stage">
-        <strong>5. PO Creates Commitments</strong>
-        <span>Stock lines reserve inventory. Purchase-required lines create job procurement commitments for Warehouse.</span>
-      </div>
-    </div>
-
-    <div class="toolbar-card">
-      <div class="toolbar-row">
-        <input id="workflowSearch" type="search" placeholder="Search Bid Request, Job, Client, PO, or Part..." oninput="renderWorkflow()">
-        <select id="statusFilter" onchange="renderWorkflow()">
-          <option value="ACTIVE">Active Workflow</option>
-          <option value="ALL">All Requests</option>
-          <option value="NEEDS_REVIEW">Needs Warehouse Review</option>
-          <option value="AWAITING_PROJECTS_UPDATE">Plan Saved / Clarification</option>
-          <option value="ACCEPTED_AWAITING_PO">Accepted / Awaiting PO</option>
-          <option value="PO_CREATED">Open Warehouse POs</option>
-          <option value="FULFILLED">Fulfilled</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
-        <button class="btn-slate" type="button" onclick="loadWorkflowData()">REFRESH</button>
-        <button id="syncJobTreadBtn" class="btn-orange" type="button" onclick="syncJobTread()">SYNC JOBTREAD</button>
-        <button id="testJobTreadApiBtn" class="btn-teal hidden" type="button" onclick="testJobTreadConnection()">TEST JOBTREAD API</button>
-        <span id="jobTreadApiStatus" class="api-mode">JOBTREAD API: NOT TESTED</span>
-      </div>
-      <div id="pageMessage" class="message"></div>
-      <div style="margin-top:6px; color:#667085; font-size:11px;">
-        Warehouse responses are stored in the inventory database and automatically posted to the linked JobTread Bid Request Messaging thread.
-      </div>
-    </div>
-
-    <details id="manualPilotPanel" class="card manual-panel">
-      <summary>Temporary Manual Pilot – Log an Existing JobTread Bid Request</summary>
-      <div class="manual-content">
-        <div class="warning-note">
-          This section is only a fallback bridge now that the JobTread API is connected. Enter a request here only when it cannot be synced from JobTread. Items without a Molinari inventory match can still be marked PURCHASE REQUIRED so Warehouse remains responsible for sourcing them.
-        </div>
-
-        <div class="form-grid">
-          <div>
-            <label for="manualBidNumber">Bid Request # *</label>
-            <input id="manualBidNumber" placeholder="Example: BR-1194-01">
-          </div>
-          <div>
-            <label for="manualRequestDate">Request Date</label>
-            <input id="manualRequestDate" type="date">
-          </div>
-          <div>
-            <label for="manualJobNumber">Job #</label>
-            <input id="manualJobNumber" placeholder="Example: 1194">
-          </div>
-          <div>
-            <label for="manualRequestedBy">Requested By</label>
-            <input id="manualRequestedBy" placeholder="Evelyn / Projects">
-          </div>
-
-          <div class="span-2">
-            <label for="manualJobName">Job Name</label>
-            <input id="manualJobName" placeholder="Job / Project name">
-          </div>
-          <div class="span-2">
-            <label for="manualClientName">Client</label>
-            <input id="manualClientName" placeholder="Client name">
-          </div>
-
-          <div class="span-4">
-            <label for="manualJobTreadUrl">JobTread Link</label>
-            <input id="manualJobTreadUrl" type="url" placeholder="Paste the JobTread Bid Request or Job URL">
-          </div>
-
-          <div class="span-4">
-            <label for="manualNotes">Notes</label>
-            <textarea id="manualNotes" placeholder="Optional Warehouse notes"></textarea>
-          </div>
-        </div>
-
-        <div class="line-entry">
-          <div>
-            <label for="manualRequestedItem">JobTread Requested Item *</label>
-            <input id="manualRequestedItem" placeholder="Example: Alarm - PGRM-2">
-          </div>
-          <div>
-            <label for="manualPartNumber">Inventory Part # (optional)</label>
-            <input id="manualPartNumber" list="inventoryPartsList" placeholder="Leave blank to auto-match">
-            <datalist id="inventoryPartsList"></datalist>
-          </div>
-          <div>
-            <label for="manualRequestedQty">Requested Qty</label>
-            <input id="manualRequestedQty" type="number" min="0.01" step="0.01" placeholder="0">
-          </div>
-          <div>
-            <label for="manualRequestedUom">Unit</label>
-            <input id="manualRequestedUom" placeholder="Each / Linear Feet">
-          </div>
-          <button class="btn-teal" type="button" onclick="addManualLine()">ADD LINE</button>
-        </div>
-
-        <div id="manualLinesWrap" class="manual-lines hidden">
-          <table style="min-width:980px;">
-            <thead>
-              <tr>
-                <th>JobTread Requested Item</th>
-                <th>Inventory Match</th>
-                <th class="numeric">Requested</th>
-                <th class="numeric">On Hand</th>
-                <th class="numeric">Committed</th>
-                <th class="numeric">Available</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="manualLinesBody"></tbody>
-          </table>
-        </div>
-
-        <div class="button-row" style="margin-top:14px;">
-          <button class="btn-primary" type="button" onclick="saveManualBidRequest()">SAVE EXISTING BID REQUEST</button>
-          <button class="btn-light" type="button" onclick="clearManualBidRequest()">CLEAR</button>
-        </div>
-        <div id="manualMessage" class="message"></div>
-      </div>
-    </details>
-
-    </div><!-- legacyWorkflowTop: preserved previous bid/PO workflow -->
-
-    <section id="requestsTab" class="hidden">
-      <div class="section-heading">
-        <h2>Warehouse Bid Requests</h2>
-      </div>
-      <div id="requestList" class="request-list"></div>
-    </section>
-
-    <section id="commitmentsTab" class="hidden">
-      <div class="section-heading">
-        <div>
-          <h2>Warehouse Fulfillment</h2>
-          <div style="margin-top:4px; color:#667085; font-size:12px;">
-            Stage committed JobTread PO inventory, then issue it to the project when the material physically leaves Warehouse.
-          </div>
-        </div>
-        <a class="btn-link btn-light" href="warehouse.html">OPEN WAREHOUSE OPERATIONS</a>
-      </div>
-
-      <div class="info-note">
-        PO commitment reserves inventory but does not reduce physical On Hand. Staging also does not reduce On Hand. Only ISSUE TO JOB creates the inventory transaction and reduces Main Warehouse quantity.
-      </div>
-
-      <h3 style="margin-top:18px;">Inventory Commitments</h3>
-      <div class="table-wrap">
-        <table class="commitment-table" style="min-width:1480px;">
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th>PO #</th>
-              <th>Job</th>
-              <th>Client</th>
-              <th>Part #</th>
-              <th>Description</th>
-              <th class="numeric">Committed</th>
-              <th class="numeric">Issued</th>
-              <th class="numeric">Remaining</th>
-              <th class="numeric">Staged</th>
-              <th class="numeric">On Hand</th>
-              <th class="numeric">Available to Commit</th>
-              <th>Shelf</th>
-              <th>Warehouse Action</th>
-            </tr>
-          </thead>
-          <tbody id="commitmentBody">
-            <tr><td colspan="14">Loading inventory commitments...</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3 style="margin-top:18px;">Purchase Required / Job Procurement</h3>
-      <div class="info-note">
-        These quantities are committed to be purchased by Warehouse for the specific JobTread PO. They do not reduce current warehouse On Hand or Available inventory.
-      </div>
-      <div class="table-wrap">
-        <table style="min-width:1120px;">
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th>PO #</th>
-              <th>Job</th>
-              <th>Client</th>
-              <th>Requested Item</th>
-              <th>Part #</th>
-              <th class="numeric">Purchase Qty</th>
-              <th class="numeric">Ordered</th>
-              <th class="numeric">Received</th>
-              <th class="numeric">Remaining to Receive</th>
-            </tr>
-          </thead>
-          <tbody id="procurementBody">
-            <tr><td colspan="10">Loading purchasing requirements...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-  </main>
+      </main>
 </div>
 
 <script src="shared-navigation.js"></script>
 <script>
+'use strict';
 const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
 const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
 let currentProfile = null;
 let currentSession = null;
-let requestSummary = [];
-let requestLines = [];
-let inventoryAvailability = [];
-let manualLines = [];
-let currentTab = 'materials';
 let projectMaterialHandoffs = [];
 let projectMaterialHandoffLines = [];
-
+let purchaseVendors = [];
+const vendorDraftSelections = new Map();
 window.addEventListener('load', async () => {
-  document.getElementById('manualRequestDate').value = getLocalDateISO();
-
   const hasAccess = await enforceAccess();
-  if (!hasAccess) return;
-
-  await loadProjectMaterialHandoffs();
-  // Legacy Bid Request and PO workflow is retired from this page.
-  // Only the verified Projects Materials queue loads.
+  if (hasAccess) await Promise.all([loadProjectMaterialHandoffs(),loadPurchaseVendors()]);
 });
 
 async function enforceAccess() {
@@ -979,1205 +769,21 @@ async function appLogout() {
 }
 
 
-async function loadJobTreadConnectionStatus() {
-  const badge = document.getElementById('jobTreadApiStatus');
-  if (!badge) return;
 
-  const { data, error } = await client
-    .from('jobtread_integration_config')
-    .select('organization_id, organization_name, connection_status, last_tested_at, last_error, last_sync_at, last_sync_status, last_sync_error, last_sync_documents, last_sync_bid_requests')
-    .eq('id', 'primary')
-    .maybeSingle();
-
-  if (error) {
-    badge.textContent = 'JOBTREAD API: STATUS ERROR';
-    badge.title = error.message;
-    return;
-  }
-
-  const status = data?.connection_status || 'NOT_TESTED';
-
-  if (status === 'CONNECTED') {
-    badge.textContent = `JOBTREAD API: CONNECTED${data?.organization_name ? ' · ' + data.organization_name : ''}`;
-    badge.style.background = '#dcfce7';
-    badge.style.color = '#166534';
-    badge.style.borderColor = '#86efac';
-    const testedText = data?.last_tested_at
-      ? `Last tested: ${new Date(data.last_tested_at).toLocaleString()}`
-      : 'Connected';
-    const syncText = data?.last_sync_at
-      ? `\nLast sync: ${new Date(data.last_sync_at).toLocaleString()} · ${data.last_sync_status || ''} · ${data.last_sync_bid_requests || 0} Bid Request(s)`
-      : '\nNo JobTread document sync has been run yet.';
-    badge.title = testedText + syncText;
-    return;
-  }
-
-  if (status === 'ERROR') {
-    badge.textContent = 'JOBTREAD API: CONNECTION ERROR';
-    badge.style.background = '#fee2e2';
-    badge.style.color = '#991b1b';
-    badge.style.borderColor = '#fecaca';
-    badge.title = data?.last_error || 'Connection test failed.';
-    return;
-  }
-
-  badge.textContent = 'JOBTREAD API: NOT TESTED';
-  badge.title = 'Grant Key is stored in Supabase. Run the connection test.';
-}
-
-async function testJobTreadConnection() {
-  const button = document.getElementById('testJobTreadApiBtn');
-
-  if (!['ADMIN', 'SYSTEM_ADMIN'].includes(currentProfile?.role)) {
-    setMessage('pageMessage', 'danger', 'Admin or System Admin access is required to test the JobTread API connection.');
-    return;
-  }
-
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'TESTING...';
-  }
-
-  setMessage('pageMessage', 'info', 'Testing the secure JobTread API connection...');
-
-  try {
-    const { data, error } = await client.functions.invoke('jobtread-connection-test', {
-      body: { action: 'test' }
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    if (!data?.connected) {
-      throw new Error(data?.error || 'JobTread did not confirm the connection.');
-    }
-
-    await loadJobTreadConnectionStatus();
-
-    setMessage(
-      'pageMessage',
-      'success',
-      `JobTread API connected successfully${data.organizationName ? ' to ' + data.organizationName : ''}. Organization ID saved securely in Supabase.`
-    );
-  } catch (error) {
-    await loadJobTreadConnectionStatus();
-    setMessage(
-      'pageMessage',
-      'danger',
-      'JobTread API connection test failed: ' + (error?.message || String(error))
-    );
-  } finally {
-    if (button) {
-      button.disabled = false;
-      button.textContent = 'TEST JOBTREAD API';
-    }
-  }
-}
-
-
-async function syncJobTread() {
-  const button = document.getElementById('syncJobTreadBtn');
-
-  if (!['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN'].includes(currentProfile?.role)) {
-    setMessage('pageMessage', 'danger', 'Warehouse access is required to sync JobTread.');
-    return;
-  }
-
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'SYNCING...';
-  }
-
-  setMessage('pageMessage', 'info', 'Reading live Bid Requests from JobTread and matching them to Molinari inventory...');
-
-  try {
-    const { data, error } = await client.functions.invoke('jobtread-sync-warehouse', {
-      body: { action: 'sync' }
-    });
-
-    if (error) throw error;
-    if (!data?.success) throw new Error(data?.error || 'JobTread sync did not complete.');
-
-    await loadWorkflowData();
-    await loadJobTreadConnectionStatus();
-
-    const imported = Number(data.requestsImported || 0);
-    const updated = Number(data.requestsUpdated || 0);
-    const synced = Number(data.bidRequestsSynced || 0);
-    const lines = Number(data.linesWritten || 0);
-    const preserved = Number(data.quantityOverridesPreserved || 0);
-
-    setMessage(
-      'pageMessage',
-      'success',
-      `JobTread sync complete. ${synced} Bid Request(s) synced · ${imported} new · ${updated} updated · ${lines} line(s) refreshed${preserved ? ` · ${preserved} manually confirmed quantity override(s) preserved` : ''}.`
-    );
-  } catch (error) {
-    await loadJobTreadConnectionStatus();
-    setMessage(
-      'pageMessage',
-      'danger',
-      'JobTread sync failed: ' + (error?.message || String(error))
-    );
-  } finally {
-    if (button) {
-      button.disabled = false;
-      button.textContent = 'SYNC JOBTREAD';
-    }
-  }
-}
-
-async function loadWorkflowData() {
-  setMessage('pageMessage', 'info', 'Loading JobTread Warehouse workflow...');
-
-  const [summaryResult, lineResult, availabilityResult] = await Promise.all([
-    client
-      .from('jobtread_warehouse_request_summary_view')
-      .select('*')
-      .order('request_date', { ascending: false })
-      .order('created_at', { ascending: false }),
-
-    client
-      .from('jobtread_warehouse_request_lines_view')
-      .select('*')
-      .order('request_date', { ascending: false }),
-
-    client
-      .from('jobtread_inventory_availability_view')
-      .select('*')
-      .order('part_number', { ascending: true })
-  ]);
-
-  if (summaryResult.error) {
-    setMessage('pageMessage', 'danger', summaryResult.error.message);
-    return;
-  }
-
-  if (lineResult.error) {
-    setMessage('pageMessage', 'danger', lineResult.error.message);
-    return;
-  }
-
-  if (availabilityResult.error) {
-    setMessage('pageMessage', 'danger', availabilityResult.error.message);
-    return;
-  }
-
-  requestSummary = summaryResult.data || [];
-  requestLines = lineResult.data || [];
-  inventoryAvailability = availabilityResult.data || [];
-
-  populatePartsList();
-  updateSummary();
-  renderWorkflow();
-  renderCommitments();
-
-  setMessage('pageMessage', 'success', `Loaded ${requestSummary.length} Bid Request${requestSummary.length === 1 ? '' : 's'}.`);
-}
-
-function populatePartsList() {
-  const list = document.getElementById('inventoryPartsList');
-  list.innerHTML = '';
-
-  inventoryAvailability.forEach(part => {
-    const option = document.createElement('option');
-    option.value = part.part_number;
-    option.label = `${part.description || ''} | Available: ${formatNumber(part.available_to_commit)}`;
-    list.appendChild(option);
-  });
-}
-
-function updateSummary() {
-  const countStatus = status => requestSummary.filter(r => r.status === status).length;
-
-  document.getElementById('needsReviewCount').textContent = countStatus('NEEDS_REVIEW');
-  document.getElementById('awaitingProjectsCount').textContent = countStatus('AWAITING_PROJECTS_UPDATE');
-  document.getElementById('awaitingPOCount').textContent = countStatus('ACCEPTED_AWAITING_PO');
-  document.getElementById('openPOCount').textContent = requestSummary.filter(r => r.status === 'PO_CREATED').length;
-
-  const readyPOs = new Set(
-    requestLines
-      .filter(line =>
-        line.commitment_id &&
-        ['OPEN', 'PARTIAL'].includes(line.commitment_status) &&
-        Number(line.staged_qty || 0) > 0
-      )
-      .map(line => line.jobtread_po_number)
-  );
-
-  document.getElementById('readyToIssueCount').textContent = readyPOs.size;
-}
-
-function renderWorkflow() {
-  const container = document.getElementById('requestList');
-  const search = normalizeText(document.getElementById('workflowSearch').value);
-  const statusFilter = document.getElementById('statusFilter').value;
-
-  const activeStatuses = [
-    'NEEDS_REVIEW',
-    'AWAITING_PROJECTS_UPDATE',
-    'ACCEPTED_AWAITING_PO',
-    'PO_CREATED'
-  ];
-
-  const filtered = requestSummary.filter(request => {
-    const matchesStatus =
-      statusFilter === 'ALL'
-        ? true
-        : statusFilter === 'ACTIVE'
-        ? activeStatuses.includes(request.status)
-        : request.status === statusFilter;
-
-    if (!matchesStatus) return false;
-
-    if (!search) return true;
-
-    const lines = linesForRequest(request.id);
-    const haystack = normalizeText([
-      request.bid_request_number,
-      request.job_number,
-      request.job_name,
-      request.client_name,
-      request.requested_by,
-      request.jobtread_po_number,
-      ...lines.map(l => l.part_number),
-      ...lines.map(l => l.description),
-      ...lines.map(l => l.requested_item),
-      ...lines.map(l => l.fulfillment_status),
-      ...lines.map(l => l.fulfillment_status === 'PART_NOT_AVAILABLE_CHANGE_ORDER' ? 'Part Not Available Change Order Needed' : '')
-    ].join(' '));
-
-    return haystack.includes(search);
-  });
-
-  if (filtered.length === 0) {
-    container.innerHTML = '<div class="empty-state">No Bid Requests match the current filter.</div>';
-    return;
-  }
-
-  container.innerHTML = filtered.map(renderRequestCard).join('');
-}
-
-function renderRequestCard(request) {
-  const lines = linesForRequest(request.id);
-  const status = statusInfo(request.status);
-  const canEditResponse = request.status === 'NEEDS_REVIEW';
-  const hasChangeOrder = lines.some(line =>
-    line.fulfillment_status === 'PART_NOT_AVAILABLE_CHANGE_ORDER'
-  );
-  const hasClarification = lines.some(line =>
-    line.fulfillment_status === 'NEEDS_CLARIFICATION' ||
-    line.fulfillment_status === 'PENDING' ||
-    line.fulfillment_status === 'PART_NOT_AVAILABLE_CHANGE_ORDER' ||
-    line.requested_qty == null
-  );
-
-  let help = '';
-  let footerAction = '';
-
-  if (request.status === 'NEEDS_REVIEW') {
-    help = 'Set a Warehouse Fulfillment Status for every line. Warehouse owns the sourcing decision: use stock when available, purchase what is needed, or request clarification when Projects must correct the request. Saving the response also posts the Warehouse summary into the linked JobTread Bid Request Messaging thread.';
-    footerAction = `
-      <button class="btn-teal" type="button" onclick="saveWarehouseResponse('${request.id}')">
-        SAVE & POST WAREHOUSE RESPONSE
-      </button>
-    `;
-  } else if (request.status === 'AWAITING_PROJECTS_UPDATE') {
-    if (hasChangeOrder) {
-      help = 'Warehouse has identified at least one requested part that is not available. Projects must process the required Change Order before Warehouse can complete the sourcing plan.';
-      footerAction = `
-        <button class="btn-danger" type="button" disabled>
-          CHANGE ORDER NEEDED
-        </button>
-      `;
-    } else if (hasClarification) {
-      help = 'Warehouse has at least one line marked Needs Clarification. Projects must correct the quantity/specification in JobTread, then run SYNC JOBTREAD before Warehouse can complete the plan.';
-      footerAction = `
-        <button class="btn-light" type="button" disabled>
-          AWAITING CLARIFICATION
-        </button>
-      `;
-    } else {
-      help = 'Warehouse sourcing is complete. Every line will be supplied either from current inventory or through Warehouse purchasing. Accept the plan so Projects can convert the Bid Request to a PO.';
-      footerAction = `
-        <button class="btn-primary" type="button" onclick="acceptFinalBid('${request.id}')">
-          ACCEPT WAREHOUSE FULFILLMENT PLAN
-        </button>
-      `;
-    }
-  } else if (request.status === 'ACCEPTED_AWAITING_PO') {
-    help = 'Warehouse accepted the sourcing plan. When Projects converts it to a JobTread PO, record the PO here. Stock quantities will be reserved and purchase-required quantities will become Warehouse procurement commitments.';
-    footerAction = `
-      <div class="po-entry">
-        <div>
-          <label for="poNumber_${request.id}">JobTread PO # *</label>
-          <input id="poNumber_${request.id}" placeholder="Example: PO-1194-21">
-        </div>
-        <div>
-          <label for="poId_${request.id}">JobTread PO ID (optional)</label>
-          <input id="poId_${request.id}" placeholder="API ID can be added later">
-        </div>
-        <button class="btn-orange" type="button" onclick="commitPO('${request.id}')">
-          RECORD PO & CREATE COMMITMENTS
-        </button>
-      </div>
-    `;
-  } else if (request.status === 'PO_CREATED') {
-    help = 'This PO is committed. Stock-sourced lines reserve warehouse inventory; purchase-required lines remain open procurement requirements until Warehouse orders and receives them.';
-    footerAction = `
-      <div class="button-row">
-        <a class="btn-link btn-light" href="warehouse.html">OPEN WAREHOUSE OPERATIONS</a>
-        <button class="btn-danger" type="button" onclick="cancelCommitments('${request.id}')">CANCEL OPEN COMMITMENT</button>
-      </div>
-    `;
-  } else if (request.status === 'FULFILLED') {
-    help = 'This Warehouse PO has been fulfilled.';
-  } else if (request.status === 'CANCELLED') {
-    help = 'This Warehouse workflow was cancelled.';
-  }
-
-  const jtLink = request.jobtread_url
-    ? `<a class="btn-link btn-light" href="${escapeAttribute(request.jobtread_url)}" target="_blank" rel="noopener">OPEN JOBTREAD</a>`
-    : '';
-
-  return `
-    <article class="request-card">
-      <div class="request-head">
-        <div>
-          <div class="request-title">
-            Bid Request ${escapeHTML(request.bid_request_number || '')}
-            ${request.jobtread_po_number ? ` · PO ${escapeHTML(request.jobtread_po_number)}` : ''}
-          </div>
-          <div class="request-meta">
-            <span><strong>Job:</strong> ${escapeHTML(request.job_number || '—')} ${request.job_name ? '· ' + escapeHTML(request.job_name) : ''}</span>
-            <span><strong>Client:</strong> ${escapeHTML(request.client_name || '—')}</span>
-            ${request.job_location_address ? `<span><strong>Location:</strong> ${escapeHTML(request.job_location_address)}</span>` : ''}
-            <span><strong>Requested:</strong> ${formatDate(request.request_date)}</span>
-            <span><strong>By:</strong> ${escapeHTML(request.requested_by || '—')}</span>
-          </div>
-        </div>
-        <div class="request-actions-top">
-          ${request.jobtread_bid_request_id ? '<span class="status-badge badge-green">LIVE JOBTREAD</span>' : '<span class="status-badge badge-gray">MANUAL</span>'}
-          <span class="status-badge ${status.className}">${status.label}</span>
-          ${jtLink}
-        </div>
-      </div>
-
-      <div class="request-body">
-        <p class="request-help">${escapeHTML(help)}</p>
-
-        <div class="table-wrap">
-          <table style="min-width:1460px;">
-            <thead>
-              <tr>
-                <th>JobTread Requested Item</th>
-                <th>Inventory Match</th>
-                <th class="numeric">Requested</th>
-                <th class="numeric">On Hand</th>
-                <th class="numeric">Committed</th>
-                <th class="numeric">Available</th>
-                <th>Shelf</th>
-                <th>Warehouse Fulfillment Status</th>
-                <th class="numeric">From Inventory</th>
-                <th class="numeric">Purchase Qty</th>
-                <th>Response Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${lines.map(line => renderRequestLine(line, canEditResponse)).join('')}
-            </tbody>
-          </table>
-        </div>
-
-        <div class="request-footer">
-          <div class="left-info">
-            ${request.responded_by ? `Warehouse response: ${escapeHTML(request.responded_by)} · ${formatDateTime(request.responded_at)}<br>` : ''}
-            ${request.accepted_by ? `Accepted by Warehouse: ${escapeHTML(request.accepted_by)} · ${formatDateTime(request.accepted_at)}<br>` : ''}
-            ${request.po_committed_at ? `Inventory committed: ${formatDateTime(request.po_committed_at)}` : ''}
-          </div>
-          ${footerAction}
-        </div>
-      </div>
-    </article>
-  `;
-}
-
-function suggestedFulfillmentStatus(line) {
-  if (line.requested_qty == null || line.requested_qty === '') return 'NEEDS_CLARIFICATION';
-
-  const requested = Number(line.requested_qty || 0);
-  const available = Number(line.available_to_commit || 0);
-  const matched = line.inventory_matched === true;
-
-  if (!matched || available <= 0) return 'PURCHASE_REQUIRED';
-  if (available >= requested) return 'FROM_INVENTORY';
-  return 'PARTIAL_STOCK_PURCHASE';
-}
-
-function fulfillmentStatusInfo(status) {
-  const map = {
-    PENDING: { label: 'PENDING', className: 'badge-gray' },
-    FROM_INVENTORY: { label: 'FROM INVENTORY', className: 'badge-green' },
-    PURCHASE_REQUIRED: { label: 'PURCHASE REQUIRED', className: 'badge-orange' },
-    PARTIAL_STOCK_PURCHASE: { label: 'PARTIAL STOCK + PURCHASE', className: 'badge-purple' },
-    PART_NOT_AVAILABLE_CHANGE_ORDER: { label: 'PART NOT AVAILABLE - CHANGE ORDER NEEDED', className: 'badge-red' },
-    NEEDS_CLARIFICATION: { label: 'NEEDS CLARIFICATION', className: 'badge-red' }
-  };
-
-  return map[status] || map.PENDING;
-}
-
-function renderRequestLine(line, canEditResponse) {
-  const requestedMissing = line.requested_qty == null || line.requested_qty === '';
-  const requested = requestedMissing ? null : Number(line.requested_qty);
-  const available = Number(line.available_to_commit || 0);
-  const matched = line.inventory_matched === true;
-
-  const storedStatus = line.fulfillment_status || 'PENDING';
-  const selectedStatus =
-    canEditResponse && storedStatus === 'PENDING'
-      ? suggestedFulfillmentStatus(line)
-      : storedStatus;
-
-  const storedInventoryQty = Number(line.final_commit_qty ?? line.warehouse_fulfill_qty ?? 0);
-  const suggestedInventoryQty =
-    selectedStatus === 'FROM_INVENTORY' && !requestedMissing
-      ? requested
-      : selectedStatus === 'PARTIAL_STOCK_PURCHASE'
-      ? Math.min(available, Math.max((requested || 0) - 0.01, 0))
-      : 0;
-
-  const inventoryQty =
-    storedStatus !== 'PENDING'
-      ? storedInventoryQty
-      : suggestedInventoryQty;
-
-  const purchaseQty =
-    selectedStatus === 'PURCHASE_REQUIRED' && !requestedMissing
-      ? requested
-      : selectedStatus === 'PARTIAL_STOCK_PURCHASE' && !requestedMissing
-      ? Math.max(requested - inventoryQty, 0)
-      : Number(line.purchase_required_qty || 0);
-
-  const stockClass = !matched || available <= 0
-    ? 'stock-none'
-    : !requestedMissing && available < requested
-    ? 'stock-low'
-    : 'stock-good';
-
-  const statusCell = canEditResponse
-    ? `
-      <select id="fulfillmentStatus_${line.line_id}" style="min-width:190px;" onchange="onFulfillmentStatusChange('${line.line_id}')">
-        <option value="FROM_INVENTORY" ${selectedStatus === 'FROM_INVENTORY' ? 'selected' : ''}>FROM INVENTORY</option>
-        <option value="PURCHASE_REQUIRED" ${selectedStatus === 'PURCHASE_REQUIRED' ? 'selected' : ''}>PURCHASE REQUIRED</option>
-        <option value="PARTIAL_STOCK_PURCHASE" ${selectedStatus === 'PARTIAL_STOCK_PURCHASE' ? 'selected' : ''}>PARTIAL STOCK + PURCHASE</option>
-        <option value="PART_NOT_AVAILABLE_CHANGE_ORDER" ${selectedStatus === 'PART_NOT_AVAILABLE_CHANGE_ORDER' ? 'selected' : ''}>PART NOT AVAILABLE - CHANGE ORDER NEEDED</option>
-        <option value="NEEDS_CLARIFICATION" ${selectedStatus === 'NEEDS_CLARIFICATION' ? 'selected' : ''}>NEEDS CLARIFICATION</option>
-      </select>
-    `
-    : (() => {
-        const info = fulfillmentStatusInfo(selectedStatus);
-        return `<span class="status-badge ${info.className}">${info.label}</span>`;
-      })();
-
-  const inventoryCell = canEditResponse
-    ? `<input
-         class="qty-input"
-         id="inventoryQty_${line.line_id}"
-         data-requested="${requestedMissing ? '' : requested}"
-         data-available="${available}"
-         type="number"
-         min="0"
-         max="${matched && !requestedMissing ? Math.min(requested, available) : 0}"
-         step="0.01"
-         value="${inventoryQty}"
-         ${selectedStatus === 'PARTIAL_STOCK_PURCHASE' && matched && !requestedMissing ? '' : 'disabled'}
-       >`
-    : `<strong>${formatNumber(storedInventoryQty)}</strong>`;
-
-  const purchaseCell = canEditResponse
-    ? `<strong id="purchaseQty_${line.line_id}">${formatNumber(purchaseQty)}</strong>`
-    : `<strong>${formatNumber(line.purchase_required_qty || 0)}</strong>`;
-
-  const notesCell = canEditResponse
-    ? `<input class="notes-input" id="responseNote_${line.line_id}" value="${escapeAttribute(line.response_notes || '')}" placeholder="Optional supporting note">`
-    : escapeHTML(line.response_notes || '—');
-
-  const requestedDisplay = requestedMissing
-    ? '<span class="status-badge badge-red">QTY REQUIRED IN JOBTREAD</span>'
-    : `${formatNumber(requested)}${line.requested_uom ? ' ' + escapeHTML(line.requested_uom) : ''}`;
-
-  const inventoryMatch = matched
-    ? `<strong>${escapeHTML(line.part_number || '')}</strong><br><span style="color:#667085;">${escapeHTML(line.description || '')}</span>`
-    : `<span class="status-badge badge-gray">NO INVENTORY MATCH</span>`;
-
-  return `
-    <tr>
-      <td><strong>${escapeHTML(line.requested_item || line.description || line.part_number || '')}</strong></td>
-      <td>${inventoryMatch}</td>
-      <td class="numeric">${requestedDisplay}</td>
-      <td class="numeric">${matched ? formatNumber(line.main_warehouse_on_hand) : '—'}</td>
-      <td class="numeric">${matched ? formatNumber(line.open_committed_qty) : '—'}</td>
-      <td class="numeric ${stockClass}">${matched ? formatNumber(available) : '—'}</td>
-      <td>${matched ? escapeHTML(line.shelf_location || '—') : '—'}</td>
-      <td>${statusCell}</td>
-      <td class="numeric">${inventoryCell}</td>
-      <td class="numeric">${purchaseCell}</td>
-      <td>${notesCell}</td>
-    </tr>
-  `;
-}
-
-function onFulfillmentStatusChange(lineId) {
-  const line = requestLines.find(row => String(row.line_id) === String(lineId));
-  const select = document.getElementById(`fulfillmentStatus_${lineId}`);
-  const inventoryInput = document.getElementById(`inventoryQty_${lineId}`);
-  const purchaseDisplay = document.getElementById(`purchaseQty_${lineId}`);
-
-  if (!line || !select || !inventoryInput || !purchaseDisplay) return;
-
-  const requestedMissing = line.requested_qty == null || line.requested_qty === '';
-  const requested = requestedMissing ? 0 : Number(line.requested_qty || 0);
-  const available = Number(line.available_to_commit || 0);
-  const matched = line.inventory_matched === true;
-  const status = select.value;
-
-  if (status === 'FROM_INVENTORY') {
-    inventoryInput.value = requested;
-    inventoryInput.disabled = true;
-    purchaseDisplay.textContent = '0';
-    return;
-  }
-
-  if (status === 'PURCHASE_REQUIRED') {
-    inventoryInput.value = 0;
-    inventoryInput.disabled = true;
-    purchaseDisplay.textContent = formatNumber(requested);
-    return;
-  }
-
-  if (status === 'PARTIAL_STOCK_PURCHASE') {
-    inventoryInput.disabled = !(matched && !requestedMissing);
-    const defaultQty = Math.min(available, Math.max(requested - 0.01, 0));
-    const currentQty = Number(inventoryInput.value || 0);
-    const nextQty = currentQty > 0 && currentQty < requested ? currentQty : defaultQty;
-    inventoryInput.value = nextQty;
-    purchaseDisplay.textContent = formatNumber(Math.max(requested - nextQty, 0));
-    inventoryInput.oninput = () => {
-      const invQty = Number(inventoryInput.value || 0);
-      purchaseDisplay.textContent = formatNumber(Math.max(requested - invQty, 0));
-    };
-    return;
-  }
-
-  inventoryInput.value = 0;
-  inventoryInput.disabled = true;
-  purchaseDisplay.textContent = '0';
-}
-
-function renderCommitments() {
-  const body = document.getElementById('commitmentBody');
-
-  const rows = requestLines
-    .filter(line => line.commitment_id && ['OPEN', 'PARTIAL'].includes(line.commitment_status))
-    .sort((a, b) => {
-      const poCompare = String(a.jobtread_po_number || '').localeCompare(String(b.jobtread_po_number || ''));
-      if (poCompare !== 0) return poCompare;
-      return String(a.part_number || '').localeCompare(String(b.part_number || ''));
-    });
-
-  if (rows.length === 0) {
-    body.innerHTML = '<tr><td colspan="14">No open JobTread inventory commitments.</td></tr>';
+// New cost-code 1410 Projects -> Warehouse fulfillment queue.
+async function loadPurchaseVendors(){
+  const {data,error}=await client.from('active_inventory_vendors_view').select('vendor_name').order('vendor_name');
+  if(error){
+    purchaseVendors=['UAG',"LOWE'S",'HOME DEPOT'];
+    console.warn('Vendor list unavailable for draft selection:',error.message);
   } else {
-    body.innerHTML = rows.map(line => {
-    const remaining = Number(line.commitment_remaining_qty || 0);
-    const staged = Number(line.staged_qty || 0);
-    const readyToIssue = staged > 0;
-    const statusBadge = readyToIssue
-      ? '<span class="status-badge badge-green">READY TO ISSUE</span>'
-      : '<span class="status-badge badge-purple">READY TO STAGE</span>';
-
-    const serialField = line.is_serialized
-      ? `
-        <div style="margin-top:7px;">
-          <label for="serial_${line.commitment_id}">Serial #</label>
-          <input id="serial_${line.commitment_id}" style="min-width:150px;" placeholder="Required">
-        </div>
-      `
-      : '';
-
-    return `
-      <tr>
-        <td>${statusBadge}</td>
-        <td><strong>${escapeHTML(line.jobtread_po_number || '')}</strong><br><span style="color:#667085;">BR ${escapeHTML(line.bid_request_number || '')}</span></td>
-        <td>${escapeHTML(line.job_number || '')}${line.job_name ? '<br><span style="color:#667085;">' + escapeHTML(line.job_name) + '</span>' : ''}</td>
-        <td>${escapeHTML(line.client_name || '')}</td>
-        <td><strong>${escapeHTML(line.part_number || '')}</strong></td>
-        <td>${escapeHTML(line.description || '')}</td>
-        <td class="numeric">${formatNumber(line.committed_qty)}</td>
-        <td class="numeric">${formatNumber(line.fulfilled_qty)}</td>
-        <td class="numeric"><strong>${formatNumber(remaining)}</strong></td>
-        <td class="numeric ${readyToIssue ? 'stock-good' : ''}">${formatNumber(staged)}</td>
-        <td class="numeric">${formatNumber(line.main_warehouse_on_hand)}</td>
-        <td class="numeric">${formatNumber(line.available_to_commit)}</td>
-        <td>${escapeHTML(line.shelf_location || '—')}</td>
-        <td>
-          <div style="min-width:260px;">
-            <div style="display:grid; grid-template-columns:100px 1fr; gap:6px; align-items:end;">
-              <div>
-                <label for="stageQty_${line.commitment_id}">Stage Qty</label>
-                <input
-                  id="stageQty_${line.commitment_id}"
-                  class="qty-input"
-                  type="number"
-                  min="0"
-                  max="${remaining}"
-                  step="0.01"
-                  value="${readyToIssue ? staged : remaining}"
-                >
-              </div>
-              <button class="btn-primary" type="button" onclick="stageCommitment('${line.commitment_id}')">
-                ${readyToIssue ? 'UPDATE STAGING' : 'STAGE / READY'}
-              </button>
-            </div>
-
-            ${readyToIssue ? `
-              <div style="display:grid; grid-template-columns:100px 1fr; gap:6px; align-items:end; margin-top:8px;">
-                <div>
-                  <label for="issueQty_${line.commitment_id}">Issue Qty</label>
-                  <input
-                    id="issueQty_${line.commitment_id}"
-                    class="qty-input"
-                    type="number"
-                    min="0.01"
-                    max="${Math.min(staged, remaining)}"
-                    step="0.01"
-                    value="${Math.min(staged, remaining)}"
-                  >
-                </div>
-                <button class="btn-teal" type="button" onclick="issueCommitment('${line.commitment_id}')">
-                  ISSUE TO JOB
-                </button>
-              </div>
-              ${serialField}
-              <button class="btn-light" style="margin-top:7px; padding:7px 10px;" type="button" onclick="unstageCommitment('${line.commitment_id}')">
-                UNSTAGE
-              </button>
-            ` : ''}
-          </div>
-        </td>
-      </tr>
-    `;
-    }).join('');
+    purchaseVendors=[...new Set((data||[]).map(v=>String(v.vendor_name||'').trim()).filter(Boolean))]
+      .filter(name=>name.toUpperCase()!=='FOUND IN WAREHOUSE');
+    if(!purchaseVendors.some(v=>v.toUpperCase()==='HOME DEPOT'))purchaseVendors.push('HOME DEPOT');
   }
-
-  const procurementBody = document.getElementById('procurementBody');
-  const procurementRows = requestLines
-    .filter(line => line.procurement_commitment_id && line.procurement_status !== 'CANCELLED')
-    .sort((a, b) => {
-      const poCompare = String(a.jobtread_po_number || '').localeCompare(String(b.jobtread_po_number || ''));
-      if (poCompare !== 0) return poCompare;
-      return String(a.requested_item || '').localeCompare(String(b.requested_item || ''));
-    });
-
-  if (procurementBody) {
-    if (procurementRows.length === 0) {
-      procurementBody.innerHTML = '<tr><td colspan="10">No open JobTread purchasing requirements.</td></tr>';
-    } else {
-      procurementBody.innerHTML = procurementRows.map(line => {
-        const requested = Number(line.procurement_requested_qty || 0);
-        const ordered = Number(line.procurement_ordered_qty || 0);
-        const received = Number(line.procurement_received_qty || 0);
-        const remaining = Math.max(requested - received, 0);
-
-        return `
-          <tr>
-            <td><span class="status-badge badge-orange">${escapeHTML(line.procurement_status || 'OPEN')}</span></td>
-            <td><strong>${escapeHTML(line.jobtread_po_number || '')}</strong><br><span style="color:#667085;">BR ${escapeHTML(line.bid_request_number || '')}</span></td>
-            <td>${escapeHTML(line.job_number || '')}${line.job_name ? '<br><span style="color:#667085;">' + escapeHTML(line.job_name) + '</span>' : ''}</td>
-            <td>${escapeHTML(line.client_name || '')}</td>
-            <td><strong>${escapeHTML(line.requested_item || line.description || '')}</strong></td>
-            <td>${escapeHTML(line.part_number || '—')}</td>
-            <td class="numeric">${formatNumber(requested)}</td>
-            <td class="numeric">${formatNumber(ordered)}</td>
-            <td class="numeric">${formatNumber(received)}</td>
-            <td class="numeric"><strong>${formatNumber(remaining)}</strong></td>
-          </tr>
-        `;
-      }).join('');
-    }
-  }
+  purchaseVendors.sort((a,b)=>a.localeCompare(b));
+  renderProjectMaterialHandoffs();
 }
-
-async function stageCommitment(commitmentId) {
-  const input = document.getElementById(`stageQty_${commitmentId}`);
-  const qty = Number(input?.value || 0);
-
-  if (qty <= 0) {
-    setMessage('pageMessage', 'danger', 'Stage quantity must be greater than zero. Use UNSTAGE to clear staged inventory.');
-    return;
-  }
-
-  if (!window.confirm(`Stage ${formatNumber(qty)} unit(s) and mark them ready for this JobTread PO?`)) return;
-
-  setMessage('pageMessage', 'info', 'Updating staged inventory...');
-
-  const { error } = await client.rpc('jobtread_set_staged_qty', {
-    p_commitment_id: commitmentId,
-    p_staged_qty: qty,
-    p_staged_by: getCurrentUserDisplayName()
-  });
-
-  if (error) {
-    setMessage('pageMessage', 'danger', error.message);
-    return;
-  }
-
-  await loadWorkflowData();
-  setTab('commitments');
-  setMessage('pageMessage', 'success', 'Inventory staged and ready to issue.');
-}
-
-async function unstageCommitment(commitmentId) {
-  if (!window.confirm('Remove this material from Ready to Issue and return it to committed / not staged status?')) return;
-
-  const { error } = await client.rpc('jobtread_set_staged_qty', {
-    p_commitment_id: commitmentId,
-    p_staged_qty: 0,
-    p_staged_by: getCurrentUserDisplayName()
-  });
-
-  if (error) {
-    setMessage('pageMessage', 'danger', error.message);
-    return;
-  }
-
-  await loadWorkflowData();
-  setTab('commitments');
-  setMessage('pageMessage', 'success', 'Staging cleared. Inventory remains committed to the PO.');
-}
-
-async function issueCommitment(commitmentId, fifoOverrideReason = null) {
-  const line = requestLines.find(row => String(row.commitment_id) === String(commitmentId));
-  if (!line) {
-    setMessage('pageMessage', 'danger', 'Commitment line could not be found.');
-    return;
-  }
-
-  const qty = Number(document.getElementById(`issueQty_${commitmentId}`)?.value || 0);
-  const serialNumber = document.getElementById(`serial_${commitmentId}`)?.value.trim() || null;
-
-  if (qty <= 0) {
-    setMessage('pageMessage', 'danger', 'Issue quantity must be greater than zero.');
-    return;
-  }
-
-  if (line.is_serialized === true && !serialNumber) {
-    setMessage('pageMessage', 'danger', 'Serial number is required for this serialized part.');
-    return;
-  }
-
-  if (!fifoOverrideReason) {
-    const confirmed = window.confirm(
-      `Issue ${formatNumber(qty)} × ${line.part_number} to Job ${line.job_number || ''} against PO ${line.jobtread_po_number}?
-
-This WILL reduce physical Main Warehouse On Hand.`
-    );
-    if (!confirmed) return;
-  }
-
-  setMessage('pageMessage', 'info', 'Issuing committed inventory to the project...');
-
-  const { data, error } = await client.rpc('jobtread_issue_committed_inventory', {
-    p_commitment_id: commitmentId,
-    p_issue_qty: qty,
-    p_issued_by: getCurrentUserDisplayName(),
-    p_serial_number: serialNumber,
-    p_fifo_override_reason: fifoOverrideReason
-  });
-
-  if (error) {
-    if (!fifoOverrideReason && /FIFO warning/i.test(error.message || '')) {
-      const reason = window.prompt(
-        `${error.message}
-
-Enter the FIFO override reason to continue, or Cancel to stop:`
-      );
-
-      if (reason && reason.trim()) {
-        return issueCommitment(commitmentId, reason.trim());
-      }
-      return;
-    }
-
-    setMessage('pageMessage', 'danger', error.message);
-    return;
-  }
-
-  await loadWorkflowData();
-  setTab('commitments');
-
-  const remaining = Number(data?.remaining_qty || 0);
-  setMessage(
-    'pageMessage',
-    'success',
-    remaining > 0
-      ? `Inventory issued successfully. ${formatNumber(remaining)} committed unit(s) remain on this PO.`
-      : `Inventory issued successfully. This commitment is fully fulfilled.`
-  );
-}
-
-function linesForRequest(requestId) {
-  return requestLines.filter(line => String(line.bid_request_id) === String(requestId));
-}
-
-async function saveWarehouseResponse(requestId) {
-  const lines = linesForRequest(requestId);
-  const request = requestSummary.find(row => String(row.id) === String(requestId));
-
-  const payload = lines.map(line => {
-    const status = document.getElementById(`fulfillmentStatus_${line.line_id}`)?.value || 'PENDING';
-    const inventoryQty = Number(document.getElementById(`inventoryQty_${line.line_id}`)?.value || 0);
-
-    return {
-      line_id: line.line_id,
-      fulfillment_status: status,
-      inventory_commit_qty: inventoryQty,
-      response_notes: document.getElementById(`responseNote_${line.line_id}`)?.value || ''
-    };
-  });
-
-  const hasChangeOrder = payload.some(line => line.fulfillment_status === 'PART_NOT_AVAILABLE_CHANGE_ORDER');
-  const hasClarification = payload.some(line =>
-    ['NEEDS_CLARIFICATION', 'PART_NOT_AVAILABLE_CHANGE_ORDER'].includes(line.fulfillment_status)
-  );
-
-  const confirmMessage = hasChangeOrder
-    ? 'Save this Warehouse response and post it to the JobTread Bid Request Messaging thread? Items marked PART NOT AVAILABLE - CHANGE ORDER NEEDED will tell Projects that a Change Order is required before Warehouse can proceed.'
-    : hasClarification
-    ? 'Save this Warehouse response and post it to the JobTread Bid Request Messaging thread? Lines marked NEEDS CLARIFICATION will tell Projects what must be corrected.'
-    : 'Save this Warehouse response and post it to the JobTread Bid Request Messaging thread? Stock quantities will be reserved only after the JobTread PO is created; Purchase Required quantities will become Warehouse purchasing commitments at that time.';
-
-  if (!window.confirm(confirmMessage)) return;
-
-  setMessage('pageMessage', 'info', 'Saving Warehouse response and posting it to JobTread...');
-
-  const { data: saveData, error: saveError } = await client.rpc('jobtread_save_warehouse_response', {
-    p_request_id: requestId,
-    p_response_lines: payload,
-    p_responded_by: getCurrentUserDisplayName()
-  });
-
-  if (saveError) {
-    setMessage('pageMessage', 'danger', saveError.message);
-    return;
-  }
-
-  let postData = null;
-  let postError = null;
-
-  if (request?.jobtread_bid_request_id) {
-    const result = await client.functions.invoke('jobtread-post-warehouse-response', {
-      body: { requestId }
-    });
-
-    postData = result.data;
-    postError = result.error;
-
-    if (!postError && postData?.success === false) {
-      postError = new Error(postData.error || 'JobTread Messaging post failed.');
-    }
-  }
-
-  await loadWorkflowData();
-
-  if (!request?.jobtread_bid_request_id) {
-    setMessage(
-      'pageMessage',
-      'warning',
-      'Warehouse response saved in the database. This request is not linked to a live JobTread document, so no JobTread message was posted.'
-    );
-    return;
-  }
-
-  if (postError) {
-    setMessage(
-      'pageMessage',
-      'warning',
-      'Warehouse response was saved in the database, but the JobTread message could not be posted: ' +
-      (postError?.message || String(postError)) +
-      ' Save the response again to retry the JobTread post.'
-    );
-    return;
-  }
-
-  if (postData?.alreadyPosted) {
-    setMessage(
-      'pageMessage',
-      hasClarification ? 'warning' : 'success',
-      hasClarification
-        ? 'Warehouse response saved. The same clarification response is already posted in the JobTread Bid Request Messaging thread.'
-        : 'Warehouse response saved. The same response is already posted in the JobTread Bid Request Messaging thread.'
-    );
-    return;
-  }
-
-  setMessage(
-    'pageMessage',
-    hasClarification ? 'warning' : 'success',
-    hasChangeOrder
-      ? 'Warehouse response saved and posted to the JobTread Bid Request Messaging thread. Projects must process the Change Order for the unavailable part(s) before Warehouse can complete sourcing.'
-      : hasClarification
-      ? 'Warehouse response saved and posted to the JobTread Bid Request Messaging thread. Projects must correct the clarification-required item(s), then run SYNC JOBTREAD.'
-      : 'Warehouse response saved and posted to the JobTread Bid Request Messaging thread. All lines are assigned to Inventory or Warehouse Purchasing.'
-  );
-}
-
-async function acceptFinalBid(requestId) {
-  const lines = linesForRequest(requestId);
-
-  const unresolved = lines.filter(line =>
-    line.requested_qty == null ||
-    ['PENDING', 'NEEDS_CLARIFICATION', 'PART_NOT_AVAILABLE_CHANGE_ORDER'].includes(line.fulfillment_status || 'PENDING')
-  );
-
-  if (unresolved.length > 0) {
-    setMessage('pageMessage', 'danger', 'This sourcing plan still contains unresolved or clarification-required lines. Correct JobTread and sync again before acceptance.');
-    return;
-  }
-
-  if (!window.confirm('Accept this Warehouse fulfillment plan? After acceptance, Projects can convert the Bid Request to a PO.')) return;
-
-  setMessage('pageMessage', 'info', 'Accepting Warehouse fulfillment plan...');
-
-  const { error } = await client.rpc('jobtread_save_final_quantities', {
-    p_request_id: requestId,
-    p_final_lines: [],
-    p_saved_by: getCurrentUserDisplayName()
-  });
-
-  if (error) {
-    setMessage('pageMessage', 'danger', error.message);
-    return;
-  }
-
-  await loadWorkflowData();
-  setMessage('pageMessage', 'success', 'Warehouse fulfillment plan accepted. Awaiting the JobTread PO.');
-}
-
-async function commitPO(requestId) {
-  const poNumber = document.getElementById(`poNumber_${requestId}`)?.value.trim();
-  const poId = document.getElementById(`poId_${requestId}`)?.value.trim();
-
-  if (!poNumber) {
-    setMessage('pageMessage', 'danger', 'JobTread PO number is required.');
-    return;
-  }
-
-  if (!window.confirm(`Create Warehouse commitments for JobTread PO ${poNumber}? Stock lines will reserve inventory and Purchase Required lines will create job procurement requirements.`)) return;
-
-  setMessage('pageMessage', 'info', 'Creating inventory and procurement commitments...');
-
-  const { data, error } = await client.rpc('jobtread_commit_po', {
-    p_request_id: requestId,
-    p_po_number: poNumber,
-    p_committed_by: getCurrentUserDisplayName(),
-    p_jobtread_po_id: poId || null
-  });
-
-  if (error) {
-    setMessage('pageMessage', 'danger', error.message);
-    return;
-  }
-
-  await loadWorkflowData();
-  const inventoryLines = Number(data?.inventory_commitment_lines || 0);
-  const purchaseLines = Number(data?.procurement_commitment_lines || 0);
-  setMessage(
-    'pageMessage',
-    'success',
-    `JobTread PO ${poNumber} committed: ${inventoryLines} inventory line(s) reserved and ${purchaseLines} purchasing line(s) created. Physical On Hand has not been reduced.`
-  );
-}
-
-async function cancelCommitments(requestId) {
-  const reason = window.prompt('Reason for cancelling this Warehouse PO commitment:');
-  if (reason === null) return;
-
-  if (!reason.trim()) {
-    setMessage('pageMessage', 'danger', 'A cancellation reason is required.');
-    return;
-  }
-
-  if (!window.confirm('Cancel the open Warehouse commitments? This will release reserved stock and cancel open purchasing requirements.')) return;
-
-  const { error } = await client.rpc('jobtread_cancel_po_commitments', {
-    p_request_id: requestId,
-    p_reason: reason.trim()
-  });
-
-  if (error) {
-    setMessage('pageMessage', 'danger', error.message);
-    return;
-  }
-
-  await loadWorkflowData();
-  setMessage('pageMessage', 'success', 'Warehouse PO commitments cancelled. Reserved inventory was released and open purchasing requirements were cancelled.');
-}
-
-function addManualLine() {
-  const requestedItem = document.getElementById('manualRequestedItem').value.trim();
-  const suppliedPartNumber = document.getElementById('manualPartNumber').value.trim();
-  const qty = Number(document.getElementById('manualRequestedQty').value || 0);
-  const uom = document.getElementById('manualRequestedUom').value.trim();
-
-  if (!requestedItem) {
-    setMessage('manualMessage', 'danger', 'JobTread Requested Item is required.');
-    return;
-  }
-
-  if (!qty || qty <= 0) {
-    setMessage('manualMessage', 'danger', 'Requested quantity must be greater than zero.');
-    return;
-  }
-
-  let part = null;
-
-  if (suppliedPartNumber) {
-    part = inventoryAvailability.find(
-      p => normalizeText(p.part_number) === normalizeText(suppliedPartNumber)
-    ) || null;
-
-    if (!part) {
-      setMessage('manualMessage', 'danger', 'The Inventory Part # entered does not exist in the active inventory database. Leave it blank if this JobTread item is not stocked.');
-      return;
-    }
-  } else {
-    const requestedNormalized = normalizeText(requestedItem);
-
-    part = inventoryAvailability
-      .filter(p => String(p.part_number || '').trim().length >= 4)
-      .sort((a, b) => String(b.part_number || '').length - String(a.part_number || '').length)
-      .find(p => requestedNormalized.includes(normalizeText(p.part_number))) || null;
-  }
-
-  manualLines.push({
-    requested_item: requestedItem,
-    requested_uom: uom,
-    part_id: part?.part_id || null,
-    part_number: part?.part_number || '',
-    description: part?.description || '',
-    requested_qty: qty,
-    main_warehouse_on_hand: part?.main_warehouse_on_hand ?? 0,
-    open_committed_qty: part?.open_committed_qty ?? 0,
-    available_to_commit: part?.available_to_commit ?? 0,
-    inventory_matched: !!part
-  });
-
-  document.getElementById('manualRequestedItem').value = '';
-  document.getElementById('manualPartNumber').value = '';
-  document.getElementById('manualRequestedQty').value = '';
-  document.getElementById('manualRequestedUom').value = '';
-  renderManualLines();
-  setMessage('manualMessage', '', '');
-}
-
-function renderManualLines() {
-  const wrap = document.getElementById('manualLinesWrap');
-  const body = document.getElementById('manualLinesBody');
-
-  if (manualLines.length === 0) {
-    wrap.classList.add('hidden');
-    body.innerHTML = '';
-    return;
-  }
-
-  wrap.classList.remove('hidden');
-  body.innerHTML = manualLines.map((line, index) => `
-    <tr>
-      <td><strong>${escapeHTML(line.requested_item)}</strong></td>
-      <td>${
-        line.inventory_matched
-          ? `<strong>${escapeHTML(line.part_number)}</strong><br><span style="color:#667085;">${escapeHTML(line.description || '')}</span>`
-          : '<span class="status-badge badge-red">NOT IN INVENTORY</span>'
-      }</td>
-      <td class="numeric">${formatNumber(line.requested_qty)}${line.requested_uom ? ' ' + escapeHTML(line.requested_uom) : ''}</td>
-      <td class="numeric">${line.inventory_matched ? formatNumber(line.main_warehouse_on_hand) : '—'}</td>
-      <td class="numeric">${line.inventory_matched ? formatNumber(line.open_committed_qty) : '—'}</td>
-      <td class="numeric">${line.inventory_matched ? formatNumber(line.available_to_commit) : '0'}</td>
-      <td><button class="btn-danger" style="padding:6px 9px;" type="button" onclick="removeManualLine(${index})">REMOVE</button></td>
-    </tr>
-  `).join('');
-}
-
-function removeManualLine(index) {
-  manualLines.splice(index, 1);
-  renderManualLines();
-}
-
-async function saveManualBidRequest() {
-  const bidNumber = document.getElementById('manualBidNumber').value.trim();
-
-  if (!bidNumber) {
-    setMessage('manualMessage', 'danger', 'Bid Request # is required.');
-    return;
-  }
-
-  if (manualLines.length === 0) {
-    setMessage('manualMessage', 'danger', 'Add at least one inventory line.');
-    return;
-  }
-
-  setMessage('manualMessage', 'info', 'Saving existing JobTread Bid Request...');
-
-  const { error } = await client.rpc('jobtread_create_manual_bid_request', {
-    p_bid_request_number: bidNumber,
-    p_job_number: document.getElementById('manualJobNumber').value.trim() || null,
-    p_job_name: document.getElementById('manualJobName').value.trim() || null,
-    p_client_name: document.getElementById('manualClientName').value.trim() || null,
-    p_requested_by: document.getElementById('manualRequestedBy').value.trim() || null,
-    p_request_date: document.getElementById('manualRequestDate').value || null,
-    p_jobtread_url: document.getElementById('manualJobTreadUrl').value.trim() || null,
-    p_notes: document.getElementById('manualNotes').value.trim() || null,
-    p_lines: manualLines.map(line => ({
-      requested_item: line.requested_item,
-      requested_uom: line.requested_uom || null,
-      part_number: line.part_number || null,
-      requested_qty: line.requested_qty
-    }))
-  });
-
-  if (error) {
-    setMessage('manualMessage', 'danger', error.message);
-    return;
-  }
-
-  clearManualBidRequest();
-  document.getElementById('manualPilotPanel').open = false;
-  await loadWorkflowData();
-  setMessage('pageMessage', 'success', `Bid Request ${bidNumber} added to the Warehouse workflow.`);
-}
-
-function clearManualBidRequest() {
-  document.getElementById('manualBidNumber').value = '';
-  document.getElementById('manualRequestDate').value = getLocalDateISO();
-  document.getElementById('manualJobNumber').value = '';
-  document.getElementById('manualRequestedBy').value = '';
-  document.getElementById('manualJobName').value = '';
-  document.getElementById('manualClientName').value = '';
-  document.getElementById('manualJobTreadUrl').value = '';
-  document.getElementById('manualNotes').value = '';
-  document.getElementById('manualRequestedItem').value = '';
-  document.getElementById('manualPartNumber').value = '';
-  document.getElementById('manualRequestedQty').value = '';
-  document.getElementById('manualRequestedUom').value = '';
-  manualLines = [];
-  renderManualLines();
-  setMessage('manualMessage', '', '');
-}
-
-// Independent 1410 budget queue. Existing bid/PO records and actions remain separate.
 async function loadProjectMaterialHandoffs() {
   const message=document.getElementById('materialQueueMessage');
   message.textContent='Loading verified Projects material requests...';
@@ -2236,8 +842,7 @@ function renderProjectMaterialHandoffs(){
       <h3>JOB ${escapeHTML(h.job_number)} · ${escapeHTML(h.job_name||'Unnamed Project')}</h3>
       <div class="material-request-sub">${h.line_count} verified 1410 line(s) · Sent by ${escapeHTML(h.verified_by_name||'Projects')} · ${escapeHTML(formatDateTime(h.verified_at))}</div>
       <div class="material-request-sub">${h.status==='RECEIVED'?'ACKNOWLEDGED':'AWAITING WAREHOUSE'}${h.received_at?' · '+escapeHTML(h.received_by_name||'Warehouse')+' · '+escapeHTML(formatDateTime(h.received_at)):''}</div></div>
-      <div class="material-request-actions"><button class="btn-light" type="button" data-action="print">PRINT INVENTORY PICK LIST</button>
-      <button class="btn-teal" type="button" data-action="ack" ${h.status==='RECEIVED'?'disabled':''}>${h.status==='RECEIVED'?'RECEIVED BY WAREHOUSE':'ACKNOWLEDGE RECEIPT'}</button></div></div>
+      <div class="material-request-actions"><button class="btn-teal" type="button" data-action="ack" ${h.status==='RECEIVED'?'disabled':''}>${h.status==='RECEIVED'?'RECEIVED BY WAREHOUSE':'ACKNOWLEDGE RECEIPT'}</button></div></div>
       <div class="material-request-body"><div class="material-queue-counts"><span>Proposed Inventory ${escapeHTML(formatNumber(fromStock))}</span>
       <span>Proposed Purchases ${escapeHTML(formatNumber(purchase))}</span><span>${lines.length} Budget Lines</span></div>
       <div class="table-wrap" style="margin-top:12px;"><table><thead><tr>
@@ -2251,9 +856,70 @@ function renderProjectMaterialHandoffs(){
       <td>${escapeHTML(l.inventory_shelf||'—')}</td><td class="numeric">${escapeHTML(formatNumber(l.suggested_inventory_qty))}</td>
       <td class="numeric">${escapeHTML(formatNumber(l.suggested_purchase_qty))}</td><td>${escapeHTML(l.estimator_notes||'—')}</td></tr>`).join('')}
       </tbody></table></div></div>`;
-    article.querySelector('[data-action="print"]').addEventListener('click',()=>printProjectMaterialPickList(h.id));
     article.querySelector('[data-action="ack"]').addEventListener('click',()=>acknowledgeProjectMaterials(h.id));
+    renderFulfillmentPaths(h,lines,article);
     container.appendChild(article);
+  }
+}
+
+function renderFulfillmentPaths(h,lines,article){
+  const inventory=lines.filter(l=>Number(l.suggested_inventory_qty)>0);
+  const purchase=lines.filter(l=>Number(l.suggested_purchase_qty)>0);
+  const grid=document.createElement('div');grid.className='fulfillment-grid';
+  const stock=document.createElement('section');stock.className='fulfillment-path';
+  stock.innerHTML=`<h3>Path A — Available Inventory</h3>
+    <div class="material-request-sub">${inventory.length} material line(s) proposed from Main Warehouse</div>
+    ${inventory.length?`<div class="table-wrap"><table><thead><tr><th>Inventory Part #</th><th>Budget Item</th><th>Shelf</th><th>Qty to Fulfill</th></tr></thead><tbody>
+    ${inventory.map(l=>`<tr><td>${escapeHTML(l.inventory_part_number||'')}</td><td>${escapeHTML(l.budget_item_name)}</td><td>${escapeHTML(l.inventory_shelf||'—')}</td><td>${escapeHTML(formatNumber(l.suggested_inventory_qty))} ${escapeHTML(l.unit||'')}</td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="path-empty">No existing-stock materials proposed for this job.</div>'}
+    <div class="path-actions">
+      <button class="btn-light" type="button" data-action="pick" ${inventory.length?'':'disabled'}>GENERATE PICK LIST</button>
+      <button class="btn-primary" type="button" disabled title="JobTread PO creation is not yet connected">YES — FULFILL FROM INVENTORY</button>
+    </div>
+    <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
+    <div class="path-note">PO acceptance is locked until the JobTread PO creation and inventory commitment actions have been validated. Printing is available now.</div>`;
+  stock.querySelector('[data-action="pick"]').addEventListener('click',()=>printProjectMaterialPickList(h.id));
+
+  const buy=document.createElement('section');buy.className='fulfillment-path purchase';
+  buy.innerHTML=`<h3>Path B — Purchase Required</h3>
+    <div class="material-request-sub">${purchase.length} material line(s) need outside purchasing, including partial-stock shortages.</div>
+    ${purchase.length?`<div class="table-wrap"><table><thead><tr><th>Material / Part #</th><th>Purchase Qty</th><th>Vendor</th></tr></thead><tbody>
+    ${purchase.map(l=>`<tr><td><strong>${escapeHTML(l.budget_item_name)}</strong><div class="material-request-sub">${escapeHTML(l.requested_part_number||'No manufacturer part #')}</div></td>
+      <td>${escapeHTML(formatNumber(l.suggested_purchase_qty))} ${escapeHTML(l.unit||'')}</td>
+      <td><select data-vendor-line="${l.id}" aria-label="Vendor for ${escapeAttribute(l.budget_item_name)}"><option value="">Select supplier</option>
+      ${purchaseVendors.map(v=>`<option value="${escapeAttribute(v)}" ${vendorDraftSelections.get(l.id)===v?'selected':''}>${escapeHTML(v)}</option>`).join('')}</select></td></tr>`).join('')}
+    </tbody></table></div>`:'<div class="path-empty">No materials currently require outside purchasing.</div>'}
+    <div class="vendor-groups" data-vendor-groups>Choose a vendor for each purchase-required item to preview the separate vendor PO groups.</div>
+    <div class="path-result">Next: One JobTread PO per vendor · Receive as NON_INVENTORY for Job ${escapeHTML(h.job_number)}</div>
+    <div class="path-note">Vendor choices are draft planning only. The Ordered action will be enabled once JobTread PO creation and vendor payment setup are connected.</div>`;
+  for(const select of buy.querySelectorAll('[data-vendor-line]')){
+    select.addEventListener('change',event=>{
+      if(event.target.value)vendorDraftSelections.set(select.dataset.vendorLine,event.target.value);
+      else vendorDraftSelections.delete(select.dataset.vendorLine);
+      updateVendorPOPreview(buy,purchase);
+    });
+  }
+  updateVendorPOPreview(buy,purchase);
+  grid.append(stock,buy);
+  article.querySelector('.material-request-body').appendChild(grid);
+}
+
+function updateVendorPOPreview(purchaseCard,lines){
+  const box=purchaseCard.querySelector('[data-vendor-groups]');if(!box)return;
+  const groups=new Map();
+  for(const l of lines){
+    const vendor=vendorDraftSelections.get(l.id);if(!vendor)continue;
+    if(!groups.has(vendor))groups.set(vendor,[]);
+    groups.get(vendor).push(l);
+  }
+  box.replaceChildren();
+  if(!groups.size){box.textContent='Choose a supplier above to preview one PO for each vendor.';return;}
+  for(const [vendor,items] of groups){
+    const row=document.createElement('div');row.className='path-actions';
+    const label=document.createElement('strong');label.textContent=vendor+' · '+items.length+' line(s)';
+    const button=document.createElement('button');button.className='btn-orange';button.type='button';button.disabled=true;
+    button.textContent='ORDERED — CREATE VENDOR PO';button.title='JobTread vendor PO creation is not yet connected';
+    row.append(label,button);box.appendChild(row);
   }
 }
 
@@ -2293,56 +959,6 @@ function printProjectMaterialPickList(handoffId){
   popup.document.open();popup.document.write(html);popup.document.close();popup.focus();popup.print();
 }
 
-function setTab(tab) {
-  currentTab = tab;
-  document.getElementById('materialTab').classList.toggle('hidden',tab !== 'materials');
-  document.getElementById('materialTabBtn').classList.toggle('active',tab === 'materials');
-  document.getElementById('legacyWorkflowTop').classList.toggle('hidden',tab === 'materials');
-  document.getElementById('requestsTab').classList.toggle('hidden', tab !== 'requests');
-  document.getElementById('commitmentsTab').classList.toggle('hidden', tab !== 'commitments');
-  document.getElementById('requestsTabBtn').classList.toggle('active', tab === 'requests');
-  document.getElementById('commitmentsTabBtn').classList.toggle('active', tab === 'commitments');
-}
-
-function statusInfo(status) {
-  const map = {
-    NEEDS_REVIEW: { label: 'NEEDS WAREHOUSE REVIEW', className: 'badge-orange' },
-    AWAITING_PROJECTS_UPDATE: { label: 'WAREHOUSE PLAN SAVED', className: 'badge-blue' },
-    ACCEPTED_AWAITING_PO: { label: 'ACCEPTED / AWAITING PO', className: 'badge-purple' },
-    PO_CREATED: { label: 'PO / INVENTORY COMMITTED', className: 'badge-green' },
-    FULFILLED: { label: 'FULFILLED', className: 'badge-gray' },
-    CANCELLED: { label: 'CANCELLED', className: 'badge-red' }
-  };
-
-  return map[status] || { label: status || 'UNKNOWN', className: 'badge-gray' };
-}
-
-function getCurrentUserDisplayName() {
-  return currentProfile?.full_name || currentSession?.user?.email || 'Warehouse';
-}
-
-function setMessage(id, type, message) {
-  const el = document.getElementById(id);
-  if (!el) return;
-
-  if (!message) {
-    el.className = 'message';
-    el.textContent = '';
-    return;
-  }
-
-  el.className =
-    type === 'danger' ? 'danger-note' :
-    type === 'success' ? 'status-note' :
-    type === 'warning' ? 'warning-note' :
-    'info-note';
-
-  el.textContent = message;
-}
-
-function normalizeText(value) {
-  return String(value || '').trim().toUpperCase();
-}
 
 function formatNumber(value) {
   const n = Number(value || 0);
