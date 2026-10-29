@@ -71,6 +71,24 @@
       font-weight: 400;
     }
 
+    .material-queue-card { margin-bottom:18px; padding:20px; }
+    .material-queue-tools { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:12px 0 16px; }
+    .material-queue-tools input { flex:1 1 250px; min-width:190px; }
+    .material-queue-tools select { flex:0 1 200px; }
+    .material-request { border:1px solid #cddde8; border-radius:13px; background:#fff; margin:15px 0; overflow:hidden; }
+    .material-request-head { padding:15px 18px; background:#edf5fa; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .material-request-head h3 { margin:0 0 5px; font-size:16px; color:#062f4f; }
+    .material-request-sub { font-size:12px; color:#526273; line-height:1.5; }
+    .material-request-body { padding:14px 18px 17px; }
+    .material-request-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .material-safe { background:#edf9fb; color:#14576a; padding:12px 14px; border-radius:9px; margin:14px 0; line-height:1.5; font-size:12px; border-left:4px solid #1aa3b0; }
+    .material-request table { min-width:1040px; }
+    .material-request td,.material-request th { padding:9px 10px; font-size:12px; }
+    .material-request td { border-bottom:1px solid #e5edf3; vertical-align:top; }
+    .material-request th { text-align:left; }
+    .material-queue-counts { display:flex; gap:10px; flex-wrap:wrap; margin-top:5px; color:#43566a; font-size:12px; }
+    .material-queue-counts span { padding:6px 8px; background:#f1f6fa; border-radius:7px; }
+
     .header-badge {
       background: rgba(255,255,255,.14);
       border: 1px solid rgba(255,255,255,.22);
@@ -584,7 +602,7 @@
   <div class="header-bar">
     <div>
       <div class="header-title">Molinari Pools – JobTread Warehouse Workflow</div>
-      <div class="header-subtitle">Bid Request → Warehouse Sourcing Plan → Accepted Bid → PO → Stock + Procurement Commitments</div>
+      <div class="header-subtitle">Projects Verified 1410 Budget Materials → Warehouse Review &amp; Pick List</div>
     </div>
     <div class="header-badge">WAREHOUSE / JOBTREAD</div>
   </div>
@@ -602,6 +620,33 @@
   </div>
 
   <main id="workflowContent" class="main hidden">
+
+    <div class="tabs">
+      <button id="materialTabBtn" class="tab-btn active" type="button" onclick="setTab('materials')">NEW · PROJECTS MATERIAL REQUESTS</button>
+      <button id="requestsTabBtn" class="tab-btn" type="button" onclick="setTab('requests')">PREVIOUS BID REQUEST WORKFLOW</button>
+      <button id="commitmentsTabBtn" class="tab-btn" type="button" onclick="setTab('commitments')">PREVIOUS PO FULFILLMENT</button>
+    </div>
+
+    <section id="materialTab">
+      <div class="card material-queue-card">
+        <h2 style="margin:0;color:#062f4f;">Warehouse — Verified Projects Materials</h2>
+        <div class="material-safe"><strong>New workflow test:</strong> Projects sends the verified JobTread cost-code 1410 budget lines here. Warehouse may review, print an inventory pick list, and acknowledge receipt. <strong>No JobTread PO, vendor order, inventory reservation, issue, Bill, Expense, or QuickBooks posting is created at this stage.</strong></div>
+        <div class="material-queue-tools">
+          <input type="search" id="materialJobSearch" placeholder="Search Job number, Job name or material..." oninput="renderProjectMaterialHandoffs()" aria-label="Search new Projects material requests">
+          <select id="materialStatusFilter" onchange="renderProjectMaterialHandoffs()" aria-label="Filter Projects material request status">
+            <option value="SENT">Waiting for Warehouse</option>
+            <option value="ALL">All Requests</option>
+            <option value="RECEIVED">Acknowledged</option>
+          </select>
+          <button type="button" class="btn-teal" onclick="loadProjectMaterialHandoffs()">REFRESH REQUESTS</button>
+        </div>
+        <div id="materialQueueMessage" class="message" role="status" aria-live="polite"></div>
+        <div id="materialQueueCounts" class="material-queue-counts"></div>
+        <div id="materialHandoffList"><div class="info-note">Loading verified Projects materials...</div></div>
+      </div>
+    </section>
+
+    <div id="legacyWorkflowTop" class="hidden">
 
     <div class="summary-grid">
       <div class="summary-card">
@@ -764,12 +809,9 @@
       </div>
     </details>
 
-    <div class="tabs">
-      <button id="requestsTabBtn" class="tab-btn active" type="button" onclick="setTab('requests')">BID REQUEST WORKFLOW</button>
-      <button id="commitmentsTabBtn" class="tab-btn" type="button" onclick="setTab('commitments')">WAREHOUSE FULFILLMENT</button>
-    </div>
+    </div><!-- legacyWorkflowTop: preserved previous bid/PO workflow -->
 
-    <section id="requestsTab">
+    <section id="requestsTab" class="hidden">
       <div class="section-heading">
         <h2>Warehouse Bid Requests</h2>
       </div>
@@ -860,7 +902,9 @@ let requestSummary = [];
 let requestLines = [];
 let inventoryAvailability = [];
 let manualLines = [];
-let currentTab = 'requests';
+let currentTab = 'materials';
+let projectMaterialHandoffs = [];
+let projectMaterialHandoffLines = [];
 
 window.addEventListener('load', async () => {
   document.getElementById('manualRequestDate').value = getLocalDateISO();
@@ -868,6 +912,7 @@ window.addEventListener('load', async () => {
   const hasAccess = await enforceAccess();
   if (!hasAccess) return;
 
+  await loadProjectMaterialHandoffs();
   await loadWorkflowData();
   await loadJobTreadConnectionStatus();
 
@@ -2142,8 +2187,127 @@ function clearManualBidRequest() {
   setMessage('manualMessage', '', '');
 }
 
+// Independent 1410 budget queue. Existing bid/PO records and actions remain separate.
+async function loadProjectMaterialHandoffs() {
+  const message=document.getElementById('materialQueueMessage');
+  message.textContent='Loading verified Projects material requests...';
+  try {
+    const {data:headers,error:headerError}=await client.from('jobtread_project_material_handoffs')
+      .select('id,jobtread_job_id,job_number,job_name,status,verified_by_name,verified_at,received_by_name,received_at,line_count')
+      .order('verified_at',{ascending:false}).limit(100);
+    if(headerError) throw headerError;
+    projectMaterialHandoffs=headers||[];
+    projectMaterialHandoffLines=[];
+    if(projectMaterialHandoffs.length){
+      const ids=projectMaterialHandoffs.map(h=>h.id);
+      for(let page=0;page<40;page++) {
+        const {data:lines,error:lineError}=await client.from('jobtread_project_material_handoff_lines')
+          .select('id,handoff_id,jobtread_budget_item_id,budget_item_name,description,unit,requested_qty,inventory_part_number,inventory_on_hand,inventory_available,inventory_shelf,suggested_inventory_qty,suggested_purchase_qty,estimator_notes')
+          .in('handoff_id',ids).order('created_at',{ascending:true}).range(page*500,page*500+499);
+        if(lineError) throw lineError;
+        projectMaterialHandoffLines.push(...(lines||[]));
+        if(!lines||lines.length<500) break;
+        if(page===39)throw new Error('Warehouse material queue exceeds the safe page limit.');
+      }
+    }
+    message.textContent=projectMaterialHandoffs.length
+      ? 'Queue updated. Inventory and purchasing quantities are estimates captured when Projects sent the request.'
+      : 'No verified Projects materials have been sent yet. Submit a job from Projects Materials by Job.';
+    renderProjectMaterialHandoffs();
+  }catch(error){
+    message.textContent='Unable to load verified Projects materials: '+(error?.message||String(error));
+    document.getElementById('materialHandoffList').textContent='Warehouse handoff data could not be loaded.';
+  }
+}
+
+function renderProjectMaterialHandoffs(){
+  const container=document.getElementById('materialHandoffList');
+  const counter=document.getElementById('materialQueueCounts');
+  const search=String(document.getElementById('materialJobSearch').value||'').trim().toLowerCase();
+  const filter=document.getElementById('materialStatusFilter').value;
+  const open=projectMaterialHandoffs.filter(h=>h.status==='SENT').length;
+  counter.textContent=`${open} Waiting for Warehouse · ${projectMaterialHandoffs.length-open} Acknowledged · ${projectMaterialHandoffs.length} Total Jobs`;
+  const selected=projectMaterialHandoffs.filter(h=>{
+    if(filter!=='ALL'&&h.status!==filter)return false;
+    const lines=projectMaterialHandoffLines.filter(l=>l.handoff_id===h.id);
+    return !search||[h.job_number,h.job_name,...lines.flatMap(l=>[l.budget_item_name,l.inventory_part_number||''])]
+      .some(value=>String(value||'').toLowerCase().includes(search));
+  });
+  container.replaceChildren();
+  if(!selected.length){const el=document.createElement('div');el.className='info-note';
+    el.textContent='No requests match this filter. Choose All Requests to see acknowledged requests.';
+    container.appendChild(el);return;}
+  for(const h of selected){
+    const lines=projectMaterialHandoffLines.filter(l=>l.handoff_id===h.id);
+    const fromStock=lines.reduce((sum,l)=>sum+Number(l.suggested_inventory_qty||0),0);
+    const purchase=lines.reduce((sum,l)=>sum+Number(l.suggested_purchase_qty||0),0);
+    const article=document.createElement('article');article.className='material-request';
+    article.innerHTML=`<div class="material-request-head"><div>
+      <h3>JOB ${escapeHTML(h.job_number)} · ${escapeHTML(h.job_name||'Unnamed Project')}</h3>
+      <div class="material-request-sub">${h.line_count} verified 1410 line(s) · Sent by ${escapeHTML(h.verified_by_name||'Projects')} · ${escapeHTML(formatDateTime(h.verified_at))}</div>
+      <div class="material-request-sub">${h.status==='RECEIVED'?'ACKNOWLEDGED':'AWAITING WAREHOUSE'}${h.received_at?' · '+escapeHTML(h.received_by_name||'Warehouse')+' · '+escapeHTML(formatDateTime(h.received_at)):''}</div></div>
+      <div class="material-request-actions"><button class="btn-light" type="button" data-action="print">PRINT INVENTORY PICK LIST</button>
+      <button class="btn-teal" type="button" data-action="ack" ${h.status==='RECEIVED'?'disabled':''}>${h.status==='RECEIVED'?'RECEIVED BY WAREHOUSE':'ACKNOWLEDGE RECEIPT'}</button></div></div>
+      <div class="material-request-body"><div class="material-queue-counts"><span>Proposed Inventory ${escapeHTML(formatNumber(fromStock))}</span>
+      <span>Proposed Purchases ${escapeHTML(formatNumber(purchase))}</span><span>${lines.length} Budget Lines</span></div>
+      <div class="table-wrap" style="margin-top:12px;"><table><thead><tr>
+      <th>JobTread Budget Item</th><th>Exact Part #</th><th class="numeric">Requested</th><th class="numeric">On Hand</th>
+      <th class="numeric">Available</th><th>Shelf</th><th class="numeric">Inventory</th><th class="numeric">Purchase</th><th>Estimator Notes</th>
+      </tr></thead><tbody>${lines.map(l=>`<tr><td><strong>${escapeHTML(l.budget_item_name||'')}</strong>
+      ${l.description?`<div class="material-request-sub">${escapeHTML(l.description)}</div>`:''}</td>
+      <td>${escapeHTML(l.inventory_part_number||'NO EXACT MATCH')}</td><td class="numeric">${escapeHTML(formatNumber(l.requested_qty))} ${escapeHTML(l.unit||'')}</td>
+      <td class="numeric">${l.inventory_part_number?escapeHTML(formatNumber(l.inventory_on_hand)):'—'}</td>
+      <td class="numeric">${l.inventory_part_number?escapeHTML(formatNumber(l.inventory_available)):'—'}</td>
+      <td>${escapeHTML(l.inventory_shelf||'—')}</td><td class="numeric">${escapeHTML(formatNumber(l.suggested_inventory_qty))}</td>
+      <td class="numeric">${escapeHTML(formatNumber(l.suggested_purchase_qty))}</td><td>${escapeHTML(l.estimator_notes||'—')}</td></tr>`).join('')}
+      </tbody></table></div></div>`;
+    article.querySelector('[data-action="print"]').addEventListener('click',()=>printProjectMaterialPickList(h.id));
+    article.querySelector('[data-action="ack"]').addEventListener('click',()=>acknowledgeProjectMaterials(h.id));
+    container.appendChild(article);
+  }
+}
+
+async function acknowledgeProjectMaterials(handoffId){
+  const h=projectMaterialHandoffs.find(row=>row.id===handoffId);
+  if(!h||h.status!=='SENT')return;
+  if(!window.confirm('Acknowledge receipt of Job '+h.job_number+' materials? This does NOT reserve or issue inventory or create any PO or Bill.'))return;
+  const msg=document.getElementById('materialQueueMessage');msg.textContent='Acknowledging Job '+h.job_number+'...';
+  try{
+    const {data,error}=await client.rpc('jobtread_acknowledge_project_material_handoff',{p_handoff_id:handoffId});
+    if(error)throw error;
+    if(!data?.success)throw new Error('No confirmation returned.');
+    await loadProjectMaterialHandoffs();
+    msg.textContent='Job '+h.job_number+' acknowledged. No financial or inventory transaction was created.';
+  }catch(error){msg.textContent='Unable to acknowledge Job '+h.job_number+': '+(error?.message||String(error));}
+}
+
+function printProjectMaterialPickList(handoffId){
+  const h=projectMaterialHandoffs.find(row=>row.id===handoffId);
+  if(!h)return;
+  const lines=projectMaterialHandoffLines.filter(l=>l.handoff_id===handoffId&&Number(l.suggested_inventory_qty)>0);
+  if(!lines.length)return window.alert('No in-stock quantities are proposed for Job '+h.job_number+'. Review the purchasing requirements instead.');
+  const popup=window.open('','_blank','width=1100,height=800');
+  if(!popup)return window.alert('Please allow pop-ups to print the Warehouse pick list.');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Draft Pick List Job ${escapeHTML(h.job_number)}</title><style>
+    body{font:13px Arial,sans-serif;margin:28px;color:#1f2933}h1{color:#062f4f;font-size:21px}
+    table{border-collapse:collapse;width:100%;margin-top:18px}th,td{border:1px solid #cbd5e1;padding:9px;text-align:left}
+    th{background:#edf5fa}.notice{border:1px solid #fed7aa;background:#fff7ed;padding:12px;margin:15px 0}
+    @page{size:landscape;margin:10mm}</style></head><body>
+    <h1>Molinari Warehouse · Draft Inventory Pick List</h1>
+    <p><strong>Job:</strong> ${escapeHTML(h.job_number)} — ${escapeHTML(h.job_name||'')} &nbsp; <strong>Cost Code:</strong> 1410</p>
+    <p><strong>Estimator:</strong> ${escapeHTML(h.verified_by_name||'Projects')} &nbsp; <strong>Verified:</strong> ${escapeHTML(formatDateTime(h.verified_at))}</p>
+    <div class="notice"><strong>DRAFT ONLY:</strong> Confirm current inventory stock before picking or issuing. Printing does not reserve inventory or create a JobTread PO, Bill, or Expense.</div>
+    <table><thead><tr><th>Part #</th><th>JobTread Budget Item</th><th>Shelf</th><th>Proposed Pick Qty</th><th>Actual Pick Qty</th><th>Picked By / Notes</th></tr></thead><tbody>
+    ${lines.map(l=>`<tr><td>${escapeHTML(l.inventory_part_number||'')}</td><td>${escapeHTML(l.budget_item_name)}</td><td>${escapeHTML(l.inventory_shelf||'—')}</td><td>${escapeHTML(formatNumber(l.suggested_inventory_qty))} ${escapeHTML(l.unit||'')}</td><td>________</td><td>________________________</td></tr>`).join('')}</tbody></table>
+    <p>Printed ${escapeHTML(new Date().toLocaleString())}</p></body></html>`;
+  popup.document.open();popup.document.write(html);popup.document.close();popup.focus();popup.print();
+}
+
 function setTab(tab) {
   currentTab = tab;
+  document.getElementById('materialTab').classList.toggle('hidden',tab !== 'materials');
+  document.getElementById('materialTabBtn').classList.toggle('active',tab === 'materials');
+  document.getElementById('legacyWorkflowTop').classList.toggle('hidden',tab === 'materials');
   document.getElementById('requestsTab').classList.toggle('hidden', tab !== 'requests');
   document.getElementById('commitmentsTab').classList.toggle('hidden', tab !== 'commitments');
   document.getElementById('requestsTabBtn').classList.toggle('active', tab === 'requests');
