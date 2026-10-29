@@ -132,6 +132,8 @@
         <div class="job-head" style="margin-bottom:14px">
           <div><h2>Project Materials — Estimator Review</h2><div class="muted small">Enter either an inventory part number or a manufacturer's non-stock part number. Only exact inventory matches count as stock; unmatched parts remain purchase-required.</div></div>
           <div class="buttons no-print" style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="primary" id="selectAllBtn" type="button">SELECT ALL</button>
+            <button class="secondary" id="deselectAllBtn" type="button">DESELECT ALL</button>
             <button class="secondary" id="printBtn" type="button">PRINT REVIEW</button>
             <button class="secondary" id="exportBtn" type="button">EXPORT CSV</button>
           </div>
@@ -173,6 +175,8 @@
       byId('clearBtn').addEventListener('click', clearReview);
       byId('printBtn').addEventListener('click', () => window.print());
       byId('exportBtn').addEventListener('click', exportCSV);
+      byId('selectAllBtn').addEventListener('click', () => setAllSelected(true));
+      byId('deselectAllBtn').addEventListener('click', () => setAllSelected(false));
       byId('materialsBody').addEventListener('change', handleRowChange);
       byId('sendWarehouseBtn').addEventListener('click', sendVerifiedToWarehouse);
       await verifyAccess();
@@ -197,6 +201,29 @@
     function number(value) { const n=Number(value); return value===null||value===undefined||value===''||!Number.isFinite(n)?null:n; }
     function fmt(value) { const n=number(value); return n===null?'—':new Intl.NumberFormat('en-US',{maximumFractionDigits:3}).format(n); }
 
+    async function loadAllWarehouseAvailability() {
+      // The Data API limits individual responses. Load every page, including
+      // alphabetically late parts such as TruClear, before matching or sending.
+      const batchSize=500, all=[];
+      try {
+        for(let page=0;page<100;page++) {
+          const {data,error}=await db.from('jobtread_inventory_availability_view')
+            .select('part_id,part_number,description,main_warehouse_on_hand,open_committed_qty,available_to_commit,shelf_location')
+            .order('part_number',{ascending:true})
+            .order('part_id',{ascending:true})
+            .range(page*batchSize,page*batchSize+batchSize-1);
+          if(error) throw error;
+          all.push(...(data||[]));
+          if(!data || data.length<batchSize) return {data:all,error:null};
+        }
+        throw new Error('Inventory availability exceeds the maximum safe pagination limit. Contact an administrator.');
+      } catch(error) {
+        // Never silently use a partial set of inventory parts: this would
+        // misclassify genuine stock as non-stock purchasing requirements.
+        return {data:null,error:{message:error?.message||String(error)}};
+      }
+    }
+
     async function retrieveJob() {
       const jobNumber=byId('jobNumber').value.trim();
       if (!/^\d{1,10}$/.test(jobNumber)) return setStatus('Enter a numeric JobTread job number.', 'danger');
@@ -207,7 +234,7 @@
       try {
         const [jobResult,inventoryResult] = await Promise.all([
           db.functions.invoke('jobtread-project-budget-readonly',{body:{jobNumber}}),
-          db.from('jobtread_inventory_availability_view').select('part_id,part_number,description,main_warehouse_on_hand,open_committed_qty,available_to_commit,shelf_location').order('part_number')
+          loadAllWarehouseAvailability()
         ]);
         if (jobResult.error) throw jobResult.error;
         const payload=jobResult.data;
@@ -233,7 +260,7 @@
         byId('inventoryWarning').classList.toggle('hidden',!state.availabilityError);
         byId('inventoryWarning').textContent=state.availabilityError?'Budget loaded, but Warehouse availability could not be read: '+state.availabilityError+'. Inventory matching is incomplete.':'';
         populatePartNumbers(); renderTable();
-        setStatus('Retrieved '+state.materials.length+' positive-quantity cost-code 1410 line(s) for Job '+state.job.number+'. Select and verify the materials for Warehouse.','success');
+        setStatus('Retrieved '+state.materials.length+' positive-quantity cost-code 1410 line(s) for Job '+state.job.number+' and '+state.availability.length+' Warehouse catalog parts. Select and verify the materials for Warehouse.','success');
       } catch (error) {
         setStatus('JobTread budget lookup failed: '+(error?.message||String(error))+' — no records were changed.','danger');
       } finally { byId('lookupBtn').disabled=false;byId('lookupBtn').textContent='RETRIEVE JOB BUDGET'; }
@@ -305,6 +332,12 @@
       refreshSummary();
     }
 
+    function setAllSelected(selected) {
+      if(!state.job || !state.materials.length) return;
+      state.materials.forEach(row=>{row.selected=Boolean(selected);});
+      renderTable();
+    }
+
     function refreshSummary() {
       byId('lineCount').textContent=state.materials.length;
       byId('matchCount').textContent=state.materials.filter(row=>statusFor(row).part).length;
@@ -312,6 +345,8 @@
       const count=state.materials.filter(row=>row.selected).length;
       byId('selectedCount').textContent=count;
       byId('reviewCount').textContent=count+' of '+state.materials.length+' material line(s) selected for Warehouse verification.';
+      byId('selectAllBtn').disabled=!state.materials.length||count===state.materials.length;
+      byId('deselectAllBtn').disabled=count===0;
       byId('sendWarehouseBtn').disabled=!state.profile||!state.job||count===0||state.possiblyTruncated||Boolean(state.availabilityError);
     }
 
