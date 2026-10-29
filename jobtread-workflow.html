@@ -621,12 +621,6 @@
 
   <main id="workflowContent" class="main hidden">
 
-    <div class="tabs">
-      <button id="materialTabBtn" class="tab-btn active" type="button" onclick="setTab('materials')">NEW · PROJECTS MATERIAL REQUESTS</button>
-      <button id="requestsTabBtn" class="tab-btn" type="button" onclick="setTab('requests')">PREVIOUS BID REQUEST WORKFLOW</button>
-      <button id="commitmentsTabBtn" class="tab-btn" type="button" onclick="setTab('commitments')">PREVIOUS PO FULFILLMENT</button>
-    </div>
-
     <section id="materialTab">
       <div class="card material-queue-card">
         <h2 style="margin:0;color:#062f4f;">Warehouse — Verified Projects Materials</h2>
@@ -913,12 +907,8 @@ window.addEventListener('load', async () => {
   if (!hasAccess) return;
 
   await loadProjectMaterialHandoffs();
-  await loadWorkflowData();
-  await loadJobTreadConnectionStatus();
-
-  if (['ADMIN', 'SYSTEM_ADMIN'].includes(currentProfile?.role)) {
-    document.getElementById('testJobTreadApiBtn')?.classList.remove('hidden');
-  }
+  // Legacy Bid Request and PO workflow is retired from this page.
+  // Only the verified Projects Materials queue loads.
 });
 
 async function enforceAccess() {
@@ -2202,7 +2192,7 @@ async function loadProjectMaterialHandoffs() {
       const ids=projectMaterialHandoffs.map(h=>h.id);
       for(let page=0;page<40;page++) {
         const {data:lines,error:lineError}=await client.from('jobtread_project_material_handoff_lines')
-          .select('id,handoff_id,jobtread_budget_item_id,budget_item_name,description,unit,requested_qty,inventory_part_number,inventory_on_hand,inventory_available,inventory_shelf,suggested_inventory_qty,suggested_purchase_qty,estimator_notes')
+          .select('id,handoff_id,jobtread_budget_item_id,budget_item_name,description,unit,requested_qty,requested_part_number,inventory_part_number,inventory_on_hand,inventory_available,inventory_shelf,suggested_inventory_qty,suggested_purchase_qty,estimator_notes')
           .in('handoff_id',ids).order('created_at',{ascending:true}).range(page*500,page*500+499);
         if(lineError) throw lineError;
         projectMaterialHandoffLines.push(...(lines||[]));
@@ -2230,7 +2220,7 @@ function renderProjectMaterialHandoffs(){
   const selected=projectMaterialHandoffs.filter(h=>{
     if(filter!=='ALL'&&h.status!==filter)return false;
     const lines=projectMaterialHandoffLines.filter(l=>l.handoff_id===h.id);
-    return !search||[h.job_number,h.job_name,...lines.flatMap(l=>[l.budget_item_name,l.inventory_part_number||''])]
+    return !search||[h.job_number,h.job_name,...lines.flatMap(l=>[l.budget_item_name,l.requested_part_number||'',l.inventory_part_number||''])]
       .some(value=>String(value||'').toLowerCase().includes(search));
   });
   container.replaceChildren();
@@ -2251,11 +2241,11 @@ function renderProjectMaterialHandoffs(){
       <div class="material-request-body"><div class="material-queue-counts"><span>Proposed Inventory ${escapeHTML(formatNumber(fromStock))}</span>
       <span>Proposed Purchases ${escapeHTML(formatNumber(purchase))}</span><span>${lines.length} Budget Lines</span></div>
       <div class="table-wrap" style="margin-top:12px;"><table><thead><tr>
-      <th>JobTread Budget Item</th><th>Exact Part #</th><th class="numeric">Requested</th><th class="numeric">On Hand</th>
+      <th>JobTread Budget Item</th><th>Material Part #</th><th>Inventory Match</th><th class="numeric">Requested</th><th class="numeric">On Hand</th>
       <th class="numeric">Available</th><th>Shelf</th><th class="numeric">Inventory</th><th class="numeric">Purchase</th><th>Estimator Notes</th>
       </tr></thead><tbody>${lines.map(l=>`<tr><td><strong>${escapeHTML(l.budget_item_name||'')}</strong>
       ${l.description?`<div class="material-request-sub">${escapeHTML(l.description)}</div>`:''}</td>
-      <td>${escapeHTML(l.inventory_part_number||'NO EXACT MATCH')}</td><td class="numeric">${escapeHTML(formatNumber(l.requested_qty))} ${escapeHTML(l.unit||'')}</td>
+      <td>${escapeHTML(l.requested_part_number||'—')}</td><td>${escapeHTML(l.inventory_part_number||'NON-STOCK · PURCHASE')}</td><td class="numeric">${escapeHTML(formatNumber(l.requested_qty))} ${escapeHTML(l.unit||'')}</td>
       <td class="numeric">${l.inventory_part_number?escapeHTML(formatNumber(l.inventory_on_hand)):'—'}</td>
       <td class="numeric">${l.inventory_part_number?escapeHTML(formatNumber(l.inventory_available)):'—'}</td>
       <td>${escapeHTML(l.inventory_shelf||'—')}</td><td class="numeric">${escapeHTML(formatNumber(l.suggested_inventory_qty))}</td>
