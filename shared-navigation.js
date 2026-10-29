@@ -321,12 +321,17 @@
 
     {
       label: 'Projects',
-      roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
+      roles: ['SALES', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN'],
       links: [
         {
           label: 'Projects Command Center',
           href: 'projects-command.html',
           roles: ['PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
+        },
+        {
+          label: 'Projects Materials by Job',
+          href: 'projects-materials-by-job.html',
+          roles: ['SALES', 'PROJECTS', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
