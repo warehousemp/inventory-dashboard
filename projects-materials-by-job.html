@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Projects Materials by Job Review - Molinari Operating System</title>
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="shared-navigation.css">
+  <meta name="theme-color" content="#0b3c5d">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; }
+    :root { --navy:#0b3c5d; --dark:#062f4f; --teal:#1aa3b0; --light:#f4f8fb; --text:#1f2933; --muted:#667085; --border:#d9e2ec; --green:#15803d; --orange:#b45309; --red:#b91c1c; }
+    body { margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--light); color:var(--text); }
+    .hidden { display:none !important; }
+    .header { background:var(--navy); color:#fff; padding:19px 28px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; }
+    .header h1 { font-size:22px; margin:0 0 6px; color:#fff; }
+    .header p { font-size:13px; margin:0; color:#d7e8f3; }
+    .header-label { display:inline-block; padding:8px 12px; border-radius:999px; border:1px solid rgba(255,255,255,.28); font-size:11px; font-weight:800; background:rgba(255,255,255,.14); letter-spacing:.04em; }
+    main { max-width:1650px; padding:0 20px; margin:24px auto 45px; }
+    .card { background:white; border:1px solid var(--border); border-radius:14px; padding:20px; box-shadow:0 6px 20px rgba(20,53,83,.045); margin-bottom:18px; }
+    .card h2 { margin:0 0 10px; color:var(--dark); font-size:18px; }
+    .muted { color:var(--muted); }
+    .small { font-size:12px; }
+    .notice { border-radius:10px; font-size:13px; line-height:1.5; padding:12px 14px; border:1px solid #bfdbfe; background:#eff6ff; color:#1e40af; margin-bottom:16px; }
+    .notice.warn { background:#fff7ed; border-color:#fed7aa; color:#9a3412; }
+    .notice.danger { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+    .notice.success { background:#ecfdf3; border-color:#a7f3d0; color:#166534; }
+    .gate { width:min(700px,calc(100% - 32px)); margin:45px auto; }
+    .gate h2 { color:var(--navy); }
+    .gate-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+    button, .btn { border:0; font:inherit; font-weight:700; border-radius:9px; padding:11px 15px; font-size:12px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; text-decoration:none; gap:7px; }
+    button.primary, .btn.primary { background:var(--teal); color:#fff; }
+    button.secondary, .btn.secondary { background:#edf3f8; color:var(--navy); border:1px solid #cbd5e1; }
+    button.dark { background:var(--navy); color:#fff; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    button:not(:disabled):hover, .btn:hover { filter:brightness(.94); }
+    input[type=number], input[type=text], input[type=search], textarea { width:100%; background:#fff; border:1px solid #cbd5e1; border-radius:9px; padding:11px 12px; color:var(--text); font:inherit; font-size:13px; }
+    input:focus, textarea:focus { outline:2px solid rgba(26,163,176,.25); border-color:var(--teal); }
+    label { display:block; color:var(--navy); font-size:12px; font-weight:700; margin-bottom:7px; }
+    .search-grid { display:grid; grid-template-columns:minmax(160px,280px) auto auto; align-items:end; justify-content:start; gap:10px; }
+    .search-help { font-size:12px; color:var(--muted); margin-top:10px; }
+    .status-line { margin-top:12px; min-height:20px; font-size:13px; }
+    .summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+    .summary { background:#fff; padding:16px; border:1px solid var(--border); border-radius:12px; }
+    .summary strong { display:block; color:var(--navy); font-size:27px; margin-top:7px; }
+    .summary span { color:var(--muted); font-size:12px; font-weight:700; }
+    .job-head { display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
+    .job-head h2 { margin:0 0 5px; }
+    .badge { border-radius:999px; padding:5px 8px; display:inline-block; font-weight:800; font-size:10px; white-space:nowrap; }
+    .badge.green { color:#166534; background:#dcfce7; }
+    .badge.orange { color:#9a3412; background:#ffedd5; }
+    .badge.gray { color:#475569; background:#e2e8f0; }
+    .badge.blue { color:#1d4ed8; background:#dbeafe; }
+    .table-scroll { overflow:auto; border:1px solid var(--border); border-radius:10px; }
+    table { border-collapse:collapse; width:100%; min-width:1420px; background:#fff; }
+    th { background:#ebf2f7; color:var(--dark); font-size:11px; text-transform:uppercase; letter-spacing:.02em; padding:11px 10px; text-align:left; white-space:nowrap; border-bottom:1px solid #d1dee8; }
+    td { padding:10px; border-bottom:1px solid #e7edf2; font-size:12px; vertical-align:top; }
+    tr:last-child td { border-bottom:0; }
+    tr:hover td { background:#f9fcff; }
+    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+    td.center, th.center { text-align:center; }
+    .item-name { font-weight:700; color:#082e4a; margin-bottom:3px; }
+    .item-desc { color:var(--muted); line-height:1.35; font-size:11px; white-space:pre-line; max-height:60px; overflow:auto; }
+    .part-input { min-width:150px; padding:7px 9px !important; font-size:11px !important; }
+    .row-note { min-width:140px; padding:7px 9px !important; font-size:11px !important; }
+    .row-check { width:17px; height:17px; accent-color:var(--teal); cursor:pointer; }
+    .table-empty { padding:24px; text-align:center; color:var(--muted); }
+    .footer-actions { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; margin-top:16px; }
+    .footer-actions .buttons { display:flex; flex-wrap:wrap; gap:8px; }
+    .safety { border-left:4px solid var(--teal); background:#f2fafb; padding:12px 14px; font-size:12px; line-height:1.5; color:#215665; }
+    @media(max-width:920px) { .summary-grid { grid-template-columns:repeat(2,1fr); } .search-grid { grid-template-columns:minmax(0,1fr) auto; } .search-grid .secondary { grid-column:1/-1; } }
+    @media(max-width:600px) { main { padding:0 12px; } .header { padding:17px; } .header h1 { font-size:19px; } .card { padding:15px; } .summary-grid { grid-template-columns:1fr 1fr; } .search-grid { grid-template-columns:1fr; } .search-grid button { width:100%; } }
+    @media print { @page { size:landscape; margin:8mm; } #sharedNavigation,.header-label,.search-card,.footer-actions,.gate,#pageMessage,.no-print { display:none !important; } .header { background:#fff !important; color:#000 !important; padding:0 0 8px; } .header h1 { color:#000 !important; } .header p { color:#555 !important; } main { max-width:none; padding:0; margin:8px 0; } .card,.summary { box-shadow:none; break-inside:avoid; } .table-scroll { overflow:visible; } table { min-width:0; font-size:9px; } td,th { padding:5px; font-size:9px; } .part-input,.row-note { border:0; padding:0 !important; } .row-check { appearance:none; } }
+  </style>
+</head>
+<body>
+  <div id="sharedNavigation"></div>
+  <header class="header">
+    <div>
+      <h1>Molinari Operating System — Projects Materials by Job Review</h1>
+      <p>JobTread Budget (Cost Code 1410) → Projects Verification → Warehouse Fulfillment</p>
+    </div>
+    <span class="header-label">PROJECTS / ESTIMATING · READ-ONLY TEST</span>
+  </header>
+
+  <section id="accessGate" class="gate card">
+    <h2>Projects Access Required</h2>
+    <div id="accessMessage" class="notice">Checking your session...</div>
+    <div class="gate-actions">
+      <a class="btn primary" href="login.html">GO TO LOGIN</a>
+      <a class="btn secondary" href="index.html">BACK TO MAIN MENU</a>
+      <button class="secondary" type="button" id="logoutBtn">LOG OUT</button>
+    </div>
+  </section>
+
+  <main id="app" class="hidden">
+    <div class="notice warn">
+      <strong>Phase 1 — Read-Only Integration Test.</strong> This page retrieves JobTread budget lines and compares them with Molinari Warehouse availability. Selecting items and entering notes is a temporary on-screen review only. No requests, reservations, Purchase Orders, Inventory Bills, Expenses, or inventory transactions are created.
+    </div>
+
+    <section class="card search-card">
+      <h2>Retrieve JobTread Project Materials</h2>
+      <form class="search-grid" id="jobSearchForm">
+        <div><label for="jobNumber">JobTread Job Number *</label><input id="jobNumber" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="Example: 1452" autocomplete="off" required maxlength="10"></div>
+        <button class="primary" id="lookupBtn" type="submit">RETRIEVE JOB BUDGET</button>
+        <button class="secondary" id="clearBtn" type="button">CLEAR REVIEW</button>
+      </form>
+      <div class="search-help">Only budget lines carrying JobTread cost code <strong>1410</strong> are listed. Inventory matches are based on an exact part number, not a similar product name.</div>
+      <div class="status-line" id="pageMessage" role="status" aria-live="polite"></div>
+    </section>
+
+    <div id="reviewArea" class="hidden">
+      <section class="card job-head">
+        <div><h2 id="jobHeading">Job</h2><div class="muted small" id="jobDetails"></div></div>
+        <div><span class="badge blue" id="jobCostCode">COST CODE 1410</span></div>
+      </section>
+
+      <div id="budgetWarning" class="notice warn hidden"></div>
+      <div id="inventoryWarning" class="notice warn hidden"></div>
+
+      <div class="summary-grid">
+        <div class="summary"><span>1410 Budget Lines</span><strong id="lineCount">0</strong></div>
+        <div class="summary"><span>Exact Inventory Matches</span><strong id="matchCount">0</strong></div>
+        <div class="summary"><span>Full Stock / Partial Stock</span><strong id="stockCount">0</strong></div>
+        <div class="summary"><span>Selected for Warehouse Review</span><strong id="selectedCount">0</strong></div>
+      </div>
+
+      <section class="card">
+        <div class="job-head" style="margin-bottom:14px">
+          <div><h2>Project Materials — Estimator Review</h2><div class="muted small">Use the exact part-number field to resolve unmatched materials before future verification.</div></div>
+          <div class="buttons no-print" style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="secondary" id="printBtn" type="button">PRINT REVIEW</button>
+            <button class="secondary" id="exportBtn" type="button">EXPORT CSV</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th class="center">Include</th><th style="min-width:240px">JobTread Budget Item</th><th style="min-width:185px">Inventory Match / Part #</th>
+              <th class="num">Requested</th><th class="num">On Hand</th><th class="num">Committed</th><th class="num">Available</th>
+              <th>Shelf</th><th>Proposed Fulfillment</th><th class="num">From Inventory</th><th class="num">Purchase Qty</th><th style="min-width:160px">Estimator Notes</th>
+            </tr></thead>
+            <tbody id="materialsBody"><tr><td class="table-empty" colspan="12">Enter a JobTread job number above.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="footer-actions">
+          <div class="muted small" id="reviewCount">No materials selected.</div>
+          <div class="buttons">
+            <button class="dark" type="button" disabled title="Phase 2: Database handoff and approvals are not enabled">VERIFY &amp; SEND TO WAREHOUSE — PHASE 2</button>
+          </div>
+        </div>
+        <div class="safety" style="margin-top:16px"><strong>Accounting and inventory protection:</strong> Existing-stock fulfillment will be issued through regular inventory, and job-specific purchases will use the separate NON_INVENTORY process. Molinari Pools Inventory Bills must never push to QuickBooks. Those actions are deliberately not active on this review page.</div>
+      </section>
+    </div>
+  </main>
+
+  <datalist id="partNumbers"></datalist>
+  <script src="shared-navigation.js"></script>
+  <script>
+    'use strict';
+    const SUPABASE_URL = 'https://icqkuhbhcennhhbbwqgo.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const state = { profile:null, job:null, materials:[], availability:[], partMap:new Map(), possiblyTruncated:false, availabilityError:null };
+    const byId = id => document.getElementById(id);
+
+    window.addEventListener('load', async () => {
+      byId('logoutBtn').addEventListener('click', async () => { await db.auth.signOut(); location.href='login.html'; });
+      byId('jobSearchForm').addEventListener('submit', event => { event.preventDefault(); retrieveJob(); });
+      byId('clearBtn').addEventListener('click', clearReview);
+      byId('printBtn').addEventListener('click', () => window.print());
+      byId('exportBtn').addEventListener('click', exportCSV);
+      byId('materialsBody').addEventListener('change', handleRowChange);
+      await verifyAccess();
+    });
+
+    async function verifyAccess() {
+      const { data:{session}, error:sessionError } = await db.auth.getSession();
+      if (sessionError || !session?.user) return gate('Please log in to open this page.');
+      const {data:profile,error} = await db.from('user_profiles').select('id,full_name,role,active').eq('id',session.user.id).maybeSingle();
+      if (error || !profile?.active) return gate('Your active user profile could not be verified. Contact an administrator.');
+      const allowed = ['SALES','PROJECTS','ADMIN','SYSTEM_ADMIN'];
+      if (!allowed.includes(profile.role)) return gate('Access denied. This page is for Projects, Sales/Estimating, Admin, and System Admin. Current role: '+profile.role+'.');
+      state.profile = profile;
+      byId('accessGate').classList.add('hidden');
+      byId('app').classList.remove('hidden');
+      setStatus('Ready. Enter a JobTread job number to retrieve its code-1410 materials.');
+    }
+
+    function gate(message) { byId('accessMessage').textContent = message; }
+    function setStatus(message, type='info') { const el=byId('pageMessage'); el.textContent=message; el.style.color=type==='danger'?'#991b1b':type==='success'?'#166534':'#475569'; }
+    function normalizePart(value) { return String(value||'').trim().toUpperCase(); }
+    function number(value) { const n=Number(value); return value===null||value===undefined||value===''||!Number.isFinite(n)?null:n; }
+    function fmt(value) { const n=number(value); return n===null?'—':new Intl.NumberFormat('en-US',{maximumFractionDigits:3}).format(n); }
+
+    async function retrieveJob() {
+      const jobNumber=byId('jobNumber').value.trim();
+      if (!/^\d{1,10}$/.test(jobNumber)) return setStatus('Enter a numeric JobTread job number.', 'danger');
+      byId('lookupBtn').disabled=true;
+      byId('lookupBtn').textContent='RETRIEVING...';
+      clearReview(false);
+      setStatus('Retrieving JobTread budget and Warehouse inventory availability...');
+      try {
+        const [jobResult,inventoryResult] = await Promise.all([
+          db.functions.invoke('jobtread-project-budget-readonly',{body:{jobNumber}}),
+          db.from('jobtread_inventory_availability_view').select('part_id,part_number,description,main_warehouse_on_hand,open_committed_qty,available_to_commit,shelf_location').order('part_number')
+        ]);
+        if (jobResult.error) throw jobResult.error;
+        const payload=jobResult.data;
+        if (!payload?.success || payload?.mode!=='READ_ONLY' || payload?.noJobTreadWrites!==true) throw new Error(payload?.error || 'Unexpected response from read-only JobTread integration.');
+        state.job=payload.job;
+        state.possiblyTruncated=Boolean(payload.possiblyTruncated);
+        state.availabilityError=inventoryResult.error?.message||null;
+        state.availability=inventoryResult.error?[]:(inventoryResult.data||[]);
+        state.partMap=new Map();
+        for (const part of state.availability) {
+          const key=normalizePart(part.part_number);
+          if (key && !state.partMap.has(key)) state.partMap.set(key,part);
+        }
+        state.materials=(payload.items||[]).map((item,index)=>({ ...item, rowKey:String(item.jobtreadBudgetItemId||index), selected:false, notes:'', partNumber:exactMatch(item.requestedItem) }));
+        byId('jobHeading').textContent='Job '+state.job.number+' — '+(state.job.name||'Unnamed Job');
+        byId('jobDetails').textContent='JobTread Job ID: '+state.job.id+' · Job Status: '+(state.job.status||'—')+' · Source: JobTread Budget';
+        byId('reviewArea').classList.remove('hidden');
+        byId('budgetWarning').classList.toggle('hidden',!state.possiblyTruncated);
+        byId('budgetWarning').textContent=state.possiblyTruncated?'JobTread returned 100 budget lines. There may be additional 1410 lines beyond this first page. Do not approve or send materials until we verify pagination.':'';
+        byId('inventoryWarning').classList.toggle('hidden',!state.availabilityError);
+        byId('inventoryWarning').textContent=state.availabilityError?'Budget loaded, but Warehouse availability could not be read: '+state.availabilityError+'. Inventory matching is incomplete.':'';
+        populatePartNumbers(); renderTable();
+        setStatus('Retrieved '+state.materials.length+' cost-code 1410 material line(s) for Job '+state.job.number+'. No records were changed.','success');
+      } catch (error) {
+        setStatus('JobTread budget lookup failed: '+(error?.message||String(error))+' — no records were changed.','danger');
+      } finally { byId('lookupBtn').disabled=false;byId('lookupBtn').textContent='RETRIEVE JOB BUDGET'; }
+    }
+
+    function exactMatch(itemName) {
+      // Molinari-named catalog items contain exact delimited part numbers.
+      // Never choose a near match based on description or overlapping model text.
+      const fields=String(itemName||'').split(/\s+-\s+/).map(normalizePart);
+      const candidates=fields.filter(field=>state.partMap.has(field));
+      return candidates.length===1?candidates[0]:'';
+    }
+
+    function populatePartNumbers() {
+      const list=byId('partNumbers'); list.replaceChildren();
+      for(const part of state.availability){
+        const option=document.createElement('option'); option.value=part.part_number;
+        option.label=(part.description||'').slice(0,100);list.appendChild(option);
+      }
+    }
+
+    function statusFor(row) {
+      const qty=number(row.quantity);
+      const part=state.partMap.get(normalizePart(row.partNumber));
+      if (qty===null || qty<=0) return {label:'REVIEW QUANTITY',kind:'gray',stock:null,buy:null,part};
+      if (!part) return {label:'NO INVENTORY MATCH',kind:'orange',stock:0,buy:qty,part:null};
+      const available=Math.max(0,number(part.available_to_commit)||0);
+      const stock=Math.min(qty,available),buy=Math.max(0,qty-stock);
+      return {label:buy===0?'FROM INVENTORY':stock>0?'PARTIAL STOCK + PURCHASE':'PURCHASE REQUIRED',kind:buy===0?'green':'orange',stock,buy,part};
+    }
+
+    function cell(textValue,className='') { const td=document.createElement('td');if(className)td.className=className;td.textContent=String(textValue??'');return td; }
+    function renderTable() {
+      const tbody=byId('materialsBody');tbody.replaceChildren();
+      for(const row of state.materials){
+        const status=statusFor(row),tr=document.createElement('tr');
+        const checked=cell('', 'center');
+        const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.className='row-check';checkbox.checked=row.selected;checkbox.dataset.row=row.rowKey;checkbox.dataset.field='selected';checkbox.setAttribute('aria-label','Select '+row.requestedItem+' for Warehouse');checked.appendChild(checkbox);tr.appendChild(checked);
+        const itemCell=cell('');const label=document.createElement('div');label.className='item-name';label.textContent=row.requestedItem||'(Unnamed Budget Item)';itemCell.appendChild(label);
+        if(row.description){const desc=document.createElement('div');desc.className='item-desc';desc.textContent=row.description;itemCell.appendChild(desc);}tr.appendChild(itemCell);
+        const matchCell=cell('');const input=document.createElement('input');input.type='text';input.className='part-input';input.value=row.partNumber||'';input.placeholder='Exact part number';input.setAttribute('list','partNumbers');input.dataset.row=row.rowKey;input.dataset.field='part';input.setAttribute('aria-label','Inventory part for '+row.requestedItem);matchCell.appendChild(input);
+        const matchBadge=document.createElement('div');matchBadge.style.marginTop='5px';matchBadge.className='badge '+(status.part?'green':'gray');matchBadge.textContent=status.part?'EXACT PART MATCH':'MATCH REQUIRED';matchCell.appendChild(matchBadge);tr.appendChild(matchCell);
+        tr.appendChild(cell(fmt(row.quantity)+(row.unit?' '+row.unit:''),'num'));
+        tr.appendChild(cell(status.part?fmt(status.part.main_warehouse_on_hand):'—','num'));
+        tr.appendChild(cell(status.part?fmt(status.part.open_committed_qty):'—','num'));
+        tr.appendChild(cell(status.part?fmt(status.part.available_to_commit):'—','num'));
+        tr.appendChild(cell(status.part?.shelf_location||'—'));
+        const statusCell=cell('');const pill=document.createElement('span');pill.className='badge '+status.kind;pill.textContent=status.label;statusCell.appendChild(pill);tr.appendChild(statusCell);
+        tr.appendChild(cell(fmt(status.stock),'num'));tr.appendChild(cell(fmt(status.buy),'num'));
+        const noteCell=cell('');const note=document.createElement('input');note.type='text';note.className='row-note';note.placeholder='Estimator notes';note.value=row.notes;note.dataset.row=row.rowKey;note.dataset.field='notes';noteCell.appendChild(note);tr.appendChild(noteCell);
+        tbody.appendChild(tr);
+      }
+      if (!state.materials.length){const tr=document.createElement('tr');const td=cell('No budget items with cost code 1410 were returned. Verify the JobTread budget and cost codes.','table-empty');td.colSpan=12;tr.appendChild(td);tbody.appendChild(tr);}
+      refreshSummary();
+    }
+
+    function handleRowChange(event) {
+      const target=event.target; const row=state.materials.find(item=>item.rowKey===target.dataset.row);if(!row)return;
+      if(target.dataset.field==='selected')row.selected=Boolean(target.checked);
+      if(target.dataset.field==='notes')row.notes=target.value;
+      if(target.dataset.field==='part') {
+        const partKey=normalizePart(target.value);
+        row.partNumber=state.partMap.has(partKey)?partKey:'';
+        if(!row.partNumber&&target.value.trim())setStatus('Exact part number not found in Warehouse availability. No approximate substitution was made.','danger');
+        renderTable();return;
+      }
+      refreshSummary();
+    }
+
+    function refreshSummary() {
+      byId('lineCount').textContent=state.materials.length;
+      byId('matchCount').textContent=state.materials.filter(row=>statusFor(row).part).length;
+      byId('stockCount').textContent=state.materials.filter(row=>{const s=statusFor(row);return s.stock!==null&&s.stock>0;}).length;
+      const count=state.materials.filter(row=>row.selected).length;
+      byId('selectedCount').textContent=count;
+      byId('reviewCount').textContent=count+' of '+state.materials.length+' material line(s) selected for preliminary Warehouse review. Not saved.';
+    }
+
+    function clearReview(clearInput=true) {
+      state.job=null;state.materials=[];state.availability=[];state.partMap=new Map();
+      state.possiblyTruncated=false;state.availabilityError=null;
+      byId('reviewArea').classList.add('hidden');
+      if(clearInput){byId('jobNumber').value='';setStatus('Review cleared. Nothing was saved.');}
+    }
+
+    function exportCSV() {
+      if(!state.job)return;
+      const header=['Job Number','JobTread Budget Item ID','Cost Code','Requested Item','Description','Requested Qty','Unit','Inventory Part #','On Hand','Committed','Available','Shelf','Fulfillment','From Inventory','Purchase Qty','Selected for Warehouse','Estimator Notes'];
+      const rows=state.materials.map(row=>{const status=statusFor(row),part=status.part;return [state.job.number,row.jobtreadBudgetItemId,'1410',row.requestedItem,row.description,row.quantity,row.unit,row.partNumber,part?.main_warehouse_on_hand,part?.open_committed_qty,part?.available_to_commit,part?.shelf_location,status.label,status.stock,status.buy,row.selected?'YES':'NO',row.notes];});
+      const escapeCSV=value=>{let text=String(value??'');if(/^[=+@\-\t\r]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};
+      const csv=[header,...rows].map(row=>row.map(escapeCSV).join(',')).join('\r\n');
+      const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+      const a=document.createElement('a');a.href=url;a.download='jobtread_1410_materials_job_'+state.job.number+'_READ_ONLY.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
