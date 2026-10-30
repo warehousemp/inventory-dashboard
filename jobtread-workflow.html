@@ -717,6 +717,9 @@ const serialPickPlans = new Map();
 // Safety: every request starts in TEST / PREVIEW ONLY. Live writes require
 // an explicit mode switch and confirmation, never a saved browser preference.
 const liveAssignmentHandoffs = new Set();
+// A one-time LIVE JobTread PO creation test is available only on Job #1160.
+// It NEVER saves serialized assignments, commits stock, or issues inventory.
+const livePOTestAttempted = new Set();
 function isTestMode(handoffId){ return !liveAssignmentHandoffs.has(handoffId); }
 
 
@@ -911,13 +914,15 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
       <button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>
-      <button class="btn-primary" type="button" disabled title="PO creation is locked until the JobTread create-document integration and recovery procedure are verified">YES — FULFILL FROM INVENTORY</button>
+      ${h.job_number==='1160'?'<button class="btn-primary" type="button" data-action="create-one-live-test-po" style="background:#8b5b0d;color:white;" title="Creates ONE REAL JobTread PO. No inventory is committed or issued.">CREATE ONE LIVE TEST PO — NO STOCK COMMITMENT</button>':''}
+      <button class="btn-primary" type="button" disabled title="Production PO plus stock commitment remains locked">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
-    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF copy). Folder filing is not connected yet and will be verified before live PO creation.</div>
+    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF copy). The one-time live test creates a real PO but does NOT yet file its PDF, assign stock, or commit inventory.</div>
     <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. CHECK PO CREATION PREFLIGHT validates the intended PO vendor, costs and duplicate safeguards without creating anything. The actual JobTread PO creation button remains disabled until the API write and recovery steps are verified.</div>
     <div class="vendor-groups" data-commitment-readiness hidden></div>
     <div class="vendor-groups" data-po-create-preflight hidden></div>
+    <div class="vendor-groups" data-live-test-po-result hidden></div>
     <div class="vendor-groups" data-inventory-preview hidden></div>`;
   stock.querySelector('[data-action="toggle-live"]').addEventListener('click',async()=>{
     if(isTestMode(h.id)){
@@ -929,6 +934,7 @@ function renderFulfillmentPaths(h,lines,article){
     const ack=article.querySelector('[data-action="ack"]');
     ack.disabled=h.status==='RECEIVED'||isTestMode(h.id);
     ack.title=isTestMode(h.id)?'Disabled in TEST / PREVIEW ONLY — no database changes':'Record Warehouse receipt';
+    if(liveTestButton)liveTestButton.disabled=!isTestMode(h.id)||livePOTestAttempted.has(h.id);
     const readiness=stock.querySelector('[data-commitment-readiness]');readiness.hidden=true;readiness.textContent='';
     const preflight=stock.querySelector('[data-po-create-preflight]');preflight.hidden=true;preflight.textContent='';
     const preview=stock.querySelector('[data-inventory-preview]');preview.hidden=true;preview.textContent='';
@@ -936,6 +942,11 @@ function renderFulfillmentPaths(h,lines,article){
   });
   stock.querySelector('[data-action="check-commitment-readiness"]').addEventListener('click',()=>checkCommitmentReadiness(h.id,stock.querySelector('[data-commitment-readiness]')));
   stock.querySelector('[data-action="check-po-create-preflight"]').addEventListener('click',()=>checkProjectInventoryPOPreflight(h.id,stock.querySelector('[data-po-create-preflight]')));
+  const liveTestButton=stock.querySelector('[data-action="create-one-live-test-po"]');
+  if(liveTestButton){
+    liveTestButton.disabled=livePOTestAttempted.has(h.id);
+    liveTestButton.addEventListener('click',()=>createOneLiveTestPO(h.id,liveTestButton,stock.querySelector('[data-live-test-po-result]')));
+  }
   stock.querySelector('[data-action="pick"]').addEventListener('click',()=>printProjectMaterialPickList(h.id));
   stock.querySelector('[data-action="validate-inventory"]').addEventListener('click',()=>{
     if(!isSerialPlanReady(h.id))return window.alert(isTestMode(h.id)?'Choose each serial number for the TEST preview.':'Select and SAVE every serialized unit before validating the PO.');
@@ -987,6 +998,63 @@ function updateVendorPOPreview(purchaseCard,lines){
     check.addEventListener('click',()=>previewProjectMaterialPO(
       items[0].handoff_id,'VENDOR',vendor,items.map(item=>item.id),preview));
     row.append(label,check,button);box.append(row,preview);
+  }
+}
+
+async function createOneLiveTestPO(handoffId,button,container){
+  container.hidden=false;
+  const h=projectMaterialHandoffs.find(x=>x.id===handoffId);
+  if(!h||h.job_number!=='1160'||!isTestMode(handoffId)){
+    container.textContent='Live PO test is allowed only for Job 1160 in TEST / PREVIEW ONLY mode.';
+    return;
+  }
+  if(!['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
+    container.textContent='Live PO creation requires Admin or System Admin access.';
+    return;
+  }
+  if(livePOTestAttempted.has(handoffId)){
+    container.textContent='A live PO attempt already occurred in this session. Refresh and inspect JobTread/Supabase; do not repeat without reconciliation.';
+    return;
+  }
+  let picks;
+  try{
+    if(!isSerialPlanReady(handoffId))throw new Error('Select all four physical serial numbers before the live PO test.');
+    picks=getDraftSerialSelections(handoffId);
+    if(!Array.isArray(picks)||picks.length!==4)throw new Error('Four validated serial selections are required.');
+  }catch(error){container.textContent=error?.message||String(error);return;}
+  if(!window.confirm('JOB 1160 — CREATE ONE REAL JOBTREAD PURCHASE ORDER for Molinari Pools Inventory, total $6,131.38?\n\nThis is a REAL JobTread PO, not a preview.\n\nNO inventory will be committed or issued.\nNO QBO posting is requested.\nPDF filing to ALL FILES - INVOICES remains pending.\n\nYou must inspect/delete the PO in JobTread after the test if necessary.'))return;
+  const phrase=window.prompt('To create ONE REAL JobTread PO, type exactly: CREATE PO 1160');
+  if(phrase!=='CREATE PO 1160'){
+    container.textContent='Cancelled. No PO creation request was submitted.';return;
+  }
+  livePOTestAttempted.add(handoffId);
+  button.disabled=true;
+  container.textContent='Submitting the one-time JobTread PO request. Do not click again, refresh, or create another PO until the result is known...';
+  try{
+    const {data,error}=await client.functions.invoke('jobtread-project-inventory-po-live-test',{
+      body:{handoffId,testMode:true,testPicks:picks,expectedTotal:6131.38,
+        confirmation:'CREATE_ONE_REAL_JOBTREAD_PO_1160'}
+    });
+    let details=data;
+    if(error){
+      if(error?.context&&typeof error.context.json==='function'){
+        try{details=await error.context.json();}catch(_){}
+      }
+      throw new Error(details?.error||error?.message||'Live JobTread PO outcome unknown.');
+    }
+    if(!data?.success||data.mode!=='LIVE_JOBTREAD_PO_TEST'||!data.jobtreadPoId||
+       data.inventoryCommitted!==false||data.inventoryIssued!==false){
+      throw new Error(data?.error||'JobTread PO result was not fully verified. Manual reconciliation required.');
+    }
+    container.innerHTML=`<strong>REAL JOBTREAD TEST PO CREATED — NO INVENTORY COMMITMENT</strong>
+      <p><strong>Job:</strong> 1160 · <strong>Vendor:</strong> ${escapeHTML(data.vendor||'Molinari Pools Inventory')}</p>
+      <p><strong>JobTread PO #:</strong> ${escapeHTML(data.jobtreadPoNumber||'Pending JobTread numbering')} · <strong>PO ID:</strong> ${escapeHTML(data.jobtreadPoId)}</p>
+      <p><strong>6 inventory material lines:</strong> ${escapeHTML(Number(data.actualTotal).toLocaleString('en-US',{style:'currency',currency:'USD'}))} · Four exact serials verified before creation</p>
+      <p><strong>Inventory:</strong> NOT committed or issued. <strong>QBO:</strong> excluded flag requested. <strong>PO PDF:</strong> NOT YET filed to ALL FILES - INVOICES.</p>
+      <p class="path-note">Review the new PO directly in JobTread. Do not click again, even if you delete this PO; the duplicate-prevention record remains for controlled cleanup.</p>`;
+  }catch(error){
+    container.textContent='ONE-TIME LIVE PO REQUEST REQUIRES REVIEW: '+(error?.message||String(error))+
+      ' — Do not retry. Check JobTread Job 1160 and the saved PO operation before another attempt.';
   }
 }
 
