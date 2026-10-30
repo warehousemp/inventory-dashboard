@@ -114,6 +114,13 @@
     .serial-picker-panel button{margin:7px 0}
     .serial-pick-message{margin-top:7px;font-weight:600;color:#0b3c5d}
     .serial-preview-value{color:#106e64;font-weight:700;margin-top:4px;font-size:11px}
+    .test-mode-panel{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;border:2px solid #d97706;background:#fff5e6;border-radius:10px;padding:12px;margin:10px 0;font-size:12px;line-height:1.5}
+    .test-mode-panel strong{display:block;font-size:15px;color:#9a3412;margin-bottom:2px}
+    .test-mode-panel.live{border-color:#1aa3b0;background:#effafd}
+    .test-mode-panel.live strong{color:#064e62}
+    .test-mode-panel button{white-space:normal;text-align:center}
+    .test-print-flag{color:#9a3412;font-weight:800;font-size:13px}
+
 
     .path-empty { font-size:12px; color:#667085; padding:16px 0; }
     @media(max-width:900px) { .fulfillment-grid { grid-template-columns:1fr; } }
@@ -656,7 +663,7 @@
       <div class="fulfillment-grid">
         <div class="fulfillment-path">
           <h3>Path A — Available Inventory</h3>
-          <span class="path-step">1. Select the exact serialized units (oldest receipt first), then save.</span>
+          <span class="path-step">1. Select exact serialized units (oldest receipt first); save only for LIVE assignments.</span>
           <span class="path-step">2. Print the General Pick List showing each selected serial number.</span>
           <span class="path-step">3. Confirm actual stock costs before creating the Molinari Inventory PO.</span>
           <div class="path-result">Molinari Inventory PO · Stock is reduced only when issued</div>
@@ -674,7 +681,7 @@
     <section id="materialsQueue">
       <div class="card material-queue-card">
         <h2 style="margin:0;color:#062f4f;">Warehouse — Verified Projects Materials</h2>
-        <div class="material-safe"><strong>Current stage:</strong> Verified JobTread 1410 materials are separated below into Available Inventory and Purchase Required. The pick list and acknowledgement are active. <strong>SERIAL PICK CONTROL:</strong> Warehouse must explicitly select and save the oldest eligible serialized stock or choose another available serial. The General Pick List prints the exact saved serials. Inventory PO previews use those selected units' actual lot costs; nonserialized items use FIFO purchase layers. JobTread PO creation, inventory issuing and accounting posting remain locked.</div>
+        <div class="material-safe"><strong>Current stage:</strong> Verified JobTread 1410 materials are separated below into Available Inventory and Purchase Required. General Pick Lists are available; receipt acknowledgement is disabled while TEST mode is active. <strong>SERIAL PICK CONTROL:</strong> In TEST / PREVIEW ONLY mode, you may choose serials and print a clearly marked TEST list without saving any assignment. In LIVE mode, Warehouse must save selected serials before printing an operational list. Inventory PO previews use those selected units' actual lot costs; nonserialized items use FIFO purchase layers. JobTread PO creation, inventory issuing and accounting posting remain locked.</div>
         <div class="material-queue-tools">
           <input type="search" id="materialJobSearch" placeholder="Search Job number, Job name or material..." oninput="renderProjectMaterialHandoffs()" aria-label="Search new Projects material requests">
           <select id="materialStatusFilter" onchange="renderProjectMaterialHandoffs()" aria-label="Filter Projects material request status">
@@ -707,6 +714,11 @@ let purchaseVendors = [];
 const vendorDraftSelections = new Map();
 // Each handoff has an explicitly saved, server-verified serial pick plan.
 const serialPickPlans = new Map();
+// Safety: every request starts in TEST / PREVIEW ONLY. Live writes require
+// an explicit mode switch and confirmation, never a saved browser preference.
+const liveAssignmentHandoffs = new Set();
+function isTestMode(handoffId){ return !liveAssignmentHandoffs.has(handoffId); }
+
 
 window.addEventListener('load', async () => {
   const hasAccess = await enforceAccess();
@@ -869,6 +881,8 @@ function renderProjectMaterialHandoffs(){
       <td>${escapeHTML(l.inventory_shelf||'—')}</td><td class="numeric">${escapeHTML(formatNumber(l.suggested_inventory_qty))}</td>
       <td class="numeric">${escapeHTML(formatNumber(l.suggested_purchase_qty))}</td><td>${escapeHTML(l.estimator_notes||'—')}</td></tr>`).join('')}
       </tbody></table></div></div>`;
+    article.querySelector('[data-action="ack"]').disabled = h.status==='RECEIVED' || isTestMode(h.id);
+    article.querySelector('[data-action="ack"]').title = isTestMode(h.id) ? 'Disabled in TEST / PREVIEW ONLY — no database changes' : 'Record Warehouse receipt';
     article.querySelector('[data-action="ack"]').addEventListener('click',()=>acknowledgeProjectMaterials(h.id));
     renderFulfillmentPaths(h,lines,article);
     container.appendChild(article);
@@ -883,6 +897,10 @@ function renderFulfillmentPaths(h,lines,article){
   const grid=document.createElement('div');grid.className='fulfillment-grid';
   const stock=document.createElement('section');stock.className='fulfillment-path';
   stock.innerHTML=`<h3>Path A — Available Inventory</h3>
+    <div class="test-mode-panel" data-mode-panel>
+      <div><strong data-mode-title>TEST / PREVIEW ONLY</strong><span data-mode-description>No serial assignments, commitments, PO creation, receipt acknowledgement, or inventory changes. Preview selections exist only in this browser until refreshed.</span></div>
+      <button class="btn-light" type="button" data-action="toggle-live">SWITCH TO LIVE ASSIGNMENTS</button>
+    </div>
     <div class="material-request-sub">${inventory.length} material line(s) proposed from Main Warehouse</div>
     ${inventory.length?`<div class="table-wrap"><table><thead><tr><th>Inventory Part #</th><th>Budget Item</th><th>Shelf</th><th>Qty to Fulfill</th></tr></thead><tbody>
     ${inventory.map(l=>`<tr><td>${escapeHTML(l.inventory_part_number||'')}</td><td>${escapeHTML(l.budget_item_name)}</td><td>${escapeHTML(l.inventory_shelf||'—')}</td><td>${escapeHTML(formatNumber(l.suggested_inventory_qty))} ${escapeHTML(l.unit||'')}</td></tr>`).join('')}
@@ -894,11 +912,24 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-primary" type="button" disabled title="JobTread PO creation is not yet connected">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
-    <div class="path-note">Serialized items require a saved physical serial selection before you can print the pick list or validate the PO. The selected unit's actual purchase lot cost will be used for PO pricing; nonserialized items use FIFO stock layers. Picks are not physical issues and do not change On Hand. JobTread PO creation remains disabled.</div>
+    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the clearly marked test pick list or check the read-only PO preview. No SAVE occurs. LIVE MODE: Exact serial assignments must be saved before issuing an operational pick list. JobTread PO creation remains disabled.</div>
     <div class="vendor-groups" data-inventory-preview hidden></div>`;
+  stock.querySelector('[data-action="toggle-live"]').addEventListener('click',async()=>{
+    if(isTestMode(h.id)){
+      if(!window.confirm('SWITCH TO LIVE ASSIGNMENTS for Job '+h.job_number+'? In LIVE mode, SAVE SELECTED SERIAL NUMBERS writes real assignments to the database. Do not switch for a test.'))return;
+      liveAssignmentHandoffs.add(h.id);
+    } else {
+      liveAssignmentHandoffs.delete(h.id);
+    }
+    const ack=article.querySelector('[data-action="ack"]');
+    ack.disabled=h.status==='RECEIVED'||isTestMode(h.id);
+    ack.title=isTestMode(h.id)?'Disabled in TEST / PREVIEW ONLY — no database changes':'Record Warehouse receipt';
+    const preview=stock.querySelector('[data-inventory-preview]');preview.hidden=true;preview.textContent='';
+    await loadSerialPickOptions(h.id,true);
+  });
   stock.querySelector('[data-action="pick"]').addEventListener('click',()=>printProjectMaterialPickList(h.id));
   stock.querySelector('[data-action="validate-inventory"]').addEventListener('click',()=>{
-    if(!completeSavedSerialPicks(h.id)) return window.alert('Select and SAVE every serialized unit before previewing the Molinari Inventory PO.');
+    if(!isSerialPlanReady(h.id))return window.alert(isTestMode(h.id)?'Choose each serial number for the TEST preview.':'Select and SAVE every serialized unit before validating the PO.');
     previewProjectMaterialPO(h.id,'INVENTORY',null,[],stock.querySelector('[data-inventory-preview]'));
   });
 
@@ -954,20 +985,25 @@ async function previewProjectMaterialPO(handoffId,source,vendorName,lineIds,cont
   if(!container)return;
   container.hidden=false;
   container.textContent=source==='INVENTORY'
-    ? 'Verifying JobTread budget links, warehouse stock and FIFO purchase-batch costs. No PO is being created...'
+    ? 'Verifying selected serial numbers, live warehouse stock and actual purchase-lot costs. No assignment or PO is being created...'
     : 'Verifying vendor account and JobTread 1410 budget links. Supplier costs are still required; no PO is being created...';
   try{
+    const testMode=source==='INVENTORY' && isTestMode(handoffId);
+    const testPicks=testMode?getDraftSerialSelections(handoffId):[];
     const {data,error}=await client.functions.invoke('jobtread-project-po-preview',{
-      body:{handoffId,source,vendorName,lineIds}
+      body:{handoffId,source,vendorName,lineIds,testMode,testPicks}
     });
     if(error){
       const detail=typeof error.context?.json==='function'
         ?await error.context.json().catch(()=>null):null;
       throw new Error(detail?.error||error.message||'Unable to validate JobTread PO.');
     }
-    if(!data?.success||data.mode!=='PREVIEW_ONLY'||data.jobtreadWrites!==false){
+    if(!data?.success||data.mode!=='PREVIEW_ONLY'||data.jobtreadWrites!==false||
+       data.databaseWrites!==false||data.inventoryReserved!==false){
       throw new Error(data?.error||'Preview did not return safe confirmation.');
     }
+    if(source==='INVENTORY' && isTestMode(handoffId) && data.testMode!==true)
+      throw new Error('Server did not confirm TEST / PREVIEW ONLY. No preview displayed.');
     const fmtCost=value=>value===null||value===undefined||!Number.isFinite(Number(value))
       ? 'SUPPLIER PRICE REQUIRED'
       : Number(value).toLocaleString('en-US',{style:'currency',currency:'USD'});
@@ -979,14 +1015,14 @@ async function previewProjectMaterialPO(handoffId,source,vendorName,lineIds,cont
     const costMessage=isInventory
       ? `Actual selected serial-lot / FIFO stock cost ${fmtCost(data.totalCost)} — NOT JobTread budget or customer quoted pricing.`
       : 'Supplier purchase costs not yet entered. Vendor PO amount cannot be confirmed until actual supplier prices are provided.';
-    container.innerHTML=`<strong>${isInventory?'INVENTORY COST VERIFIED':'JOBTREAD LINKS VERIFIED'} — PREVIEW ONLY · NO PO CREATED</strong>
+    container.innerHTML=`<strong>${isInventory?'INVENTORY COST VERIFIED':'JOBTREAD LINKS VERIFIED'} — ${data.testMode?'TEST / PREVIEW ONLY':'READ-ONLY PO CHECK'} · NO PO CREATED</strong>
       <p>Job ${escapeHTML(data.job?.number)} · ${escapeHTML(data.vendor?.name)} ·
       ${escapeHTML(formatNumber(data.lineCount))} lines · ${escapeHTML(costMessage)}</p>
       <div class="table-wrap"><table><thead><tr><th>1410 Budget Item / Part #</th><th>Qty</th><th>${costHeading}</th><th>Extended PO Cost</th></tr></thead><tbody>
       ${(data.items||[]).map(row=>`<tr><td>${escapeHTML(row.name)}<div class="material-request-sub">${escapeHTML(row.partNumber||'—')}</div>${Array.isArray(row.serialNumbers)&&row.serialNumbers.length?`<div class="serial-preview-value">Selected S/N: ${row.serialNumbers.map(escapeHTML).join(' · ')}</div>`:''}</td>
       <td>${escapeHTML(formatNumber(row.quantity))}</td><td>${escapeHTML(fmtCost(row.unitCost))}</td><td>${escapeHTML(fmtCost(row.totalCost))}</td></tr>`).join('')}
       </tbody></table></div>
-      <div class="path-note">The customer quote and JobTread budget are unchanged. Serialized unit costs come from saved actual serial/lot selections. Stock and costs are rechecked before a real PO is permitted. Vendor ID: ${escapeHTML(data.vendor?.id)} · JobTread Job ID: ${escapeHTML(data.job?.jobtreadId)} ·
+      <div class="path-note">The customer quote and JobTread budget are unchanged. Serialized unit costs come from ${data.testMode?'temporary TEST serial choices (NOT saved)':'saved actual serial/lot assignments'}. Stock and costs are rechecked before a real PO is permitted. Vendor ID: ${escapeHTML(data.vendor?.id)} · JobTread Job ID: ${escapeHTML(data.job?.jobtreadId)} ·
       No database change, inventory reservation, purchase order, Bill, Expense or QuickBooks transaction occurred.</div>`;
   }catch(error){
     container.textContent='PO CHECK BLOCKED: '+(error?.message||String(error))+' No PO was created.';
@@ -996,6 +1032,7 @@ async function previewProjectMaterialPO(handoffId,source,vendorName,lineIds,cont
 async function acknowledgeProjectMaterials(handoffId){
   const h=projectMaterialHandoffs.find(row=>row.id===handoffId);
   if(!h||h.status!=='SENT')return;
+  if(isTestMode(handoffId))return window.alert('TEST / PREVIEW ONLY is active — acknowledgement is disabled to prevent database changes.');
   if(!window.confirm('Acknowledge receipt of Job '+h.job_number+' materials? This does NOT reserve or issue inventory or create any PO or Bill.'))return;
   const msg=document.getElementById('materialQueueMessage');msg.textContent='Acknowledging Job '+h.job_number+'...';
   try{
@@ -1025,7 +1062,16 @@ async function loadSerialPickOptions(handoffId,force=false){
       const line=projectMaterialHandoffLines.find(l=>l.id===id);
       return line && selections.get(id).length===Number(line.suggested_inventory_qty);
     });
-    serialPickPlans.set(handoffId,{loading:false,saved,lineIds,options,savedSelections:selections,draft:new Map([...selections].map(([k,v])=>[k,[...v]]))});
+    const draft=new Map([...selections].map(([k,v])=>[k,[...v]]));
+    if(isTestMode(handoffId)){
+      for(const lineId of lineIds){
+        const line=projectMaterialHandoffLines.find(row=>row.id===lineId);
+        const count=Number(line?.suggested_inventory_qty||0);
+        if(!draft.get(lineId)?.length)
+          draft.set(lineId,options.filter(option=>option.lineId===lineId).slice(0,count).map(option=>option.serialId));
+      }
+    }
+    serialPickPlans.set(handoffId,{loading:false,saved,lineIds,options,savedSelections:selections,draft});
   }catch(error){
     serialPickPlans.set(handoffId,{loading:false,error:error?.message||String(error),saved:false,lineIds:[],options:[],savedSelections:new Map(),draft:new Map()});
   }
@@ -1039,6 +1085,29 @@ function completeSavedSerialPicks(handoffId){
     return line && (plan.savedSelections.get(id)||[]).length===Number(line.suggested_inventory_qty);
   });
 }
+function getDraftSerialSelections(handoffId){
+  const plan=serialPickPlans.get(handoffId);
+  if(!plan||plan.loading||plan.error)throw new Error('Serial choices have not loaded.');
+  const used=new Set(),selections=[];
+  for(const lineId of plan.lineIds){
+    const line=projectMaterialHandoffLines.find(l=>l.id===lineId);
+    const count=Number(line?.suggested_inventory_qty);
+    if(!line||!Number.isInteger(count)||count<1||count>50)throw new Error('Invalid serialized quantity.');
+    const ids=Array.from({length:count},(_,i)=>plan.draft.get(lineId)?.[i]||'');
+    if(ids.some(id=>!id))throw new Error('Select all '+count+' serial number(s) for '+line.inventory_part_number+'.');
+    for(const id of ids){
+      if(used.has(id)||!plan.options.some(opt=>opt.lineId===lineId&&opt.serialId===id))
+        throw new Error('A serial number is duplicated or no longer available.');
+      used.add(id);
+    }
+    selections.push({lineId,serialIds:ids});
+  }
+  return selections;
+}
+function isSerialPlanReady(handoffId){
+  if(!isTestMode(handoffId))return completeSavedSerialPicks(handoffId);
+  try{getDraftSerialSelections(handoffId);return true;}catch{return false;}
+}
 function renderSerialPickControls(handoffId){
   const h=projectMaterialHandoffs.find(h=>h.id===handoffId);
   if(!h)return;
@@ -1048,14 +1117,23 @@ function renderSerialPickControls(handoffId){
   const stock=card.querySelector('.fulfillment-path:not(.purchase)');
   const panel=stock?.querySelector('[data-serial-picker]');if(!panel)return;
   const plan=serialPickPlans.get(handoffId);
-  const ready=completeSavedSerialPicks(handoffId);
+  const testMode=isTestMode(handoffId);
+  const ready=isSerialPlanReady(handoffId);
+  const banner=stock.querySelector('[data-mode-panel]');
+  banner.classList.toggle('live',!testMode);
+  banner.querySelector('[data-mode-title]').textContent=testMode?'TEST / PREVIEW ONLY — NO SAVES':'LIVE ASSIGNMENTS — SAVES ARE REAL';
+  banner.querySelector('[data-mode-description]').textContent=testMode
+    ?'Selections stay in this browser. Pick-list printouts are marked TEST. PO costs are verified read-only. No database saves, inventory commitments, or JobTread records.'
+    :'SAVE SELECTED SERIAL NUMBERS creates real assignments. This is NOT test mode. No inventory issue or PO is created by saving.';
+  banner.querySelector('[data-action="toggle-live"]').textContent=testMode?'SWITCH TO LIVE ASSIGNMENTS':'RETURN TO TEST / PREVIEW ONLY';
   stock.querySelector('[data-action="pick"]').disabled=!ready;
+  stock.querySelector('[data-action="pick"]').textContent=testMode?'GENERATE TEST PICK LIST':'GENERATE GENERAL PICK LIST';
   stock.querySelector('[data-action="validate-inventory"]').disabled=!ready;
   if(!plan||plan.loading){panel.textContent='Loading live available serial numbers and actual purchase costs...';return;}
   if(plan.error){panel.textContent='Unable to load serialized inventory: '+plan.error+'. Use REFRESH REQUESTS to retry.';return;}
   if(!plan.lineIds.length){panel.textContent='No serialized stock materials in this request. Regular inventory pick list and PO cost check are available.';return;}
   panel.innerHTML='<h4>STEP 1 — Select Exact Serialized Units (Oldest Available First)</h4>'+
-    '<p>Select the physical serial number Warehouse will pull. S/N, purchase batch and actual lot cost are shown for each unit.</p>'+
+    '<p>'+(testMode?'Choose serials for a safe TEST preview; the oldest eligible units are preselected. Nothing will be reserved or saved.':'Choose the actual physical serial numbers to SAVE for Warehouse picking. S/N, purchase batch and actual lot cost are shown.')+'</p>'+
     plan.lineIds.map(lineId=>{
       const line=projectMaterialHandoffLines.find(l=>l.id===lineId);
       if(!line)return '';
@@ -1071,22 +1149,28 @@ function renderSerialPickControls(handoffId){
             ' · '+Number(opt.unitCost).toLocaleString('en-US',{style:'currency',currency:'USD'})+'</option>').join('')+'</select>').join('')+
         '</div>';
     }).join('')+
-    '<button class="btn-teal" type="button" data-action="save-serials">SAVE SELECTED SERIAL NUMBERS</button>'+
+    (testMode?'<div class="test-print-flag">TEST ONLY — SERIAL CHOICES ARE NOT SAVED OR COMMITTED</div>':'<button class="btn-teal" type="button" data-action="save-serials">SAVE SELECTED SERIAL NUMBERS</button>')+
     '<button class="btn-light" type="button" data-action="reload-serials">REFRESH SERIAL OPTIONS</button>'+
-    '<div class="serial-pick-message">'+(ready?'SERIAL PICKS SAVED — You may print the General Pick List.':'Serial picks must be explicitly selected and saved before printing or checking PO costs.')+'</div>';
-  panel.querySelector('[data-action="save-serials"]').addEventListener('click',()=>saveSerialPickPlan(handoffId));
+    '<div class="serial-pick-message">'+(testMode
+      ?(ready?'TEST choices ready — print a TEST list or check the read-only PO preview. Nothing has been saved.':'Select all serial numbers to enable the TEST pick list and PO preview.')
+      :(ready?'SERIAL PICKS SAVED — You may print the General Pick List.':'Select and SAVE the serial numbers before printing or checking PO costs.'))+'</div>';
+  panel.querySelector('[data-action="save-serials"]')?.addEventListener('click',()=>saveSerialPickPlan(handoffId));
   panel.querySelector('[data-action="reload-serials"]').addEventListener('click',()=>loadSerialPickOptions(handoffId,true));
   panel.querySelectorAll('[data-serial-line]').forEach(select=>select.addEventListener('change',()=>{
     const id=select.dataset.serialLine,slot=Number(select.dataset.serialSlot);
     const selected=plan.draft.get(id)||[];selected[slot]=select.value;plan.draft.set(id,selected);
-    plan.saved=false;
-    stock.querySelector('[data-action="pick"]').disabled=true;
-    stock.querySelector('[data-action="validate-inventory"]').disabled=true;
+    if(!testMode)plan.saved=false;
+    const readyNow=isSerialPlanReady(handoffId);
+    stock.querySelector('[data-action="pick"]').disabled=!readyNow;
+    stock.querySelector('[data-action="validate-inventory"]').disabled=!readyNow;
     const previous=stock.querySelector('[data-inventory-preview]');previous.hidden=true;previous.textContent='';
-    panel.querySelector('.serial-pick-message').textContent='Unsaved serial change — click SAVE SELECTED SERIAL NUMBERS.';
+    panel.querySelector('.serial-pick-message').textContent=testMode
+      ?(readyNow?'TEST choices ready — no save required.':'Select all serial numbers for TEST preview.')
+      :'Unsaved serial change — click SAVE SELECTED SERIAL NUMBERS.';
   }));
 }
 async function saveSerialPickPlan(handoffId){
+  if(isTestMode(handoffId))return window.alert('TEST / PREVIEW ONLY — saving serialized assignments is disabled.');
   const plan=serialPickPlans.get(handoffId);
   if(!plan||plan.loading||plan.error)return;
   const selected=new Set();
@@ -1118,11 +1202,13 @@ function printProjectMaterialPickList(handoffId){
   if(!h)return;
   const lines=projectMaterialHandoffLines.filter(l=>l.handoff_id===handoffId&&Number(l.suggested_inventory_qty)>0);
   if(!lines.length)return window.alert('No in-stock quantities are proposed for Job '+h.job_number+'. Review the purchasing requirements instead.');
-  if(!completeSavedSerialPicks(handoffId))return window.alert('Select and SAVE all required serialized units before printing the General Pick List.');
+  if(!isSerialPlanReady(handoffId))return window.alert(isTestMode(handoffId)?'Select every serial number for the TEST pick list.':'Select and SAVE every serialized unit before printing the General Pick List.');
   const plan=serialPickPlans.get(handoffId);
+  const testMode=isTestMode(handoffId);
   const rows=[];
   for(const line of lines){
-    const serialIds=plan?.lineIds?.includes(line.id)?(plan.savedSelections.get(line.id)||[]):[];
+    const serialIds=plan?.lineIds?.includes(line.id)
+      ?((testMode?plan.draft:plan.savedSelections).get(line.id)||[]):[];
     if(serialIds.length){
       for(const id of serialIds){
         const serial=plan.options.find(option=>option.lineId===line.id&&option.serialId===id);
@@ -1138,13 +1224,14 @@ function printProjectMaterialPickList(handoffId){
     table{border-collapse:collapse;width:100%;margin-top:18px}th,td{border:1px solid #cbd5e1;padding:9px;text-align:left}
     th{background:#edf5fa}.notice{border:1px solid #fed7aa;background:#fff7ed;padding:12px;margin:15px 0}
     @page{size:landscape;margin:10mm}</style></head><body>
-    <h1>Molinari Warehouse · General Pick List</h1>
+    <h1>Molinari Warehouse · ${testMode?'TEST / PREVIEW ONLY · NOT A PICK AUTHORIZATION':'General Pick List'}</h1>
+    ${testMode?'<div style="font-size:26px;font-weight:800;color:#b45309;border:3px dashed #d97706;padding:13px;text-align:center;margin:12px 0">TEST ONLY — DO NOT PICK OR ISSUE INVENTORY</div>':''}
     <p><strong>Job:</strong> ${escapeHTML(h.job_number)} — ${escapeHTML(h.job_name||'')} &nbsp; <strong>Cost Code:</strong> 1410</p>
     <p><strong>Estimator:</strong> ${escapeHTML(h.verified_by_name||'Projects')} &nbsp; <strong>Verified:</strong> ${escapeHTML(formatDateTime(h.verified_at))}</p>
-    <div class="notice"><strong>WAREHOUSE PICK INSTRUCTION:</strong> For serialized materials, pull ONLY the exact serial number shown. Verify the serial physically before issuance. This saved pick plan does not reduce physical On Hand or create a JobTread PO.</div>
+    <div class="notice"><strong>${testMode?'TEST DISPLAY ONLY — NOT VALID FOR PICKING':'WAREHOUSE PICK INSTRUCTION'}:</strong> For serialized materials, pull ONLY the exact serial number shown. Verify the serial physically before issuance. ${testMode?'TEST selections have NOT been saved or assigned and must NOT be physically issued.':'This saved pick plan does not reduce physical On Hand or create a JobTread PO.'}</div>
     <table><thead><tr><th>Part #</th><th>JobTread Budget Item</th><th>Shelf</th><th>Pick Qty</th><th>SPECIFIC SERIAL NUMBER TO PICK</th><th>Picked / Verified By</th></tr></thead><tbody>
     ${rows.map(r=>`<tr><td>${escapeHTML(r.line.inventory_part_number||'')}</td><td>${escapeHTML(r.line.budget_item_name)}</td><td>${escapeHTML(r.line.inventory_shelf||'—')}</td><td>${escapeHTML(formatNumber(r.qty))} ${escapeHTML(r.line.unit||'')}</td><td><strong>${escapeHTML(r.serial)}</strong></td><td>________________________</td></tr>`).join('')}</tbody></table>
-    <p>Printed ${escapeHTML(new Date().toLocaleString())}</p></body></html>`;
+    <p>Printed ${escapeHTML(new Date().toLocaleString())} · ${testMode?'TEST / PREVIEW ONLY — NOT VALID FOR FULFILLMENT':'LIVE saved pick plan'}</p></body></html>`;
   popup.document.open();popup.document.write(html);popup.document.close();popup.focus();popup.print();
 }
 
