@@ -914,6 +914,7 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-primary" type="button" disabled title="PO creation is locked until the JobTread create-document integration and recovery procedure are verified">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
+    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF copy). Folder filing is not connected yet and will be verified before live PO creation.</div>
     <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. CHECK PO CREATION PREFLIGHT validates the intended PO vendor, costs and duplicate safeguards without creating anything. The actual JobTread PO creation button remains disabled until the API write and recovery steps are verified.</div>
     <div class="vendor-groups" data-commitment-readiness hidden></div>
     <div class="vendor-groups" data-po-create-preflight hidden></div>
@@ -1001,17 +1002,24 @@ async function checkProjectInventoryPOPreflight(handoffId,container){
     if(testMode)payload.testPicks=getDraftSerialSelections(handoffId);
     const {data,error}=await client.functions.invoke('jobtread-project-inventory-po-preflight',{body:payload});
     if(error||!data?.success||data?.mode!=='PREFLIGHT_ONLY'||data.jobtreadWrites!==false||data.databaseWrites!==false){
-      throw new Error(data?.error||error?.message||'Server did not confirm a read-only PO preflight.');
+      let message=data?.error;
+      // Supabase sends the actual safe validation error inside the non-2xx
+      // response body. Read it instead of showing a generic HTTP message.
+      if(!message && error?.context && typeof error.context.json==='function'){
+        try {const details=await error.context.json();message=details?.error||details?.message;}catch(_){}
+      }
+      throw new Error(message||error?.message||'Server did not confirm a read-only PO preflight.');
     }
     const readiness=data.commitmentReadiness||{};
     const rows=data.documentRequestSummary?.budgetItemLinks||[];
-    container.innerHTML=`<strong>${testMode?'TEST PO CREATION PREFLIGHT PASSED':'LIVE PO CREATION PREFLIGHT'} — NO PO CREATED</strong>
+    container.innerHTML=`<strong>${testMode?'TEST PO DATA PREFLIGHT PASSED':'LIVE PO DATA PREFLIGHT'} — NO PO CREATED</strong>
       <p>Job ${escapeHTML(data.jobNumber||'')} · ${escapeHTML(data.vendor||'')} · ${Number(data.inventoryLines||0)} inventory lines · ${escapeHTML(Number(data.actualInventoryCost||0).toLocaleString('en-US',{style:'currency',currency:'USD'}))} estimated actual inventory cost</p>
       <p><strong>JobTread external reference:</strong> ${escapeHTML(data.externalId||'—')} · <strong>Serial numbers verified:</strong> ${(data.serializedSerials||[]).length}</p>
       <p><strong>1410 budget line links:</strong> ${rows.length} · <strong>QuickBooks sync:</strong> Excluded from proposed Molinari internal PO</p>
+      <p><strong>Required filed PO PDF:</strong> JobTread Job Files → ${escapeHTML(data.requiredFileFolder||'ALL FILES - INVOICES')} · <strong>Filing connection:</strong> Pending verification (no PDF filed)</p>
       <p>${testMode?'TEST MODE: Temporary dropdown choices were validated but NOT SAVED. The live commitment check is expected to remain pending.':
         readiness.readyForLivePO?'All existing live commitment checks passed. The actual PO creation action remains disabled.':'Live serial assignments or stock checks are not yet ready.'}</p>
-      <p class="path-note">Protected read-only preflight. No vendor PO, stock reservation, inventory issue, Bill, Expense, or QBO transaction was created. A live PO cannot be generated from this screen yet.</p>`;
+      <p class="path-note">Protected read-only PO data preflight. JobTread PDF folder filing still needs separate verification. No vendor PO, PDF, stock reservation, inventory issue, Bill, Expense, or QBO transaction was created. Live creation remains disabled.</p>`;
   } catch(error){
     container.textContent='PO CREATION PREFLIGHT BLOCKED (no PO created): '+(error?.message||String(error));
   }
