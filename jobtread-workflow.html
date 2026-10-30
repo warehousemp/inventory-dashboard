@@ -910,11 +910,13 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-light" type="button" data-action="pick" disabled>GENERATE GENERAL PICK LIST</button>
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
+      <button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>
       <button class="btn-primary" type="button" disabled title="PO creation is locked until the JobTread create-document integration and recovery procedure are verified">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
-    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. The actual JobTread PO creation button remains disabled until the API write and recovery steps are verified.</div>
+    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. CHECK PO CREATION PREFLIGHT validates the intended PO vendor, costs and duplicate safeguards without creating anything. The actual JobTread PO creation button remains disabled until the API write and recovery steps are verified.</div>
     <div class="vendor-groups" data-commitment-readiness hidden></div>
+    <div class="vendor-groups" data-po-create-preflight hidden></div>
     <div class="vendor-groups" data-inventory-preview hidden></div>`;
   stock.querySelector('[data-action="toggle-live"]').addEventListener('click',async()=>{
     if(isTestMode(h.id)){
@@ -927,10 +929,12 @@ function renderFulfillmentPaths(h,lines,article){
     ack.disabled=h.status==='RECEIVED'||isTestMode(h.id);
     ack.title=isTestMode(h.id)?'Disabled in TEST / PREVIEW ONLY — no database changes':'Record Warehouse receipt';
     const readiness=stock.querySelector('[data-commitment-readiness]');readiness.hidden=true;readiness.textContent='';
+    const preflight=stock.querySelector('[data-po-create-preflight]');preflight.hidden=true;preflight.textContent='';
     const preview=stock.querySelector('[data-inventory-preview]');preview.hidden=true;preview.textContent='';
     await loadSerialPickOptions(h.id,true);
   });
   stock.querySelector('[data-action="check-commitment-readiness"]').addEventListener('click',()=>checkCommitmentReadiness(h.id,stock.querySelector('[data-commitment-readiness]')));
+  stock.querySelector('[data-action="check-po-create-preflight"]').addEventListener('click',()=>checkProjectInventoryPOPreflight(h.id,stock.querySelector('[data-po-create-preflight]')));
   stock.querySelector('[data-action="pick"]').addEventListener('click',()=>printProjectMaterialPickList(h.id));
   stock.querySelector('[data-action="validate-inventory"]').addEventListener('click',()=>{
     if(!isSerialPlanReady(h.id))return window.alert(isTestMode(h.id)?'Choose each serial number for the TEST preview.':'Select and SAVE every serialized unit before validating the PO.');
@@ -982,6 +986,34 @@ function updateVendorPOPreview(purchaseCard,lines){
     check.addEventListener('click',()=>previewProjectMaterialPO(
       items[0].handoff_id,'VENDOR',vendor,items.map(item=>item.id),preview));
     row.append(label,check,button);box.append(row,preview);
+  }
+}
+
+async function checkProjectInventoryPOPreflight(handoffId,container){
+  container.hidden=false;
+  container.textContent='Verifying the proposed Molinari Inventory PO, selected serials, vendor, cost values and duplicate safeguards. Nothing will be created...';
+  try {
+    const testMode=isTestMode(handoffId);
+    if(!isSerialPlanReady(handoffId))throw new Error(testMode
+      ?'Please select all four TEST serial numbers first.'
+      :'Select and SAVE all exact serialized items before running the live readiness preflight.');
+    const payload={handoffId,testMode};
+    if(testMode)payload.testPicks=getDraftSerialSelections(handoffId);
+    const {data,error}=await client.functions.invoke('jobtread-project-inventory-po-preflight',{body:payload});
+    if(error||!data?.success||data?.mode!=='PREFLIGHT_ONLY'||data.jobtreadWrites!==false||data.databaseWrites!==false){
+      throw new Error(data?.error||error?.message||'Server did not confirm a read-only PO preflight.');
+    }
+    const readiness=data.commitmentReadiness||{};
+    const rows=data.documentRequestSummary?.budgetItemLinks||[];
+    container.innerHTML=`<strong>${testMode?'TEST PO CREATION PREFLIGHT PASSED':'LIVE PO CREATION PREFLIGHT'} — NO PO CREATED</strong>
+      <p>Job ${escapeHTML(data.jobNumber||'')} · ${escapeHTML(data.vendor||'')} · ${Number(data.inventoryLines||0)} inventory lines · ${escapeHTML(Number(data.actualInventoryCost||0).toLocaleString('en-US',{style:'currency',currency:'USD'}))} estimated actual inventory cost</p>
+      <p><strong>JobTread external reference:</strong> ${escapeHTML(data.externalId||'—')} · <strong>Serial numbers verified:</strong> ${(data.serializedSerials||[]).length}</p>
+      <p><strong>1410 budget line links:</strong> ${rows.length} · <strong>QuickBooks sync:</strong> Excluded from proposed Molinari internal PO</p>
+      <p>${testMode?'TEST MODE: Temporary dropdown choices were validated but NOT SAVED. The live commitment check is expected to remain pending.':
+        readiness.readyForLivePO?'All existing live commitment checks passed. The actual PO creation action remains disabled.':'Live serial assignments or stock checks are not yet ready.'}</p>
+      <p class="path-note">Protected read-only preflight. No vendor PO, stock reservation, inventory issue, Bill, Expense, or QBO transaction was created. A live PO cannot be generated from this screen yet.</p>`;
+  } catch(error){
+    container.textContent='PO CREATION PREFLIGHT BLOCKED (no PO created): '+(error?.message||String(error));
   }
 }
 
@@ -1192,6 +1224,7 @@ function renderSerialPickControls(handoffId){
     stock.querySelector('[data-action="pick"]').disabled=!readyNow;
     stock.querySelector('[data-action="validate-inventory"]').disabled=!readyNow;
     const readiness=stock.querySelector('[data-commitment-readiness]');readiness.hidden=true;readiness.textContent='';
+    const preflight=stock.querySelector('[data-po-create-preflight]');preflight.hidden=true;preflight.textContent='';
     const previous=stock.querySelector('[data-inventory-preview]');previous.hidden=true;previous.textContent='';
     panel.querySelector('.serial-pick-message').textContent=testMode
       ?(readyNow?'TEST choices ready — no save required.':'Select all serial numbers for TEST preview.')
