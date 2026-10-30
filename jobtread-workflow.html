@@ -909,10 +909,12 @@ function renderFulfillmentPaths(h,lines,article){
     <div class="path-actions">
       <button class="btn-light" type="button" data-action="pick" disabled>GENERATE GENERAL PICK LIST</button>
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
-      <button class="btn-primary" type="button" disabled title="JobTread PO creation is not yet connected">YES — FULFILL FROM INVENTORY</button>
+      <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
+      <button class="btn-primary" type="button" disabled title="PO creation is locked until the JobTread create-document integration and recovery procedure are verified">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
-    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the clearly marked test pick list or check the read-only PO preview. No SAVE occurs. LIVE MODE: Exact serial assignments must be saved before issuing an operational pick list. JobTread PO creation remains disabled.</div>
+    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. The actual JobTread PO creation button remains disabled until the API write and recovery steps are verified.</div>
+    <div class="vendor-groups" data-commitment-readiness hidden></div>
     <div class="vendor-groups" data-inventory-preview hidden></div>`;
   stock.querySelector('[data-action="toggle-live"]').addEventListener('click',async()=>{
     if(isTestMode(h.id)){
@@ -924,9 +926,11 @@ function renderFulfillmentPaths(h,lines,article){
     const ack=article.querySelector('[data-action="ack"]');
     ack.disabled=h.status==='RECEIVED'||isTestMode(h.id);
     ack.title=isTestMode(h.id)?'Disabled in TEST / PREVIEW ONLY — no database changes':'Record Warehouse receipt';
+    const readiness=stock.querySelector('[data-commitment-readiness]');readiness.hidden=true;readiness.textContent='';
     const preview=stock.querySelector('[data-inventory-preview]');preview.hidden=true;preview.textContent='';
     await loadSerialPickOptions(h.id,true);
   });
+  stock.querySelector('[data-action="check-commitment-readiness"]').addEventListener('click',()=>checkCommitmentReadiness(h.id,stock.querySelector('[data-commitment-readiness]')));
   stock.querySelector('[data-action="pick"]').addEventListener('click',()=>printProjectMaterialPickList(h.id));
   stock.querySelector('[data-action="validate-inventory"]').addEventListener('click',()=>{
     if(!isSerialPlanReady(h.id))return window.alert(isTestMode(h.id)?'Choose each serial number for the TEST preview.':'Select and SAVE every serialized unit before validating the PO.');
@@ -979,6 +983,30 @@ function updateVendorPOPreview(purchaseCard,lines){
       items[0].handoff_id,'VENDOR',vendor,items.map(item=>item.id),preview));
     row.append(label,check,button);box.append(row,preview);
   }
+}
+
+async function checkCommitmentReadiness(handoffId,container){
+  container.hidden=false;
+  container.textContent='Checking live warehouse stock, saved serial selections, and any existing JobTread PO operations...';
+  try {
+    const {data,error}=await client.rpc('jobtread_project_inventory_po_readiness',{p_handoff_id:handoffId});
+    if(error||!data?.success||data?.mode!=='READ_ONLY'||data?.writes!==false){
+      throw new Error(error?.message||'Server did not confirm a safe read-only readiness check.');
+    }
+    const testing=isTestMode(handoffId);
+    const info=data.readyForLivePO
+      ?'All live inventory and saved serial selection checks passed. PO creation remains disabled pending JobTread integration verification.'
+      :testing
+        ?'TEST / PREVIEW ONLY: No serials are saved by design. This check is for future LIVE commitment readiness; your TEST pick list and PO cost preview remain valid.'
+        :'Live commitment is not ready. Select and SAVE all exact serialized units, and check stock availability before proceeding.';
+    const summary=`${Number(data.lineCount||0)} inventory line(s) · ${Number(data.serializedLineCount||0)} serialized line(s) · ${Number(data.savedSerialCount||0)} valid saved serial(s)`;
+    const failed=(Array.isArray(data.lines)?data.lines:[]).filter(row=>!row.ready);
+    container.innerHTML=`<strong>${data.readyForLivePO?'LIVE COMMITMENT CHECKS PASSED':'LIVE COMMITMENT CHECKS PENDING'} — READ ONLY</strong>
+      <p>${escapeHTML(summary)}</p><p>${escapeHTML(info)}</p>
+      ${data.poOperationStatus?`<p><strong>Existing PO state:</strong> ${escapeHTML(data.poOperationStatus)}. Do not create a duplicate PO.</p>`:''}
+      ${failed.length?`<p><strong>Items needing live review:</strong> ${failed.map(row=>escapeHTML(row.partNumber||'Unknown')).join(', ')}</p>`:''}
+      <p class="path-note">This check does not create a JobTread PO, commit stock, save serial selections, or change On Hand.</p>`;
+  }catch(error){container.textContent='COMMITMENT READINESS CHECK BLOCKED: '+(error?.message||String(error));}
 }
 
 async function previewProjectMaterialPO(handoffId,source,vendorName,lineIds,container){
@@ -1163,6 +1191,7 @@ function renderSerialPickControls(handoffId){
     const readyNow=isSerialPlanReady(handoffId);
     stock.querySelector('[data-action="pick"]').disabled=!readyNow;
     stock.querySelector('[data-action="validate-inventory"]').disabled=!readyNow;
+    const readiness=stock.querySelector('[data-commitment-readiness]');readiness.hidden=true;readiness.textContent='';
     const previous=stock.querySelector('[data-inventory-preview]');previous.hidden=true;previous.textContent='';
     panel.querySelector('.serial-pick-message').textContent=testMode
       ?(readyNow?'TEST choices ready — no save required.':'Select all serial numbers for TEST preview.')
