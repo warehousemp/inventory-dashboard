@@ -106,6 +106,15 @@
     .fulfillment-path button:disabled { opacity:.55; cursor:not-allowed; }
     .vendor-groups { background:#fff; border:1px solid #fbd6ad; border-radius:9px; padding:10px; margin-top:10px; font-size:12px; }
     .vendor-groups p { margin:5px 0; }
+    .serial-picker-panel{background:#fff;border:1px solid #9dc6d5;padding:11px;border-radius:10px;margin:10px 0;font-size:12px;line-height:1.5}
+    .serial-picker-panel h4{font-size:13px;color:#0b3c5d;margin:0 0 7px}
+    .serial-picker-item{padding:9px 0;border-top:1px solid #e6edf2;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+    .serial-picker-item strong{min-width:150px}
+    .serial-picker-panel select{min-width:295px;max-width:100%;font-weight:500}
+    .serial-picker-panel button{margin:7px 0}
+    .serial-pick-message{margin-top:7px;font-weight:600;color:#0b3c5d}
+    .serial-preview-value{color:#106e64;font-weight:700;margin-top:4px;font-size:11px}
+
     .path-empty { font-size:12px; color:#667085; padding:16px 0; }
     @media(max-width:900px) { .fulfillment-grid { grid-template-columns:1fr; } }
 
@@ -647,9 +656,9 @@
       <div class="fulfillment-grid">
         <div class="fulfillment-path">
           <h3>Path A — Available Inventory</h3>
-          <span class="path-step">1. Review stock and print the Warehouse Pick List.</span>
-          <span class="path-step">2. Confirm Yes — Fulfill from Inventory.</span>
-          <span class="path-step">3. Create a JobTread PO for vendor Molinari Inventory and record the inventory commitment.</span>
+          <span class="path-step">1. Select the exact serialized units (oldest receipt first), then save.</span>
+          <span class="path-step">2. Print the General Pick List showing each selected serial number.</span>
+          <span class="path-step">3. Confirm actual stock costs before creating the Molinari Inventory PO.</span>
           <div class="path-result">Molinari Inventory PO · Stock is reduced only when issued</div>
         </div>
         <div class="fulfillment-path purchase">
@@ -665,7 +674,7 @@
     <section id="materialsQueue">
       <div class="card material-queue-card">
         <h2 style="margin:0;color:#062f4f;">Warehouse — Verified Projects Materials</h2>
-        <div class="material-safe"><strong>Current stage:</strong> Verified JobTread 1410 materials are separated below into Available Inventory and Purchase Required. The pick list and acknowledgement are active. <strong>NEW:</strong> Validate each proposed JobTread PO against the live vendor account, original job budget links and quantities. Molinari Inventory PO pricing uses our actual remaining FIFO stock purchase costs, never the quoted JobTread amount; outside-vendor pricing will require actual supplier costs. This is a read-only safety check. Actual PO creation, inventory commitment and accounting posting remain locked until the validation is reviewed.</div>
+        <div class="material-safe"><strong>Current stage:</strong> Verified JobTread 1410 materials are separated below into Available Inventory and Purchase Required. The pick list and acknowledgement are active. <strong>SERIAL PICK CONTROL:</strong> Warehouse must explicitly select and save the oldest eligible serialized stock or choose another available serial. The General Pick List prints the exact saved serials. Inventory PO previews use those selected units' actual lot costs; nonserialized items use FIFO purchase layers. JobTread PO creation, inventory issuing and accounting posting remain locked.</div>
         <div class="material-queue-tools">
           <input type="search" id="materialJobSearch" placeholder="Search Job number, Job name or material..." oninput="renderProjectMaterialHandoffs()" aria-label="Search new Projects material requests">
           <select id="materialStatusFilter" onchange="renderProjectMaterialHandoffs()" aria-label="Filter Projects material request status">
@@ -696,6 +705,9 @@ let projectMaterialHandoffs = [];
 let projectMaterialHandoffLines = [];
 let purchaseVendors = [];
 const vendorDraftSelections = new Map();
+// Each handoff has an explicitly saved, server-verified serial pick plan.
+const serialPickPlans = new Map();
+
 window.addEventListener('load', async () => {
   const hasAccess = await enforceAccess();
   if (hasAccess) await Promise.all([loadProjectMaterialHandoffs(),loadPurchaseVendors()]);
@@ -793,6 +805,7 @@ async function loadProjectMaterialHandoffs() {
       .order('verified_at',{ascending:false}).limit(100);
     if(headerError) throw headerError;
     projectMaterialHandoffs=headers||[];
+    serialPickPlans.clear();
     projectMaterialHandoffLines=[];
     if(projectMaterialHandoffs.length){
       const ids=projectMaterialHandoffs.map(h=>h.id);
@@ -859,6 +872,8 @@ function renderProjectMaterialHandoffs(){
     article.querySelector('[data-action="ack"]').addEventListener('click',()=>acknowledgeProjectMaterials(h.id));
     renderFulfillmentPaths(h,lines,article);
     container.appendChild(article);
+    if(!serialPickPlans.has(h.id)) loadSerialPickOptions(h.id);
+    else renderSerialPickControls(h.id);
   }
 }
 
@@ -872,17 +887,20 @@ function renderFulfillmentPaths(h,lines,article){
     ${inventory.length?`<div class="table-wrap"><table><thead><tr><th>Inventory Part #</th><th>Budget Item</th><th>Shelf</th><th>Qty to Fulfill</th></tr></thead><tbody>
     ${inventory.map(l=>`<tr><td>${escapeHTML(l.inventory_part_number||'')}</td><td>${escapeHTML(l.budget_item_name)}</td><td>${escapeHTML(l.inventory_shelf||'—')}</td><td>${escapeHTML(formatNumber(l.suggested_inventory_qty))} ${escapeHTML(l.unit||'')}</td></tr>`).join('')}
     </tbody></table></div>`:'<div class="path-empty">No existing-stock materials proposed for this job.</div>'}
+    <div data-serial-picker class="serial-picker-panel">Checking which materials require serial-number selection...</div>
     <div class="path-actions">
-      <button class="btn-light" type="button" data-action="pick" ${inventory.length?'':'disabled'}>GENERATE PICK LIST</button>
-      <button class="btn-teal" type="button" data-action="validate-inventory" ${inventory.length?'':'disabled'}>CHECK JOBTREAD PO DETAILS</button>
+      <button class="btn-light" type="button" data-action="pick" disabled>GENERATE GENERAL PICK LIST</button>
+      <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-primary" type="button" disabled title="JobTread PO creation is not yet connected">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
-    <div class="path-note">The new PO check confirms the live JobTread budget links and stock, and prices the proposed inventory PO using Molinari’s actual remaining FIFO cost layers. Client quoted prices remain untouched. No PO, reservation, issue or accounting entry is created.</div>
+    <div class="path-note">Serialized items require a saved physical serial selection before you can print the pick list or validate the PO. The selected unit's actual purchase lot cost will be used for PO pricing; nonserialized items use FIFO stock layers. Picks are not physical issues and do not change On Hand. JobTread PO creation remains disabled.</div>
     <div class="vendor-groups" data-inventory-preview hidden></div>`;
   stock.querySelector('[data-action="pick"]').addEventListener('click',()=>printProjectMaterialPickList(h.id));
-  stock.querySelector('[data-action="validate-inventory"]').addEventListener('click',()=>
-    previewProjectMaterialPO(h.id,'INVENTORY',null,[],stock.querySelector('[data-inventory-preview]')));
+  stock.querySelector('[data-action="validate-inventory"]').addEventListener('click',()=>{
+    if(!completeSavedSerialPicks(h.id)) return window.alert('Select and SAVE every serialized unit before previewing the Molinari Inventory PO.');
+    previewProjectMaterialPO(h.id,'INVENTORY',null,[],stock.querySelector('[data-inventory-preview]'));
+  });
 
   const buy=document.createElement('section');buy.className='fulfillment-path purchase';
   buy.innerHTML=`<h3>Path B — Purchase Required</h3>
@@ -954,21 +972,21 @@ async function previewProjectMaterialPO(handoffId,source,vendorName,lineIds,cont
       ? 'SUPPLIER PRICE REQUIRED'
       : Number(value).toLocaleString('en-US',{style:'currency',currency:'USD'});
     const isInventory=source==='INVENTORY';
-    if(isInventory && (data.costSource!=='MOLINARI_FIFO_STOCK_LAYERS'||data.totalCost===null)){
+    if(isInventory && (data.costSource!=='MOLINARI_SERIAL_LOT_AND_FIFO_STOCK'||data.totalCost===null)){
       throw new Error('Inventory cost source was not confirmed by Molinari database. No PO created.');
     }
-    const costHeading=isInventory?'MOLINARI FIFO UNIT COST':'SUPPLIER UNIT COST (PENDING)';
+    const costHeading=isInventory?'ACTUAL SERIAL / FIFO UNIT COST':'SUPPLIER UNIT COST (PENDING)';
     const costMessage=isInventory
-      ? `Estimated actual stock cost ${fmtCost(data.totalCost)} — based on remaining FIFO stock purchase layers, NOT JobTread budget/quoted pricing.`
+      ? `Actual selected serial-lot / FIFO stock cost ${fmtCost(data.totalCost)} — NOT JobTread budget or customer quoted pricing.`
       : 'Supplier purchase costs not yet entered. Vendor PO amount cannot be confirmed until actual supplier prices are provided.';
     container.innerHTML=`<strong>${isInventory?'INVENTORY COST VERIFIED':'JOBTREAD LINKS VERIFIED'} — PREVIEW ONLY · NO PO CREATED</strong>
       <p>Job ${escapeHTML(data.job?.number)} · ${escapeHTML(data.vendor?.name)} ·
       ${escapeHTML(formatNumber(data.lineCount))} lines · ${escapeHTML(costMessage)}</p>
       <div class="table-wrap"><table><thead><tr><th>1410 Budget Item / Part #</th><th>Qty</th><th>${costHeading}</th><th>Extended PO Cost</th></tr></thead><tbody>
-      ${(data.items||[]).map(row=>`<tr><td>${escapeHTML(row.name)}<div class="material-request-sub">${escapeHTML(row.partNumber||'—')}</div></td>
+      ${(data.items||[]).map(row=>`<tr><td>${escapeHTML(row.name)}<div class="material-request-sub">${escapeHTML(row.partNumber||'—')}</div>${Array.isArray(row.serialNumbers)&&row.serialNumbers.length?`<div class="serial-preview-value">Selected S/N: ${row.serialNumbers.map(escapeHTML).join(' · ')}</div>`:''}</td>
       <td>${escapeHTML(formatNumber(row.quantity))}</td><td>${escapeHTML(fmtCost(row.unitCost))}</td><td>${escapeHTML(fmtCost(row.totalCost))}</td></tr>`).join('')}
       </tbody></table></div>
-      <div class="path-note">The customer quote and JobTread budget are unchanged. Inventory FIFO preview may change when specific lot/serial is picked or stock moves. Vendor ID: ${escapeHTML(data.vendor?.id)} · JobTread Job ID: ${escapeHTML(data.job?.jobtreadId)} ·
+      <div class="path-note">The customer quote and JobTread budget are unchanged. Serialized unit costs come from saved actual serial/lot selections. Stock and costs are rechecked before a real PO is permitted. Vendor ID: ${escapeHTML(data.vendor?.id)} · JobTread Job ID: ${escapeHTML(data.job?.jobtreadId)} ·
       No database change, inventory reservation, purchase order, Bill, Expense or QuickBooks transaction occurred.</div>`;
   }catch(error){
     container.textContent='PO CHECK BLOCKED: '+(error?.message||String(error))+' No PO was created.';
@@ -989,24 +1007,143 @@ async function acknowledgeProjectMaterials(handoffId){
   }catch(error){msg.textContent='Unable to acknowledge Job '+h.job_number+': '+(error?.message||String(error));}
 }
 
+
+// Load live serial choices (oldest receipts first) from the protected database RPC.
+async function loadSerialPickOptions(handoffId,force=false){
+  if(!force && serialPickPlans.has(handoffId))return;
+  serialPickPlans.set(handoffId,{loading:true,saved:false,lineIds:[],options:[],savedSelections:new Map(),draft:new Map()});
+  renderSerialPickControls(handoffId);
+  try{
+    const {data,error}=await client.rpc('jobtread_get_project_serial_pick_options',{p_handoff_id:handoffId});
+    if(error)throw error;
+    if(!data?.success||!Array.isArray(data.options)||!Array.isArray(data.serializedLineIds))throw Error('Incomplete serial pick options.');
+    const lineIds=data.serializedLineIds;
+    const options=data.options;
+    const selections=new Map();
+    for(const id of lineIds) selections.set(id,options.filter(s=>s.lineId===id && s.selected===true).map(s=>s.serialId));
+    const saved=lineIds.every(id=>{
+      const line=projectMaterialHandoffLines.find(l=>l.id===id);
+      return line && selections.get(id).length===Number(line.suggested_inventory_qty);
+    });
+    serialPickPlans.set(handoffId,{loading:false,saved,lineIds,options,savedSelections:selections,draft:new Map([...selections].map(([k,v])=>[k,[...v]]))});
+  }catch(error){
+    serialPickPlans.set(handoffId,{loading:false,error:error?.message||String(error),saved:false,lineIds:[],options:[],savedSelections:new Map(),draft:new Map()});
+  }
+  renderSerialPickControls(handoffId);
+}
+function completeSavedSerialPicks(handoffId){
+  const plan=serialPickPlans.get(handoffId);
+  if(!plan||plan.loading||plan.error||!plan.saved)return false;
+  return plan.lineIds.every(id=>{
+    const line=projectMaterialHandoffLines.find(l=>l.id===id);
+    return line && (plan.savedSelections.get(id)||[]).length===Number(line.suggested_inventory_qty);
+  });
+}
+function renderSerialPickControls(handoffId){
+  const h=projectMaterialHandoffs.find(h=>h.id===handoffId);
+  if(!h)return;
+  const cards=[...document.querySelectorAll('.material-request')];
+  const card=cards.find(c=>c.querySelector('h3')?.textContent?.startsWith('JOB '+h.job_number+' ·'));
+  if(!card)return;
+  const stock=card.querySelector('.fulfillment-path:not(.purchase)');
+  const panel=stock?.querySelector('[data-serial-picker]');if(!panel)return;
+  const plan=serialPickPlans.get(handoffId);
+  const ready=completeSavedSerialPicks(handoffId);
+  stock.querySelector('[data-action="pick"]').disabled=!ready;
+  stock.querySelector('[data-action="validate-inventory"]').disabled=!ready;
+  if(!plan||plan.loading){panel.textContent='Loading live available serial numbers and actual purchase costs...';return;}
+  if(plan.error){panel.textContent='Unable to load serialized inventory: '+plan.error+'. Use REFRESH REQUESTS to retry.';return;}
+  if(!plan.lineIds.length){panel.textContent='No serialized stock materials in this request. Regular inventory pick list and PO cost check are available.';return;}
+  panel.innerHTML='<h4>STEP 1 — Select Exact Serialized Units (Oldest Available First)</h4>'+
+    '<p>Select the physical serial number Warehouse will pull. S/N, purchase batch and actual lot cost are shown for each unit.</p>'+
+    plan.lineIds.map(lineId=>{
+      const line=projectMaterialHandoffLines.find(l=>l.id===lineId);
+      if(!line)return '';
+      const choices=plan.options.filter(s=>s.lineId===lineId);
+      const qty=Number(line.suggested_inventory_qty);
+      if(!Number.isInteger(qty)||qty<1||qty>50)return '<p>Invalid serialized quantity for '+escapeHTML(line.inventory_part_number)+'</p>';
+      const current=plan.draft.get(lineId)||[];
+      return '<div class="serial-picker-item"><strong>'+escapeHTML(line.inventory_part_number)+' · '+escapeHTML(formatNumber(qty))+' unit(s)</strong>'+
+        Array.from({length:qty},(_,slot)=>'<select data-serial-line="'+escapeAttribute(lineId)+'" data-serial-slot="'+slot+'" aria-label="'+escapeAttribute(line.inventory_part_number)+' serial number '+(slot+1)+'">'+
+          '<option value="">SELECT SERIAL NUMBER</option>'+
+          choices.map((opt,i)=>'<option value="'+escapeAttribute(opt.serialId)+'" '+(current[slot]===opt.serialId?'selected':'')+'>'+
+            (i===0?'OLDEST AVAILABLE · ':'')+escapeHTML(opt.serialNumber)+' · '+escapeHTML(opt.batchCode||'No batch')+
+            ' · '+Number(opt.unitCost).toLocaleString('en-US',{style:'currency',currency:'USD'})+'</option>').join('')+'</select>').join('')+
+        '</div>';
+    }).join('')+
+    '<button class="btn-teal" type="button" data-action="save-serials">SAVE SELECTED SERIAL NUMBERS</button>'+
+    '<button class="btn-light" type="button" data-action="reload-serials">REFRESH SERIAL OPTIONS</button>'+
+    '<div class="serial-pick-message">'+(ready?'SERIAL PICKS SAVED — You may print the General Pick List.':'Serial picks must be explicitly selected and saved before printing or checking PO costs.')+'</div>';
+  panel.querySelector('[data-action="save-serials"]').addEventListener('click',()=>saveSerialPickPlan(handoffId));
+  panel.querySelector('[data-action="reload-serials"]').addEventListener('click',()=>loadSerialPickOptions(handoffId,true));
+  panel.querySelectorAll('[data-serial-line]').forEach(select=>select.addEventListener('change',()=>{
+    const id=select.dataset.serialLine,slot=Number(select.dataset.serialSlot);
+    const selected=plan.draft.get(id)||[];selected[slot]=select.value;plan.draft.set(id,selected);
+    plan.saved=false;
+    stock.querySelector('[data-action="pick"]').disabled=true;
+    stock.querySelector('[data-action="validate-inventory"]').disabled=true;
+    const previous=stock.querySelector('[data-inventory-preview]');previous.hidden=true;previous.textContent='';
+    panel.querySelector('.serial-pick-message').textContent='Unsaved serial change — click SAVE SELECTED SERIAL NUMBERS.';
+  }));
+}
+async function saveSerialPickPlan(handoffId){
+  const plan=serialPickPlans.get(handoffId);
+  if(!plan||plan.loading||plan.error)return;
+  const selected=new Set();
+  const picks=[];
+  for(const lineId of plan.lineIds){
+    const line=projectMaterialHandoffLines.find(l=>l.id===lineId);
+    if(!line)return window.alert('Reload the handoff before saving.');
+    const count=Number(line.suggested_inventory_qty);
+    const ids=Array.from({length:count},(_,i)=>plan.draft.get(lineId)?.[i]||'');
+    if(ids.some(id=>!id))return window.alert('Select all '+formatNumber(count)+' serial number(s) for '+line.inventory_part_number+'.');
+    for(const id of ids){
+      if(selected.has(id))return window.alert('A serial number cannot be picked more than once.');
+      selected.add(id);
+    }
+    picks.push({lineId,serialIds:ids});
+  }
+  const msg=document.getElementById('materialQueueMessage');msg.textContent='Validating and saving exact serial picks...';
+  try{
+    const {data,error}=await client.rpc('jobtread_save_project_serial_picks',{p_handoff_id:handoffId,p_picks:picks});
+    if(error)throw error;
+    if(!data?.success)throw Error('The server did not confirm the saved selection.');
+    msg.textContent='Saved '+data.savedSerialCount+' exact serial pick(s) for Job '+projectMaterialHandoffs.find(h=>h.id===handoffId)?.job_number+'. Print the General Pick List next. No PO or physical inventory issue created.';
+    await loadSerialPickOptions(handoffId,true);
+  }catch(error){msg.textContent='SERIAL PICK SAVE BLOCKED: '+(error?.message||String(error));}
+}
+
 function printProjectMaterialPickList(handoffId){
   const h=projectMaterialHandoffs.find(row=>row.id===handoffId);
   if(!h)return;
   const lines=projectMaterialHandoffLines.filter(l=>l.handoff_id===handoffId&&Number(l.suggested_inventory_qty)>0);
   if(!lines.length)return window.alert('No in-stock quantities are proposed for Job '+h.job_number+'. Review the purchasing requirements instead.');
+  if(!completeSavedSerialPicks(handoffId))return window.alert('Select and SAVE all required serialized units before printing the General Pick List.');
+  const plan=serialPickPlans.get(handoffId);
+  const rows=[];
+  for(const line of lines){
+    const serialIds=plan?.lineIds?.includes(line.id)?(plan.savedSelections.get(line.id)||[]):[];
+    if(serialIds.length){
+      for(const id of serialIds){
+        const serial=plan.options.find(option=>option.lineId===line.id&&option.serialId===id);
+        if(!serial)return window.alert('A saved serial is no longer available. Refresh the request before printing.');
+        rows.push({line,serial:serial.serialNumber,qty:1});
+      }
+    }else rows.push({line,serial:'—',qty:line.suggested_inventory_qty});
+  }
   const popup=window.open('','_blank','width=1100,height=800');
   if(!popup)return window.alert('Please allow pop-ups to print the Warehouse pick list.');
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Draft Pick List Job ${escapeHTML(h.job_number)}</title><style>
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>General Pick List · Job ${escapeHTML(h.job_number)}</title><style>
     body{font:13px Arial,sans-serif;margin:28px;color:#1f2933}h1{color:#062f4f;font-size:21px}
     table{border-collapse:collapse;width:100%;margin-top:18px}th,td{border:1px solid #cbd5e1;padding:9px;text-align:left}
     th{background:#edf5fa}.notice{border:1px solid #fed7aa;background:#fff7ed;padding:12px;margin:15px 0}
     @page{size:landscape;margin:10mm}</style></head><body>
-    <h1>Molinari Warehouse · Draft Inventory Pick List</h1>
+    <h1>Molinari Warehouse · General Pick List</h1>
     <p><strong>Job:</strong> ${escapeHTML(h.job_number)} — ${escapeHTML(h.job_name||'')} &nbsp; <strong>Cost Code:</strong> 1410</p>
     <p><strong>Estimator:</strong> ${escapeHTML(h.verified_by_name||'Projects')} &nbsp; <strong>Verified:</strong> ${escapeHTML(formatDateTime(h.verified_at))}</p>
-    <div class="notice"><strong>DRAFT ONLY:</strong> Confirm current inventory stock before picking or issuing. Printing does not reserve inventory or create a JobTread PO, Bill, or Expense.</div>
-    <table><thead><tr><th>Part #</th><th>JobTread Budget Item</th><th>Shelf</th><th>Proposed Pick Qty</th><th>Actual Pick Qty</th><th>Picked By / Notes</th></tr></thead><tbody>
-    ${lines.map(l=>`<tr><td>${escapeHTML(l.inventory_part_number||'')}</td><td>${escapeHTML(l.budget_item_name)}</td><td>${escapeHTML(l.inventory_shelf||'—')}</td><td>${escapeHTML(formatNumber(l.suggested_inventory_qty))} ${escapeHTML(l.unit||'')}</td><td>________</td><td>________________________</td></tr>`).join('')}</tbody></table>
+    <div class="notice"><strong>WAREHOUSE PICK INSTRUCTION:</strong> For serialized materials, pull ONLY the exact serial number shown. Verify the serial physically before issuance. This saved pick plan does not reduce physical On Hand or create a JobTread PO.</div>
+    <table><thead><tr><th>Part #</th><th>JobTread Budget Item</th><th>Shelf</th><th>Pick Qty</th><th>SPECIFIC SERIAL NUMBER TO PICK</th><th>Picked / Verified By</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td>${escapeHTML(r.line.inventory_part_number||'')}</td><td>${escapeHTML(r.line.budget_item_name)}</td><td>${escapeHTML(r.line.inventory_shelf||'—')}</td><td>${escapeHTML(formatNumber(r.qty))} ${escapeHTML(r.line.unit||'')}</td><td><strong>${escapeHTML(r.serial)}</strong></td><td>________________________</td></tr>`).join('')}</tbody></table>
     <p>Printed ${escapeHTML(new Date().toLocaleString())}</p></body></html>`;
   popup.document.open();popup.document.write(html);popup.document.close();popup.focus();popup.print();
 }
