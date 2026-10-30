@@ -665,7 +665,7 @@
     <section id="materialsQueue">
       <div class="card material-queue-card">
         <h2 style="margin:0;color:#062f4f;">Warehouse — Verified Projects Materials</h2>
-        <div class="material-safe"><strong>Current stage:</strong> Verified JobTread 1410 materials are separated below into Available Inventory and Purchase Required. The pick list and acknowledgement are active. <strong>NEW:</strong> Validate each proposed JobTread PO against the live vendor account, job budget, quantities and costs. This is a read-only safety check. Actual PO creation, inventory commitment and accounting posting remain locked until the validation is reviewed.</div>
+        <div class="material-safe"><strong>Current stage:</strong> Verified JobTread 1410 materials are separated below into Available Inventory and Purchase Required. The pick list and acknowledgement are active. <strong>NEW:</strong> Validate each proposed JobTread PO against the live vendor account, original job budget links and quantities. Molinari Inventory PO pricing uses our actual remaining FIFO stock purchase costs, never the quoted JobTread amount; outside-vendor pricing will require actual supplier costs. This is a read-only safety check. Actual PO creation, inventory commitment and accounting posting remain locked until the validation is reviewed.</div>
         <div class="material-queue-tools">
           <input type="search" id="materialJobSearch" placeholder="Search Job number, Job name or material..." oninput="renderProjectMaterialHandoffs()" aria-label="Search new Projects material requests">
           <select id="materialStatusFilter" onchange="renderProjectMaterialHandoffs()" aria-label="Filter Projects material request status">
@@ -878,7 +878,7 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-primary" type="button" disabled title="JobTread PO creation is not yet connected">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
-    <div class="path-note">The new PO check validates the live JobTread budget and current stock. It does not create the PO, reserve parts, issue inventory or post accounting.</div>
+    <div class="path-note">The new PO check confirms the live JobTread budget links and stock, and prices the proposed inventory PO using Molinari’s actual remaining FIFO cost layers. Client quoted prices remain untouched. No PO, reservation, issue or accounting entry is created.</div>
     <div class="vendor-groups" data-inventory-preview hidden></div>`;
   stock.querySelector('[data-action="pick"]').addEventListener('click',()=>printProjectMaterialPickList(h.id));
   stock.querySelector('[data-action="validate-inventory"]').addEventListener('click',()=>
@@ -895,7 +895,7 @@ function renderFulfillmentPaths(h,lines,article){
     </tbody></table></div>`:'<div class="path-empty">No materials currently require outside purchasing.</div>'}
     <div class="vendor-groups" data-vendor-groups>Choose a vendor for each purchase-required item to preview the separate vendor PO groups.</div>
     <div class="path-result">Next: One JobTread PO per vendor · Receive as NON_INVENTORY for Job ${escapeHTML(h.job_number)}</div>
-    <div class="path-note">Select a vendor, then use CHECK JOBTREAD PO DETAILS to validate the supplier and exact budget items. Vendor choices remain draft until you place and record an actual order.</div>`;
+    <div class="path-note">Select a vendor, then use CHECK JOBTREAD PO DETAILS to verify the supplier and original job budget-item links. Vendor PO cost must come from the actual supplier quote/order—not from JobTread’s estimated budget. These selections remain draft.</div>`;
   for(const select of buy.querySelectorAll('[data-vendor-line]')){
     select.addEventListener('change',event=>{
       if(event.target.value)vendorDraftSelections.set(select.dataset.vendorLine,event.target.value);
@@ -935,7 +935,9 @@ function updateVendorPOPreview(purchaseCard,lines){
 async function previewProjectMaterialPO(handoffId,source,vendorName,lineIds,container){
   if(!container)return;
   container.hidden=false;
-  container.textContent='Verifying JobTread vendor, 1410 budget links, quantity and cost. No PO is being created...';
+  container.textContent=source==='INVENTORY'
+    ? 'Verifying JobTread budget links, warehouse stock and FIFO purchase-batch costs. No PO is being created...'
+    : 'Verifying vendor account and JobTread 1410 budget links. Supplier costs are still required; no PO is being created...';
   try{
     const {data,error}=await client.functions.invoke('jobtread-project-po-preview',{
       body:{handoffId,source,vendorName,lineIds}
@@ -948,15 +950,25 @@ async function previewProjectMaterialPO(handoffId,source,vendorName,lineIds,cont
     if(!data?.success||data.mode!=='PREVIEW_ONLY'||data.jobtreadWrites!==false){
       throw new Error(data?.error||'Preview did not return safe confirmation.');
     }
-    const fmtCost=value=>Number(value||0).toLocaleString('en-US',{style:'currency',currency:'USD'});
-    container.innerHTML=`<strong>VALIDATED — PREVIEW ONLY · NO PO CREATED</strong>
+    const fmtCost=value=>value===null||value===undefined||!Number.isFinite(Number(value))
+      ? 'SUPPLIER PRICE REQUIRED'
+      : Number(value).toLocaleString('en-US',{style:'currency',currency:'USD'});
+    const isInventory=source==='INVENTORY';
+    if(isInventory && (data.costSource!=='MOLINARI_FIFO_STOCK_LAYERS'||data.totalCost===null)){
+      throw new Error('Inventory cost source was not confirmed by Molinari database. No PO created.');
+    }
+    const costHeading=isInventory?'MOLINARI FIFO UNIT COST':'SUPPLIER UNIT COST (PENDING)';
+    const costMessage=isInventory
+      ? `Estimated actual stock cost ${fmtCost(data.totalCost)} — based on remaining FIFO stock purchase layers, NOT JobTread budget/quoted pricing.`
+      : 'Supplier purchase costs not yet entered. Vendor PO amount cannot be confirmed until actual supplier prices are provided.';
+    container.innerHTML=`<strong>${isInventory?'INVENTORY COST VERIFIED':'JOBTREAD LINKS VERIFIED'} — PREVIEW ONLY · NO PO CREATED</strong>
       <p>Job ${escapeHTML(data.job?.number)} · ${escapeHTML(data.vendor?.name)} ·
-      ${escapeHTML(formatNumber(data.lineCount))} lines · Budget cost ${escapeHTML(fmtCost(data.totalCost))}</p>
-      <div class="table-wrap"><table><thead><tr><th>1410 Budget Item / Part #</th><th>Qty</th><th>JobTread Unit Cost</th><th>Extended Cost</th></tr></thead><tbody>
+      ${escapeHTML(formatNumber(data.lineCount))} lines · ${escapeHTML(costMessage)}</p>
+      <div class="table-wrap"><table><thead><tr><th>1410 Budget Item / Part #</th><th>Qty</th><th>${costHeading}</th><th>Extended PO Cost</th></tr></thead><tbody>
       ${(data.items||[]).map(row=>`<tr><td>${escapeHTML(row.name)}<div class="material-request-sub">${escapeHTML(row.partNumber||'—')}</div></td>
       <td>${escapeHTML(formatNumber(row.quantity))}</td><td>${escapeHTML(fmtCost(row.unitCost))}</td><td>${escapeHTML(fmtCost(row.totalCost))}</td></tr>`).join('')}
       </tbody></table></div>
-      <div class="path-note">Vendor ID: ${escapeHTML(data.vendor?.id)} · JobTread Job ID: ${escapeHTML(data.job?.jobtreadId)} ·
+      <div class="path-note">The customer quote and JobTread budget are unchanged. Inventory FIFO preview may change when specific lot/serial is picked or stock moves. Vendor ID: ${escapeHTML(data.vendor?.id)} · JobTread Job ID: ${escapeHTML(data.job?.jobtreadId)} ·
       No database change, inventory reservation, purchase order, Bill, Expense or QuickBooks transaction occurred.</div>`;
   }catch(error){
     container.textContent='PO CHECK BLOCKED: '+(error?.message||String(error))+' No PO was created.';
