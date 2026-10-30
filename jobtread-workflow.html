@@ -915,12 +915,12 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
       <button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>
-      ${h.job_number==='1160'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK FAILED PO / DUPLICATE SAFETY</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Run CHECK PO CREATION PREFLIGHT after choosing the serial numbers. The preflight must validate the current JobTread input schema first.">RETRY ONE LIVE TEST PO — NO STOCK COMMITMENT</button>':''}
+      ${h.job_number==='1160'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK FAILED PO / DUPLICATE SAFETY</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Creation LOCKED following the second rejected request. Run CHECK FAILED PO / DUPLICATE SAFETY. No further attempts authorized.">LIVE PO RETRY LOCKED — REVIEW REQUIRED</button>':''}
       <button class="btn-primary" type="button" disabled title="Production PO plus stock commitment remains locked">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
-    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF copy). The first Job 1160 PO request was rejected with HTTP 400. User confirmed no PO was created. Its failed operation was reconciled and closed. ONE protected retry is available only AFTER the current JobTread PO input schema passes read-only validation. No inventory has been committed or issued.</div>
-    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. CHECK PO CREATION PREFLIGHT validates the intended PO vendor, costs and duplicate safeguards without creating anything. Job 1160 has one reviewed LIVE PO retry, but the retry button is disabled until CHECK PO CREATION PREFLIGHT validates JobTread's current oneOf existing-budget-item schema. The corrected request uses the existing budget-item variant rather than the rejected flat line-item shape. CHECK FAILED PO / DUPLICATE SAFETY remains read-only. The production fulfillment button is disabled.</div>
+    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF copy). Both attempted Job 1160 PO creations were rejected with HTTP 400. The FIRST attempt was reconciled; the SECOND attempt is now locked for review. No PO ID was returned and no inventory was committed or issued. Recheck JobTread using CHECK FAILED PO / DUPLICATE SAFETY before any new live attempt.</div>
+    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. CHECK PO CREATION PREFLIGHT validates the intended PO vendor, costs and duplicate safeguards without creating anything. Job 1160 has two rejected JobTread PO creation attempts. The corrected input uses the bare _type=costItem discriminator and the existing 1410 budget line ID. The backend is updated but the PO creation format has NOT yet been verified by an actual successful JobTread write. The live retry is LOCKED pending reconciliation; CHECK FAILED PO / DUPLICATE SAFETY remains read-only. The production fulfillment button is disabled.</div>
     <div class="vendor-groups" data-commitment-readiness hidden></div>
     <div class="vendor-groups" data-po-create-preflight hidden></div>
     <div class="vendor-groups" data-live-test-po-result hidden></div>
@@ -950,7 +950,8 @@ function renderFulfillmentPaths(h,lines,article){
   const liveTestButton=stock.querySelector('[data-action="create-one-live-test-po"]');
   if(liveTestButton){
     liveTestButton.disabled=true;
-    liveTestButton.addEventListener('click',()=>createOneLiveTestPO(h.id,liveTestButton,stock.querySelector('[data-live-test-po-result]')));
+    liveTestButton.title='LIVE PO RETRY LOCKED. Do not create another JobTread PO until reconciled.';
+    // No click handler while the second API attempt remains unreconciled.
   }
   stock.querySelector('[data-action="pick"]').addEventListener('click',()=>printProjectMaterialPickList(h.id));
   stock.querySelector('[data-action="validate-inventory"]').addEventListener('click',()=>{
@@ -1034,8 +1035,8 @@ async function checkJobtreadFailedPORecovery(handoffId,button,container){
       ${matchingRows.length?`<div>Exact matches:<ul>${matchingRows.map(renderLine).join('')}</ul></div>`:''}
       ${candidates.length?`<div>Other candidate Job 1160 POs:<ul>${candidates.map(renderLine).join('')}</ul></div>`:'<p>No candidate Job 1160 PO was returned in the complete vendor-document search.</p>'}
       <p><strong>Result:</strong> ${escapeHTML(matched>0?'A matching JobTread PO exists. DO NOT RETRY.':
-      'No matching PO found. The earlier rejected attempt is recorded as CANCELLED in Supabase after manual confirmation.')}</p>
-      <p class="path-note"><strong>NO WRITES.</strong> This check does not create, delete, approve, or commit anything. The read-only recovery check never enables a retry. To proceed, select the four serial numbers and run CHECK PO CREATION PREFLIGHT. A successful schema check is required before the separately protected one-time retry can be clicked.</p>`;
+      'No matching PO found in this read-only search. The latest HTTP 400 attempt still needs formal reconciliation; do not retry.')}</p>
+      <p class="path-note"><strong>NO WRITES.</strong> This check does not create, delete, approve, or commit anything. The read-only recovery check never enables a retry. Both prior attempts must be reconciled, and the corrected PO format must be independently verified before another live attempt can be authorized.</p>`;
   }catch(error){
     container.textContent='READ-ONLY RECOVERY COULD NOT FINISH: '+(error?.message||String(error))+
       '. NO PO was requested by this action. Existing retry protection remains active.';
@@ -1126,25 +1127,23 @@ async function checkProjectInventoryPOPreflight(handoffId,container){
     const readiness=data.commitmentReadiness||{};
     const rows=data.documentRequestSummary?.budgetItemLinks||[];
     const schemaPassed=data.documentRequestSummary?.inputSchemaVerified===true&&
-      data.documentRequestSummary?.lineItemEncoding==='ONE_OF_EXISTING_COST_ITEM';
+      data.documentRequestSummary?.lineItemEncoding==='BARE_COST_ITEM_WITH_EXISTING_ID';
     if(!schemaPassed)throw new Error('Current JobTread createDocument existing-cost-item input schema was not validated. No retry permitted.');
-    if(testMode && data.jobNumber==='1160' && rows.length===6 &&
-        Number(data.actualInventoryCost)===6131.38 &&
-        Array.isArray(data.serializedSerials) && data.serializedSerials.length===4){
-      currentSchemaPreflightPassed.add(handoffId);
-      const retryButton=[...document.querySelectorAll('[data-action="create-one-live-test-po"]')]
-        .find(b=>b.closest('.material-request')?.querySelector('h3')?.textContent?.startsWith('JOB 1160 ·'));
-      if(retryButton&&!livePOTestAttempted.has(handoffId))retryButton.disabled=false;
-    }
+    // An accepted read-only preflight is NOT authorization to retry: Job 1160's
+    // second rejected createDocument attempt is still under reconciliation.
+    currentSchemaPreflightPassed.delete(handoffId);
+    const retryButton=[...document.querySelectorAll('[data-action="create-one-live-test-po"]')]
+      .find(b=>b.closest('.material-request')?.querySelector('h3')?.textContent?.startsWith('JOB 1160 ·'));
+    if(retryButton)retryButton.disabled=true;
     container.innerHTML=`<strong>${testMode?'TEST PO DATA PREFLIGHT PASSED':'LIVE PO DATA PREFLIGHT'} — NO PO CREATED</strong>
       <p>Job ${escapeHTML(data.jobNumber||'')} · ${escapeHTML(data.vendor||'')} · ${Number(data.inventoryLines||0)} inventory lines · ${escapeHTML(Number(data.actualInventoryCost||0).toLocaleString('en-US',{style:'currency',currency:'USD'}))} estimated actual inventory cost</p>
       <p><strong>JobTread external reference:</strong> ${escapeHTML(data.externalId||'—')} · <strong>Serial numbers verified:</strong> ${(data.serializedSerials||[]).length}</p>
-      <p><strong>JobTread current input schema:</strong> VERIFIED — existingCostItem oneOf variant (corrected from initial flat payload)</p>
+      <p><strong>JobTread current input schema:</strong> SCHEMA FIELDS CHECKED — bare _type=costItem and existing budget item ID (live acceptance NOT yet proven)</p>
       <p><strong>1410 budget line links:</strong> ${rows.length} · <strong>QuickBooks sync:</strong> Excluded flag requested for proposed Molinari internal PO</p>
       <p><strong>Required filed PO PDF:</strong> JobTread Job Files → ${escapeHTML(data.requiredFileFolder||'ALL FILES - INVOICES')} · <strong>Filing connection:</strong> Pending verification (no PDF filed)</p>
       <p>${testMode?'TEST MODE: Temporary dropdown choices were validated but NOT SAVED. The live commitment check is expected to remain pending.':
         readiness.readyForLivePO?'All existing live commitment checks passed. The actual PO creation action remains disabled.':'Live serial assignments or stock checks are not yet ready.'}</p>
-      <p class="path-note">Protected read-only input-schema and PO data check. No vendor PO, PDF, stock reservation, inventory issue, Bill, Expense, or QBO transaction was created. ${testMode&&data.jobNumber==='1160'?'The separately confirmed one-time test PO retry is now available (no inventory commitment).':'Production fulfillment remains disabled.'}</p>`;
+      <p class="path-note">Protected read-only input-schema and PO data check. No vendor PO, PDF, stock reservation, inventory issue, Bill, Expense, or QBO transaction was created. ${data.writeLocked||data.poOperationStatus?'LIVE PO RETRY LOCKED — '+escapeHTML(data.poOperationStatus||'REVIEW REQUIRED')+'. Run the read-only recovery check; do not submit a third attempt.':'No creation has been authorized by this read-only preflight. Production fulfillment remains disabled.'}</p>`;
   } catch(error){
     currentSchemaPreflightPassed.delete(handoffId);
     const retryButton=[...document.querySelectorAll('[data-action="create-one-live-test-po"]')]
