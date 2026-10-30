@@ -721,6 +721,19 @@ const liveAssignmentHandoffs = new Set();
 // It NEVER saves serialized assignments, commits stock, or issues inventory.
 const livePOTestAttempted = new Set();
 const currentSchemaPreflightPassed = new Set();
+const currentRecoveryVerified = new Set();
+function updateFinalTestButton(handoffId){
+ const article=[...document.querySelectorAll('.material-request')]
+   .find(c=>c.querySelector('h3')?.textContent?.startsWith('JOB 1160 ·'));
+ const button=article?.querySelector('[data-action="create-one-live-test-po"]');
+ if(!button)return;
+ const allowed=currentRecoveryVerified.has(handoffId) && currentSchemaPreflightPassed.has(handoffId) &&
+   isTestMode(handoffId) && isSerialPlanReady(handoffId) && !livePOTestAttempted.has(handoffId);
+ button.disabled=!allowed;
+ button.textContent=allowed?'CREATE FINAL LIVE TEST PO — NO STOCK COMMITMENT':'FINAL LIVE TEST LOCKED — RUN 2 READ-ONLY CHECKS';
+ button.title=allowed?'This creates ONE real JobTread PO after explicit confirmation; no inventory issue or commitment.':
+   'First run CHECK FAILED PO / DUPLICATE SAFETY and CHECK PO CREATION PREFLIGHT successfully.';
+}
 function isTestMode(handoffId){ return !liveAssignmentHandoffs.has(handoffId); }
 
 
@@ -915,12 +928,12 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
       <button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>
-      ${h.job_number==='1160'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK FAILED PO / DUPLICATE SAFETY</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Creation LOCKED following the second rejected request. Run CHECK FAILED PO / DUPLICATE SAFETY. No further attempts authorized.">LIVE PO RETRY LOCKED — REVIEW REQUIRED</button>':''}
+      ${h.job_number==='1160'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK FAILED PO / DUPLICATE SAFETY</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Run both safe read-only checks first. ONE FINAL test; no inventory commitments.">FINAL LIVE TEST LOCKED — RUN 2 READ-ONLY CHECKS</button>':''}
       <button class="btn-primary" type="button" disabled title="Production PO plus stock commitment remains locked">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
-    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF copy). Both attempted Job 1160 PO creations were rejected with HTTP 400. The FIRST attempt was reconciled; the SECOND attempt is now locked for review. No PO ID was returned and no inventory was committed or issued. Recheck JobTread using CHECK FAILED PO / DUPLICATE SAFETY before any new live attempt.</div>
-    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. CHECK PO CREATION PREFLIGHT validates the intended PO vendor, costs and duplicate safeguards without creating anything. Job 1160 has two rejected JobTread PO creation attempts. The corrected input uses the bare _type=costItem discriminator and the existing 1410 budget line ID. The backend is updated but the PO creation format has NOT yet been verified by an actual successful JobTread write. The live retry is LOCKED pending reconciliation; CHECK FAILED PO / DUPLICATE SAFETY remains read-only. The production fulfillment button is disabled.</div>
+    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF copy; not yet connected). Two Job 1160 creation tests returned HTTP 400 with NO PO ID. For tonight's FINAL test: first run CHECK FAILED PO / DUPLICATE SAFETY and CHECK PO CREATION PREFLIGHT. Only if both pass can you authorize one real PO. No inventory will be committed or issued.</div>
+    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. CHECK PO CREATION PREFLIGHT validates the intended PO vendor, costs and duplicate safeguards without creating anything. Job 1160 has two rejected JobTread PO creation attempts. The corrected input uses the bare _type=costItem discriminator and the existing 1410 budget line ID, but the format is NOT yet proven by a successful live write. The ONE FINAL retry requires a FRESH read-only duplicate check, a successful PO preflight and explicit confirmation. NO additional retry will be possible tonight if it fails. Production fulfillment remains disabled.</div>
     <div class="vendor-groups" data-commitment-readiness hidden></div>
     <div class="vendor-groups" data-po-create-preflight hidden></div>
     <div class="vendor-groups" data-live-test-po-result hidden></div>
@@ -937,7 +950,8 @@ function renderFulfillmentPaths(h,lines,article){
     ack.disabled=h.status==='RECEIVED'||isTestMode(h.id);
     ack.title=isTestMode(h.id)?'Disabled in TEST / PREVIEW ONLY — no database changes':'Record Warehouse receipt';
     currentSchemaPreflightPassed.delete(h.id);
-    if(liveTestButton)liveTestButton.disabled=true;
+    currentRecoveryVerified.delete(h.id);
+    updateFinalTestButton(h.id);
     const readiness=stock.querySelector('[data-commitment-readiness]');readiness.hidden=true;readiness.textContent='';
     const preflight=stock.querySelector('[data-po-create-preflight]');preflight.hidden=true;preflight.textContent='';
     const preview=stock.querySelector('[data-inventory-preview]');preview.hidden=true;preview.textContent='';
@@ -949,9 +963,8 @@ function renderFulfillmentPaths(h,lines,article){
   if(recoveryButton)recoveryButton.addEventListener('click',()=>checkJobtreadFailedPORecovery(h.id,recoveryButton,stock.querySelector('[data-failed-po-recovery]')));
   const liveTestButton=stock.querySelector('[data-action="create-one-live-test-po"]');
   if(liveTestButton){
-    liveTestButton.disabled=true;
-    liveTestButton.title='LIVE PO RETRY LOCKED. Do not create another JobTread PO until reconciled.';
-    // No click handler while the second API attempt remains unreconciled.
+    liveTestButton.addEventListener('click',()=>createOneLiveTestPO(h.id,liveTestButton,stock.querySelector('[data-live-test-po-result]')));
+    updateFinalTestButton(h.id);
   }
   stock.querySelector('[data-action="pick"]').addEventListener('click',()=>printProjectMaterialPickList(h.id));
   stock.querySelector('[data-action="validate-inventory"]').addEventListener('click',()=>{
@@ -1010,6 +1023,8 @@ function updateVendorPOPreview(purchaseCard,lines){
 
 async function checkJobtreadFailedPORecovery(handoffId,button,container){
   container.hidden=false;
+  currentRecoveryVerified.delete(handoffId);
+  updateFinalTestButton(handoffId);
   container.textContent='Searching JobTread for an existing Job 1160 PO and matching external reference. READ ONLY — no PO creation or inventory changes...';
   button.disabled=true;
   try {
@@ -1028,6 +1043,9 @@ async function checkJobtreadFailedPORecovery(handoffId,button,container){
     const matched=Number(data.exactExternalReferenceMatchCount||0);
     const candidates=Array.isArray(data.candidatePurchaseOrders)?data.candidatePurchaseOrders:[];
     const matchingRows=Array.isArray(data.exactExternalReferenceMatches)?data.exactExternalReferenceMatches:[];
+    const eligible=data.finalAttemptEligible===true && data.operationStatus==='RECONCILIATION_REQUIRED' &&
+      matched===0 && candidates.length===0 && isTestMode(handoffId);
+    if(eligible)currentRecoveryVerified.add(handoffId);
     const renderLine=d=>`<li><strong>${escapeHTML(d.number||'PO number unavailable')}</strong> · ${escapeHTML(d.name||'Unnamed PO')} · ID ${escapeHTML(d.id||'Unknown')} · ${escapeHTML(d.status||'Unknown status')}${d.externalReferenceMatches?' · EXACT REFERENCE MATCH':''}</li>`;
     container.innerHTML=`<strong>${matched>0?'EXISTING JOBTREAD PO FOUND — DO NOT RETRY':'READ-ONLY JOBTREAD PO SEARCH COMPLETED'}</strong>
       <p>Job 1160 · Saved Supabase attempt: <strong>${escapeHTML(data.operationStatus||'Unknown')}</strong></p>
@@ -1035,11 +1053,15 @@ async function checkJobtreadFailedPORecovery(handoffId,button,container){
       ${matchingRows.length?`<div>Exact matches:<ul>${matchingRows.map(renderLine).join('')}</ul></div>`:''}
       ${candidates.length?`<div>Other candidate Job 1160 POs:<ul>${candidates.map(renderLine).join('')}</ul></div>`:'<p>No candidate Job 1160 PO was returned in the complete vendor-document search.</p>'}
       <p><strong>Result:</strong> ${escapeHTML(matched>0?'A matching JobTread PO exists. DO NOT RETRY.':
-      'No matching PO found in this read-only search. The latest HTTP 400 attempt still needs formal reconciliation; do not retry.')}</p>
-      <p class="path-note"><strong>NO WRITES.</strong> This check does not create, delete, approve, or commit anything. The read-only recovery check never enables a retry. Both prior attempts must be reconciled, and the corrected PO format must be independently verified before another live attempt can be authorized.</p>`;
+      eligible?'No candidate PO was found. FINAL LIVE TEST may be unlocked only after the PO CREATION PREFLIGHT passes and you explicitly confirm it.':
+      'The final test is NOT eligible. DO NOT RETRY.')}</p>
+      <p class="path-note"><strong>NO WRITES.</strong> This search itself does not create or modify anything. Before a final PO is sent, the backend repeats this entire duplicate check. ${eligible?'Now run CHECK PO CREATION PREFLIGHT if you have not already done so.':'The live test remains locked.'}</p>`;
+    updateFinalTestButton(handoffId);
   }catch(error){
+    currentRecoveryVerified.delete(handoffId);
+    updateFinalTestButton(handoffId);
     container.textContent='READ-ONLY RECOVERY COULD NOT FINISH: '+(error?.message||String(error))+
-      '. NO PO was requested by this action. Existing retry protection remains active.';
+      '. NO PO was requested by this action. The final attempt remains locked.';
   }finally{button.disabled=false;}
 }
 
@@ -1054,8 +1076,8 @@ async function createOneLiveTestPO(handoffId,button,container){
     container.textContent='Live PO creation requires Admin or System Admin access.';
     return;
   }
-  if(!currentSchemaPreflightPassed.has(handoffId)){
-    container.textContent='First run CHECK PO CREATION PREFLIGHT successfully with all four selected serials. It verifies the current JobTread createDocument schema without writing.';
+  if(!currentSchemaPreflightPassed.has(handoffId) || !currentRecoveryVerified.has(handoffId)){
+    container.textContent='Run BOTH read-only checks successfully: CHECK FAILED PO / DUPLICATE SAFETY, then CHECK PO CREATION PREFLIGHT. No PO requested.';
     return;
   }
   if(livePOTestAttempted.has(handoffId)){
@@ -1068,18 +1090,18 @@ async function createOneLiveTestPO(handoffId,button,container){
     picks=getDraftSerialSelections(handoffId);
     if(!Array.isArray(picks)||picks.length!==4)throw new Error('Four validated serial selections are required.');
   }catch(error){container.textContent=error?.message||String(error);return;}
-  if(!window.confirm('JOB 1160 — RETRY CREATING ONE REAL JOBTREAD PURCHASE ORDER for Molinari Pools Inventory, total $6,131.38?\n\nYou confirmed the first attempt created NO PO. This retry will recheck for duplicates. It may create a REAL JobTread PO, not a preview.\n\nNO inventory will be committed or issued.\nNO QBO posting is requested.\nPDF filing to ALL FILES - INVOICES remains pending.\n\nYou must inspect/delete the PO in JobTread after the test if necessary.'))return;
-  const phrase=window.prompt('To retry ONE REAL JobTread PO, type exactly: RETRY PO 1160');
-  if(phrase!=='RETRY PO 1160'){
+  if(!window.confirm('JOB 1160 — THIRD AND FINAL ATTEMPT TONIGHT to create ONE REAL JOBTREAD PURCHASE ORDER, total $6,131.38?\n\nTwo previous requests were rejected. Both read-only checks passed. The server will perform another full duplicate search before the final request.\n\nNO inventory will be committed or issued.\nNO QBO posting is requested.\nPDF filing to ALL FILES - INVOICES is PENDING.\n\nIf this fails, STOP until Monday. If it succeeds, inspect the real PO in JobTread.'))return;
+  const phrase=window.prompt('For the FINAL JobTread PO test, type exactly: FINAL PO 1160');
+  if(phrase!=='FINAL PO 1160'){
     container.textContent='Cancelled. No PO creation request was submitted.';return;
   }
   livePOTestAttempted.add(handoffId);
   button.disabled=true;
-  container.textContent='Submitting the ONE reviewed retry to JobTread. Do not click again, refresh, or create another PO until the result is known...';
+  container.textContent='Submitting the THIRD AND FINAL attempt to JobTread. Do not click again; no further attempts tonight...';
   try{
     const {data,error}=await client.functions.invoke('jobtread-project-inventory-po-live-test',{
       body:{handoffId,testMode:true,testPicks:picks,expectedTotal:6131.38,
-        confirmation:'CREATE_ONE_REAL_JOBTREAD_PO_1160',retryAfterUserConfirmedNoPo:true}
+        confirmation:'CREATE_FINAL_REAL_JOBTREAD_PO_1160',finalAttemptAfterRecovery:true}
     });
     let details=data;
     if(error){
@@ -1099,8 +1121,8 @@ async function createOneLiveTestPO(handoffId,button,container){
       <p><strong>Inventory:</strong> NOT committed or issued. <strong>QBO:</strong> excluded flag requested. <strong>PO PDF:</strong> NOT YET filed to ALL FILES - INVOICES.</p>
       <p class="path-note">Review the new PO directly in JobTread. Do not click again, even if you delete this PO; the duplicate-prevention record remains for controlled cleanup.</p>`;
   }catch(error){
-    container.textContent='REVIEWED LIVE PO RETRY RESULT: '+(error?.message||String(error))+
-      ' — Do not retry. Check JobTread Job 1160 and the saved PO operation before another attempt.';
+    container.textContent='THIRD AND FINAL JOBTREAD PO RESULT: '+(error?.message||String(error))+
+      ' — STOP FOR TONIGHT. Do not create or retry any more POs; review this with me on Monday.';
   }
 }
 
@@ -1129,12 +1151,15 @@ async function checkProjectInventoryPOPreflight(handoffId,container){
     const schemaPassed=data.documentRequestSummary?.inputSchemaVerified===true&&
       data.documentRequestSummary?.lineItemEncoding==='BARE_COST_ITEM_WITH_EXISTING_ID';
     if(!schemaPassed)throw new Error('Current JobTread createDocument existing-cost-item input schema was not validated. No retry permitted.');
-    // An accepted read-only preflight is NOT authorization to retry: Job 1160's
-    // second rejected createDocument attempt is still under reconciliation.
-    currentSchemaPreflightPassed.delete(handoffId);
-    const retryButton=[...document.querySelectorAll('[data-action="create-one-live-test-po"]')]
-      .find(b=>b.closest('.material-request')?.querySelector('h3')?.textContent?.startsWith('JOB 1160 ·'));
-    if(retryButton)retryButton.disabled=true;
+    // Schema/data preflight is read-only. The final test remains unavailable
+    // until the independent duplicate-search check has ALSO passed.
+    if(data.jobNumber==='1160' && data.poOperationStatus==='RECONCILIATION_REQUIRED' &&
+       data.writeLocked===true && testMode && rows.length===6 &&
+       Number(data.actualInventoryCost)===6131.38 &&
+       (data.serializedSerials||[]).length===4){
+      currentSchemaPreflightPassed.add(handoffId);
+    } else {currentSchemaPreflightPassed.delete(handoffId);}
+    updateFinalTestButton(handoffId);
     container.innerHTML=`<strong>${testMode?'TEST PO DATA PREFLIGHT PASSED':'LIVE PO DATA PREFLIGHT'} — NO PO CREATED</strong>
       <p>Job ${escapeHTML(data.jobNumber||'')} · ${escapeHTML(data.vendor||'')} · ${Number(data.inventoryLines||0)} inventory lines · ${escapeHTML(Number(data.actualInventoryCost||0).toLocaleString('en-US',{style:'currency',currency:'USD'}))} estimated actual inventory cost</p>
       <p><strong>JobTread external reference:</strong> ${escapeHTML(data.externalId||'—')} · <strong>Serial numbers verified:</strong> ${(data.serializedSerials||[]).length}</p>
@@ -1143,12 +1168,15 @@ async function checkProjectInventoryPOPreflight(handoffId,container){
       <p><strong>Required filed PO PDF:</strong> JobTread Job Files → ${escapeHTML(data.requiredFileFolder||'ALL FILES - INVOICES')} · <strong>Filing connection:</strong> Pending verification (no PDF filed)</p>
       <p>${testMode?'TEST MODE: Temporary dropdown choices were validated but NOT SAVED. The live commitment check is expected to remain pending.':
         readiness.readyForLivePO?'All existing live commitment checks passed. The actual PO creation action remains disabled.':'Live serial assignments or stock checks are not yet ready.'}</p>
-      <p class="path-note">Protected read-only input-schema and PO data check. No vendor PO, PDF, stock reservation, inventory issue, Bill, Expense, or QBO transaction was created. ${data.writeLocked||data.poOperationStatus?'LIVE PO RETRY LOCKED — '+escapeHTML(data.poOperationStatus||'REVIEW REQUIRED')+'. Run the read-only recovery check; do not submit a third attempt.':'No creation has been authorized by this read-only preflight. Production fulfillment remains disabled.'}</p>`;
+      <p class="path-note">Protected read-only PO data and schema check. No PO, PDF, inventory or accounting transaction was created. ${currentSchemaPreflightPassed.has(handoffId)?
+        (currentRecoveryVerified.has(handoffId)?'BOTH READ-ONLY CHECKS PASSED. The FINAL LIVE TEST button is now available; it may create a real PO.':'SCHEMA CHECK PASSED. Run CHECK FAILED PO / DUPLICATE SAFETY to qualify the FINAL LIVE TEST.'):
+        'FINAL LIVE TEST REMAINS LOCKED. Production fulfillment is disabled.'}</p>`;
   } catch(error){
     currentSchemaPreflightPassed.delete(handoffId);
     const retryButton=[...document.querySelectorAll('[data-action="create-one-live-test-po"]')]
       .find(b=>b.closest('.material-request')?.querySelector('h3')?.textContent?.startsWith('JOB 1160 ·'));
     if(retryButton)retryButton.disabled=true;
+    updateFinalTestButton(handoffId);
     container.textContent='PO CREATION PREFLIGHT BLOCKED (no PO created): '+(error?.message||String(error));
   }
 }
