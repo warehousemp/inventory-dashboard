@@ -914,15 +914,16 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
       <button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>
-      ${h.job_number==='1160'?'<button class="btn-primary" type="button" data-action="create-one-live-test-po" style="background:#8b5b0d;color:white;" title="Creates ONE REAL JobTread PO. No inventory is committed or issued.">CREATE ONE LIVE TEST PO — NO STOCK COMMITMENT</button>':''}
+      ${h.job_number==='1160'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK FAILED PO / DUPLICATE SAFETY</button><button class="btn-primary" type="button" disabled title="One live PO attempt exists in Supabase. Do not retry until reconciled.">LIVE TEST LOCKED — REVIEW REQUIRED</button>':''}
       <button class="btn-primary" type="button" disabled title="Production PO plus stock commitment remains locked">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
-    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF copy). The one-time live test creates a real PO but does NOT yet file its PDF, assign stock, or commit inventory.</div>
-    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. CHECK PO CREATION PREFLIGHT validates the intended PO vendor, costs and duplicate safeguards without creating anything. The actual JobTread PO creation button remains disabled until the API write and recovery steps are verified.</div>
+    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF copy). The Job 1160 test PO attempt returned HTTP 400. Live creation is LOCKED until its outcome and JobTread request fields are reconciled. No inventory was committed or issued.</div>
+    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. CHECK PO CREATION PREFLIGHT validates the intended PO vendor, costs and duplicate safeguards without creating anything. Job 1160 LIVE PO retry remains LOCKED. Use CHECK FAILED PO / DUPLICATE SAFETY to safely inspect the previous API attempt.</div>
     <div class="vendor-groups" data-commitment-readiness hidden></div>
     <div class="vendor-groups" data-po-create-preflight hidden></div>
     <div class="vendor-groups" data-live-test-po-result hidden></div>
+    <div class="vendor-groups" data-failed-po-recovery hidden></div>
     <div class="vendor-groups" data-inventory-preview hidden></div>`;
   stock.querySelector('[data-action="toggle-live"]').addEventListener('click',async()=>{
     if(isTestMode(h.id)){
@@ -942,6 +943,8 @@ function renderFulfillmentPaths(h,lines,article){
   });
   stock.querySelector('[data-action="check-commitment-readiness"]').addEventListener('click',()=>checkCommitmentReadiness(h.id,stock.querySelector('[data-commitment-readiness]')));
   stock.querySelector('[data-action="check-po-create-preflight"]').addEventListener('click',()=>checkProjectInventoryPOPreflight(h.id,stock.querySelector('[data-po-create-preflight]')));
+  const recoveryButton=stock.querySelector('[data-action="check-failed-po-recovery"]');
+  if(recoveryButton)recoveryButton.addEventListener('click',()=>checkJobtreadFailedPORecovery(h.id,recoveryButton,stock.querySelector('[data-failed-po-recovery]')));
   const liveTestButton=stock.querySelector('[data-action="create-one-live-test-po"]');
   if(liveTestButton){
     liveTestButton.disabled=livePOTestAttempted.has(h.id);
@@ -999,6 +1002,41 @@ function updateVendorPOPreview(purchaseCard,lines){
       items[0].handoff_id,'VENDOR',vendor,items.map(item=>item.id),preview));
     row.append(label,check,button);box.append(row,preview);
   }
+}
+
+
+async function checkJobtreadFailedPORecovery(handoffId,button,container){
+  container.hidden=false;
+  container.textContent='Searching JobTread for an existing Job 1160 PO and matching external reference. READ ONLY — no PO creation or inventory changes...';
+  button.disabled=true;
+  try {
+    const {data,error}=await client.functions.invoke('jobtread-project-po-recovery-check',{body:{handoffId}});
+    let details=data;
+    if(error){
+      if(error?.context && typeof error.context.json==='function'){
+        try{details=await error.context.json();}catch(_){}
+      }
+      throw new Error(details?.error||error?.message||'JobTread recovery search failed.');
+    }
+    if(!data?.success || data.mode!=='READ_ONLY_RECOVERY' || data.jobtreadWrites!==false ||
+       data.databaseWrites!==false || data.searchComplete!==true || data.retryAllowed!==false){
+       throw new Error(data?.error||'Incomplete JobTread recovery check. Retry remains blocked.');
+    }
+    const matched=Number(data.exactExternalReferenceMatchCount||0);
+    const candidates=Array.isArray(data.candidatePurchaseOrders)?data.candidatePurchaseOrders:[];
+    const matchingRows=Array.isArray(data.exactExternalReferenceMatches)?data.exactExternalReferenceMatches:[];
+    const renderLine=d=>`<li><strong>${escapeHTML(d.number||'PO number unavailable')}</strong> · ${escapeHTML(d.name||'Unnamed PO')} · ID ${escapeHTML(d.id||'Unknown')} · ${escapeHTML(d.status||'Unknown status')}${d.externalReferenceMatches?' · EXACT REFERENCE MATCH':''}</li>`;
+    container.innerHTML=`<strong>${matched>0?'EXISTING JOBTREAD PO FOUND — DO NOT RETRY':'READ-ONLY JOBTREAD PO SEARCH COMPLETED — RETRY STILL LOCKED'}</strong>
+      <p>Job 1160 · Saved Supabase attempt: <strong>${escapeHTML(data.operationStatus||'Unknown')}</strong></p>
+      <p><strong>Exact external-reference matches:</strong> ${matched} · <strong>Vendor documents inspected:</strong> ${Number(data.vendorDocumentCount||0)}</p>
+      ${matchingRows.length?`<div>Exact matches:<ul>${matchingRows.map(renderLine).join('')}</ul></div>`:''}
+      ${candidates.length?`<div>Other candidate Job 1160 POs:<ul>${candidates.map(renderLine).join('')}</ul></div>`:'<p>No candidate Job 1160 PO was returned in the complete vendor-document search.</p>'}
+      <p><strong>Result:</strong> ${escapeHTML(data.conclusion||'Manual review required.')}</p>
+      <p class="path-note"><strong>NO WRITES.</strong> This check does not create, delete, approve, or commit anything. Live test creation remains locked pending technical correction and review.</p>`;
+  }catch(error){
+    container.textContent='READ-ONLY RECOVERY COULD NOT FINISH: '+(error?.message||String(error))+
+      '. NO PO was requested by this action. Existing retry protection remains active.';
+  }finally{button.disabled=false;}
 }
 
 async function createOneLiveTestPO(handoffId,button,container){
