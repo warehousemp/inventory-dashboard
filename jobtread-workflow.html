@@ -945,15 +945,16 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-light" type="button" data-action="pick" disabled>GENERATE GENERAL PICK LIST</button>
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
-      <button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>
+      ${h.job_number==='1317'?'<button class="btn-teal" type="button" data-action="check-job1317-newcostitem-preflight">CHECK JOB 1317 PO MAPPING — READ ONLY</button><button class="btn-light" type="button" disabled title="Previous PO creation preflight uses invalid existingCostItem IDs and remains blocked">OLD PO CREATION PREFLIGHT — LOCKED</button>':'<button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>'}
       ${h.job_number==='1314'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK JOB 1314 FOR DUPLICATE POs</button><button class="btn-light" type="button" data-action="check-jobtread-cost-item-ids">DIAGNOSE JOBTREAD PO LINE IDs — READ ONLY</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Both real PO attempts are exhausted. Budget-item IDs were rejected by JobTread. Further creation is locked.">JOB 1314 FINAL RETRY LOCKED — REVIEW COST ITEM IDs</button>':''}
       <button class="btn-primary" type="button" disabled title="Production PO plus stock commitment remains locked">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
-    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF; filing connection is not yet enabled). ${h.job_number==='1314'?'CONTROLLED PATH A TEST: SIX inventory lines, FIVE selected serialized units, and $6,247.04 actual-cost estimate. PGRM-2 posted cycle count confirms 2 on hand; its purchase-lot and FIFO valuation are NOT reconciled. A real test PO requires two read-only checks and two confirmations. No stock will be committed or issued.':'The production PO and inventory commitment integration remains disabled.'}</div>
-    <div class="path-note">TEST MODE: Choose a distinct serial number for EACH unit; choices are not saved. CHECK JOBTREAD PO DETAILS and PO CREATION PREFLIGHT are read-only. ${h.job_number==='1314'?'Job 1314 has exhausted two real PO attempts. Use the READ-ONLY ID diagnostic to inspect budget and catalog ID mapping before any future PO workflow work. PGRM-2 valuation reconciliation and PO PDF filing are separate outstanding requirements.':'The live PO test is restricted to Job 1314. Path A stock commitment and Path B vendor purchasing remain disabled until tested and authorized.'} LIVE ASSIGNMENTS require explicitly SAVING serial numbers; no saving occurs in TEST mode.</div>
+    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF; filing connection is not yet enabled). ${h.job_number==='1314'?'CONTROLLED PATH A TEST: SIX inventory lines, FIVE selected serialized units, and $6,247.04 actual-cost estimate. PGRM-2 posted cycle count confirms 2 on hand; its purchase-lot and FIFO valuation are NOT reconciled. The two attempted live PO creations are locked. No further Job 1314 PO creation is allowed.':'The production PO and inventory commitment integration remains disabled.'}</div>
+    <div class="path-note">TEST MODE: Choose a distinct serial number for EACH unit; choices are not saved. CHECK JOBTREAD PO DETAILS and PO CREATION PREFLIGHT are read-only. ${h.job_number==='1314'?'Job 1314 has exhausted two real PO attempts. Use the READ-ONLY ID diagnostic to inspect budget and catalog ID mapping before any future PO workflow work. PGRM-2 valuation reconciliation and PO PDF filing are separate outstanding requirements.':'PO creation and commitments remain disabled. For Job 1317, use the separate newCostItem READ-ONLY mapping check; no PO will be created.'} LIVE ASSIGNMENTS require explicitly SAVING serial numbers; no saving occurs in TEST mode.</div>
     <div class="vendor-groups" data-commitment-readiness hidden></div>
     <div class="vendor-groups" data-po-create-preflight hidden></div>
+    <div class="vendor-groups" data-job1317-newcostitem-preflight hidden></div>
     <div class="vendor-groups" data-live-test-po-result hidden></div>
     <div class="vendor-groups" data-failed-po-recovery hidden></div>
     <div class="vendor-groups" data-jobtread-cost-item-diagnostic hidden></div>
@@ -977,7 +978,10 @@ function renderFulfillmentPaths(h,lines,article){
     await loadSerialPickOptions(h.id,true);
   });
   stock.querySelector('[data-action="check-commitment-readiness"]').addEventListener('click',()=>checkCommitmentReadiness(h.id,stock.querySelector('[data-commitment-readiness]')));
-  stock.querySelector('[data-action="check-po-create-preflight"]').addEventListener('click',()=>checkProjectInventoryPOPreflight(h.id,stock.querySelector('[data-po-create-preflight]')));
+  const oldPoPreflight=stock.querySelector('[data-action="check-po-create-preflight"]');
+  if(oldPoPreflight)oldPoPreflight.addEventListener('click',()=>checkProjectInventoryPOPreflight(h.id,stock.querySelector('[data-po-create-preflight]')));
+  const job1317Check=stock.querySelector('[data-action="check-job1317-newcostitem-preflight"]');
+  if(job1317Check)job1317Check.addEventListener('click',()=>checkJob1317NewCostItemPreflight(h.id,job1317Check,stock.querySelector('[data-job1317-newcostitem-preflight]')));
   const recoveryButton=stock.querySelector('[data-action="check-failed-po-recovery"]');
   if(recoveryButton)recoveryButton.addEventListener('click',()=>checkJobtreadFailedPORecovery(h.id,recoveryButton,stock.querySelector('[data-failed-po-recovery]')));
   const diagnoseButton=stock.querySelector('[data-action="check-jobtread-cost-item-ids"]');
@@ -1135,6 +1139,70 @@ async function createOneLiveTestPO(handoffId,button,container){
  container.hidden=false;
  button.disabled=true;
  container.textContent='JOB 1314 LIVE PO CREATION LOCKED. The second failed request was rejected because a JobTread budget-line ID was not accepted as a costItem. Use the READ-ONLY ID diagnostic. No PO request was submitted.';
+}
+
+async function checkJob1317NewCostItemPreflight(handoffId,button,container){
+ container.hidden=false;
+ const h=projectMaterialHandoffs.find(x=>x.id===handoffId);
+ if(h?.job_number!=='1317'||handoffId!=='8e3d42ec-43d6-48e8-8e71-4170b9c2b18d'){
+   container.textContent='This new PO-line diagnostic is restricted to Job 1317.';return;
+ }
+ if(!isTestMode(handoffId)){
+   container.textContent='Switch to TEST / PREVIEW ONLY first. No serial assignments or PO operations are allowed in this check.';return;
+ }
+ if(!['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
+   container.textContent='Admin or System Admin access is required for the protected Job 1317 preflight.';return;
+ }
+ let selectedPicks;
+ try {
+   if(!isSerialPlanReady(handoffId))throw new Error('Select the physical pump serial number first.');
+   selectedPicks=getDraftSerialSelections(handoffId);
+   if(!Array.isArray(selectedPicks)||selectedPicks.length!==1||selectedPicks[0]?.serialIds?.length!==1)
+     throw new Error('One serialized pump must be selected for the Job 1317 TEST.');
+ }catch(error){container.textContent='JOB 1317 READ-ONLY CHECK BLOCKED: '+(error?.message||String(error));return;}
+ button.disabled=true;
+ container.textContent='Rechecking Job 1317 live 1410 budget item, selected serialized pump FIFO cost, new PO-line schema and all Molinari Inventory vendor documents. READ ONLY — NO PO SUBMITTED...';
+ try {
+   const {data,error}=await client.functions.invoke('jobtread-project-po-preflight-1317',{
+     body:{handoffId,testMode:true,testPicks:selectedPicks}
+   });
+   let response=data;
+   if(error?.context&&typeof error.context.json==='function'){
+     try{response=await error.context.json();}catch(_){}
+   }
+   if(error||response?.success!==true||
+      response.mode!=='READ_ONLY_JOB1317_NEW_COSTITEM_PREFLIGHT'||
+      response.jobNumber!=='1317'||response.jobtreadWrites!==false||
+      response.databaseWrites!==false||response.poCreated!==false||
+      response.inventoryCommitted!==false||response.serialAssignmentsSaved!==false)
+     throw new Error(response?.error||error?.message||'No successful protected read-only result was returned.');
+   const line=response.proposedLine||{},header=response.proposedHeader||{};
+   if(response.structuralChecksPassed!==true||response.requestSchemaVerified!==true||
+      response.documentSearchComplete!==true||response.matchingVendorDocuments!==0||
+      response.poOperationStatus!=='NO_OPERATION'||response.liveAcceptance!=='NOT_TESTED'||
+      Number(response.totalCost)!==1286.12||Number(response.additionalTaxRate)!==0||
+      response.selectedSerialNumber!=='GGEH03020434260508'||
+      line.jobCostItemId!=='22PhPdNdNdMk'||
+      Number(line.unitCost)!==1286.12||Number(line.quantity)!==1||
+      'id' in line||header.taxRate!==0||header.qboIsIgnored!==true)
+     throw new Error('The preflight returned incomplete or different Job 1317 test evidence. No PO submitted.');
+   const money=Number(response.totalCost).toLocaleString('en-US',{style:'currency',currency:'USD'});
+   const unitMoney=Number(line.unitCost).toLocaleString('en-US',{style:'currency',currency:'USD'});
+   const fields=['_type','name','jobCostItemId','costCodeId','costTypeId','unitId','quantity','unitCost','isTaxable'];
+   const safeShape={};for(const k of fields){if(Object.prototype.hasOwnProperty.call(line,k))safeShape[k]=line[k];}
+   container.innerHTML=`<strong>JOB 1317 — NEW PO-LINE STRUCTURE CHECKED · READ ONLY</strong>
+     <p>Job 1317 · SINGLE ITEM TEST · Molinari Pools Inventory</p>
+     <p><strong>Part:</strong> VSFHP165DVSP · <strong>Selected S/N:</strong> ${escapeHTML(response.selectedSerialNumber)}</p>
+     <p><strong>1410 budget ID (jobCostItemId):</strong> <code>${escapeHTML(line.jobCostItemId)}</code></p>
+     <p><strong>Qty:</strong> 1 · <strong>Actual serial-lot / FIFO cost:</strong> ${escapeHTML(unitMoney)} · <strong>PO estimate:</strong> ${escapeHTML(money)}</p>
+     <p><strong>Additional PO tax:</strong> 0% · <strong>QuickBooks:</strong> exclusion requested · <strong>Document line's own ID:</strong> NEW (not supplied)</p>
+     <p><strong>Complete vendor documents searched:</strong> ${escapeHTML(response.documentsSearched)} · <strong>Job 1317 candidates:</strong> 0 · <strong>Supabase PO operation:</strong> NO_OPERATION</p>
+     <p><strong>New PO-line request shape (NOT sent to JobTread):</strong></p>
+     <pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:350px;overflow:auto;">${escapeHTML(JSON.stringify(safeShape,null,2))}</pre>
+     <div class="path-note"><strong>SCHEMA COMPATIBLE — LIVE API ACCEPTANCE NOT TESTED.</strong> No PO created, no serial assignments saved, no stock committed or issued, and no accounting transaction posted. The original Job 1314 failures remain locked. Required PO PDF filing to ALL FILES - INVOICES remains pending.</div>`;
+ }catch(error){
+   container.textContent='JOB 1317 READ-ONLY PO MAPPING BLOCKED: '+(error?.message||String(error))+' — No PO or inventory writes.';
+ }finally{button.disabled=false;}
 }
 
 async function checkProjectInventoryPOPreflight(handoffId,container){
