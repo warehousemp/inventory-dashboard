@@ -1253,20 +1253,56 @@ async function previewProjectMaterialPO(handoffId,source,vendorName,lineIds,cont
       ? 'SUPPLIER PRICE REQUIRED'
       : Number(value).toLocaleString('en-US',{style:'currency',currency:'USD'});
     const isInventory=source==='INVENTORY';
-    if(isInventory && (data.costSource!=='MOLINARI_SERIAL_LOT_AND_FIFO_STOCK'||data.totalCost===null)){
-      throw new Error('Inventory cost source was not confirmed by Molinari database. No PO created.');
+    // Match the versioned, read-only Supabase PO preview contract. The backend
+    // independently checks purchase-lot cost, original legacy receipts and
+    // approved opening FIFO, plus any posted-cycle-count cost exception.
+    const expectedInventoryCostSource='MOLINARI_SERIAL_LOT_LEGACY_RECEIPT_OPENING_FIFO';
+    if(isInventory){
+      if(data.costSource!==expectedInventoryCostSource ||
+         !Array.isArray(data.items) || !data.items.length ||
+         Number(data.lineCount)!==data.items.length ||
+         !Number.isFinite(Number(data.totalCost)) || Number(data.totalCost)<=0 ||
+         !data.items.every(row=>row.budgetItemId &&
+           Number.isFinite(Number(row.quantity)) && Number(row.quantity)>0 &&
+           Number.isFinite(Number(row.unitCost)) && Number(row.unitCost)>0 &&
+           Number.isFinite(Number(row.totalCost)) && Number(row.totalCost)>0)){
+        throw new Error('Molinari database did not provide complete, cost-verified 1410 material lines. No PO created.');
+      }
+      const lineTotal=data.items.reduce((sum,row)=>sum+Number(row.totalCost),0);
+      if(Math.abs(Math.round(lineTotal*100)-Math.round(Number(data.totalCost)*100))>1){
+        throw new Error('Material line costs do not match the database total. No PO created.');
+      }
     }
+    const costExceptions=isInventory&&Array.isArray(data.cycleCountCostExceptions)
+      ? data.cycleCountCostExceptions:[];
+    if(costExceptions.some(item=>item.source!=='POSTED_CYCLE_COUNT_WITH_DOCUMENTED_LOT' ||
+      !item.cycleCountId || !item.lotId || !item.ledgerReconciliationPending ||
+      !(Number(item.physicalOnHand)>0) || !(Number(item.lotUnitCost)>0))){
+      throw new Error('Cycle-count cost exception lacks documented warehouse/lot evidence. No PO created.');
+    }
+    const exceptionDetails=costExceptions.map(item=>
+      `<div class="path-note" style="margin-top:8px;border-left:3px solid #b45309;padding:10px 12px;background:#fff7ed">`+
+      `<strong>POSTED CYCLE COUNT — COST RECONCILIATION PENDING: ${escapeHTML(item.partNumber||'PART')}</strong>`+
+      `<div>Verified on hand: ${escapeHTML(formatNumber(item.physicalOnHand))} · `+
+      `Reconstructed FIFO: ${escapeHTML(formatNumber(item.reconstructedFifoQty))} · `+
+      `Purchase lot shows: ${escapeHTML(formatNumber(item.lotReportedRemaining))}</div>`+
+      `<div>Documented lot unit cost used for this read-only PO estimate: ${escapeHTML(fmtCost(item.lotUnitCost))} · `+
+      `Batch: ${escapeHTML(item.lotBatchCode||'Unspecified')} · `+
+      `Count posted: ${escapeHTML(formatDateTime(item.postedAt))}</div>`+
+      `<div>Inventory valuation/lot balances have NOT been adjusted. Reconciliation is still required.</div></div>`
+    ).join('');
     const costHeading=isInventory?'ACTUAL SERIAL / FIFO UNIT COST':'SUPPLIER UNIT COST (PENDING)';
     const costMessage=isInventory
       ? `Actual selected serial-lot / FIFO stock cost ${fmtCost(data.totalCost)} — NOT JobTread budget or customer quoted pricing.`
       : 'Supplier purchase costs not yet entered. Vendor PO amount cannot be confirmed until actual supplier prices are provided.';
-    container.innerHTML=`<strong>${isInventory?'INVENTORY COST VERIFIED':'JOBTREAD LINKS VERIFIED'} — ${data.testMode?'TEST / PREVIEW ONLY':'READ-ONLY PO CHECK'} · NO PO CREATED</strong>
+    container.innerHTML=`<strong>${isInventory?(costExceptions.length?'INVENTORY COST ESTIMATE VERIFIED — LOT RECONCILIATION FLAGGED':'INVENTORY COST VERIFIED'):'JOBTREAD LINKS VERIFIED'} — ${data.testMode?'TEST / PREVIEW ONLY':'READ-ONLY PO CHECK'} · NO PO CREATED</strong>
       <p>Job ${escapeHTML(data.job?.number)} · ${escapeHTML(data.vendor?.name)} ·
       ${escapeHTML(formatNumber(data.lineCount))} lines · ${escapeHTML(costMessage)}</p>
       <div class="table-wrap"><table><thead><tr><th>1410 Budget Item / Part #</th><th>Qty</th><th>${costHeading}</th><th>Extended PO Cost</th></tr></thead><tbody>
       ${(data.items||[]).map(row=>`<tr><td>${escapeHTML(row.name)}<div class="material-request-sub">${escapeHTML(row.partNumber||'—')}</div>${Array.isArray(row.serialNumbers)&&row.serialNumbers.length?`<div class="serial-preview-value">Selected S/N: ${row.serialNumbers.map(escapeHTML).join(' · ')}</div>`:''}</td>
       <td>${escapeHTML(formatNumber(row.quantity))}</td><td>${escapeHTML(fmtCost(row.unitCost))}</td><td>${escapeHTML(fmtCost(row.totalCost))}</td></tr>`).join('')}
       </tbody></table></div>
+      ${exceptionDetails}
       <div class="path-note">The customer quote and JobTread budget are unchanged. Serialized unit costs come from ${data.testMode?'temporary TEST serial choices (NOT saved)':'saved actual serial/lot assignments'}. Stock and costs are rechecked before a real PO is permitted. Vendor ID: ${escapeHTML(data.vendor?.id)} · JobTread Job ID: ${escapeHTML(data.job?.jobtreadId)} ·
       No database change, inventory reservation, purchase order, Bill, Expense or QuickBooks transaction occurred.</div>`;
   }catch(error){
