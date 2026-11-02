@@ -285,6 +285,18 @@
           roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
         },
         {
+          label: 'Service Parts Lookup',
+          href: 'service.html',
+          roles: [
+            'WAREHOUSE',
+            'ACCOUNTING',
+            'PROJECTS',
+            'SERVICE_MANAGER',
+            'ADMIN',
+            'SYSTEM_ADMIN'
+          ]
+        },
+        {
           label: 'Parts / Cycle Counts',
           href: 'warehouse-management.html',
           roles: ['WAREHOUSE', 'ADMIN', 'SYSTEM_ADMIN']
