@@ -541,6 +541,21 @@
     .workspace-panel { display: none; }
     .workspace-panel.active { display: block; }
 
+    .multiple-controls { display:grid; grid-template-columns:minmax(240px,1.2fr) minmax(220px,1fr) auto auto; gap:12px; align-items:end; margin:16px 0; }
+    .multiple-info { display:flex; flex-wrap:wrap; gap:12px 22px; color:var(--muted); font-size:13px; margin:13px 0 18px; }
+    .multiple-stats { display:grid; grid-template-columns:repeat(4,minmax(140px,1fr)); gap:12px; }
+    .multiple-stats .summary-card .value { font-size:26px; }
+    .multiple-table { min-width:1100px; }
+    .multiple-table .stop-count { display:inline-block; background:#e2f3f5; border-radius:999px; padding:5px 12px; color:var(--header); font-weight:800; font-size:14px; }
+    .multiple-table .date-subtext { color:var(--muted); font-size:11px; margin-top:4px; }
+    .multiple-note { margin-top:16px; padding:13px 15px; border-radius:9px; background:#eff8ff; border:1px solid #b2ddff; color:#30546c; font-size:12px; line-height:1.55; }
+    .multiple-view-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:19px 0 14px; }
+    .multiple-view-btn { flex:1 1 190px; background:#eef4f7; color:var(--header); border:1px solid var(--border); border-radius:9px; }
+    .multiple-view-btn.active { background:var(--header); color:white; }
+    .multiple-section { display:none; }
+    .multiple-section.active { display:block; }
+    .multiple-section h3 { margin-bottom:7px; }
+
     .entry-tabs {
       display: flex;
       flex-wrap: wrap;
@@ -695,7 +710,7 @@
     }
 
     @media (max-width: 900px) {
-      .toolbar, .import-grid, .growth-controls { grid-template-columns: 1fr 1fr; }
+    .toolbar, .import-grid, .growth-controls, .multiple-controls { grid-template-columns: 1fr 1fr; }
       .rate-review-controls { grid-template-columns: 1fr 1fr; }
       .entry-form-grid, .checklist-grid { grid-template-columns: 1fr 1fr; }
       .summary-grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
@@ -705,7 +720,7 @@
       .rate-review-controls { grid-template-columns: 1fr; }
       .main-layout { padding: 0 12px; margin: 18px auto; }
       .card { padding: 18px; }
-      .toolbar, .import-grid, .summary-grid, .import-preview, .growth-controls, .entry-form-grid, .checklist-grid { grid-template-columns: 1fr; }
+    .toolbar, .import-grid, .summary-grid, .import-preview, .growth-controls, .multiple-controls, .multiple-stats, .entry-form-grid, .checklist-grid { grid-template-columns: 1fr; }
       .entry-form-grid .span-2 { grid-column: auto; }
       .workspace-tabs, .entry-tabs { display: block; }
       .workspace-tab-btn, .entry-tab-btn { width: 100%; border-right: 0; border-bottom: 1px solid var(--border); }
@@ -747,6 +762,80 @@
         <button id="workspaceTabGrowth" class="workspace-tab-btn" data-workspace-tab="growth" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-growth">
           Client Growth &amp; Retention
         </button>
+        <button id="workspaceTabMultiple" class="workspace-tab-btn" data-workspace-tab="multiple" type="button" role="tab" aria-selected="false" aria-controls="workspace-panel-multiple">
+          Multiple Weekly Cleanings
+        </button>
+      </div>
+
+      <div id="workspace-panel-multiple" class="workspace-panel" role="tabpanel" aria-labelledby="workspaceTabMultiple">
+        <section class="card">
+          <h2>Clients With Multiple Weekly Cleaning Stops</h2>
+          <p class="section-description">Compare your weekly Skimmer Route Assignments PDFs to identify clients who moved from one scheduled cleaning to multiple cleanings, or reduced back to one. Counts reflect recurring route assignments, not how many cleanings happened that week.</p>
+
+          <div class="multiple-controls">
+            <div>
+              <label for="multipleSnapshotSelect">Route Assignment Effective Date</label>
+              <select id="multipleSnapshotSelect" aria-label="Route assignment snapshot"></select>
+            </div>
+            <div>
+              <label for="multipleSearch">Search Client or Service Address</label>
+              <input id="multipleSearch" type="search" placeholder="Client name, address, or customer #">
+            </div>
+            <button id="multipleRefreshBtn" class="btn-primary" type="button">Refresh</button>
+            <button id="multipleExportBtn" class="btn-secondary" type="button" disabled>Export CSV</button>
+          </div>
+
+          <div id="multipleMessage" class="message" role="status" aria-live="polite"></div>
+          <div id="multipleReportInfo" class="multiple-info"></div>
+
+          <div class="multiple-stats">
+            <div class="summary-card"><div class="label">Multi-Stop Service Locations</div><div id="multipleClientCount" class="value">–</div></div>
+            <div class="summary-card"><div class="label">Scheduled Weekly Stops</div><div id="multipleStopCount" class="value">–</div></div>
+            <div class="summary-card"><div class="label">Additional Stops Beyond One</div><div id="multipleExtraCount" class="value">–</div></div>
+            <div class="summary-card"><div class="label">Reduced Back to One</div><div id="multipleReducedCount" class="value">–</div></div>
+          </div>
+
+          <div class="multiple-view-tabs" role="tablist" aria-label="Multiple cleaning reports">
+            <button id="multipleViewCurrent" class="multiple-view-btn active" type="button" data-multiple-view="current">Currently Multiple</button>
+            <button id="multipleViewReduced" class="multiple-view-btn" type="button" data-multiple-view="reduced">Reduced to One</button>
+            <button id="multipleViewHistory" class="multiple-view-btn" type="button" data-multiple-view="history">All Stop Changes</button>
+          </div>
+
+          <div id="multiple-section-current" class="multiple-section active">
+            <h3>Clients Currently Receiving Multiple Weekly Cleanings</h3>
+            <p class="section-description">Includes the first date multiple stops appeared in the saved weekly reports, alongside the recurring second-stop start date provided by Skimmer.</p>
+            <div class="table-wrap">
+              <table class="multiple-table">
+                <thead><tr><th>Client</th><th>Service Address</th><th>Weekly Stops</th><th>Cleaning Days</th><th>First Seen Multiple</th><th>Second Stop Start (Skimmer)</th></tr></thead>
+                <tbody id="multipleTbody"><tr><td colspan="6">Open this tab to load scheduled weekly cleanings.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="multiple-section-reduced" class="multiple-section">
+            <h3>Clients Reduced From Multiple Stops to One Per Week</h3>
+            <p class="section-description">Currently at one scheduled weekly stop, but confirmed at multiple weekly stops in an earlier imported Route Assignments PDF.</p>
+            <div class="table-wrap">
+              <table class="multiple-table">
+                <thead><tr><th>Client</th><th>Service Address</th><th>Previous Weekly Stops</th><th>Now</th><th>Reduction First Seen</th><th>Remaining Cleaning Day</th></tr></thead>
+                <tbody id="multipleReducedTbody"><tr><td colspan="6">No reductions identified yet.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="multiple-section-history" class="multiple-section">
+            <h3>Historical Weekly Cleaning Stop Changes</h3>
+            <p class="section-description">Every observed stop-count change between consecutive, usable route assignment snapshots—including clients who later changed again.</p>
+            <div class="table-wrap">
+              <table class="multiple-table">
+                <thead><tr><th>First Seen Effective</th><th>Client</th><th>Service Address</th><th>Change</th><th>Before</th><th>After</th><th>Previous Report</th></tr></thead>
+                <tbody id="multipleHistoryTbody"><tr><td colspan="7">No changes identified yet.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="multiple-note"><strong>How to interpret dates:</strong> The “first seen” date is the effective date of the first imported route assignment showing the change; the actual edit may have happened earlier. A second-stop start date comes from Skimmer's recurring-service record. If a client already had multiple stops in the earliest available PDF, the original addition date is <strong>not confirmed</strong>. Empty/incomplete snapshots are excluded, and OCR name/address variations are reconciled before comparing. Brief changes that reverse in later reports remain visible in history for verification.</div>
+        </section>
       </div>
 
       <div id="workspace-panel-growth" class="workspace-panel" role="tabpanel" aria-labelledby="workspaceTabGrowth">
@@ -1388,6 +1477,15 @@ let cancellationRecords = [];
 let suspensionRecords = [];
 let rateReviewRows = [];
 let rateReviewRange = null;
+let multipleSnapshots = [];
+let multipleAllRows = [];
+let multipleReducedRows = [];
+let multipleHistoryRows = [];
+let multipleSourceRows = [];
+let multipleSnapshotLoading = false;
+let multipleLoadedSnapshotId = '';
+let multipleLoadVersion = 0;
+let multipleActiveView = 'current';
 
 const datasets = {
   added: [],
@@ -1428,7 +1526,7 @@ function initializeWorkspaceTabs() {
 }
 
 function switchWorkspaceTab(tabName) {
-  const selectedTab = tabName === 'entry' ? 'entry' : 'growth';
+  const selectedTab = ['entry', 'growth', 'multiple'].includes(tabName) ? tabName : 'entry';
 
   document.querySelectorAll('.workspace-tab-btn').forEach(button => {
     const isActive = button.dataset.workspaceTab === selectedTab;
@@ -1442,6 +1540,9 @@ function switchWorkspaceTab(tabName) {
 
   if (selectedTab === 'growth' && growthRetentionChart) {
     requestAnimationFrame(() => growthRetentionChart.resize());
+  }
+  if (selectedTab === 'multiple' && currentSession && !multipleSnapshots.length && !multipleSnapshotLoading) {
+    loadMultipleStopSnapshots();
   }
 }
 
@@ -1503,6 +1604,13 @@ function bindEvents() {
   }));
   document.getElementById('cancellationSearch')?.addEventListener('input', renderCancellationRecords);
   document.getElementById('suspensionSearch')?.addEventListener('input', renderSuspensionRecords);
+  document.getElementById('multipleSnapshotSelect')?.addEventListener('change', loadMultipleStopReport);
+  document.getElementById('multipleSearch')?.addEventListener('input', renderMultipleStopReport);
+  document.getElementById('multipleRefreshBtn')?.addEventListener('click', () => loadMultipleStopSnapshots(true));
+  document.getElementById('multipleExportBtn')?.addEventListener('click', exportMultipleStopReport);
+  document.querySelectorAll('.multiple-view-btn').forEach(button => {
+    button.addEventListener('click', () => switchMultipleView(button.dataset.multipleView));
+  });
 }
 
 function showAccessGate(message, type = 'warning') {
@@ -2486,6 +2594,431 @@ function signedNumber(value) {
   return number > 0 ? `+${number.toLocaleString()}` : number.toLocaleString();
 }
 
+// Read-only multiple-stop history built from saved Skimmer Route Assignments PDFs.
+// The snapshots show when a change first appeared; they do not audit the edit time.
+async function loadMultipleStopSnapshots(forceRefresh = false) {
+  if (multipleSnapshotLoading) return;
+  multipleSnapshotLoading = true;
+  const version = ++multipleLoadVersion;
+  setButtonLoading('multipleRefreshBtn', true, 'Loading...');
+  setMessage('multipleMessage', 'info', 'Comparing historical weekly Route Assignments PDFs...');
+
+  try {
+    const { data, error } = await client
+      .from('ppv_route_balance_snapshots')
+      .select('id,effective_date,status,source_file_name,created_at')
+      .eq('status', 'REVIEWED')
+      .order('effective_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(150);
+    if (error) throw new Error('Unable to load route assignment dates: ' + error.message);
+
+    const snapshots = (data || []).sort((a, b) =>
+      a.effective_date.localeCompare(b.effective_date) ||
+      safe(a.created_at).localeCompare(safe(b.created_at)));
+    const allRows = [];
+    // Query in batches to avoid oversized URLs as weekly history grows.
+    for (let i = 0; i < snapshots.length; i += 20) {
+      const ids = snapshots.slice(i, i + 20).map(row => row.id);
+      for (let offset = 0; ; offset += 1000) {
+        const result = await client
+          .from('ppv_route_assignment_clients')
+          .select('id,snapshot_id,customer_name,customer_name_normalized,skimmer_customer_number,service_address,service_address_normalized,service_day_number,service_day_name,service_frequency,service_start_date,service_end_date')
+          .in('snapshot_id', ids)
+          .order('snapshot_id', { ascending: true })
+          .order('id', { ascending: true })
+          .range(offset, offset + 999);
+        if (result.error) throw new Error('Unable to read historical assignment stops: ' + result.error.message);
+        if (version !== multipleLoadVersion) return;
+        allRows.push(...(result.data || []));
+        if (!result.data || result.data.length < 1000) break;
+      }
+    }
+
+    const snapshotCounts = new Map();
+    for (const row of allRows) {
+      snapshotCounts.set(row.snapshot_id, (snapshotCounts.get(row.snapshot_id) || 0) + 1);
+    }
+    // A reviewed PDF can have totals but no parsed client details; never treat it as
+    // an empty route or use it to infer that everyone lost a cleaning stop.
+    const usableByDate = new Map();
+    for (const snapshot of snapshots) {
+      if ((snapshotCounts.get(snapshot.id) || 0) > 0) {
+        usableByDate.set(snapshot.effective_date, snapshot);
+      }
+    }
+    multipleSnapshots = [...usableByDate.values()].sort((a, b) =>
+      a.effective_date.localeCompare(b.effective_date));
+    const validIds = new Set(multipleSnapshots.map(row => row.id));
+    multipleSourceRows = allRows.filter(row => validIds.has(row.snapshot_id));
+
+    const picker = document.getElementById('multipleSnapshotSelect');
+    const priorSelection = picker.value || multipleLoadedSnapshotId;
+    picker.innerHTML = '';
+    for (const snapshot of [...multipleSnapshots].reverse()) {
+      const option = document.createElement('option');
+      option.value = snapshot.id;
+      option.textContent = formatDate(snapshot.effective_date) + ' — ' +
+        (snapshot.source_file_name || 'Route Assignments PDF');
+      picker.appendChild(option);
+    }
+
+    if (!multipleSnapshots.length) {
+      multipleAllRows = [];
+      multipleReducedRows = [];
+      multipleHistoryRows = [];
+      multipleLoadedSnapshotId = '';
+      renderMultipleStopReport();
+      setMessage('multipleMessage', 'info',
+        'No saved route assignment snapshots contain usable client details.');
+      return;
+    }
+
+    const today = toIsoDate(new Date());
+    const choices = [...multipleSnapshots].reverse();
+    const current = choices.find(row => row.effective_date <= today) || choices[0];
+    const selected = choices.find(row => row.id === priorSelection) || current;
+    picker.value = selected.id;
+    loadMultipleStopReport();
+    const excluded = snapshots.length - multipleSnapshots.length;
+    setMessage('multipleMessage', 'success',
+      'Compared ' + multipleSnapshots.length + ' usable imported route reports.' +
+      (excluded ? ' Skipped ' + excluded + ' empty or duplicate-effective-date report(s).' : ''));
+  } catch (error) {
+    setMessage('multipleMessage', 'error', error.message || String(error));
+  } finally {
+    multipleSnapshotLoading = false;
+    setButtonLoading('multipleRefreshBtn', false, 'Refresh');
+  }
+}
+
+function isWeeklyScheduledStop(value) {
+  const frequency = safe(value).toLowerCase().trim();
+  if (!frequency) return false;
+  if (/biweekly|every other week|every [2-9] weeks|monthly|quarterly/.test(frequency)) return false;
+  return /weekly|twice.*week|[2-9]\s*(times|x)\s*(a|per)?\s*week/.test(frequency);
+}
+
+function normalizedRouteServiceAddress(value) {
+  return normalizeAddress(value)
+    .replace(/^(\d+)([a-z])\b/, '$1 $2')
+    .replace(/\bata\b/g, 'a1a')
+    .replace(/\baia\b/g, 'a1a')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function makeRouteIdentityResolver(allRows) {
+  const codesByAddress = new Map();
+  for (const row of allRows) {
+    const code = safe(row.skimmer_customer_number).trim();
+    const address = normalizedRouteServiceAddress(row.service_address_normalized || row.service_address);
+    if (!code || !address) continue;
+    if (!codesByAddress.has(address)) codesByAddress.set(address, new Set());
+    codesByAddress.get(address).add(code);
+  }
+
+  return function (row) {
+    const address = normalizedRouteServiceAddress(row.service_address_normalized || row.service_address);
+    let code = safe(row.skimmer_customer_number).trim();
+    const known = codesByAddress.get(address);
+    if (!code && known && known.size === 1) code = [...known][0];
+    // House number keeps distinct properties apart when one Skimmer account
+    // contains multiple addresses, while tolerating road name and OCR updates.
+    const number = (address.match(/^\d+/) || [])[0] || '';
+    if (code) return 'code:' + code + '|property:' + (number || address || normalizeName(row.customer_name));
+    return 'address:' + (address || normalizeName(row.customer_name));
+  };
+}
+
+function summarizeSnapshotStops(sourceRows, effectiveDate, resolveIdentity) {
+  const locations = new Map();
+  for (const stop of sourceRows) {
+    if (!isWeeklyScheduledStop(stop.service_frequency)) continue;
+    if (stop.service_start_date && stop.service_start_date > effectiveDate) continue;
+    if (stop.service_end_date && stop.service_end_date < effectiveDate) continue;
+
+    const key = resolveIdentity(stop);
+    if (!locations.has(key)) {
+      locations.set(key, {
+        key: key,
+        customer_name: safe(stop.customer_name).trim(),
+        customer_number: safe(stop.skimmer_customer_number).trim(),
+        service_address: safe(stop.service_address).trim(),
+        stops: []
+      });
+    }
+    const location = locations.get(key);
+    const name = safe(stop.customer_name).trim();
+    const score = value => value.split(/\s+/).length - (/\[\d+\]|[©]/.test(value) ? 2 : 0);
+    if (score(name) > score(location.customer_name)) location.customer_name = name;
+    if (!location.service_address && stop.service_address) location.service_address = stop.service_address;
+    if (!location.customer_number && stop.skimmer_customer_number) {
+      location.customer_number = safe(stop.skimmer_customer_number).trim();
+    }
+    location.stops.push(stop);
+  }
+
+  const output = new Map();
+  for (const location of locations.values()) {
+    const byDay = [...location.stops].sort((a, b) =>
+      Number(a.service_day_number || 0) - Number(b.service_day_number || 0) ||
+      safe(a.service_day_name).localeCompare(safe(b.service_day_name)));
+    const days = [...new Set(byDay.map(stop => safe(stop.service_day_name)).filter(Boolean))];
+    const allDatesKnown = location.stops.every(stop => Boolean(stop.service_start_date));
+    const byStart = allDatesKnown ? [...location.stops].sort((a, b) =>
+      a.service_start_date.localeCompare(b.service_start_date) ||
+      Number(a.service_day_number || 0) - Number(b.service_day_number || 0)) : [];
+    output.set(location.key, {
+      key: location.key,
+      customer_name: location.customer_name,
+      customer_number: location.customer_number,
+      service_address: location.service_address,
+      weekly_stops: location.stops.length,
+      cleaning_days: days.join(', '),
+      first_stop_start: allDatesKnown ? byStart[0].service_start_date : '',
+      second_stop_start: allDatesKnown && byStart.length > 1 ? byStart[1].service_start_date : '',
+      second_stop_day: allDatesKnown && byStart.length > 1 ? byStart[1].service_day_name : ''
+    });
+  }
+  return output;
+}
+
+function loadMultipleStopReport() {
+  const id = document.getElementById('multipleSnapshotSelect')?.value || '';
+  const selected = multipleSnapshots.find(row => row.id === id);
+  multipleLoadedSnapshotId = '';
+  multipleAllRows = [];
+  multipleReducedRows = [];
+  multipleHistoryRows = [];
+  if (!selected) {
+    renderMultipleStopReport();
+    return;
+  }
+
+  const chronological = multipleSnapshots.filter(row =>
+    row.effective_date <= selected.effective_date);
+  const selectedIds = new Set(chronological.map(row => row.id));
+  const rows = multipleSourceRows.filter(row => selectedIds.has(row.snapshot_id));
+  const resolveIdentity = makeRouteIdentityResolver(rows);
+  const bySnapshot = new Map();
+  for (const row of rows) {
+    if (!bySnapshot.has(row.snapshot_id)) bySnapshot.set(row.snapshot_id, []);
+    bySnapshot.get(row.snapshot_id).push(row);
+  }
+
+  const timeline = new Map();
+  const changes = [];
+  let previous = null;
+  for (const snapshot of chronological) {
+    const current = summarizeSnapshotStops(
+      bySnapshot.get(snapshot.id) || [], snapshot.effective_date, resolveIdentity);
+    for (const [key, item] of current) {
+      if (!timeline.has(key)) timeline.set(key, []);
+      timeline.get(key).push({ effective_date: snapshot.effective_date, item: item });
+      const before = previous?.map.get(key);
+      if (!before || before.weekly_stops === item.weekly_stops) continue;
+      let change = '';
+      if (before.weekly_stops === 1 && item.weekly_stops > 1) change = 'Added Multiple Stops';
+      else if (before.weekly_stops > 1 && item.weekly_stops === 1) change = 'Reduced to One';
+      else if (item.weekly_stops > before.weekly_stops) change = 'Additional Stop Added';
+      else change = 'Stop Removed (Still Multiple)';
+      changes.push({
+        key: key,
+        customer_name: item.customer_name,
+        customer_number: item.customer_number,
+        service_address: item.service_address,
+        effective_date: snapshot.effective_date,
+        previous_date: previous.snapshot.effective_date,
+        from_stops: before.weekly_stops,
+        to_stops: item.weekly_stops,
+        change: change
+      });
+    }
+    previous = { snapshot: snapshot, map: current };
+  }
+
+  const currentMap = previous?.map || new Map();
+  for (const item of currentMap.values()) {
+    const records = timeline.get(item.key) || [];
+    if (item.weekly_stops > 1) {
+      const firstIndex = records.findIndex(record => record.item.weekly_stops > 1);
+      const first = records[firstIndex];
+      const preceding = firstIndex > 0 ? records[firstIndex - 1] : null;
+      const confirmed = preceding && preceding.item.weekly_stops === 1 &&
+        chronological.some((snapshot, index) =>
+          index > 0 && snapshot.effective_date === first.effective_date &&
+          chronological[index - 1].effective_date === preceding.effective_date);
+      multipleAllRows.push({
+        ...item,
+        first_seen_multiple: first?.effective_date || '',
+        first_seen_status: confirmed ? 'Observed increase from one stop' :
+          (first?.effective_date === chronological[0].effective_date
+            ? 'Already multiple in earliest saved PDF' : 'First seen multiple; earlier count not confirmed')
+      });
+    } else if (item.weekly_stops === 1) {
+      const lastMulti = records.map((record, index) =>
+        record.item.weekly_stops > 1 ? index : -1).filter(index => index >= 0).pop();
+      if (lastMulti === undefined) continue;
+      const former = records[lastMulti];
+      const firstSingle = records.slice(lastMulti + 1).find(record => record.item.weekly_stops === 1);
+      if (!firstSingle) continue;
+      const confirmed = changes.some(event =>
+        event.key === item.key && event.change === 'Reduced to One' &&
+        event.effective_date === firstSingle.effective_date);
+      multipleReducedRows.push({
+        ...item,
+        previous_stops: former.item.weekly_stops,
+        previous_multiple_date: former.effective_date,
+        reduced_first_seen: firstSingle.effective_date,
+        reduction_status: confirmed ? 'Confirmed in consecutive reports' :
+          'First observed single after a reporting gap'
+      });
+    }
+  }
+
+  multipleAllRows.sort((a, b) => b.weekly_stops - a.weekly_stops ||
+    a.customer_name.localeCompare(b.customer_name));
+  multipleReducedRows.sort((a, b) => b.reduced_first_seen.localeCompare(a.reduced_first_seen) ||
+    a.customer_name.localeCompare(b.customer_name));
+  multipleHistoryRows = changes.sort((a, b) => b.effective_date.localeCompare(a.effective_date) ||
+    a.customer_name.localeCompare(b.customer_name));
+  multipleLoadedSnapshotId = id;
+  renderMultipleStopReport();
+}
+
+function switchMultipleView(view) {
+  multipleActiveView = ['current', 'reduced', 'history'].includes(view) ? view : 'current';
+  document.querySelectorAll('.multiple-view-btn').forEach(button => {
+    const active = button.dataset.multipleView === multipleActiveView;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+  document.querySelectorAll('.multiple-section').forEach(panel =>
+    panel.classList.toggle('active', panel.id === 'multiple-section-' + multipleActiveView));
+  renderMultipleStopReport();
+}
+
+function getFilteredMultipleRows(view = multipleActiveView) {
+  const records = view === 'reduced' ? multipleReducedRows :
+    view === 'history' ? multipleHistoryRows : multipleAllRows;
+  const term = safe(document.getElementById('multipleSearch')?.value).trim().toLowerCase();
+  return term ? records.filter(row =>
+    [row.customer_name, row.customer_number, row.service_address, row.cleaning_days, row.change]
+      .some(value => safe(value).toLowerCase().includes(term))
+  ) : records;
+}
+
+function renderMultipleStopReport() {
+  const snapshot = multipleSnapshots.find(row =>
+    row.id === (document.getElementById('multipleSnapshotSelect')?.value || ''));
+  const current = getFilteredMultipleRows('current');
+  const reduced = getFilteredMultipleRows('reduced');
+  const history = getFilteredMultipleRows('history');
+  const totalStops = current.reduce((sum, row) => sum + row.weekly_stops, 0);
+  setText('multipleClientCount', current.length);
+  setText('multipleStopCount', totalStops);
+  setText('multipleExtraCount', totalStops - current.length);
+  setText('multipleReducedCount', reduced.length);
+
+  const info = document.getElementById('multipleReportInfo');
+  if (info) {
+    const first = multipleSnapshots[0]?.effective_date || '';
+    info.textContent = (snapshot
+      ? 'Effective ' + formatDate(snapshot.effective_date) + ' · ' +
+        (snapshot.source_file_name || 'Route Assignments PDF')
+      : 'No Route Assignments PDF selected') +
+      (first ? ' · History since ' + formatDate(first) : '') +
+      ' · ' + multipleSnapshots.length + ' usable reports';
+  }
+
+  document.getElementById('multipleViewCurrent').textContent =
+    'Currently Multiple (' + current.length + ')';
+  document.getElementById('multipleViewReduced').textContent =
+    'Reduced to One (' + reduced.length + ')';
+  document.getElementById('multipleViewHistory').textContent =
+    'All Stop Changes (' + history.length + ')';
+
+  renderRows('multipleTbody', current, row =>
+    '<td><strong>' + escapeHtml(row.customer_name) + '</strong>' +
+    (row.customer_number ? '<div class="date-subtext">Skimmer #' + escapeHtml(row.customer_number) + '</div>' : '') +
+    '</td><td>' + escapeHtml(row.service_address) +
+    '</td><td><span class="stop-count">' + row.weekly_stops +
+    '</span></td><td>' + escapeHtml(row.cleaning_days) +
+    '</td><td><strong>' + escapeHtml(formatDate(row.first_seen_multiple)) +
+    '</strong><div class="date-subtext">' + escapeHtml(row.first_seen_status) +
+    '</div></td><td><strong>' + (row.second_stop_start ? escapeHtml(formatDate(row.second_stop_start)) : 'Unknown') +
+    '</strong><div class="date-subtext">' +
+    (row.second_stop_start ? escapeHtml(row.second_stop_day) + ' recurring stop' : 'Start date not available') +
+    '</div></td>',
+  6, 'No clients with multiple weekly stops match this selection.');
+
+  renderRows('multipleReducedTbody', reduced, row =>
+    '<td><strong>' + escapeHtml(row.customer_name) + '</strong></td><td>' +
+    escapeHtml(row.service_address) + '</td><td>' + row.previous_stops +
+    ' <span class="date-subtext">as of ' + escapeHtml(formatDate(row.previous_multiple_date)) +
+    '</span></td><td><span class="stop-count">1</span></td><td><strong>' +
+    escapeHtml(formatDate(row.reduced_first_seen)) + '</strong><div class="date-subtext">' +
+    escapeHtml(row.reduction_status) + '</div></td><td>' + escapeHtml(row.cleaning_days) + '</td>',
+  6, 'No currently single-stop clients have a verified prior multi-stop assignment.');
+
+  renderRows('multipleHistoryTbody', history, row =>
+    '<td>' + escapeHtml(formatDate(row.effective_date)) + '</td><td><strong>' +
+    escapeHtml(row.customer_name) + '</strong></td><td>' + escapeHtml(row.service_address) +
+    '</td><td>' + escapeHtml(row.change) + '</td><td>' + row.from_stops +
+    '</td><td>' + row.to_stops + '</td><td>' + escapeHtml(formatDate(row.previous_date)) + '</td>',
+  7, 'No stop-count changes were observed between the available weekly route reports.');
+
+  const active = getFilteredMultipleRows();
+  const button = document.getElementById('multipleExportBtn');
+  if (button) button.disabled = !active.length || multipleLoadedSnapshotId !== snapshot?.id;
+}
+
+function exportMultipleStopReport() {
+  const rows = getFilteredMultipleRows();
+  if (!rows.length || !multipleLoadedSnapshotId) return;
+  const snapshot = multipleSnapshots.find(row => row.id === multipleLoadedSnapshotId);
+  let records;
+  if (multipleActiveView === 'reduced') {
+    records = rows.map(row => ({
+      client: row.customer_name, service_address: row.service_address,
+      previous_weekly_stops: row.previous_stops, current_weekly_stops: 1,
+      last_multiple_report_date: row.previous_multiple_date,
+      reduction_first_seen_effective: row.reduced_first_seen,
+      status: row.reduction_status, current_cleaning_day: row.cleaning_days
+    }));
+  } else if (multipleActiveView === 'history') {
+    records = rows.map(row => ({
+      first_seen_effective: row.effective_date, previous_report_date: row.previous_date,
+      client: row.customer_name, service_address: row.service_address,
+      change: row.change, previous_weekly_stops: row.from_stops,
+      new_weekly_stops: row.to_stops
+    }));
+  } else {
+    records = rows.map(row => ({
+      route_effective_date: snapshot?.effective_date || '',
+      client: row.customer_name, skimmer_customer_number: row.customer_number,
+      service_address: row.service_address, scheduled_weekly_stops: row.weekly_stops,
+      cleaning_days: row.cleaning_days,
+      first_seen_multiple_effective: row.first_seen_multiple,
+      history_status: row.first_seen_status,
+      first_recurring_stop_start: row.first_stop_start,
+      second_recurring_stop_start: row.second_stop_start
+    }));
+  }
+  const blob = new Blob([Papa.unparse(records, { escapeFormulae: true })],
+    { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'client_weekly_stops_' + multipleActiveView + '_' +
+    (snapshot?.effective_date || 'report') + '.csv';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function loadAllData() {
   setMessage('pageMessage', 'info', 'Loading Client Changes data...');
   setButtonLoading('refreshBtn', true, 'Refreshing...');
@@ -3307,3 +3840,4 @@ function toIsoDate(date) {
 </script>
 </body>
 </html>
+
