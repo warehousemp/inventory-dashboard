@@ -829,12 +829,23 @@ async function loadPurchaseVendors(){
   purchaseVendors.sort((a,b)=>a.localeCompare(b));
   renderProjectMaterialHandoffs();
 }
+/* TODO — AFTER PATH A AND PATH B ARE COMPLETED:
+   Build "Previously Fulfilled Jobs" page section. Only move a job when all
+   applicable inventory fulfillment, purchase fulfillment, and required PO
+   paperwork are verified. RECEIVED is merely acknowledgement, not fulfilled.
+   Include searchable job audit, serials, PO IDs/numbers, PDF and exception
+   records. Distinguish manual archived (1160, 1252) from genuinely fulfilled.
+   Do not delete handoffs or transaction/PO history to clean the active queue.
+*/
 async function loadProjectMaterialHandoffs() {
   const message=document.getElementById('materialQueueMessage');
   message.textContent='Loading verified Projects material requests...';
   try {
     const {data:headers,error:headerError}=await client.from('jobtread_project_material_handoffs')
       .select('id,jobtread_job_id,job_number,job_name,status,verified_by_name,verified_at,received_by_name,received_at,line_count')
+      // Archived handoffs stay in Supabase for audit but must not enter the active queue.
+      // Acknowledged RECEIVED is NOT synonymous with fully fulfilled.
+      .is('archived_at',null)
       .order('verified_at',{ascending:false}).limit(100);
     if(headerError) throw headerError;
     projectMaterialHandoffs=headers||[];
@@ -868,7 +879,7 @@ function renderProjectMaterialHandoffs(){
   const search=String(document.getElementById('materialJobSearch').value||'').trim().toLowerCase();
   const filter=document.getElementById('materialStatusFilter').value;
   const open=projectMaterialHandoffs.filter(h=>h.status==='SENT').length;
-  counter.textContent=`${open} Waiting for Warehouse · ${projectMaterialHandoffs.length-open} Acknowledged · ${projectMaterialHandoffs.length} Total Jobs`;
+  counter.textContent=`${open} Waiting for Warehouse · ${projectMaterialHandoffs.length-open} Acknowledged · ${projectMaterialHandoffs.length} Active Jobs`;
   const selected=projectMaterialHandoffs.filter(h=>{
     if(filter!=='ALL'&&h.status!==filter)return false;
     const lines=projectMaterialHandoffLines.filter(l=>l.handoff_id===h.id);
