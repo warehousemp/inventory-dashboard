@@ -728,21 +728,19 @@ const currentSchemaPreflightPassed = new Set();
 const currentRecoveryVerified = new Set();
 // Only this test handoff is permitted. The Job 1160 test remains retired.
 function updateFinalTestButton(handoffId){
+ // Job 1314 exhausted BOTH controlled real-PO attempts. The second failure
+ // revealed an unverified budget-costItem ID mapping. No new live creation.
  const h=projectMaterialHandoffs.find(x=>x.id===handoffId);
  if(!h || h.job_number!=='1314')return;
  const article=[...document.querySelectorAll('.material-request')]
    .find(c=>c.querySelector('h3')?.textContent?.startsWith('JOB 1314 ·'));
  const button=article?.querySelector('[data-action="create-one-live-test-po"]');
  if(!button)return;
- const allowed=currentRecoveryVerified.has(handoffId)&&currentSchemaPreflightPassed.has(handoffId)&&
-   isTestMode(handoffId)&&isSerialPlanReady(handoffId)&&!livePOTestAttempted.has(handoffId)&&
-   ['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role));
- button.disabled=!allowed;
- button.textContent=allowed?'RETRY ONE REAL JOB 1314 PO — 0% TAX · NO INVENTORY COMMITMENT':
-   'JOB 1314 RETRY LOCKED — RUN 2 READ-ONLY CHECKS';
- button.title=allowed?'May create ONE real JobTread PO as the second and final attempt. Requires two confirmations, taxRate 0, unchanged serials and a fresh zero-match duplicate search. No warehouse stock changes.':
-   'Job 1314 retry requires full duplicate reconciliation and read-only preflight with original serials. Admin role required.';
+ button.disabled=true;
+ button.textContent='JOB 1314 FINAL RETRY LOCKED — REVIEW COST ITEM IDs';
+ button.title='Two failed JobTread createDocument attempts are preserved. A budget-item ID was rejected as an unknown costItem. No further PO submission is allowed.';
 }
+
 function isTestMode(handoffId){ return !liveAssignmentHandoffs.has(handoffId); }
 
 
@@ -948,16 +946,17 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
       <button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>
-      ${h.job_number==='1314'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK JOB 1314 FOR DUPLICATE POs</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Requires one reconciled taxRate 0 retry: original operation preserved, full duplicate scan, fresh preflight, and explicit approval.">JOB 1314 RETRY LOCKED — RUN 2 READ-ONLY CHECKS</button>':''}
+      ${h.job_number==='1314'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK JOB 1314 FOR DUPLICATE POs</button><button class="btn-light" type="button" data-action="check-jobtread-cost-item-ids">DIAGNOSE JOBTREAD PO LINE IDs — READ ONLY</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Both real PO attempts are exhausted. Budget-item IDs were rejected by JobTread. Further creation is locked.">JOB 1314 FINAL RETRY LOCKED — REVIEW COST ITEM IDs</button>':''}
       <button class="btn-primary" type="button" disabled title="Production PO plus stock commitment remains locked">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
     <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF; filing connection is not yet enabled). ${h.job_number==='1314'?'CONTROLLED PATH A TEST: SIX inventory lines, FIVE selected serialized units, and $6,247.04 actual-cost estimate. PGRM-2 posted cycle count confirms 2 on hand; its purchase-lot and FIFO valuation are NOT reconciled. A real test PO requires two read-only checks and two confirmations. No stock will be committed or issued.':'The production PO and inventory commitment integration remains disabled.'}</div>
-    <div class="path-note">TEST MODE: Choose a distinct serial number for EACH unit; choices are not saved. CHECK JOBTREAD PO DETAILS and PO CREATION PREFLIGHT are read-only. ${h.job_number==='1314'?'Only an Admin can run the single real Job 1314 PO test after both read-only checks. The backend will recheck serials, six original 1410 lines, the documented cost, and vendor duplicates. If JobTread rejects the request, no automatic retry is permitted. PGRM-2 valuation reconciliation and PO PDF filing are separate outstanding requirements.':'The live PO test is restricted to Job 1314. Path A stock commitment and Path B vendor purchasing remain disabled until tested and authorized.'} LIVE ASSIGNMENTS require explicitly SAVING serial numbers; no saving occurs in TEST mode.</div>
+    <div class="path-note">TEST MODE: Choose a distinct serial number for EACH unit; choices are not saved. CHECK JOBTREAD PO DETAILS and PO CREATION PREFLIGHT are read-only. ${h.job_number==='1314'?'Job 1314 has exhausted two real PO attempts. Use the READ-ONLY ID diagnostic to inspect budget and catalog ID mapping before any future PO workflow work. PGRM-2 valuation reconciliation and PO PDF filing are separate outstanding requirements.':'The live PO test is restricted to Job 1314. Path A stock commitment and Path B vendor purchasing remain disabled until tested and authorized.'} LIVE ASSIGNMENTS require explicitly SAVING serial numbers; no saving occurs in TEST mode.</div>
     <div class="vendor-groups" data-commitment-readiness hidden></div>
     <div class="vendor-groups" data-po-create-preflight hidden></div>
     <div class="vendor-groups" data-live-test-po-result hidden></div>
     <div class="vendor-groups" data-failed-po-recovery hidden></div>
+    <div class="vendor-groups" data-jobtread-cost-item-diagnostic hidden></div>
     <div class="vendor-groups" data-inventory-preview hidden></div>`;
   stock.querySelector('[data-action="toggle-live"]').addEventListener('click',async()=>{
     if(isTestMode(h.id)){
@@ -981,6 +980,8 @@ function renderFulfillmentPaths(h,lines,article){
   stock.querySelector('[data-action="check-po-create-preflight"]').addEventListener('click',()=>checkProjectInventoryPOPreflight(h.id,stock.querySelector('[data-po-create-preflight]')));
   const recoveryButton=stock.querySelector('[data-action="check-failed-po-recovery"]');
   if(recoveryButton)recoveryButton.addEventListener('click',()=>checkJobtreadFailedPORecovery(h.id,recoveryButton,stock.querySelector('[data-failed-po-recovery]')));
+  const diagnoseButton=stock.querySelector('[data-action="check-jobtread-cost-item-ids"]');
+  if(diagnoseButton)diagnoseButton.addEventListener('click',()=>diagnoseJob1314CostItemIds(h.id,diagnoseButton,stock.querySelector('[data-jobtread-cost-item-diagnostic]')));
   const liveTestButton=stock.querySelector('[data-action="create-one-live-test-po"]');
   if(liveTestButton){
     liveTestButton.addEventListener('click',()=>createOneLiveTestPO(h.id,liveTestButton,stock.querySelector('[data-live-test-po-result]')));
@@ -1041,6 +1042,32 @@ function updateVendorPOPreview(purchaseCard,lines){
 }
 
 
+async function diagnoseJob1314CostItemIds(handoffId,button,container){
+ container.hidden=false;
+ container.textContent='Reading JobTread budget IDs, Molinari catalog IDs and document input schemas. No writes or PO requests...';
+ button.disabled=true;
+ try{
+  const {data,error}=await client.functions.invoke('jobtread-project-po-id-diagnostic-1314',{body:{handoffId}});
+  let details=data;
+  if(error?.context && typeof error.context.json==='function'){
+   try{details=await error.context.json();}catch(_){}
+  }
+  if(error||details?.success!==true||details?.mode!=='READ_ONLY_JOB1314_COST_ITEM_DIAGNOSTIC'||details.noDatabaseWrites!==true||details.attemptedLivePO!==false)
+   throw new Error(details?.error||error?.message||'Read-only ID diagnostic was incomplete.');
+  const rows=Array.isArray(details.lines)?details.lines:[];
+  const schemas=Array.isArray(details.schemas)?details.schemas:[];
+  container.innerHTML=`<strong>JOB 1314 JOBTREAD COST-ITEM ID DIAGNOSTIC — READ ONLY</strong>
+  <p><strong>Existing operation:</strong> ${escapeHTML(details.currentOperationStatus||'UNKNOWN')} · <strong>Failed PO attempts:</strong> ${escapeHTML(details.attemptCount||'0')} · No new PO request was sent.</p>
+  <div class="table-wrap"><table><thead><tr><th>Part</th><th>Job Budget ID</th><th>Catalog Cost Item ID</th><th>Budget Row Verified</th><th>PO Accepts ID?</th></tr></thead><tbody>
+  ${rows.map(x=>`<tr><td>${escapeHTML(x.partNumber||'')}</td><td><code>${escapeHTML(x.budgetItemId||'')}</code></td><td><code>${escapeHTML(x.catalogCostItemId||'—')}</code></td><td>${x.budgetFoundInJob?'YES':'NO'}</td><td>NOT VERIFIED</td></tr>`).join('')}
+  </tbody></table></div>
+  <p><strong>JobTread input-schema evidence:</strong></p>
+  <div class="path-note">${schemas.map(x=>`<div><strong>${escapeHTML(x.path||'')}</strong>: ${escapeHTML(x.validationError||x.result||'Not returned')}</div>`).join('')}</div>
+  <p class="path-note">The two failed attempts remain locked. Catalog IDs are NOT an automatic substitute for budget IDs. This is a read-only comparison only.</p>`;
+ }catch(e){container.textContent='JOBTREAD ID DIAGNOSTIC BLOCKED: '+(e?.message||String(e))+' — No PO or inventory changes.';}
+ finally{button.disabled=false;}
+}
+
 async function checkJobtreadFailedPORecovery(handoffId,button,container){
  container.hidden=false;
  currentRecoveryVerified.delete(handoffId);
@@ -1088,59 +1115,8 @@ async function checkJobtreadFailedPORecovery(handoffId,button,container){
 
 async function createOneLiveTestPO(handoffId,button,container){
  container.hidden=false;
- const h=projectMaterialHandoffs.find(x=>x.id===handoffId);
- if(!h||h.job_number!=='1314'||!isTestMode(handoffId)){
-   container.textContent='The single controlled live PO test is restricted to Job 1314 in TEST / PREVIEW ONLY mode.';return;
- }
- if(!['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
-   container.textContent='Admin/System Admin access required for a real JobTread PO.';return;
- }
- if(!currentSchemaPreflightPassed.has(handoffId)||!currentRecoveryVerified.has(handoffId)){
-   container.textContent='Run BOTH read-only checks successfully: CHECK JOB 1314 FOR DUPLICATE POs and CHECK PO CREATION PREFLIGHT. No PO requested.';return;
- }
- if(livePOTestAttempted.has(handoffId)){
-   container.textContent='This browser already attempted the reconciled tax-rate retry. DO NOT RETRY.';return;
- }
- let picks;
- try{
-   if(!isSerialPlanReady(handoffId))throw new Error('Select every required physical serial number before the test.');
-   picks=getDraftSerialSelections(handoffId);
-   if(!Array.isArray(picks)||picks.length!==5)throw new Error('Exactly five serialized material lines must be selected.');
- }catch(error){container.textContent=error?.message||String(error);return;}
- if(!window.confirm('JOB 1314 — ONE FINAL REAL JOBTREAD PO RETRY?\n\nFirst request failed with HTTP 400: missing taxRate. A complete vendor search found no matching PO. The failed request remains in the audit.\n\nVendor: Molinari Pools Inventory\n6 original 1410 lines, 5 original serials, total $6,247.04\nDOCUMENT TAX: 0% — all purchasing tax is already included in inventory costs.\n\nPGRM-2 posted count 2; documented lot unit cost $181.85; financial reconciliation still REQUIRED.\n\nThis may create ONE REAL JobTread purchase order. No inventory will be committed, reserved or issued. QuickBooks exclusion requested. PO PDF filing remains pending.\n\nIf this final request fails, STOP and reconcile the result before another action.'))return;
- const phrase=window.prompt('To authorize ONE FINAL RETRY of a REAL Job 1314 PO at $6,247.04 with 0% additional tax and the PGRM-2 cost exception acknowledged, type exactly: RETRY PO 1314');
- if(phrase!=='RETRY PO 1314'){
-   container.textContent='Cancelled. No PO request was sent.';return;
- }
- livePOTestAttempted.add(handoffId);
  button.disabled=true;
- container.textContent='Submitting one explicitly approved final taxRate=0 retry for Job 1314. Backend rechecks original five serials, six line costs and all vendor documents. No automatic retry.';
- try{
-   const {data,error}=await client.functions.invoke('jobtread-project-inventory-po-job1314-tax-retry',{
-     body:{handoffId,testMode:true,testPicks:picks,expectedTotal:6247.04,
-       confirmation:'RETRY_TAX_0_JOB1314_REAL_PO_AFTER_RECONCILIATION',
-       approvePendingLotReconciliation:true,approvedDuplicateCheck:true}
-   });
-   let details=data;
-   if(error){
-     if(error.context&&typeof error.context.json==='function'){
-       try{details=await error.context.json();}catch(_){}
-     }
-     throw new Error(details?.error||error.message||'Outcome unknown. DO NOT RETRY.');
-   }
-   if(data?.success!==true||data.mode!=='LIVE_JOB1314_TAX_RETRY'||data.jobNumber!=='1314'||
-      !data.jobtreadPoId||data.inventoryCommitted!==false||data.inventoryIssued!==false)
-     throw new Error(data?.error||'JobTread PO outcome could not be confirmed. Reconciliation required.');
-   container.innerHTML=`<strong>REAL JOBTREAD PO CREATED AFTER RECONCILED RETRY — 0% TAX · NO STOCK COMMITMENT</strong>
-     <p><strong>Job:</strong> 1314 · <strong>Vendor:</strong> ${escapeHTML(data.vendor||'Molinari Pools Inventory')}</p>
-     <p><strong>PO #:</strong> ${escapeHTML(data.jobtreadPoNumber||'Pending numbering')} · <strong>PO ID:</strong> ${escapeHTML(data.jobtreadPoId)}</p>
-     <p><strong>6 materials, 5 serialized units:</strong> ${escapeHTML(Number(data.actualTotal).toLocaleString('en-US',{style:'currency',currency:'USD'}))}</p>
-     <p><strong>Inventory:</strong> NOT committed or issued. <strong>QuickBooks:</strong> Exclusion flag requested. <strong>PDF:</strong> NOT YET filed to ALL FILES - INVOICES.</p>
-     <p class="path-note">PGRM-2 lot/FIFO cost reconciliation remains pending. Verify this real PO directly in JobTread. DO NOT create another PO, even if this document is deleted.</p>`;
- }catch(error){
-   container.textContent='JOB 1314 REAL PO TEST RESULT: '+(error?.message||String(error))+
-     ' — FINAL RETRY ENDED. Do not submit another PO. Verify JobTread and inspect the preserved Supabase operation.';
- }
+ container.textContent='JOB 1314 LIVE PO CREATION LOCKED. The second failed request was rejected because a JobTread budget-line ID was not accepted as a costItem. Use the READ-ONLY ID diagnostic. No PO request was submitted.';
 }
 
 async function checkProjectInventoryPOPreflight(handoffId,container){
