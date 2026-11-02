@@ -726,17 +726,22 @@ const liveAssignmentHandoffs = new Set();
 const livePOTestAttempted = new Set();
 const currentSchemaPreflightPassed = new Set();
 const currentRecoveryVerified = new Set();
+// Only this test handoff is permitted. The Job 1160 test remains retired.
 function updateFinalTestButton(handoffId){
+ const h=projectMaterialHandoffs.find(x=>x.id===handoffId);
+ if(!h || h.job_number!=='1314')return;
  const article=[...document.querySelectorAll('.material-request')]
-   .find(c=>c.querySelector('h3')?.textContent?.startsWith('JOB 1160 ·'));
+   .find(c=>c.querySelector('h3')?.textContent?.startsWith('JOB 1314 ·'));
  const button=article?.querySelector('[data-action="create-one-live-test-po"]');
  if(!button)return;
- const allowed=currentRecoveryVerified.has(handoffId) && currentSchemaPreflightPassed.has(handoffId) &&
-   isTestMode(handoffId) && isSerialPlanReady(handoffId) && !livePOTestAttempted.has(handoffId);
+ const allowed=currentRecoveryVerified.has(handoffId)&&currentSchemaPreflightPassed.has(handoffId)&&
+   isTestMode(handoffId)&&isSerialPlanReady(handoffId)&&!livePOTestAttempted.has(handoffId)&&
+   ['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role));
  button.disabled=!allowed;
- button.textContent=allowed?'CREATE MONDAY LIVE TEST PO — NO STOCK COMMITMENT':'MONDAY TEST LOCKED — RUN 2 READ-ONLY CHECKS';
- button.title=allowed?'This creates ONE real JobTread PO after explicit confirmation; no inventory issue or commitment.':
-   'First run CHECK FAILED PO / DUPLICATE SAFETY and CHECK PO CREATION PREFLIGHT successfully.';
+ button.textContent=allowed?'CREATE ONE REAL JOB 1314 TEST PO — NO INVENTORY COMMITMENT':
+   'JOB 1314 TEST LOCKED — RUN 2 READ-ONLY CHECKS';
+ button.title=allowed?'Creates ONE real JobTread PO only after two explicit confirmations. PGRM-2 lot reconciliation remains pending.':
+   'Run full duplicate check and PO preflight with five exact serial selections. Admin role required.';
 }
 function isTestMode(handoffId){ return !liveAssignmentHandoffs.has(handoffId); }
 
@@ -943,12 +948,12 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
       <button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>
-      ${h.job_number==='1160'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK FAILED PO / DUPLICATE SAFETY</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Run both safe read-only checks first. ONE controlled Monday test; no inventory commitments.">MONDAY TEST LOCKED — RUN 2 READ-ONLY CHECKS</button>':''}
+      ${h.job_number==='1314'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK JOB 1314 FOR DUPLICATE POs</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Requires full duplicate scan and read-only preflight. One controlled real test PO only.">JOB 1314 TEST LOCKED — RUN 2 READ-ONLY CHECKS</button>':''}
       <button class="btn-primary" type="button" disabled title="Production PO plus stock commitment remains locked">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
-    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF copy; not yet connected). Three Job 1160 creation attempts returned HTTP 400 with NO PO ID. The latest required fromName; Monday's corrected request now includes the sender, recipient, due-days and test job location. Run the two READ-ONLY checks before authorizing one real test PO. No inventory will be committed or issued.</div>
-    <div class="path-note">TEST MODE: Choose serials (oldest available first), then print the test pick list or check costs. COMMITMENT READINESS verifies live stock and saved assignments without writing. No SAVE occurs in TEST mode. LIVE MODE: Exact serial assignments must be saved before an operational pick list. CHECK PO CREATION PREFLIGHT validates the intended PO vendor, costs and duplicate safeguards without creating anything. Job 1160 has three rejected PO creation attempts. The request now uses flat _type=costItem lines, six original 1410 budget IDs, and a validated PO header (fromName, toName, jobLocationName, dueDays). A controlled MONDAY test requires a fresh duplicate check, PO preflight and explicit confirmation. One backend-protected attempt only; any further test requires reconciliation. Production fulfillment remains disabled.</div>
+    <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF; filing connection is not yet enabled). ${h.job_number==='1314'?'CONTROLLED PATH A TEST: SIX inventory lines, FIVE selected serialized units, and $6,247.04 actual-cost estimate. PGRM-2 posted cycle count confirms 2 on hand; its purchase-lot and FIFO valuation are NOT reconciled. A real test PO requires two read-only checks and two confirmations. No stock will be committed or issued.':'The production PO and inventory commitment integration remains disabled.'}</div>
+    <div class="path-note">TEST MODE: Choose a distinct serial number for EACH unit; choices are not saved. CHECK JOBTREAD PO DETAILS and PO CREATION PREFLIGHT are read-only. ${h.job_number==='1314'?'Only an Admin can run the single real Job 1314 PO test after both read-only checks. The backend will recheck serials, six original 1410 lines, the documented cost, and vendor duplicates. If JobTread rejects the request, no automatic retry is permitted. PGRM-2 valuation reconciliation and PO PDF filing are separate outstanding requirements.':'The live PO test is restricted to Job 1314. Path A stock commitment and Path B vendor purchasing remain disabled until tested and authorized.'} LIVE ASSIGNMENTS require explicitly SAVING serial numbers; no saving occurs in TEST mode.</div>
     <div class="vendor-groups" data-commitment-readiness hidden></div>
     <div class="vendor-groups" data-po-create-preflight hidden></div>
     <div class="vendor-groups" data-live-test-po-result hidden></div>
@@ -1037,108 +1042,103 @@ function updateVendorPOPreview(purchaseCard,lines){
 
 
 async function checkJobtreadFailedPORecovery(handoffId,button,container){
-  container.hidden=false;
-  currentRecoveryVerified.delete(handoffId);
-  updateFinalTestButton(handoffId);
-  container.textContent='Searching JobTread for an existing Job 1160 PO and matching external reference. READ ONLY — no PO creation or inventory changes...';
-  button.disabled=true;
-  try {
-    const {data,error}=await client.functions.invoke('jobtread-project-po-recovery-check',{body:{handoffId}});
-    let details=data;
-    if(error){
-      if(error?.context && typeof error.context.json==='function'){
-        try{details=await error.context.json();}catch(_){}
-      }
-      throw new Error(details?.error||error?.message||'JobTread recovery search failed.');
-    }
-    if(!data?.success || data.mode!=='READ_ONLY_RECOVERY' || data.jobtreadWrites!==false ||
-       data.databaseWrites!==false || data.searchComplete!==true || data.retryAllowed!==false){
-       throw new Error(data?.error||'Incomplete JobTread recovery check. Retry remains blocked.');
-    }
-    const matched=Number(data.exactExternalReferenceMatchCount||0);
-    const candidates=Array.isArray(data.candidatePurchaseOrders)?data.candidatePurchaseOrders:[];
-    const matchingRows=Array.isArray(data.exactExternalReferenceMatches)?data.exactExternalReferenceMatches:[];
-    const eligible=data.finalAttemptEligible===true && data.operationStatus==='RECONCILIATION_REQUIRED' &&
-      matched===0 && candidates.length===0 && isTestMode(handoffId);
-    if(eligible)currentRecoveryVerified.add(handoffId);
-    const renderLine=d=>`<li><strong>${escapeHTML(d.number||'PO number unavailable')}</strong> · ${escapeHTML(d.name||'Unnamed PO')} · ID ${escapeHTML(d.id||'Unknown')} · ${escapeHTML(d.status||'Unknown status')}${d.externalReferenceMatches?' · EXACT REFERENCE MATCH':''}</li>`;
-    container.innerHTML=`<strong>${matched>0?'EXISTING JOBTREAD PO FOUND — DO NOT RETRY':'READ-ONLY JOBTREAD PO SEARCH COMPLETED'}</strong>
-      <p>Job 1160 · Saved Supabase attempt: <strong>${escapeHTML(data.operationStatus||'Unknown')}</strong></p>
-      <p><strong>Exact external-reference matches:</strong> ${matched} · <strong>Vendor documents inspected:</strong> ${Number(data.vendorDocumentCount||0)}</p>
-      ${matchingRows.length?`<div>Exact matches:<ul>${matchingRows.map(renderLine).join('')}</ul></div>`:''}
-      ${candidates.length?`<div>Other candidate Job 1160 POs:<ul>${candidates.map(renderLine).join('')}</ul></div>`:'<p>No candidate Job 1160 PO was returned in the complete vendor-document search.</p>'}
-      <p><strong>Result:</strong> ${escapeHTML(matched>0?'A matching JobTread PO exists. DO NOT RETRY.':
-      eligible?'No candidate PO was found. The MONDAY LIVE TEST may be unlocked only after the PO CREATION PREFLIGHT passes and you explicitly confirm it.':
-      'The final test is NOT eligible. DO NOT RETRY.')}</p>
-      <p class="path-note"><strong>NO WRITES.</strong> This search itself does not create or modify anything. Before a final PO is sent, the backend repeats this entire duplicate check. ${eligible?'Now run CHECK PO CREATION PREFLIGHT if you have not already done so.':'The live test remains locked.'}</p>`;
-    updateFinalTestButton(handoffId);
-  }catch(error){
-    currentRecoveryVerified.delete(handoffId);
-    updateFinalTestButton(handoffId);
-    container.textContent='READ-ONLY RECOVERY COULD NOT FINISH: '+(error?.message||String(error))+
-      '. NO PO was requested by this action. The final attempt remains locked.';
-  }finally{button.disabled=false;}
+ container.hidden=false;
+ currentRecoveryVerified.delete(handoffId);
+ updateFinalTestButton(handoffId);
+ const h=projectMaterialHandoffs.find(x=>x.id===handoffId);
+ if(!h||h.job_number!=='1314'){
+   container.textContent='Only current test Job 1314 is eligible for the full duplicate-PO check.';return;
+ }
+ container.textContent='Inspecting ALL Molinari Pools Inventory vendor documents for existing Job 1314 purchase orders. READ ONLY...';
+ button.disabled=true;
+ try{
+   const {data,error}=await client.functions.invoke('jobtread-project-po-duplicate-check-1314',{body:{handoffId}});
+   let details=data;
+   if(error){
+     if(error.context&&typeof error.context.json==='function'){
+       try{details=await error.context.json();}catch(_){}
+     }
+     throw new Error(details?.error||error.message||'Duplicate-PO search failed.');
+   }
+   if(data?.success!==true||data.mode!=='READ_ONLY_JOB_1314_DUPLICATE_CHECK'||
+      data.jobNumber!=='1314'||data.handoffId!==handoffId||
+      data.jobtreadWrites!==false||data.databaseWrites!==false||
+      data.searchComplete!==true||data.retryAllowed!==false)
+     throw new Error('Read-only duplicate search did not complete. No PO creation permitted.');
+   const exact=Number(data.exactExternalReferenceMatchCount||0);
+   const candidates=Array.isArray(data.candidatePurchaseOrders)?data.candidatePurchaseOrders:[];
+   const eligible=data.initialAttemptEligible===true&&data.operationExists===false&&
+     data.operationStatus==='NO_OPERATION'&&exact===0&&candidates.length===0&&isTestMode(handoffId);
+   if(eligible)currentRecoveryVerified.add(handoffId);
+   const render=d=>`<li>PO ${escapeHTML(d.number||'not numbered')} · ${escapeHTML(d.name||'unnamed')} · ID ${escapeHTML(d.id||'unknown')} · ${escapeHTML(d.status||'')}</li>`;
+   container.innerHTML=`<strong>${eligible?'READ-ONLY DUPLICATE CHECK PASSED':'DUPLICATE OR PRIOR PO OPERATION FOUND — TEST LOCKED'}</strong>
+     <p>Job 1314 · Supabase PO operation: <strong>${escapeHTML(data.operationStatus||'Unknown')}</strong></p>
+     <p><strong>Existing vendor documents searched:</strong> ${Number(data.vendorDocumentCount||0)} · <strong>Exact external-reference matches:</strong> ${exact}</p>
+     ${candidates.length?`<p>Candidate POs:<ul>${candidates.map(render).join('')}</ul></p>`:'<p>No candidate Job 1314 PO was returned.</p>'}
+     <p>${escapeHTML(data.conclusion||'')}</p>
+     <p class="path-note">NO WRITES. This read-only check neither creates nor reserves anything. The backend repeats the complete search immediately before any confirmed live test.</p>`;
+   updateFinalTestButton(handoffId);
+ }catch(error){
+   currentRecoveryVerified.delete(handoffId);updateFinalTestButton(handoffId);
+   container.textContent='JOB 1314 DUPLICATE CHECK BLOCKED: '+(error?.message||String(error))+' — No PO created.';
+ }finally{button.disabled=false;}
 }
 
 async function createOneLiveTestPO(handoffId,button,container){
-  container.hidden=false;
-  const h=projectMaterialHandoffs.find(x=>x.id===handoffId);
-  if(!h||h.job_number!=='1160'||!isTestMode(handoffId)){
-    container.textContent='Live PO test is allowed only for Job 1160 in TEST / PREVIEW ONLY mode.';
-    return;
-  }
-  if(!['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
-    container.textContent='Live PO creation requires Admin or System Admin access.';
-    return;
-  }
-  if(!currentSchemaPreflightPassed.has(handoffId) || !currentRecoveryVerified.has(handoffId)){
-    container.textContent='Run BOTH read-only checks successfully: CHECK FAILED PO / DUPLICATE SAFETY, then CHECK PO CREATION PREFLIGHT. No PO requested.';
-    return;
-  }
-  if(livePOTestAttempted.has(handoffId)){
-    container.textContent='A live PO attempt already occurred in this session. Refresh and inspect JobTread/Supabase; do not repeat without reconciliation.';
-    return;
-  }
-  let picks;
-  try{
-    if(!isSerialPlanReady(handoffId))throw new Error('Select all four physical serial numbers before the live PO test.');
-    picks=getDraftSerialSelections(handoffId);
-    if(!Array.isArray(picks)||picks.length!==4)throw new Error('Four validated serial selections are required.');
-  }catch(error){container.textContent=error?.message||String(error);return;}
-  if(!window.confirm('JOB 1160 — MONDAY NOVEMBER 2 CONTROLLED TEST to create ONE REAL JOBTREAD PURCHASE ORDER, total $6,131.38?\n\nThree previous API requests were rejected. This version adds JobTread-required From Name and other document header fields. Both read-only checks passed. The backend repeats the duplicate search before the request.\n\nNO inventory will be committed or issued.\nNO QBO posting is requested.\nPDF filing to ALL FILES - INVOICES is PENDING.\n\nIf this fails, STOP and report the full error before another attempt.'))return;
-  const phrase=window.prompt('For the Monday JobTread PO test, type exactly: MONDAY PO 1160');
-  if(phrase!=='MONDAY PO 1160'){
-    container.textContent='Cancelled. No PO creation request was submitted.';return;
-  }
-  livePOTestAttempted.add(handoffId);
-  button.disabled=true;
-  container.textContent='Submitting ONE controlled Monday test to JobTread. Do not click again; further attempts remain locked pending reconciliation...';
-  try{
-    const {data,error}=await client.functions.invoke('jobtread-project-inventory-po-live-test',{
-      body:{handoffId,testMode:true,testPicks:picks,expectedTotal:6131.38,
-        confirmation:'CREATE_MON_20261102_REAL_JOBTREAD_PO_1160',mondayTestAfterRecovery:true}
-    });
-    let details=data;
-    if(error){
-      if(error?.context&&typeof error.context.json==='function'){
-        try{details=await error.context.json();}catch(_){}
-      }
-      throw new Error(details?.error||error?.message||'Live JobTread PO outcome unknown.');
-    }
-    if(!data?.success||data.mode!=='LIVE_JOBTREAD_PO_TEST'||!data.jobtreadPoId||
-       data.inventoryCommitted!==false||data.inventoryIssued!==false){
-      throw new Error(data?.error||'JobTread PO result was not fully verified. Manual reconciliation required.');
-    }
-    container.innerHTML=`<strong>REAL JOBTREAD TEST PO CREATED — NO INVENTORY COMMITMENT</strong>
-      <p><strong>Job:</strong> 1160 · <strong>Vendor:</strong> ${escapeHTML(data.vendor||'Molinari Pools Inventory')}</p>
-      <p><strong>JobTread PO #:</strong> ${escapeHTML(data.jobtreadPoNumber||'Pending JobTread numbering')} · <strong>PO ID:</strong> ${escapeHTML(data.jobtreadPoId)}</p>
-      <p><strong>6 inventory material lines:</strong> ${escapeHTML(Number(data.actualTotal).toLocaleString('en-US',{style:'currency',currency:'USD'}))} · Four exact serials verified before creation</p>
-      <p><strong>Inventory:</strong> NOT committed or issued. <strong>QBO:</strong> excluded flag requested. <strong>PO PDF:</strong> NOT YET filed to ALL FILES - INVOICES.</p>
-      <p class="path-note">Review the new PO directly in JobTread. Do not click again, even if you delete this PO; the duplicate-prevention record remains for controlled cleanup.</p>`;
-  }catch(error){
-    container.textContent='MONDAY LIVE TEST PO RESULT: '+(error?.message||String(error))+
-      ' — DO NOT RETRY. Confirm whether JobTread created a document, then review the recorded error with me.';
-  }
+ container.hidden=false;
+ const h=projectMaterialHandoffs.find(x=>x.id===handoffId);
+ if(!h||h.job_number!=='1314'||!isTestMode(handoffId)){
+   container.textContent='The single controlled live PO test is restricted to Job 1314 in TEST / PREVIEW ONLY mode.';return;
+ }
+ if(!['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
+   container.textContent='Admin/System Admin access required for a real JobTread PO.';return;
+ }
+ if(!currentSchemaPreflightPassed.has(handoffId)||!currentRecoveryVerified.has(handoffId)){
+   container.textContent='Run BOTH read-only checks successfully: CHECK JOB 1314 FOR DUPLICATE POs and CHECK PO CREATION PREFLIGHT. No PO requested.';return;
+ }
+ if(livePOTestAttempted.has(handoffId)){
+   container.textContent='This browser has already submitted a live PO creation request. DO NOT RETRY.';return;
+ }
+ let picks;
+ try{
+   if(!isSerialPlanReady(handoffId))throw new Error('Select every required physical serial number before the test.');
+   picks=getDraftSerialSelections(handoffId);
+   if(!Array.isArray(picks)||picks.length!==5)throw new Error('Exactly five serialized material lines must be selected.');
+ }catch(error){container.textContent=error?.message||String(error);return;}
+ if(!window.confirm('JOB 1314 — CREATE ONE REAL JOBTREAD PURCHASE ORDER?\n\nVendor: Molinari Pools Inventory\n6 inventory material lines, 5 exact serial numbers\nActual PO cost estimate: $6,247.04\n\nIMPORTANT: PGRM-2 has 2 units confirmed by the posted cycle count, but the old FIFO and lot balance do not agree. Its documented UAG lot cost of $181.85 is being used provisionally; accounting reconciliation remains REQUIRED.\n\nA REAL JobTread PO may be created. No inventory is reserved, committed, or issued. QBO exclusion and no-budget flags are requested; verify them in JobTread. PDF filing to ALL FILES - INVOICES remains pending.\n\nIf it fails, STOP. The backend allows only one attempt.'))return;
+ const phrase=window.prompt('To authorize ONE REAL PO for Job 1314 at $6,247.04 while acknowledging the pending PGRM-2 cost reconciliation, type exactly: CREATE PO 1314');
+ if(phrase!=='CREATE PO 1314'){
+   container.textContent='Cancelled. No PO request was sent.';return;
+ }
+ livePOTestAttempted.add(handoffId);
+ button.disabled=true;
+ container.textContent='Submitting one controlled real Job 1314 vendorOrder test. The backend independently reruns both read-only checks. Never repeat without reconciliation.';
+ try{
+   const {data,error}=await client.functions.invoke('jobtread-project-inventory-po-job1314-test',{
+     body:{handoffId,testMode:true,testPicks:picks,expectedTotal:6247.04,
+       confirmation:'CREATE_ONE_REAL_JOBTREAD_PO_FOR_1314',
+       approvePendingLotReconciliation:true,approvedDuplicateCheck:true}
+   });
+   let details=data;
+   if(error){
+     if(error.context&&typeof error.context.json==='function'){
+       try{details=await error.context.json();}catch(_){}
+     }
+     throw new Error(details?.error||error.message||'Outcome unknown. DO NOT RETRY.');
+   }
+   if(data?.success!==true||data.mode!=='LIVE_JOB1314_TEST_PO'||data.jobNumber!=='1314'||
+      !data.jobtreadPoId||data.inventoryCommitted!==false||data.inventoryIssued!==false)
+     throw new Error(data?.error||'JobTread PO outcome could not be confirmed. Reconciliation required.');
+   container.innerHTML=`<strong>REAL JOBTREAD TEST PO CREATED — NO STOCK COMMITMENT</strong>
+     <p><strong>Job:</strong> 1314 · <strong>Vendor:</strong> ${escapeHTML(data.vendor||'Molinari Pools Inventory')}</p>
+     <p><strong>PO #:</strong> ${escapeHTML(data.jobtreadPoNumber||'Pending numbering')} · <strong>PO ID:</strong> ${escapeHTML(data.jobtreadPoId)}</p>
+     <p><strong>6 materials, 5 serialized units:</strong> ${escapeHTML(Number(data.actualTotal).toLocaleString('en-US',{style:'currency',currency:'USD'}))}</p>
+     <p><strong>Inventory:</strong> NOT committed or issued. <strong>QuickBooks:</strong> Exclusion flag requested. <strong>PDF:</strong> NOT YET filed to ALL FILES - INVOICES.</p>
+     <p class="path-note">PGRM-2 lot/FIFO cost reconciliation remains pending. Verify this real PO directly in JobTread. DO NOT create another PO, even if this document is deleted.</p>`;
+ }catch(error){
+   container.textContent='JOB 1314 REAL PO TEST RESULT: '+(error?.message||String(error))+
+     ' — DO NOT RETRY. Check JobTread for a matching vendor PO and inspect the recorded Supabase operation before another attempt.';
+ }
 }
 
 async function checkProjectInventoryPOPreflight(handoffId,container){
@@ -1147,7 +1147,7 @@ async function checkProjectInventoryPOPreflight(handoffId,container){
   try {
     const testMode=isTestMode(handoffId);
     if(!isSerialPlanReady(handoffId))throw new Error(testMode
-      ?'Please select all four TEST serial numbers first.'
+      ?'Please select all five TEST serial numbers first.'
       :'Select and SAVE all exact serialized items before running the live readiness preflight.');
     const payload={handoffId,testMode};
     if(testMode)payload.testPicks=getDraftSerialSelections(handoffId);
@@ -1173,10 +1173,15 @@ async function checkProjectInventoryPOPreflight(handoffId,container){
     if(!schemaPassed)throw new Error('Current JobTread PO input schema or required sender/recipient header was not verified. No creation permitted.');
     // Schema/data preflight is read-only. The final test remains unavailable
     // until the independent duplicate-search check has ALSO passed.
-    if(data.jobNumber==='1160' && data.poOperationStatus==='RECONCILIATION_REQUIRED' &&
-       data.writeLocked===true && testMode && rows.length===6 &&
-       Number(data.actualInventoryCost)===6131.38 &&
-       (data.serializedSerials||[]).length===4){
+    const warnings=Array.isArray(data.cycleCountCostExceptions)?data.cycleCountCostExceptions:[];
+    const pgrmWarning=warnings.length===1 && warnings[0].partNumber==='PGRM-2' &&
+      warnings[0].source==='POSTED_CYCLE_COUNT_WITH_DOCUMENTED_LOT' &&
+      warnings[0].ledgerReconciliationPending===true &&
+      Number(warnings[0].physicalOnHand)===2 && Number(warnings[0].lotUnitCost)===181.85;
+    if(data.jobNumber==='1314' && data.poOperationStatus==null &&
+       data.writeLocked===false && testMode && rows.length===6 &&
+       Number(data.actualInventoryCost)===6247.04 &&
+       (data.serializedSerials||[]).length===5 && pgrmWarning){
       currentSchemaPreflightPassed.add(handoffId);
     } else {currentSchemaPreflightPassed.delete(handoffId);}
     updateFinalTestButton(handoffId);
@@ -1187,15 +1192,16 @@ async function checkProjectInventoryPOPreflight(handoffId,container){
       <p><strong>PO sender:</strong> ${escapeHTML(data.documentRequestSummary?.fromName||'NOT VERIFIED')} · <strong>Recipient:</strong> ${escapeHTML(data.documentRequestSummary?.toName||'NOT VERIFIED')} · <strong>Test job location:</strong> ${escapeHTML(data.documentRequestSummary?.jobLocationName||'NOT VERIFIED')} · <strong>Due-days:</strong> ${escapeHTML(String(data.documentRequestSummary?.dueDays??'NOT VERIFIED'))}</p>
       <p><strong>1410 budget line links:</strong> ${rows.length} · <strong>QuickBooks sync:</strong> Excluded flag requested for proposed Molinari internal PO</p>
       <p><strong>Required filed PO PDF:</strong> JobTread Job Files → ${escapeHTML(data.requiredFileFolder||'ALL FILES - INVOICES')} · <strong>Filing connection:</strong> Pending verification (no PDF filed)</p>
+      ${warnings.length?`<p><strong>POSTED CYCLE COUNT — COST RECONCILIATION STILL PENDING:</strong> ${warnings.map(w=>escapeHTML(w.partNumber||'Unknown')).join(', ')}. Quantity based on posted count; documented lot cost used provisionally. This is NOT a valuation correction.</p>`:''}
       <p>${testMode?'TEST MODE: Temporary dropdown choices were validated but NOT SAVED. The live commitment check is expected to remain pending.':
         readiness.readyForLivePO?'All existing live commitment checks passed. The actual PO creation action remains disabled.':'Live serial assignments or stock checks are not yet ready.'}</p>
       <p class="path-note">Protected read-only PO data and schema check. No PO, PDF, inventory or accounting transaction was created. ${currentSchemaPreflightPassed.has(handoffId)?
-        (currentRecoveryVerified.has(handoffId)?'BOTH READ-ONLY CHECKS PASSED. The MONDAY LIVE TEST button is now available; it may create a real PO.':'SCHEMA AND HEADER CHECK PASSED. Run CHECK FAILED PO / DUPLICATE SAFETY to qualify the MONDAY LIVE TEST.'):
-        'MONDAY LIVE TEST REMAINS LOCKED. Production fulfillment is disabled.'}</p>`;
+        (currentRecoveryVerified.has(handoffId)?'BOTH READ-ONLY CHECKS PASSED. One REAL Job 1314 PO test can now be explicitly authorized; inventory is NOT committed.':'SCHEMA, HEADER AND COUNTED STOCK COST CHECKS PASSED. Run CHECK JOB 1314 FOR DUPLICATE POs to unlock the one-time test.'):
+        'JOB 1314 LIVE PO TEST REMAINS LOCKED. Production fulfillment is disabled.'}</p>`;
   } catch(error){
     currentSchemaPreflightPassed.delete(handoffId);
     const retryButton=[...document.querySelectorAll('[data-action="create-one-live-test-po"]')]
-      .find(b=>b.closest('.material-request')?.querySelector('h3')?.textContent?.startsWith('JOB 1160 ·'));
+      .find(b=>b.closest('.material-request')?.querySelector('h3')?.textContent?.startsWith('JOB 1314 ·'));
     if(retryButton)retryButton.disabled=true;
     updateFinalTestButton(handoffId);
     container.textContent='PO CREATION PREFLIGHT BLOCKED (no PO created): '+(error?.message||String(error));
