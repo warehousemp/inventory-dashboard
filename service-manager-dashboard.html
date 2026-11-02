@@ -435,6 +435,26 @@
 
     .op-sub { margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.2; }
 
+    .route-frequency-box {
+      margin-top: 9px;
+      border: 1px solid #b9d9df;
+      border-radius: 9px;
+      background: #f3fbfc;
+      padding: 10px;
+    }
+
+    .route-frequency-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .route-frequency-heading strong { color:var(--header); font-size:11px; }
+    .route-frequency-heading a { font-size:9px; font-weight:900; color:var(--header); text-decoration:none; white-space:nowrap; }
+    .route-frequency-heading a:hover { text-decoration:underline; }
+    .route-frequency-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin-top:9px; }
+    .route-frequency-stat { padding:7px 5px; border:1px solid #d5e7ec; background:white; border-radius:7px; text-align:center; }
+    .route-frequency-stat strong { display:block; color:var(--header); font-size:20px; line-height:1; }
+    .route-frequency-stat span { display:block; color:var(--muted); font-size:8px; font-weight:700; margin-top:5px; line-height:1.2; }
+    .route-frequency-asof { margin-top:7px; color:var(--muted); font-size:9px; line-height:1.3; }
+    .route-frequency-change { margin-top:6px; border-top:1px solid #d5e7ec; padding-top:7px; font-size:9px; line-height:1.3; color:#344054; }
+    .route-frequency-change strong { color:var(--header); }
+
     .growth-summary-row {
       display: grid;
       grid-template-columns: repeat(2, minmax(0,1fr));
@@ -864,6 +884,13 @@
         line-height: 1.2 !important;
       }
 
+      .route-frequency-box { padding:6px !important; margin-top:5px !important; break-inside:avoid; }
+      .route-frequency-grid { gap:4px !important; margin-top:5px !important; }
+      .route-frequency-stat { padding:4px !important; }
+      .route-frequency-stat strong { font-size:12pt !important; }
+      .route-frequency-stat span, .route-frequency-asof, .route-frequency-change { font-size:6pt !important; }
+      .route-frequency-change { margin-top:4px !important; padding-top:4px !important; }
+
       .client-mix-summary,
       .growth-summary-row {
         gap: 5px !important;
@@ -1164,6 +1191,20 @@
               <div class="op-sub" id="opFilterCompletionSub">0 of 0 completed</div>
             </div>
           </div>
+
+          <div class="route-frequency-box">
+            <div class="route-frequency-heading">
+              <strong>Multiple Weekly Cleanings</strong>
+              <a href="client-changes.html" title="Open Client Changes, then select the Multiple Weekly Cleanings tab">DETAILS →</a>
+            </div>
+            <div class="route-frequency-grid">
+              <div class="route-frequency-stat"><strong id="routeMultipleClients">—</strong><span>Multi-Stop Clients</span></div>
+              <div class="route-frequency-stat"><strong id="routeMultipleExtra">—</strong><span>Extra Weekly Stops</span></div>
+              <div class="route-frequency-stat"><strong id="routeReducedToOne">—</strong><span>Reduced to One</span></div>
+            </div>
+            <div id="routeMultipleAsOf" class="route-frequency-asof">Loading latest effective route assignment...</div>
+            <div id="routeMultipleLatestChange" class="route-frequency-change">Checking recent route-frequency changes...</div>
+          </div>
         </article>
       </section>
 
@@ -1285,7 +1326,8 @@ const dashboardState = {
   cleanings: null,
   growth: null,
   filter: null,
-  payroll: null
+  payroll: null,
+  multipleStops: null
 };
 
 window.addEventListener('load', async () => {
@@ -1419,7 +1461,7 @@ async function applyMasterPeriod() {
 
   currentRange = { startDate, endDate };
   setText('masterPeriodLabel', `${formatDate(startDate)} – ${formatDate(endDate)}`);
-  setText('masterPeriodNote', 'Revenue, invoice mix, and Total Cleanings use this range. Client Growth defaults to this range but can be changed inside its panel; Route Clients are current; Mechanical Assessments show completions during the selected period plus overall program completion; filter completion is measured as of the end date; payroll is pay-period based.');
+  setText('masterPeriodNote', 'Revenue, invoice mix, and Total Cleanings use this range. Client Growth defaults to this range but can be changed inside its panel; Route Clients and Multiple Weekly Cleanings use the latest effective route assignment as of today; Mechanical Assessments show completions during the selected period plus overall program completion; filter completion is measured as of the end date; payroll is pay-period based.');
 
   await refreshDashboard(true);
 }
@@ -1464,7 +1506,8 @@ async function refreshDashboard(rangeAlreadySet = false) {
     loadRouteCleaningAnalytics(startDate, endDate),
     loadClientGrowthAnalytics(growthRange.startDate, growthRange.endDate),
     loadFilterCompletionAnalytics(endDate),
-    loadPayrollAnalytics(startDate, endDate)
+    loadPayrollAnalytics(startDate, endDate),
+    loadRouteMultipleStopSnapshot()
   ]);
 
   renderAttentionPanel();
@@ -1484,6 +1527,178 @@ async function refreshDashboard(rangeAlreadySet = false) {
     button.disabled = false;
     button.textContent = 'REFRESH ANALYTICS';
   }
+}
+
+// Dashboard's point-in-time route-frequency snapshot. Its source is the saved Skimmer
+// Route Assignments history used by Client Changes, not completed-cleaning totals.
+async function loadRouteMultipleStopSnapshot() {
+  try {
+    const today = toDateISO(new Date());
+    const snapshotsResult = await client
+      .from('ppv_route_balance_snapshots')
+      .select('id,effective_date,source_file_name,created_at')
+      .eq('status', 'REVIEWED')
+      .lte('effective_date', today)
+      .order('effective_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(150);
+    if (snapshotsResult.error) throw snapshotsResult.error;
+
+    const snapshots = (snapshotsResult.data || []).sort((a, b) =>
+      a.effective_date.localeCompare(b.effective_date) ||
+      String(a.created_at || '').localeCompare(String(b.created_at || '')));
+    const rows = [];
+    for (let i = 0; i < snapshots.length; i += 20) {
+      const ids = snapshots.slice(i, i + 20).map(row => row.id);
+      for (let offset = 0; ; offset += 1000) {
+        const result = await client
+          .from('ppv_route_assignment_clients')
+          .select('id,snapshot_id,customer_name,skimmer_customer_number,service_address,service_address_normalized,service_frequency,service_start_date,service_end_date')
+          .in('snapshot_id', ids)
+          .order('snapshot_id', { ascending: true })
+          .order('id', { ascending: true })
+          .range(offset, offset + 999);
+        if (result.error) throw result.error;
+        rows.push(...(result.data || []));
+        if (!result.data || result.data.length < 1000) break;
+      }
+    }
+
+    const counts = new Map();
+    const groupedRows = new Map();
+    for (const row of rows) {
+      counts.set(row.snapshot_id, (counts.get(row.snapshot_id) || 0) + 1);
+      if (!groupedRows.has(row.snapshot_id)) groupedRows.set(row.snapshot_id, []);
+      groupedRows.get(row.snapshot_id).push(row);
+    }
+    // Reviewed reports with zero parsed clients are not valid comparison baselines.
+    const byDate = new Map();
+    for (const snapshot of snapshots) {
+      if ((counts.get(snapshot.id) || 0) > 0) byDate.set(snapshot.effective_date, snapshot);
+    }
+    const usable = [...byDate.values()].sort((a, b) =>
+      a.effective_date.localeCompare(b.effective_date));
+    if (!usable.length) {
+      dashboardState.multipleStops = null;
+      setText('routeMultipleClients', '—');
+      setText('routeMultipleExtra', '—');
+      setText('routeReducedToOne', '—');
+      setText('routeMultipleAsOf', 'No usable Route Assignments PDF is available.');
+      setText('routeMultipleLatestChange', 'Import route assignments to populate this snapshot.');
+      return;
+    }
+
+    // Unify OCR variants and missing customer numbers by the service property.
+    const codeByAddress = new Map();
+    for (const row of rows) {
+      const code = String(row.skimmer_customer_number || '').trim();
+      const address = normalizeDashboardRouteAddress(row.service_address_normalized || row.service_address);
+      if (!code || !address) continue;
+      if (!codeByAddress.has(address)) codeByAddress.set(address, new Set());
+      codeByAddress.get(address).add(code);
+    }
+    const routeKey = row => {
+      const address = normalizeDashboardRouteAddress(row.service_address_normalized || row.service_address);
+      let code = String(row.skimmer_customer_number || '').trim();
+      const known = codeByAddress.get(address);
+      if (!code && known && known.size === 1) code = [...known][0];
+      const house = (address.match(/^\d+/) || [])[0] || '';
+      if (code) return 'code:' + code + '|property:' + (house || address);
+      return 'address:' + (address || String(row.customer_name || '').toLowerCase().trim());
+    };
+
+    const history = new Map();
+    const changes = [];
+    let previous = null;
+    for (const snapshot of usable) {
+      const current = new Map();
+      for (const row of groupedRows.get(snapshot.id) || []) {
+        if (!isDashboardWeeklyStop(row.service_frequency)) continue;
+        if (row.service_start_date && row.service_start_date > snapshot.effective_date) continue;
+        if (row.service_end_date && row.service_end_date < snapshot.effective_date) continue;
+        const key = routeKey(row);
+        if (!current.has(key)) current.set(key, {
+          key: key, stops: 0, client: row.customer_name, address: row.service_address
+        });
+        current.get(key).stops += 1;
+      }
+      for (const [key, item] of current) {
+        if (!history.has(key)) history.set(key, []);
+        history.get(key).push({ effectiveDate: snapshot.effective_date, stops: item.stops });
+        const before = previous?.map.get(key);
+        if (!before || before.stops === item.stops) continue;
+        changes.push({
+          effectiveDate: snapshot.effective_date,
+          previousDate: previous.snapshot.effective_date,
+          client: item.client,
+          address: item.address,
+          before: before.stops,
+          after: item.stops
+        });
+      }
+      previous = { snapshot: snapshot, map: current };
+    }
+
+    const latest = usable[usable.length - 1];
+    const current = previous.map;
+    const multiple = [...current.values()].filter(item => item.stops > 1);
+    const extra = multiple.reduce((sum, item) => sum + item.stops - 1, 0);
+    const reduced = [...current.values()].filter(item => item.stops === 1 &&
+      (history.get(item.key) || []).some(record => record.stops > 1));
+    const lastChange = changes.sort((a, b) =>
+      b.effectiveDate.localeCompare(a.effectiveDate))[0] || null;
+
+    dashboardState.multipleStops = {
+      effectiveDate: latest.effective_date,
+      sourceFile: latest.source_file_name,
+      multiClients: multiple.length,
+      extraWeeklyStops: extra,
+      reducedToOne: reduced.length,
+      latestChange: lastChange
+    };
+    setText('routeMultipleClients', multiple.length);
+    setText('routeMultipleExtra', extra);
+    setText('routeReducedToOne', reduced.length);
+    setText('routeMultipleAsOf',
+      'Current assignment effective ' + formatDate(latest.effective_date) +
+      ' · Separate from the dashboard date range');
+    setText('routeMultipleLatestChange', lastChange
+      ? 'Recent change: ' + lastChange.client + ' · ' + lastChange.before +
+        ' → ' + lastChange.after + ' weekly stops · first seen ' +
+        formatDate(lastChange.effectiveDate)
+      : 'No weekly stop-count changes identified between usable route reports.');
+  } catch (error) {
+    dashboardState.multipleStops = null;
+    setText('routeMultipleClients', '—');
+    setText('routeMultipleExtra', '—');
+    setText('routeReducedToOne', '—');
+    setText('routeMultipleAsOf', 'Route assignment snapshot unavailable.');
+    setText('routeMultipleLatestChange', 'Unable to read saved route assignments.');
+    throw error;
+  }
+}
+
+function isDashboardWeeklyStop(value) {
+  const frequency = String(value || '').toLowerCase().trim();
+  if (!frequency || /biweekly|every other week|every [2-9] weeks|monthly|quarterly/.test(frequency)) return false;
+  return /weekly|twice.*week|[2-9]\s*(times|x)\s*(a|per)?\s*week/.test(frequency);
+}
+
+function normalizeDashboardRouteAddress(value) {
+  const abbreviations = {
+    street: 'st', road: 'rd', drive: 'dr', lane: 'ln',
+    court: 'ct', boulevard: 'blvd', avenue: 'ave', circle: 'cir',
+    place: 'pl', trail: 'trl', highway: 'hwy', terrace: 'ter',
+    parkway: 'pkwy'
+  };
+  return String(value || '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/^(\d+)([a-z])\b/, '$1 $2')
+    .split(/\s+/).filter(Boolean)
+    .map(word => abbreviations[word] || word)
+    .join(' ')
+    .replace(/\bata\b/g, 'a1a')
+    .replace(/\baia\b/g, 'a1a');
 }
 
 async function loadRevenueAnalytics(startDate, endDate) {
@@ -2482,4 +2697,3 @@ function setText(id, value) {
 }
 </script>
 </body>
-</html>
