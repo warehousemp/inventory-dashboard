@@ -1056,11 +1056,24 @@ async function diagnoseJob1314CostItemIds(handoffId,button,container){
    throw new Error(details?.error||error?.message||'Read-only ID diagnostic was incomplete.');
   const rows=Array.isArray(details.lines)?details.lines:[];
   const schemas=Array.isArray(details.schemas)?details.schemas:[];
+  const mapping=details.proposedMapping||{};
+  const proposed=Array.isArray(mapping.items)?mapping.items:[];
+  const mappingStatus=mapping.status==='READ_ONLY_NEW_COST_ITEM_STRUCTURE_CHECKED'&&mapping.schemaFieldsConfirmed===true;
+  const mappingHtml=`<div class="path-note"><strong>${mappingStatus?'NEW PO-LINE STRUCTURE MATCHES CURRENT API SCHEMA':'NEW PO-LINE STRUCTURE NOT VERIFIED — STOP'}</strong>
+    <p>Proposed approach: make a NEW document cost item and link it to the existing JobTread 1410 budget line using <code>jobCostItemId</code>. Do NOT use the budget ID as the document line’s own <code>id</code>, and do NOT substitute the catalog ID.</p>
+    <p><strong>Original PO estimate:</strong> ${escapeHTML(fmtCost(mapping.exactOriginalCostTotal||0))} · <strong>Additional PO tax:</strong> 0% · <strong>Lines:</strong> ${proposed.length} · <strong>Schema fields:</strong> ${mapping.schemaFieldsConfirmed===true?'Present':'MISSING'} · <strong>Live API acceptance:</strong> NOT TESTED</p>
+    <div class="table-wrap"><table><thead><tr><th>New PO line from Job Budget</th><th>Budget Item ID (jobCostItemId)</th><th>Qty</th><th>Actual FIFO Unit Cost</th><th>PO Line Own ID</th></tr></thead><tbody>
+    ${proposed.map(x=>`<tr><td>${escapeHTML(x.name||'')}</td><td><code>${escapeHTML(x.jobCostItemId||'')}</code></td><td>${escapeHTML(formatNumber(x.quantity||0))}</td><td>${escapeHTML(fmtCost(x.unitCost||0))}</td><td>NEW ITEM (no existing ID)</td></tr>`).join('')}
+    </tbody></table></div>
+    <p><strong>Example proposed line:</strong></p>
+    <pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHTML(JSON.stringify(proposed[0]||{},null,2))}</pre>
+    <p><strong>NOT A PO PREFLIGHT PASS:</strong> This is only a read-only schema and record mapping review. Job 1314 remains locked after two failures. No JobTread PO has been created, no inventory has been issued or committed, and the PGRM-2 FIFO valuation discrepancy remains open.</p></div>`;
   container.innerHTML=`<strong>JOB 1314 JOBTREAD COST-ITEM ID DIAGNOSTIC — READ ONLY</strong>
   <p><strong>Existing operation:</strong> ${escapeHTML(details.currentOperationStatus||'UNKNOWN')} · <strong>Failed PO attempts:</strong> ${escapeHTML(details.attemptCount||'0')} · No new PO request was sent.</p>
   <div class="table-wrap"><table><thead><tr><th>Part</th><th>Job Budget ID</th><th>Catalog Cost Item ID</th><th>Budget Row Verified</th><th>PO Accepts ID?</th></tr></thead><tbody>
   ${rows.map(x=>`<tr><td>${escapeHTML(x.partNumber||'')}</td><td><code>${escapeHTML(x.budgetItemId||'')}</code></td><td><code>${escapeHTML(x.catalogCostItemId||'—')}</code></td><td>${x.budgetFoundInJob?'YES':'NO'}</td><td>NOT VERIFIED</td></tr>`).join('')}
   </tbody></table></div>
+  ${mappingHtml}
   <p><strong>JobTread input-schema evidence:</strong></p>
   <div class="path-note">${schemas.map(x=>`<div><strong>${escapeHTML(x.path||'')}</strong>: ${escapeHTML(x.validationError||x.result||'Not returned')}</div>`).join('')}</div>
   <p class="path-note">The two failed attempts remain locked. Catalog IDs are NOT an automatic substitute for budget IDs. This is a read-only comparison only.</p>`;
