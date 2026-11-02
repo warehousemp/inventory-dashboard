@@ -111,6 +111,10 @@
     .serial-picker-item{padding:9px 0;border-top:1px solid #e6edf2;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
     .serial-picker-item strong{min-width:150px}
     .serial-picker-panel select{min-width:295px;max-width:100%;font-weight:500}
+    .serial-unit-choice{display:flex;flex-direction:column;gap:4px;padding:6px 0;min-width:min(330px,100%)}
+    .serial-unit-label{font-size:11px;font-weight:800;color:#0b3c5d;letter-spacing:.03em}
+    .serial-availability{font-size:11px;color:#496373;font-weight:700}
+    .serial-empty-warning{font-size:11px;color:#9a3412;font-weight:700}
     .serial-picker-panel button{margin:7px 0}
     .serial-pick-message{margin-top:7px;font-weight:600;color:#0b3c5d}
     .serial-preview-value{color:#106e64;font-weight:700;margin-top:4px;font-size:11px}
@@ -1372,11 +1376,14 @@ function renderSerialPickControls(handoffId){
       if(!Number.isInteger(qty)||qty<1||qty>50)return '<p>Invalid serialized quantity for '+escapeHTML(line.inventory_part_number)+'</p>';
       const current=plan.draft.get(lineId)||[];
       return '<div class="serial-picker-item"><strong>'+escapeHTML(line.inventory_part_number)+' · '+escapeHTML(formatNumber(qty))+' unit(s)</strong>'+
-        Array.from({length:qty},(_,slot)=>'<select data-serial-line="'+escapeAttribute(lineId)+'" data-serial-slot="'+slot+'" aria-label="'+escapeAttribute(line.inventory_part_number)+' serial number '+(slot+1)+'">'+
-          '<option value="">SELECT SERIAL NUMBER</option>'+
+        '<span class="serial-availability">'+choices.length+' eligible serial number(s)</span>'+
+        (choices.length===0?'<span class="serial-empty-warning">No eligible serials with verified inventory cost. Check the stock and opening FIFO layers.</span>':'')+
+        Array.from({length:qty},(_,slot)=>'<div class="serial-unit-choice"><span class="serial-unit-label">UNIT '+(slot+1)+' OF '+qty+'</span>'+
+          '<select data-serial-line="'+escapeAttribute(lineId)+'" data-serial-slot="'+slot+'" aria-label="'+escapeAttribute(line.inventory_part_number)+' serial number for unit '+(slot+1)+' of '+qty+'">'+
+          '<option value="">SELECT SERIAL NUMBER FOR UNIT '+(slot+1)+'</option>'+
           choices.map((opt,i)=>'<option value="'+escapeAttribute(opt.serialId)+'" '+(current[slot]===opt.serialId?'selected':'')+'>'+
             (i===0?'OLDEST AVAILABLE · ':'')+escapeHTML(opt.serialNumber)+' · '+escapeHTML(opt.batchCode||'No batch')+
-            ' · '+Number(opt.unitCost).toLocaleString('en-US',{style:'currency',currency:'USD'})+'</option>').join('')+'</select>').join('')+
+            ' · '+Number(opt.unitCost).toLocaleString('en-US',{style:'currency',currency:'USD'})+'</option>').join('')+'</select></div>').join('')+
         '</div>';
     }).join('')+
     (testMode?'<div class="test-print-flag">TEST ONLY — SERIAL CHOICES ARE NOT SAVED OR COMMITTED</div>':'<button class="btn-teal" type="button" data-action="save-serials">SAVE SELECTED SERIAL NUMBERS</button>')+
