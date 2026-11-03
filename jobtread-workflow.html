@@ -730,31 +730,17 @@ const currentRecoveryVerified = new Set();
 // matching, successful read-only schema/budget/serial/duplicate check.
 const job1317ReadOnlyApproved = new Set();
 function updateJob1317RealPOButton(handoffId){
+ // The real Job 1317 PO #1 has been successfully created. This action must
+ // remain disabled regardless of local test state, serial selections, or role.
  const h=projectMaterialHandoffs.find(row=>row.id===handoffId);
  if(h?.job_number!=='1317')return;
  const card=[...document.querySelectorAll('.material-request')]
    .find(el=>el.querySelector('h3')?.textContent?.startsWith('JOB 1317 ·'));
  const button=card?.querySelector('[data-action="create-job1317-real-po"]');
  if(!button)return;
- const plan=serialPickPlans.get(handoffId);
- let exactSerial=false;
- try{
-   const picks=getDraftSerialSelections(handoffId);
-   const id=picks[0]?.serialIds?.[0];
-   exactSerial=picks.length===1 && plan?.options?.some(opt=>
-     opt.serialId===id && opt.serialNumber==='GGEH03020434260508');
- }catch(_){/* no serial selected */}
- const enabled=job1317ReadOnlyApproved.has(handoffId)&&
-   isTestMode(handoffId)&&exactSerial&&!livePOTestAttempted.has(handoffId)&&
-   ['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role));
- button.disabled=!enabled;
- button.textContent=livePOTestAttempted.has(handoffId)
-   ?'JOB 1317 PO ATTEMPT SENT — DO NOT RETRY'
-   :enabled?'CREATE ONE REAL JOB 1317 TEST PO — $1,286.12 — 0% TAX'
-   :'JOB 1317 LIVE PO LOCKED — RUN READ-ONLY MAPPING FIRST';
- button.title=enabled
-   ?'Creates ONE real JobTread PO after an explicit confirmation dialog and exact typing prompt. No stock commitment, issue or QBO posting.'
-   :'Choose the original pump serial and pass the new 1317 PO mapping check. Only Admin/System Admin may create the test PO.';
+ button.disabled=true;
+ button.textContent='PO #1 CREATED — NO SECOND PO ALLOWED';
+ button.title='JobTread PO ID 22PhPhjaFY8D exists. The one-time creation endpoint is permanently disabled. Use VERIFY EXISTING PO.';
 }
 
 // Only this test handoff is permitted. The Job 1160 test remains retired.
@@ -977,18 +963,20 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-light" type="button" data-action="pick" disabled>GENERATE GENERAL PICK LIST</button>
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
-      ${h.job_number==='1317'?'<button class="btn-teal" type="button" data-action="check-job1317-newcostitem-preflight">CHECK JOB 1317 PO MAPPING — READ ONLY</button><button class="btn-light" type="button" disabled title="Previous PO creation preflight uses invalid existingCostItem IDs and remains blocked">OLD PO CREATION PREFLIGHT — LOCKED</button>':'<button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>'}
-      ${h.job_number==='1317'?'<button class="btn-orange" type="button" data-action="create-job1317-real-po" disabled>JOB 1317 LIVE PO LOCKED — RUN READ-ONLY MAPPING FIRST</button>':''}
+      ${h.job_number==='1317'?'<button class="btn-light" type="button" disabled title="JobTread accepted the newCostItem format and PO #1 was created">NEW-COST ITEM PREFLIGHT COMPLETE</button><button class="btn-teal" type="button" data-action="verify-existing-job1317-po">VERIFY EXISTING JOB 1317 PO #1 — READ ONLY</button><button class="btn-teal" type="button" data-action="check-job1317-approval-readiness">CHECK JOB 1317 PO APPROVAL READINESS — READ ONLY</button>':'<button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>'}
+      ${h.job_number==='1317'?'<button class="btn-orange" type="button" data-action="create-job1317-real-po" disabled>PO #1 CREATED — NO SECOND PO ALLOWED</button>':''}
       ${h.job_number==='1314'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK JOB 1314 FOR DUPLICATE POs</button><button class="btn-light" type="button" data-action="check-jobtread-cost-item-ids">DIAGNOSE JOBTREAD PO LINE IDs — READ ONLY</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Both real PO attempts are exhausted. Budget-item IDs were rejected by JobTread. Further creation is locked.">JOB 1314 FINAL RETRY LOCKED — REVIEW COST ITEM IDs</button>':''}
       <button class="btn-primary" type="button" disabled title="Production PO plus stock commitment remains locked">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Next: JobTread PO · Vendor: Molinari Inventory · Capture PO number and PO ID · Record inventory commitment</div>
     <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES (PO PDF; filing connection is not yet enabled). ${h.job_number==='1314'?'CONTROLLED PATH A TEST: SIX inventory lines, FIVE selected serialized units, and $6,247.04 actual-cost estimate. PGRM-2 posted cycle count confirms 2 on hand; its purchase-lot and FIFO valuation are NOT reconciled. The two attempted live PO creations are locked. No further Job 1314 PO creation is allowed.':'The production PO and inventory commitment integration remains disabled.'}</div>
-    <div class="path-note">TEST MODE: Choose a distinct serial number for EACH unit; choices are not saved. CHECK JOBTREAD PO DETAILS and PO CREATION PREFLIGHT are read-only. ${h.job_number==='1314'?'Job 1314 has exhausted two real PO attempts. Use the READ-ONLY ID diagnostic to inspect budget and catalog ID mapping before any future PO workflow work. PGRM-2 valuation reconciliation and PO PDF filing are separate outstanding requirements.':'PO creation and commitments remain disabled. For Job 1317, use the separate newCostItem READ-ONLY mapping check; no PO will be created.'} LIVE ASSIGNMENTS require explicitly SAVING serial numbers; no saving occurs in TEST mode.</div>
+    <div class="path-note">TEST MODE: Choose a distinct serial number for EACH unit; choices are not saved. CHECK JOBTREAD PO DETAILS and PO CREATION PREFLIGHT are read-only. ${h.job_number==='1314'?'Job 1314 has exhausted two real PO attempts. Use the READ-ONLY ID diagnostic to inspect budget and catalog ID mapping before any future PO workflow work. PGRM-2 valuation reconciliation and PO PDF filing are separate outstanding requirements.':'PO creation and stock commitments remain disabled. Job 1317 PO #1 already exists. Use VERIFY EXISTING PO and CHECK APPROVAL READINESS for the next controlled step; neither action changes JobTread or inventory.'} LIVE ASSIGNMENTS require explicitly SAVING serial numbers; no saving occurs in TEST mode.</div>
     <div class="vendor-groups" data-commitment-readiness hidden></div>
     <div class="vendor-groups" data-po-create-preflight hidden></div>
     <div class="vendor-groups" data-job1317-newcostitem-preflight hidden></div>
     <div class="vendor-groups" data-job1317-real-po-result hidden></div>
+    <div class="vendor-groups" data-job1317-existing-po-verification hidden></div>
+    <div class="vendor-groups" data-job1317-approval-readiness hidden></div>
     <div class="vendor-groups" data-live-test-po-result hidden></div>
     <div class="vendor-groups" data-failed-po-recovery hidden></div>
     <div class="vendor-groups" data-jobtread-cost-item-diagnostic hidden></div>
@@ -1019,10 +1007,13 @@ function renderFulfillmentPaths(h,lines,article){
   const job1317Check=stock.querySelector('[data-action="check-job1317-newcostitem-preflight"]');
   if(job1317Check)job1317Check.addEventListener('click',()=>checkJob1317NewCostItemPreflight(h.id,job1317Check,stock.querySelector('[data-job1317-newcostitem-preflight]')));
   const job1317Create=stock.querySelector('[data-action="create-job1317-real-po"]');
-  if(job1317Create){
-    job1317Create.addEventListener('click',()=>createJob1317OneTimeRealPO(h.id,job1317Create,stock.querySelector('[data-job1317-real-po-result]')));
-    updateJob1317RealPOButton(h.id);
-  }
+  if(job1317Create)updateJob1317RealPOButton(h.id);
+  const verifyExistingPO=stock.querySelector('[data-action="verify-existing-job1317-po"]');
+  if(verifyExistingPO)verifyExistingPO.addEventListener('click',()=>
+    verifyJob1317ExistingPO(h.id,verifyExistingPO,stock.querySelector('[data-job1317-existing-po-verification]')));
+  const approvalReadiness=stock.querySelector('[data-action="check-job1317-approval-readiness"]');
+  if(approvalReadiness)approvalReadiness.addEventListener('click',()=>
+    checkJob1317ApprovalReadiness(h.id,approvalReadiness,stock.querySelector('[data-job1317-approval-readiness]')));
   const recoveryButton=stock.querySelector('[data-action="check-failed-po-recovery"]');
   if(recoveryButton)recoveryButton.addEventListener('click',()=>checkJobtreadFailedPORecovery(h.id,recoveryButton,stock.querySelector('[data-failed-po-recovery]')));
   const diagnoseButton=stock.querySelector('[data-action="check-jobtread-cost-item-ids"]');
@@ -1253,70 +1244,123 @@ async function checkJob1317NewCostItemPreflight(handoffId,button,container){
  }finally{button.disabled=false;}
 }
 
-async function createJob1317OneTimeRealPO(handoffId,button,container){
+async function verifyJob1317ExistingPO(handoffId,button,container){
  container.hidden=false;
- const h=projectMaterialHandoffs.find(x=>x.id===handoffId);
- if(h?.job_number!=='1317'||handoffId!=='8e3d42ec-43d6-48e8-8e71-4170b9c2b18d'||
-    !isTestMode(handoffId)||!['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))||
-    !job1317ReadOnlyApproved.has(handoffId)||livePOTestAttempted.has(handoffId)){
-   container.textContent='JOB 1317 REAL PO LOCKED. Run the protected read-only check and keep TEST / PREVIEW ONLY. No request sent.';return;
+ const h=projectMaterialHandoffs.find(row=>row.id===handoffId);
+ if(h?.job_number!=='1317'||handoffId!=='8e3d42ec-43d6-48e8-8e71-4170b9c2b18d'){
+   container.textContent='Existing JobTread PO verification is restricted to Job 1317.';return;
  }
- let picks;
- try{
-   picks=getDraftSerialSelections(handoffId);
-   const serialId=picks[0]?.serialIds?.[0];
-   const opts=serialPickPlans.get(handoffId)?.options||[];
-   if(picks.length!==1||picks[0].serialIds?.length!==1||
-      !opts.some(x=>x.serialId===serialId&&x.serialNumber==='GGEH03020434260508'))
-     throw new Error('Re-select the original exact pump serial and re-run read-only preflight.');
- }catch(error){container.textContent=error?.message||String(error);return;}
- const msg='CREATE ONE REAL JOBTREAD PURCHASE ORDER FOR JOB 1317?\n\n'+
-   'Vendor: Molinari Pools Inventory\n'+
-   'Part: VSFHP165DVSP\n'+
-   'Serial: GGEH03020434260508\n'+
-   'Quantity: 1\n'+
-   'Actual stock cost and PO total: $1,286.12\n'+
-   'Additional tax: $0.00 (0%)\n\n'+
-   'THIS CREATES A REAL PO IN JOBTREAD. The new document-line API format has NOT been accepted live yet.\n'+
-   'The API will check all vendor POs and stock costs again before creation.\n'+
-   'Warehouse stock will NOT be reserved, committed or issued. No serial assignment is saved.\n'+
-   'QBO exclusion and no-budget flags are requested; verify them in JobTread.\n'+
-   'PO PDF filing to ALL FILES - INVOICES is not enabled.\n\n'+
-   'ONE ATTEMPT ONLY. On any error, DO NOT RETRY.';
- if(!window.confirm(msg))return;
- const typed=window.prompt('To explicitly authorize ONE REAL JobTread PO for Job 1317 at $1,286.12, type exactly: CREATE PO 1317');
- if(typed!=='CREATE PO 1317'){
-   container.textContent='Cancelled. No PO creation request was sent.';return;
+ if(!['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
+   container.textContent='Admin or System Admin permission required to read back the saved JobTread document.';return;
  }
- livePOTestAttempted.add(handoffId);
- job1317ReadOnlyApproved.delete(handoffId);
- updateJob1317RealPOButton(handoffId);
  button.disabled=true;
- container.textContent='Submitting ONE real Job 1317 vendor PO request. Server is independently checking the serial, cost, budget link, schema and vendor duplicates. DO NOT RETRY.';
+ container.textContent='Reading EXISTING JobTread PO 22PhPhjaFY8D and its budget-linked cost items. This checks the saved vendor, tax, QBO flag and unit cost. NO PO creation or inventory writes...';
  try{
-   const {data,error}=await client.functions.invoke('jobtread-project-po-job1317-one-time-create',{
-     body:{handoffId,testMode:true,testPicks:picks,expectedTotal:1286.12,
-       confirmation:'CREATE_ONE_REAL_JOB1317_PO_COST_1286_12',
-       confirmRealJobTreadDocument:true,acceptUnverifiedLiveLineEncoding:true}
-   });
+   const {data,error}=await client.functions.invoke('jobtread-project-po-verify-1317',{body:{handoffId}});
    let result=data;
    if(error?.context&&typeof error.context.json==='function'){
-     try{result=await error.context.json();}catch(_){/* retain error */}
+     try{result=await error.context.json();}catch(_){}
    }
-   if(error||result?.success!==true||result.mode!=='ONE_REAL_JOB1317_PO_TEST'||
-      result.jobNumber!=='1317'||!result.jobtreadPoId||
-      result.inventoryCommitted!==false||result.inventoryIssued!==false||
-      result.serialPickSaved!==false||Number(result.total)!==1286.12)
-     throw new Error(result?.error||error?.message||'Outcome not confirmed. Do not retry.');
-   container.innerHTML=`<strong>REAL JOB 1317 JOBTREAD PO CREATED — INVENTORY NOT COMMITTED</strong>
-     <p><strong>PO #:</strong> ${escapeHTML(result.jobtreadPoNumber||'Not yet numbered')} · <strong>PO ID:</strong> ${escapeHTML(result.jobtreadPoId)}</p>
-     <p><strong>Material:</strong> VSFHP165DVSP · <strong>Serial:</strong> GGEH03020434260508 · <strong>Actual cost:</strong> $1,286.12 · <strong>Additional tax:</strong> $0.00</p>
-     <p><strong>Inventory:</strong> not assigned, committed or issued. <strong>QuickBooks:</strong> exclusion requested. <strong>PO PDF:</strong> NOT YET FILED.</p>
-     <p class="path-note">Verify the PO directly in JobTread, including vendor, budget link, accounting flag and line cost. DO NOT CREATE A SECOND PO.</p>`;
- }catch(error){
-   container.textContent='JOB 1317 REAL PO RESULT: '+(error?.message||String(error))+
-    ' — DO NOT RETRY. Verify ALL Job 1317 vendor POs and Supabase operation before any next action.';
- }
+   if(error||result?.success!==true||result?.mode!=='READ_ONLY_JOB1317_CREATED_PO_VERIFICATION'||
+     result.actualJobTreadRead!==true||result.jobtreadWrites!==false||
+     result.databaseWrites!==false||result.poCreatedByThisCheck!==false){
+     throw new Error(result?.error||error?.message||'Direct JobTread PO read-back did not complete.');
+   }
+   const doc=result.po||{};
+   const lines=Array.isArray(result.lines)?result.lines:[];
+   const flags=result.checks||{};
+   const money=v=>v===null||v===undefined?'Not returned':
+     (Number.isFinite(Number(v))?Number(v).toLocaleString('en-US',{style:'currency',currency:'USD'}):String(v));
+   const raw=v=>v===null||v===undefined?'NOT RETURNED':String(v);
+   const row=(name,v)=>'<tr><th>'+escapeHTML(name)+'</th><td>'+escapeHTML(raw(v))+'</td></tr>';
+   const status= result.verificationComplete===true?
+     'DIRECT JOBTREAD READBACK VERIFIED — ALL CHECKS PASSED':
+     'DIRECT JOBTREAD READBACK — SOME FIELDS NOT CONFIRMED';
+   const issues=Array.isArray(result.notVerified)?result.notVerified:[];
+   container.innerHTML=`<strong>${escapeHTML(status)}</strong>
+     <p>READ ONLY — existing Job 1317 PO. No JobTread, Supabase, inventory or accounting writes.</p>
+     <div class="table-wrap"><table><tbody>
+     ${row('PO number',doc.number)}${row('PO ID',doc.id)}${row('Document type',doc.type)}
+     ${row('Job number',doc.jobNumber)}${row('Job ID',doc.jobId)}
+     ${row('Vendor',doc.vendorName)}${row('Vendor account ID',doc.vendorId)}
+     ${row('QuickBooks ignored (actual saved setting)',doc.qboIsIgnored)}
+     ${row('Additional tax rate (actual)',doc.taxRate)}
+     ${row('Additional tax amount',money(doc.tax))}
+     ${row('JobTread document cost',money(doc.totalCost))}
+     ${row('Include in budget (actual)',doc.includeInBudget)}
+     ${row('External reference',doc.externalId)}
+     </tbody></table></div>
+     <p><strong>PO material lines from JobTread:</strong></p>
+     <div class="table-wrap"><table><thead><tr><th>Item</th><th>Document Line ID</th><th>Linked 1410 Budget ID</th><th>Qty</th><th>Actual Unit Cost</th><th>Extended Cost</th></tr></thead><tbody>
+     ${lines.map(l=>`<tr><td>${escapeHTML(l.name||'')}</td><td><code>${escapeHTML(raw(l.id))}</code></td><td><code>${escapeHTML(raw(l.jobCostItemId))}</code></td><td>${escapeHTML(raw(l.quantity))}</td><td>${escapeHTML(money(l.unitCost))}</td><td>${escapeHTML(money(l.extendedCost))}</td></tr>`).join('')}
+     </tbody></table></div>
+     <p><strong>Field-by-field verification:</strong></p>
+     <div class="table-wrap"><table><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>
+     ${Object.entries(flags).map(([name,pass])=>'<tr><td>'+escapeHTML(name)+'</td><td><strong>'+(pass===true?'PASS':'NOT VERIFIED')+'</strong></td></tr>').join('')}
+     </tbody></table></div>
+     ${issues.length?'<p><strong>Not confirmed:</strong> '+escapeHTML(issues.join(', '))+'</p>':''}
+     <p><strong>Stored operation:</strong> ${escapeHTML(result.savedOperation?.status||'UNKNOWN')} · One creation attempt · Inventory not committed · PDF: ${escapeHTML(result.savedOperation?.pdfFilingStatus||'UNKNOWN')}</p>
+     <p><strong>Read-only conclusion:</strong> ${escapeHTML(result.message||'')}</p>
+     <p class="path-note">PO #1 already exists. DO NOT CREATE A SECOND PO. QuickBooks exclusion is confirmed ONLY if the saved document returned qboIsIgnored = true. Invoice-folder PDF filing is still pending.</p>`;
+ }catch(e){container.textContent='EXISTING PO READBACK NOT COMPLETED: '+(e?.message||String(e))+' — NO PO OR INVENTORY CHANGES. DO NOT CREATE A SECOND PO.';}
+ finally{button.disabled=false;}
+}
+
+async function checkJob1317ApprovalReadiness(handoffId,button,container){
+  container.hidden=false;
+  const h=projectMaterialHandoffs.find(row=>row.id===handoffId);
+  if(h?.job_number!=='1317'||handoffId!=='8e3d42ec-43d6-48e8-8e71-4170b9c2b18d'){
+    container.textContent='Approval readiness is restricted to the existing Job 1317 PO #1.';
+    return;
+  }
+  if(!['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
+    container.textContent='Admin or System Admin permission is required for this controlled approval test.';
+    return;
+  }
+  button.disabled=true;
+  container.textContent='Reading the existing JobTread PO status, updateDocument approval field, vendor, budget link, cost, QuickBooks exclusion and signature requirements. READ ONLY — no PO approval or inventory changes...';
+  try{
+    const {data,error}=await client.functions.invoke('jobtread-project-po-approval-readiness-1317',{body:{handoffId}});
+    let result=data;
+    if(error?.context&&typeof error.context.json==='function'){
+      try{result=await error.context.json();}catch(_){ }
+    }
+    if(error||result?.success!==true||result?.mode!=='READ_ONLY_JOB1317_PO_APPROVAL_READINESS'||
+      result.jobtreadWrites!==false||result.databaseWrites!==false||result.approvedByThisCheck!==false||
+      result.poId!=='22PhPhjaFY8D'){
+      throw new Error(result?.error||error?.message||'Read-only approval status check did not complete.');
+    }
+    const sig=result.signatureRequirements||{};
+    const yesno=value=>value===true?'YES':value===false?'NO':'NOT VERIFIED';
+    const display=value=>value===null||value===undefined||value===''?'NOT VERIFIED':String(value);
+    const row=(label,value)=>'<tr><th>'+escapeHTML(label)+'</th><td>'+escapeHTML(display(value))+'</td></tr>';
+    const resultLabel=result.disposition||'BLOCKED';
+    const ready=resultLabel==='PENDING_ELIGIBLE_FOR_ONE_TIME_APPROVAL_TEST';
+    container.innerHTML=`<strong>JOB 1317 PO #1 — APPROVAL READINESS: ${escapeHTML(resultLabel.replace(/_/g,' '))}</strong>
+      <p><strong>This is READ ONLY.</strong> No status change was sent to JobTread. No new PO, serial assignment, inventory commitment, stock issue or QuickBooks transaction occurred.</p>
+      <div class="table-wrap"><table><tbody>
+      ${row('Existing PO #',result.poNumber)}
+      ${row('Existing PO ID',result.poId)}
+      ${row('Current JobTread approval status',result.currentJobTreadStatus)}
+      ${row('Vendor',result.vendor)}
+      ${row('Actual serialized stock cost',Number(result.cost).toLocaleString('en-US',{style:'currency',currency:'USD'}))}
+      ${row('Serial number',result.serial)}
+      ${row('Budget item ID',result.budgetItemId)}
+      ${row('Saved PO verified, all direct-readback fields',yesno(result.poDirectReadbackPassed))}
+      ${row('JobTread updateDocument.status input available',yesno(result.statusMutationSchemaPresent))}
+      ${row('Document requires signature',yesno(sig.documentRequireSignature))}
+      ${row('Any recipient requires signature',yesno(sig.anySignatureRequired))}
+      ${row('Recipient records checked',sig.recipientsCount)}
+      ${row('Automatic approval currently enabled', 'NO — test not authorized')}
+      </tbody></table></div>
+      ${sig.documentProbeError?'<p><strong>Document signature probe:</strong> '+escapeHTML(sig.documentProbeError)+'</p>':''}
+      ${sig.recipientsProbeError?'<p><strong>Recipient signature probe:</strong> '+escapeHTML(sig.recipientsProbeError)+'</p>':''}
+      ${Array.isArray(result.previousVerificationFailures)&&result.previousVerificationFailures.length?'<p><strong>Existing PO readback checks not confirmed:</strong> '+escapeHTML(result.previousVerificationFailures.join(', '))+'</p>':''}
+      <p><strong>Next step:</strong> ${ready?'The PO is pending and the current read-only checks passed. A separately authorized one-time status-update test can be prepared.':'Resolve the unverified status, signature requirement or failed checks before any approval attempt.'}</p>
+      <p class="path-note"><strong>DO NOT CREATE A SECOND PO.</strong> Approval will update ONLY the existing JobTread document. Job 1314 remains locked. Approval testing is separate from PDF filing and Warehouse stock commitments.</p>`;
+  }catch(e){
+    container.textContent='JOB 1317 PO APPROVAL READINESS BLOCKED: '+(e?.message||String(e))+' — No status or inventory changes. Do not create another PO.';
+  }finally{button.disabled=false;}
 }
 
 async function checkProjectInventoryPOPreflight(handoffId,container){
