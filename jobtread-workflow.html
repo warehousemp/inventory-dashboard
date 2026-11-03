@@ -1335,7 +1335,24 @@ async function checkJob1317ApprovalReadiness(handoffId,button,container){
     const display=value=>value===null||value===undefined||value===''?'NOT VERIFIED':String(value);
     const row=(label,value)=>'<tr><th>'+escapeHTML(label)+'</th><td>'+escapeHTML(display(value))+'</td></tr>';
     const resultLabel=result.disposition||'BLOCKED';
+    const budget=result.budgetPolicy||{};
+    const coreVerified=result.coreReadbackPassed===true;
+    const budgetActual=budget.actualIncludeInBudget===true?'YES — JobTread includes this PO in the job budget':
+      budget.actualIncludeInBudget===false?'NO — JobTread excludes this PO from the job budget':'NOT VERIFIED';
+    const recipientSignature=sig.recipientsVerified===true?yesno(sig.anySignatureRequired):'NOT VERIFIED';
+    const recipientCount=sig.recipientsVerified===true?sig.recipientsCount:'NOT VERIFIED';
     const ready=resultLabel==='PENDING_ELIGIBLE_FOR_ONE_TIME_APPROVAL_TEST';
+    const nextStep=ready?
+      'The existing PO is Pending and core readback is confirmed. We can prepare a separately authorized approval-status update.':
+      resultLabel==='DRAFT_REQUIRES_PENDING_TRANSITION_TEST'?
+      'This PO is Draft. First test the permitted Draft → Pending transition; only then test Pending → Approved. No transition has been sent.':
+      resultLabel==='BUDGET_POLICY_REVIEW_REQUIRED'?
+      'The existing PO budget-inclusion setting differs from the original request. Confirm the intended treatment of inventory POs before any approval mutation.':
+      resultLabel==='BUDGET_FLAG_NOT_RETURNED'?
+      'JobTread did not return a reliable includeInBudget value. Verify how the PO affects the job budget before any status update.':
+      resultLabel==='SIGNATURE_CHECK_INCOMPLETE'?
+      'JobTread did not fully confirm recipient signature requirements; approval stays blocked rather than assuming zero recipients.':
+      'Resolve the remaining status, signature or actual core PO field mismatches before approval.';
     container.innerHTML=`<strong>JOB 1317 PO #1 — APPROVAL READINESS: ${escapeHTML(resultLabel.replace(/_/g,' '))}</strong>
       <p><strong>This is READ ONLY.</strong> No status change was sent to JobTread. No new PO, serial assignment, inventory commitment, stock issue or QuickBooks transaction occurred.</p>
       <div class="table-wrap"><table><tbody>
@@ -1346,17 +1363,20 @@ async function checkJob1317ApprovalReadiness(handoffId,button,container){
       ${row('Actual serialized stock cost',Number(result.cost).toLocaleString('en-US',{style:'currency',currency:'USD'}))}
       ${row('Serial number',result.serial)}
       ${row('Budget item ID',result.budgetItemId)}
-      ${row('Saved PO verified, all direct-readback fields',yesno(result.poDirectReadbackPassed))}
+      ${row('JobTread includeInBudget (ACTUAL)',budgetActual)}
+      ${row('Original API includeInBudget request','NO — false')}
+      ${row('Budget flag matches original request',yesno(budget.matchesOriginal))}
+      ${row('Core PO fields verified (vendor, budget link, cost, tax, QBO)',yesno(coreVerified))}
       ${row('JobTread updateDocument.status input available',yesno(result.statusMutationSchemaPresent))}
       ${row('Document requires signature',yesno(sig.documentRequireSignature))}
-      ${row('Any recipient requires signature',yesno(sig.anySignatureRequired))}
-      ${row('Recipient records checked',sig.recipientsCount)}
+      ${row('Any recipient requires signature',recipientSignature)}
+      ${row('Recipient records checked',recipientCount)}
       ${row('Automatic approval currently enabled', 'NO — test not authorized')}
       </tbody></table></div>
       ${sig.documentProbeError?'<p><strong>Document signature probe:</strong> '+escapeHTML(sig.documentProbeError)+'</p>':''}
       ${sig.recipientsProbeError?'<p><strong>Recipient signature probe:</strong> '+escapeHTML(sig.recipientsProbeError)+'</p>':''}
       ${Array.isArray(result.previousVerificationFailures)&&result.previousVerificationFailures.length?'<p><strong>Existing PO readback checks not confirmed:</strong> '+escapeHTML(result.previousVerificationFailures.join(', '))+'</p>':''}
-      <p><strong>Next step:</strong> ${ready?'The PO is pending and the current read-only checks passed. A separately authorized one-time status-update test can be prepared.':'Resolve the unverified status, signature requirement or failed checks before any approval attempt.'}</p>
+      <p><strong>Next step:</strong> ${escapeHTML(nextStep)}</p>
       <p class="path-note"><strong>DO NOT CREATE A SECOND PO.</strong> Approval will update ONLY the existing JobTread document. Job 1314 remains locked. Approval testing is separate from PDF filing and Warehouse stock commitments.</p>`;
   }catch(e){
     container.textContent='JOB 1317 PO APPROVAL READINESS BLOCKED: '+(e?.message||String(e))+' — No status or inventory changes. Do not create another PO.';
