@@ -963,7 +963,7 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-light" type="button" data-action="pick" disabled>GENERATE GENERAL PICK LIST</button>
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
-      ${h.job_number==='1317'?'<button class="btn-light" type="button" disabled title="JobTread accepted the newCostItem format and PO #1 was created">NEW-COST ITEM PREFLIGHT COMPLETE</button><button class="btn-teal" type="button" data-action="verify-existing-job1317-po">VERIFY EXISTING JOB 1317 PO #1 — READ ONLY</button><button class="btn-teal" type="button" data-action="check-job1317-approval-readiness">CHECK JOB 1317 PO APPROVAL READINESS — READ ONLY</button>':'<button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>'}
+      ${h.job_number==='1317'?'<button class="btn-light" type="button" disabled title="JobTread accepted the newCostItem format and PO #1 was created">NEW-COST ITEM PREFLIGHT COMPLETE</button><button class="btn-teal" type="button" data-action="verify-existing-job1317-po">VERIFY EXISTING JOB 1317 PO #1 — READ ONLY</button><button class="btn-teal" type="button" data-action="check-job1317-approval-readiness">CHECK JOB 1317 PO APPROVAL READINESS — READ ONLY</button><button class="btn-orange" type="button" data-action="disable-job1317-payment-schedule" disabled title="Run the read-only approval check before changing the existing PO">PAYMENT SCHEDULE OFF — CHECK READINESS FIRST</button>':'<button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>'}
       ${h.job_number==='1317'?'<button class="btn-orange" type="button" data-action="create-job1317-real-po" disabled>PO #1 CREATED — NO SECOND PO ALLOWED</button>':''}
       ${h.job_number==='1314'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK JOB 1314 FOR DUPLICATE POs</button><button class="btn-light" type="button" data-action="check-jobtread-cost-item-ids">DIAGNOSE JOBTREAD PO LINE IDs — READ ONLY</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Both real PO attempts are exhausted. Budget-item IDs were rejected by JobTread. Further creation is locked.">JOB 1314 FINAL RETRY LOCKED — REVIEW COST ITEM IDs</button>':''}
       <button class="btn-primary" type="button" disabled title="Production PO plus stock commitment remains locked">YES — FULFILL FROM INVENTORY</button>
@@ -977,6 +977,7 @@ function renderFulfillmentPaths(h,lines,article){
     <div class="vendor-groups" data-job1317-real-po-result hidden></div>
     <div class="vendor-groups" data-job1317-existing-po-verification hidden></div>
     <div class="vendor-groups" data-job1317-approval-readiness hidden></div>
+    <div class="vendor-groups" data-job1317-payment-schedule-result hidden></div>
     <div class="vendor-groups" data-live-test-po-result hidden></div>
     <div class="vendor-groups" data-failed-po-recovery hidden></div>
     <div class="vendor-groups" data-jobtread-cost-item-diagnostic hidden></div>
@@ -1014,6 +1015,9 @@ function renderFulfillmentPaths(h,lines,article){
   const approvalReadiness=stock.querySelector('[data-action="check-job1317-approval-readiness"]');
   if(approvalReadiness)approvalReadiness.addEventListener('click',()=>
     checkJob1317ApprovalReadiness(h.id,approvalReadiness,stock.querySelector('[data-job1317-approval-readiness]')));
+  const disableScheduleButton=stock.querySelector('[data-action="disable-job1317-payment-schedule"]');
+  if(disableScheduleButton)disableScheduleButton.addEventListener('click',()=>
+    disableJob1317PaymentSchedule(h.id,disableScheduleButton,stock.querySelector('[data-job1317-payment-schedule-result]')));
   const recoveryButton=stock.querySelector('[data-action="check-failed-po-recovery"]');
   if(recoveryButton)recoveryButton.addEventListener('click',()=>checkJobtreadFailedPORecovery(h.id,recoveryButton,stock.querySelector('[data-failed-po-recovery]')));
   const diagnoseButton=stock.querySelector('[data-action="check-jobtread-cost-item-ids"]');
@@ -1308,6 +1312,8 @@ async function verifyJob1317ExistingPO(handoffId,button,container){
 
 async function checkJob1317ApprovalReadiness(handoffId,button,container){
   container.hidden=false;
+  const actionButton=container.closest('.fulfillment-path')?.querySelector('[data-action="disable-job1317-payment-schedule"]');
+  if(actionButton){actionButton.disabled=true;actionButton.textContent='PAYMENT SCHEDULE OFF — CHECK READINESS FIRST';}
   const h=projectMaterialHandoffs.find(row=>row.id===handoffId);
   if(h?.job_number!=='1317'||handoffId!=='8e3d42ec-43d6-48e8-8e71-4170b9c2b18d'){
     container.textContent='Approval readiness is restricted to the existing Job 1317 PO #1.';
@@ -1342,6 +1348,25 @@ async function checkJob1317ApprovalReadiness(handoffId,button,container){
       budget.actualIncludeInBudget===false?'NO — JobTread excludes this PO from the job budget':'NOT VERIFIED';
     const recipientSignature=sig.recipientsVerified===true?yesno(sig.anySignatureRequired):'NOT VERIFIED';
     const recipientCount=sig.recipientsVerified===true?sig.recipientsCount:'NOT VERIFIED';
+    // Enable only for the exact known-safe draft, after a fresh server readback.
+    // The server independently repeats all checks before any mutation.
+    const paymentDisableAllowed=result.poId==='22PhPhjaFY8D' &&
+      result.currentJobTreadStatus==='draft' && coreVerified &&
+      budget.actualIncludeInBudget===true &&
+      payment.actualShowScheduledDocuments===true &&
+      payment.actualScheduledBillCount===0 &&
+      sig.documentRequireSignature===false &&
+      sig.recipientsVerified===true && sig.anySignatureRequired===false &&
+      result.jobtreadWrites===false && result.databaseWrites===false;
+    if(actionButton){
+      actionButton.disabled=!paymentDisableAllowed;
+      actionButton.textContent=paymentDisableAllowed
+        ?'TURN OFF PAYMENT SCHEDULE — PO #1 (CONFIRM REAL UPDATE)'
+        :'PAYMENT SCHEDULE UPDATE LOCKED — SAFETY CHECK';
+      actionButton.title=paymentDisableAllowed
+        ?'Only turns off Payment Schedule on existing JobTread PO #1; does not approve or create a PO'
+        :'Payment Schedule update stays locked until all safety checks pass';
+    }
     const ready=resultLabel==='PENDING_ELIGIBLE_FOR_ONE_TIME_APPROVAL_TEST';
     const nextStep=ready?
       'The existing PO is Pending and core readback is confirmed. We can prepare a separately authorized approval-status update.':
@@ -1395,6 +1420,52 @@ async function checkJob1317ApprovalReadiness(handoffId,button,container){
   }catch(e){
     container.textContent='JOB 1317 PO APPROVAL READINESS BLOCKED: '+(e?.message||String(e))+' — No status or inventory changes. Do not create another PO.';
   }finally{button.disabled=false;}
+}
+
+async function disableJob1317PaymentSchedule(handoffId,button,container){
+  container.hidden=false;
+  const h=projectMaterialHandoffs.find(x=>x.id===handoffId);
+  if(h?.job_number!=='1317'||handoffId!=='8e3d42ec-43d6-48e8-8e71-4170b9c2b18d'||
+     !['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
+    container.textContent='Only an Admin/System Admin can change the original Job 1317 PO #1.';
+    return;
+  }
+  if(button.disabled)return;
+  if(!window.confirm('REAL JOBTREAD DOCUMENT UPDATE: Turn OFF Show Payment Schedule on the existing Job 1317 PO #1 only?\\n\\nIt must remain DRAFT and will not create a new PO, approve it, alter its budget cost, or commit inventory.')){
+    container.textContent='Cancelled — existing PO #1 was not changed.';return;
+  }
+  const phrase='TURN OFF PAYMENT SCHEDULE PO 1';
+  if(window.prompt('To update the existing PO, type exactly: '+phrase,'')!==phrase){
+    container.textContent='Cancelled — confirmation did not match. Existing PO #1 was not changed.';return;
+  }
+  button.disabled=true;button.textContent='UPDATING EXISTING PO #1 — NO APPROVAL';
+  container.textContent='Rechecking existing JobTread PO #1, its status, cost, budget relationship, QuickBooks exclusion and zero scheduled vendor bills. Then requesting Payment Schedule OFF. DO NOT RETRY if an error occurs...';
+  try{
+    const {data,error}=await client.functions.invoke('jobtread-project-po-disable-schedule-1317',{body:{
+      handoffId,existingPoId:'22PhPhjaFY8D',confirmation:phrase,confirmExactExistingPO:true
+    }});
+    let r=data;
+    if(error?.context && typeof error.context.json==='function'){
+      try{r=await error.context.json();}catch(_){ }
+    }
+    if(error||r?.success!==true||r?.paymentScheduleEnabled!==false||
+       r?.scheduledBills!==0||r?.poId!=='22PhPhjaFY8D'||
+       (r?.mode!=='EXISTING_JOB1317_PAYMENT_SCHEDULE_DISABLED'&&
+        r?.mode!=='EXISTING_JOB1317_PAYMENT_SCHEDULE_ALREADY_OFF')){
+      throw new Error((r?.error||r?.message||error?.message||'The JobTread update was not confirmed')+' — DO NOT RETRY until the existing PO is checked.');
+    }
+    container.innerHTML='<strong>JOB 1317 PO #1 — PAYMENT SCHEDULE OFF</strong>'+
+      '<p><strong>JobTread document:</strong> '+escapeHTML(r.poId)+' · <strong>PO #:</strong> 1</p>'+
+      '<p><strong>Payment Schedule:</strong> OFF · <strong>Scheduled bills:</strong> 0 · <strong>PO status:</strong> DRAFT</p>'+
+      '<p>No new PO, no approval, no inventory commitment or issue, no QuickBooks entry. The budget-inclusion setting was preserved as-is.</p>'+
+      '<p><strong>Next:</strong> Run CHECK JOB 1317 PO APPROVAL READINESS again before any separate approval test.</p>';
+  }catch(e){
+    container.textContent='JOB 1317 PAYMENT SCHEDULE UPDATE NOT CONFIRMED: '+
+      (e?.message||String(e))+' Existing PO #1 remains protected. Do not create another PO or retry this update without readback.';
+  }finally{
+    button.disabled=true;
+    button.textContent='PAYMENT SCHEDULE UPDATE FINISHED — RUN READBACK';
+  }
 }
 
 async function checkProjectInventoryPOPreflight(handoffId,container){
