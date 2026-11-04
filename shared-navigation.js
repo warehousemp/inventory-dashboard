@@ -142,7 +142,7 @@
         {
           label: 'Inspection Requests',
           href: 'inspection-requests-office.html',
-          roles: ['SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
+          roles: ['SERVICE', 'SERVICE_MANAGER', 'ADMIN', 'SYSTEM_ADMIN']
         }
       ]
     },
@@ -906,3 +906,4 @@
     initializeSharedNavigation();
   }
 })();
+
