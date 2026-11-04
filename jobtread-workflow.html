@@ -1319,8 +1319,8 @@ async function checkJob1317ApprovalReadiness(handoffId,button,container){
     container.textContent='Approval readiness is restricted to the existing Job 1317 PO #1.';
     return;
   }
-  if(!['ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
-    container.textContent='Admin or System Admin permission is required for this controlled approval test.';
+  if(!['WAREHOUSE','ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
+    container.textContent='Warehouse, Admin or System Admin permission is required for this controlled approval test.';
     return;
   }
   button.disabled=true;
@@ -1367,9 +1367,11 @@ async function checkJob1317ApprovalReadiness(handoffId,button,container){
         ?'Only turns off Payment Schedule on existing JobTread PO #1; does not approve or create a PO'
         :'Payment Schedule update stays locked until all safety checks pass';
     }
-    const ready=resultLabel==='PENDING_ELIGIBLE_FOR_ONE_TIME_APPROVAL_TEST';
+    const ready=resultLabel==='DRAFT_ELIGIBLE_FOR_DIRECT_APPROVAL_TEST';
     const nextStep=ready?
-      'The existing PO is Pending and core readback is confirmed. We can prepare a separately authorized approval-status update.':
+      'Existing Draft PO #1 is eligible for a direct approval test. Step 2 below requires explicit one-time authorization; no automatic approval occurs.':
+      resultLabel==='PENDING_ELIGIBLE_FOR_ONE_TIME_APPROVAL_TEST'?
+      'The existing PO is Pending. This direct Draft approval test remains locked.':
       resultLabel==='DRAFT_REQUIRES_PENDING_TRANSITION_TEST'?
       'This PO is Draft. First test the permitted Draft → Pending transition; only then test Pending → Approved. No transition has been sent.':
       resultLabel==='BUDGET_POLICY_REVIEW_REQUIRED'?
@@ -1417,6 +1419,7 @@ async function checkJob1317ApprovalReadiness(handoffId,button,container){
       ${Array.isArray(result.previousVerificationFailures)&&result.previousVerificationFailures.length?'<p><strong>Existing PO readback checks not confirmed:</strong> '+escapeHTML(result.previousVerificationFailures.join(', '))+'</p>':''}
       <p><strong>Next step:</strong> ${escapeHTML(nextStep)}</p>
       <p class="path-note"><strong>DO NOT CREATE A SECOND PO.</strong> Approval will update ONLY the existing JobTread document. Job 1314 remains locked. Approval testing is separate from PDF filing and Warehouse stock commitments.</p>`;
+    job1317AttachApprovalControls(handoffId,container,result);
   }catch(e){
     container.textContent='JOB 1317 PO APPROVAL READINESS BLOCKED: '+(e?.message||String(e))+' — No status or inventory changes. Do not create another PO.';
   }finally{button.disabled=false;}
@@ -1903,6 +1906,177 @@ function escapeHTML(value) {
 
 function escapeAttribute(value) {
   return escapeHTML(value);
+}
+
+// JOB 1317 PO #1 — one-time approval of the EXISTING PO only.
+// There is no automatic approval: the operator must first run the
+// read-only readiness check, type the confirmation, and accept two prompts.
+// The Supabase Edge Function independently enforces role, PO identity,
+// budget, Payment Schedule, zero bills and a permanent one-attempt lock.
+function job1317ApprovalEligible(r) {
+  const payment = r?.paymentSchedule || {};
+  const budget = r?.budgetPolicy || {};
+  const signature = r?.signatureRequirements || {};
+
+  return r?.success === true &&
+    r?.mode === 'READ_ONLY_JOB1317_PO_APPROVAL_READINESS' &&
+    r?.jobNumber === '1317' && String(r?.poNumber) === '1' &&
+    r?.poId === '22PhPhjaFY8D' &&
+    r?.vendor === 'Molinari Pools Inventory' &&
+    r?.currentJobTreadStatus === 'draft' &&
+    Number(r?.cost) === 1286.12 &&
+    r?.serial === 'GGEH03020434260508' &&
+    r?.budgetItemId === '22PhPdNdNdMk' &&
+    r?.coreReadbackPassed === true &&
+    r?.poDirectReadbackPassed === true &&
+    r?.statusMutationSchemaPresent === true &&
+    r?.jobtreadWrites === false &&
+    r?.databaseWrites === false &&
+    r?.stockCommitted === false &&
+    r?.stockIssued === false &&
+    budget.actualIncludeInBudget === true &&
+    budget.matchesCurrentPolicy === true &&
+    payment.actualShowScheduledDocuments === false &&
+    payment.actualScheduledBillCount === 0 &&
+    payment.safeForAutoApproval === true &&
+    signature.documentRequireSignature === false &&
+    signature.recipientsVerified === true &&
+    signature.anySignatureRequired === false &&
+    Array.isArray(r?.previousVerificationFailures) &&
+    r.previousVerificationFailures.length === 0 &&
+    r?.disposition === 'DRAFT_ELIGIBLE_FOR_DIRECT_APPROVAL_TEST';
+}
+
+function job1317AttachApprovalControls(handoffId, container, readiness) {
+  if (handoffId !== '8e3d42ec-43d6-48e8-8e71-4170b9c2b18d' ||
+      !['WAREHOUSE','ADMIN','SYSTEM_ADMIN'].includes(currentProfile?.role) ||
+      !job1317ApprovalEligible(readiness)) return;
+
+  const lockKey = 'molinari_job1317_po1_approval_attempt';
+  let submitted = false;
+  const alreadyTried = () => {
+    if (submitted) return true;
+    try { return localStorage.getItem(lockKey) === '1'; }
+    catch (_) { return false; }
+  };
+
+  const controls = document.createElement('section');
+  controls.className = 'warning-note';
+  controls.style.marginTop = '16px';
+  controls.innerHTML = `
+    <h4>STEP 2 — ONE-TIME LIVE APPROVAL TEST</h4>
+    <p><strong>READY:</strong> Existing PO #1 is DRAFT. includeInBudget is TRUE,
+    Payment Schedule is OFF, and there are ZERO scheduled vendor bills.</p>
+    <p><strong>REAL STATUS CHANGE:</strong> Approval updates the EXISTING JobTread PO.
+    No second PO, physical stock commitment/issue, QuickBooks posting, or PDF filing.</p>
+    <label>Type <strong>APPROVE 1317-1</strong> to authorize this one-time action:<br>
+      <input type="text" data-approval-phrase autocomplete="off" spellcheck="false"
+        placeholder="APPROVE 1317-1"
+        style="max-width:340px;width:100%;padding:10px;margin:8px 0;">
+    </label>
+    <label style="display:block;margin:12px 0;">
+      <input type="checkbox" data-approval-ack>
+      I understand this approves existing PO #1, retains includeInBudget TRUE,
+      requires Payment Schedule OFF and zero bills, and does not commit or issue inventory.
+    </label>
+    <button type="button" class="btn-orange" data-approve-existing-po disabled>
+      APPROVE EXISTING JOB 1317 PO #1
+    </button>
+    <pre data-approval-result style="white-space:pre-wrap;margin-top:12px;">Approval not submitted.</pre>`;
+  container.appendChild(controls);
+
+  const phrase = controls.querySelector('[data-approval-phrase]');
+  const ack = controls.querySelector('[data-approval-ack]');
+  const approve = controls.querySelector('[data-approve-existing-po]');
+  const output = controls.querySelector('[data-approval-result]');
+  const refresh = () => {
+    approve.disabled = submitted || alreadyTried() ||
+      phrase.value.trim() !== 'APPROVE 1317-1' || !ack.checked;
+  };
+
+  phrase.addEventListener('input', refresh);
+  ack.addEventListener('change', refresh);
+  if (alreadyTried()) {
+    output.textContent = 'A previous approval attempt was initiated. DO NOT RETRY. Verify existing PO #1 directly in JobTread.';
+  }
+  refresh();
+
+  approve.addEventListener('click', async () => {
+    if (approve.disabled || submitted || alreadyTried()) return;
+    if (!window.confirm(
+      'REAL JOBTREAD APPROVAL — EXISTING JOB 1317 PO #1 ONLY.\n\n' +
+      'Payment Schedule OFF, scheduled vendor bills 0, includeInBudget TRUE.\n' +
+      'No second PO or inventory commitment. This action is ONE-TIME. Continue?'
+    )) return;
+
+    approve.disabled = true;
+    phrase.disabled = true;
+    ack.disabled = true;
+    output.textContent = 'Rechecking the existing PO and all safety conditions (read-only)...';
+    try {
+      const preflight = await client.functions.invoke(
+        'jobtread-project-po-approval-readiness-1317', { body: { handoffId } }
+      );
+      if (preflight.error || !job1317ApprovalEligible(preflight.data)) {
+        throw new Error('Final read-only preflight BLOCKED approval: ' +
+          String(preflight.data?.disposition || preflight.error?.message || 'UNKNOWN'));
+      }
+      if (alreadyTried()) {
+        throw new Error('Another approval attempt was detected. No additional request was sent.');
+      }
+
+      // Lock locally before the only live approval request. The server also
+      // enforces a permanent unique approval-attempt lock across all browsers.
+      submitted = true;
+      try { localStorage.setItem(lockKey, '1'); } catch (_) {}
+      output.textContent = 'Sending ONE approval request for existing PO #1. Do not retry...';
+      const { data, error } = await client.functions.invoke(
+        'jobtread-project-po-approve-existing-1317',
+        { body: {
+          handoffId,
+          poId: '22PhPhjaFY8D',
+          confirmation: 'APPROVE EXISTING PO 1317',
+          confirmRealJobTreadApproval: true,
+          acknowledgeKeepIncludedInBudget: true,
+          acknowledgeNoPhysicalInventoryCommitment: true
+        } }
+      );
+      if (error) {
+        let message = error.message;
+        try { message = (await error.context.json())?.error || message; }
+        catch (_) {}
+        throw new Error(message);
+      }
+      if (data?.success === true && data?.approvalVerified === true &&
+          data?.jobtreadStatus === 'approved' &&
+          data?.includedInBudget === true &&
+          data?.paymentScheduleEnabled === false &&
+          data?.scheduledVendorBills === 0 &&
+          data?.qboIsIgnoredVerified === true &&
+          data?.noSecondPO === true &&
+          data?.inventoryCommitted === false &&
+          data?.inventoryIssued === false &&
+          data?.pdfFiled === false) {
+        output.textContent = 'SUCCESS — Existing Job 1317 PO #1 APPROVED and independently verified.\n' +
+          'includeInBudget TRUE. Payment Schedule OFF. Scheduled bills 0.\n' +
+          'No second PO, stock commitment/issue, QuickBooks posting or PDF filing.\n' +
+          'The one-time test is complete.';
+      } else {
+        output.textContent = 'RECONCILIATION REQUIRED — DO NOT RETRY. Check PO #1 directly in JobTread. ' +
+          String(data?.error || data?.message || 'Unexpected approval result.');
+      }
+    } catch (e) {
+      output.textContent = submitted
+        ? 'DO NOT RETRY. Approval may have reached JobTread; verify PO #1 directly. ' + String(e?.message || e)
+        : 'NO APPROVAL SUBMITTED. Final read-only preflight blocked the action. ' + String(e?.message || e);
+    } finally {
+      refresh();
+      if (!submitted) {
+        phrase.disabled = false;
+        ack.disabled = false;
+      }
+    }
+  });
 }
 </script>
 
