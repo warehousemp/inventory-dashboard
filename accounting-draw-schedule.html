@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="google" content="notranslate">
+  <title>Accounting Draw Schedule | Molinari Pools</title>
+  <link rel="icon" href="favicon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b3c5d">
+  <link rel="stylesheet" href="shared-navigation.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--nav:#062f4f;--header:#0b3c5d;--teal:#1aa3b0;--bg:#f4f8fb;--white:#fff;--text:#23364b;--muted:#687a8d;--line:#dce6ed;--green:#16845d;--amber:#b76c17;--red:#be4242;--pale:#e5f5f5}
+    *{box-sizing:border-box}
+    body{margin:0;font:14px/1.48 Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+    .app-shell{display:block;min-height:100vh;min-width:0;width:100%;overflow-x:hidden}
+    .header-bar{background:var(--header);color:#fff;padding:25px max(24px,calc((100vw - 1500px)/2));display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}
+    .header-bar h1{font-size:25px;line-height:1.2;margin:0 0 5px;letter-spacing:.15px}
+    .header-bar p{margin:0;font-size:13px;color:#d9e8ef}
+    .page{max-width:1540px;margin:auto;padding:25px 22px 60px}
+    .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:1.3px;font-weight:bold;color:var(--muted)}
+    .status{padding:12px 15px;border:1px solid #bedce8;border-radius:10px;background:#eef8fa;color:#27546e;margin-bottom:20px}
+    .status.error{background:#fff1f0;border-color:#f2c6c1;color:#a3302d}
+    .status.warn{background:#fff8e9;border-color:#eedab0;color:#885a1a}
+    .hidden{display:none!important}
+    .panel{background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:0 5px 17px rgba(15,57,82,.045);min-width:0}
+    .gate{max-width:590px;margin:50px auto;padding:30px;text-align:center}
+    .gate h2{color:var(--header);margin:0 0 12px}
+    .gate a{color:#147a8e;font-weight:bold}
+    button,select,input{font:inherit}
+    button{cursor:pointer}
+    .btn{border:1px solid #b9d1db;color:var(--header);background:#fff;padding:9px 14px;font-weight:bold;border-radius:8px}
+    .btn:hover{border-color:var(--teal);background:#f0fafb}
+    .btn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+    .btn.primary:hover{background:#108894}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .header-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .header-actions .btn{background:#fff}
+    .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:16px}
+    .kpi{padding:20px 18px;position:relative;overflow:hidden}
+    .kpi:before{content:"";position:absolute;height:4px;left:0;right:0;top:0;background:var(--teal)}
+    .kpi.invoice:before{background:#5f85ca}.kpi.outstanding:before{background:#e8a24c}.kpi.collected:before{background:var(--green)}.kpi.unpriced:before{background:#97a5b3}
+    .kpi .number{font-size:27px;font-weight:800;color:var(--header);letter-spacing:-.6px;margin:8px 0 5px;white-space:nowrap}
+    .kpi .foot{font-size:12px;color:var(--muted)}
+    .toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0}
+    .toolbar .left,.toolbar .right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .toolbar select,.toolbar input{border:1px solid #cbdbe4;border-radius:8px;padding:10px 12px;background:#fff;color:var(--text)}
+    .toolbar input{width:235px}
+    .toolbar label{font-size:12px;color:var(--muted);font-weight:bold}
+    .section-title{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:20px 0 12px;flex-wrap:wrap}
+    .section-title h2{margin:0;font-size:20px;color:var(--header)}
+    .section-title p{margin:3px 0 0;color:var(--muted);font-size:12px}
+    .months{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-bottom:19px}
+    .month{display:block;text-align:left;padding:18px;border:2px solid var(--line);border-radius:12px;background:#fff;min-width:0;transition:border .15s,background .15s}
+    .month:hover{border-color:#9ccfd3}
+    .month.selected{border-color:var(--teal);background:#f4fcfc;box-shadow:0 4px 14px rgba(26,163,176,.11)}
+    .month-top,.month-bottom{display:flex;justify-content:space-between;gap:10px;align-items:center}
+    .month-name{font-size:17px;color:var(--header);font-weight:bold}
+    .month-count{font-size:12px;color:var(--muted)}
+    .month-total{font-size:25px;font-weight:800;color:var(--header);margin:12px 0 4px}
+    .month-total small{font-size:12px;font-weight:normal;color:var(--muted)}
+    .meter{height:6px;background:#e4ecef;border-radius:8px;overflow:hidden;margin:14px 0}
+    .meter span{display:block;height:100%;background:var(--teal);border-radius:8px}
+    .month-meta{font-size:12px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
+    .month-meta strong{color:var(--text)}
+    .detail-grid{display:grid;grid-template-columns: minmax(290px, .9fr) minmax(0, 1.65fr);gap:16px;align-items:start}
+    .weeks{padding:16px}
+    .week-btn{border:1px solid var(--line);background:#fff;padding:15px;width:100%;text-align:left;border-radius:9px;margin-top:10px}
+    .week-btn:hover{border-color:#9ccfd3}.week-btn.selected{background:#eaf8f9;border-color:var(--teal)}
+    .week-head{display:flex;align-items:center;justify-content:space-between;gap:6px;color:var(--header);font-weight:bold}
+    .week-value{font-size:21px;font-weight:bold;margin-top:5px;color:var(--header)}
+    .week-bottom{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:4px}
+    .week-btn .arrow{color:var(--teal)}
+    .results{padding:16px;overflow:hidden}
+    .results-head{display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap;margin-bottom:11px}
+    .results-head h3{font-size:17px;color:var(--header);margin:0}
+    .results-head p{color:var(--muted);margin:3px 0 0;font-size:12px}
+    .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+    table{width:100%;border-collapse:collapse;min-width:830px}
+    th{text-align:left;background:#f1f6f9;color:#567084;font-size:11px;text-transform:uppercase;letter-spacing:.35px;padding:12px 10px;white-space:nowrap}
+    td{padding:12px 10px;border-top:1px solid #eaf0f4;vertical-align:middle;font-size:12px}
+    .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .client{font-size:13px;font-weight:bold;color:var(--header)}
+    .sub{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+    .pill{display:inline-flex;align-items:center;border-radius:5px;font-size:11px;padding:3px 6px;font-weight:bold;white-space:nowrap;background:#edf2f5;color:#526878}
+    .pill.red{background:#ffeded;color:#a43834}.pill.green{background:#e2f4eb;color:#126c4b}.pill.amber{background:#fff1dc;color:#95601a}.pill.blue{background:#e6f1fc;color:#286b9b}
+    .link-btn{border:0;background:none;color:#107f8d;font-weight:bold;text-decoration:underline;text-underline-offset:2px;padding:3px}
+    .empty{padding:25px;color:var(--muted);text-align:center}
+    .detail{margin-top:17px;border:1px solid #c7e0e7;border-radius:10px;background:#f7fcfd;padding:17px}
+    .detail h3{margin:0 0 3px;color:var(--header)}
+    .detail-top{display:flex;justify-content:space-between;gap:12px;align-items:start}
+    .detail-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin:14px 0}
+    .stat{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px}
+    .stat b{display:block;font-size:17px;color:var(--header)}
+    .stat span{font-size:11px;color:var(--muted)}
+    .detail h4{margin:18px 0 8px;font-size:14px;color:var(--header)}
+    .history-list{margin:0;padding-left:18px;color:#476275}
+    .history-list li{margin:6px 0}
+    .note{margin-top:17px;font-size:12px;color:var(--muted);line-height:1.55}
+    .note strong{color:var(--header)}
+    @media(max-width:1170px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.detail-grid{grid-template-columns:1fr 1.6fr}}
+    @media(max-width:890px){.months{grid-template-columns:repeat(2,minmax(0,1fr))}.detail-grid{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:550px){.page{padding:18px 12px 40px}.header-bar{padding:22px 15px}.header-bar h1{font-size:21px}.kpis,.months{grid-template-columns:1fr}.kpi{padding:15px}.toolbar input{width:100%}.detail-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media print{#sharedNavigation,.header-actions,.toolbar,.btn,.link-btn{display:none!important}.page{padding:0}.panel{box-shadow:none}body{background:#fff}.detail-grid{display:block}.weeks{margin-bottom:14px}table{font-size:10px}}
+  </style>
+</head>
+<body>
+<div id="sharedNavigation"></div>
+<div class="app-shell">
+  <header class="header-bar">
+    <div><h1>Accounting Draw Schedule</h1><p>Rolling six-month JobTread forecast · Monthly → weekly → individual draw</p></div>
+    <div class="header-actions">
+      <a class="btn" href="https://app.jobtread.com/schedule?view=22PczX2LnZhX" target="_blank" rel="noopener">Open JobTread Draw Schedule ↗</a>
+      <button class="btn" id="reloadButton" type="button">Refresh Dashboard</button>
+    </div>
+  </header>
+  <main class="page">
+    <section id="accessGate" class="gate panel"><h2>Accounting Access</h2><div id="accessMessage">Checking your Molinari login...</div><p><a href="login.html">Go to login</a></p></section>
+    <div id="pageContent" class="hidden">
+      <div class="status" id="syncStatus" role="status">Loading JobTread draw forecast...</div>
+      <div class="kpis" id="kpiCards"></div>
+      <div class="toolbar">
+        <div class="left"><label for="dateMode">Draws</label><select id="dateMode"><option value="future">Next six calendar months</option><option value="earlier">Earlier scheduled draws</option><option value="all">All dates</option></select><label for="statusFilter">Status</label><select id="statusFilter"><option value="all">All draws</option><option value="draft">Not invoiced / Draft</option><option value="invoiced">Invoiced</option><option value="outstanding">Outstanding balance</option><option value="collected">Payments collected</option><option value="moved">Date moved</option><option value="unpriced">Missing forecast amount</option></select></div>
+        <div class="right"><input id="searchInput" type="search" placeholder="Search job, client or draw..." aria-label="Search draws"><button id="exportButton" class="btn" type="button">Export CSV</button></div>
+      </div>
+      <section><div class="section-title"><div><h2 id="monthsTitle">Six-Month Forecast</h2><p id="monthsSub">Choose a month to explore its weeks.</p></div><span class="eyebrow" id="totalCount"></span></div><div id="monthCards" class="months"></div></section>
+      <div class="detail-grid">
+        <section class="weeks panel"><div class="section-title" style="margin:3px 0 4px"><div><h2 id="weeksTitle">Weekly Breakdown</h2><p>Choose a week to see each draw.</p></div></div><div id="weeksList"></div></section>
+        <section class="results panel"><div class="results-head"><div><h3 id="resultsTitle">Draws by Week</h3><p id="resultsDescription">Select a week to review individual draws.</p></div></div><div class="table-wrap"><table><thead><tr><th>Job / Client</th><th>Draw</th><th>Scheduled</th><th>Shift</th><th class="num">Scheduled $</th><th class="num">Invoiced $</th><th class="num">Outstanding $</th><th class="num">Collected $</th><th>Details</th></tr></thead><tbody id="drawTable"></tbody></table></div><div id="drawDetails" class="hidden"></div></section>
+      </div>
+      <p class="note"><strong>How to read these numbers:</strong> Scheduled $ comes from customer invoices attached to JobTread draw tasks, including drafts. A blank amount means JobTread has not supplied a linked invoice amount; it does <strong>not</strong> mean $0. Invoiced $ excludes drafts; Outstanding $ and Collected $ use the values JobTread reports on issued invoices. All amounts are grouped by the draw's current scheduled date, not the invoice or payment transaction date. Changes are detected during nightly sync, so moves that happen and revert between syncs may not be visible in history. This page never edits JobTread.</p>
+    </div>
+  </main>
+</div>
+<script src="shared-navigation.js"></script>
+<script>
+(() => {
+  'use strict';
+  const API_URL='https://icqkuhbhcennhhbbwqgo.supabase.co';
+  const PUBLIC_KEY='sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R';
+  const client=supabase.createClient(API_URL,PUBLIC_KEY);
+  const $=id=>document.getElementById(id);
+  const money=v=>v==null?'—':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v)||0);
+  const preciseMoney=v=>v==null?'—':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(v)||0);
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const dateFrom=iso=>iso?new Date(iso+'T12:00:00'):null;
+  const dateLabel=iso=>iso?dateFrom(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'Unscheduled';
+  const mName=iso=>dateFrom(iso+'-01').toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const ymd=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+  const today=ymd(new Date());
+  const firstMonth=new Date(Number(today.slice(0,4)),Number(today.slice(5,7))-1,1);
+  const sixMonths=Array.from({length:6},(_,i)=>ymd(new Date(firstMonth.getFullYear(),firstMonth.getMonth()+i,1)).slice(0,7));
+  const sixEnd=ymd(new Date(firstMonth.getFullYear(),firstMonth.getMonth()+6,1));
+  let rows=[],selectedMonth=sixMonths[0],selectedWeek='',selectedDrawId='',latestSuccess=null;
+
+  function weekKey(date){const d=dateFrom(date);if(!d)return 'undated';const diff=(d.getDay()+6)%7;d.setDate(d.getDate()-diff);return ymd(d)}
+  function weekLabel(key){if(key==='undated')return 'Unscheduled';const start=dateFrom(key),end=dateFrom(key);end.setDate(end.getDate()+6);const opt={month:'short',day:'numeric'};return start.toLocaleDateString('en-US',opt)+' – '+end.toLocaleDateString('en-US',opt)}
+  function aggregate(items){return {count:items.length,scheduled:items.reduce((n,x)=>n+(Number(x.scheduled_amount)||0),0),invoiced:items.reduce((n,x)=>n+(Number(x.invoiced_amount)||0),0),outstanding:items.reduce((n,x)=>n+(Number(x.outstanding_amount)||0),0),collected:items.reduce((n,x)=>n+(Number(x.collected_amount)||0),0),unpriced:items.filter(x=>x.scheduled_amount==null).length,moved:items.filter(x=>x.move_count>0).length}}
+  function visible(){const mode=$('dateMode').value,status=$('statusFilter').value,search=$('searchInput').value.toLowerCase().trim();return rows.filter(x=>{
+    if(!x.is_active)return false;
+    const d=x.scheduled_date;
+    if(mode==='future'&&(!d||d<today||d>=sixEnd))return false;
+    if(mode==='earlier'&&(!d||d>=today))return false;
+    if(status==='draft'&&Number(x.invoiced_amount)>0)return false;
+    if(status==='invoiced'&&Number(x.invoice_count)<1)return false;
+    if(status==='outstanding'&&Number(x.outstanding_amount)<=0)return false;
+    if(status==='collected'&&Number(x.collected_amount)<=0)return false;
+    if(status==='moved'&&Number(x.move_count)<1)return false;
+    if(status==='unpriced'&&x.scheduled_amount!=null)return false;
+    if(search&&!([x.client_name,x.job_number,x.draw_name].join(' ').toLowerCase().includes(search)))return false;
+    return true;
+  })}
+  function buckets(items){const map=new Map();for(const x of items){const m=x.scheduled_date?.slice(0,7)||'undated';if(!map.has(m))map.set(m,[]);map.get(m).push(x)}return map}
+  function monthKeys(items){const mode=$('dateMode').value;if(mode==='future')return sixMonths;return Array.from(buckets(items).keys()).sort((a,b)=>b.localeCompare(a))}
+  function render(){const items=visible(),totals=aggregate(items);$('totalCount').textContent=`${totals.count} draws · ${totals.unpriced} without linked amounts`;
+    $('kpiCards').innerHTML=[
+      ['Scheduled Draws',money(totals.scheduled),`${totals.count} draws in selected view`,''],
+      ['Invoiced',money(totals.invoiced),'Excludes draft invoices','invoice'],
+      ['Outstanding',money(totals.outstanding),'Unpaid invoice balances','outstanding'],
+      ['Collected',money(totals.collected),'Payments applied to draw invoices','collected'],
+      ['Unpriced Draws',String(totals.unpriced),'No linked invoice amount yet','unpriced']
+    ].map(([label,value,foot,klass])=>`<article class="kpi panel ${klass}"><div class="eyebrow">${label}</div><div class="number">${value}</div><div class="foot">${foot}</div></article>`).join('');
+    const keys=monthKeys(items),b=buckets(items),max=Math.max(1,...keys.map(k=>aggregate(b.get(k)||[]).scheduled));
+    if(!keys.includes(selectedMonth))selectedMonth=keys[0]||'';
+    $('monthsTitle').textContent=$('dateMode').value==='future'?'Six-Month Forecast':'Historical Draw Summary';
+    $('monthsSub').textContent=$('dateMode').value==='future'?`${mName(sixMonths[0])} through ${mName(sixMonths[5])}; current month starts today.`:'Draw dates in the selected range.';
+    $('monthCards').innerHTML=keys.length?keys.map(k=>{const v=aggregate(b.get(k)||[]);return `<button type="button" class="month ${k===selectedMonth?'selected':''}" data-month="${esc(k)}" aria-pressed="${k===selectedMonth}"><div class="month-top"><span class="month-name">${k==='undated'?'Unscheduled':mName(k)}</span><span class="month-count">${v.count} draws</span></div><div class="month-total">${money(v.scheduled)}</div><div class="meter"><span style="width:${Math.max(0,Math.round(v.scheduled/max*100))}%"></span></div><div class="month-meta"><span>Invoiced <strong>${money(v.invoiced)}</strong></span><span>Unpriced <strong>${v.unpriced}</strong></span></div></button>`}).join(''):'<div class="panel empty">No matching draws.</div>';
+    document.querySelectorAll('[data-month]').forEach(btn=>btn.addEventListener('click',()=>{selectedMonth=btn.dataset.month;selectedWeek='';selectedDrawId='';render()}));
+    renderWeeks(items.filter(x=>(x.scheduled_date?.slice(0,7)||'undated')===selectedMonth));
+  }
+  function renderWeeks(items){$('weeksTitle').textContent=selectedMonth==='undated'?'Unscheduled Draws':selectedMonth?mName(selectedMonth):'Weekly Breakdown';
+    const groups=new Map();for(const row of items){const w=row.scheduled_date?weekKey(row.scheduled_date):'undated';if(!groups.has(w))groups.set(w,[]);groups.get(w).push(row)}
+    const keys=Array.from(groups.keys()).sort();if(!keys.includes(selectedWeek))selectedWeek=keys[0]||'';
+    $('weeksList').innerHTML=keys.length?keys.map(k=>{const a=aggregate(groups.get(k));return `<button type="button" class="week-btn ${k===selectedWeek?'selected':''}" data-week="${esc(k)}" aria-pressed="${k===selectedWeek}"><div class="week-head"><span>${weekLabel(k)}</span><span class="arrow">›</span></div><div class="week-value">${money(a.scheduled)}</div><div class="week-bottom"><span>${a.count} draws</span><span>Invoiced ${money(a.invoiced)}</span><span>${a.moved} moved</span></div></button>`}).join(''):'<div class="empty">No draws in this month.</div>';
+    document.querySelectorAll('[data-week]').forEach(btn=>btn.addEventListener('click',()=>{selectedWeek=btn.dataset.week;selectedDrawId='';renderWeeks(items)}));
+    renderTable(groups.get(selectedWeek)||[]);
+  }
+  function shiftBadge(x){if(!x.move_count)return '<span class="pill">On original date</span>';const days=x.days_shifted;const cls=days>0?'red':days<0?'green':'blue';return `<span class="pill ${cls}">${days>0?'+':''}${days??'—'} days</span><span class="sub">${x.move_count} change${x.move_count===1?'':'s'}</span>`}
+  function renderTable(items){$('resultsTitle').textContent=selectedWeek?`Draws · ${weekLabel(selectedWeek)}`:'Draw Details';$('resultsDescription').textContent=`${items.length} scheduled draw${items.length===1?'':'s'} · Select Details for invoice and movement history.`;
+    $('drawTable').innerHTML=items.length?items.slice().sort((a,b)=>(a.scheduled_date||'').localeCompare(b.scheduled_date||'')).map(x=>`<tr><td><span class="client">${esc(x.client_name)}</span><span class="sub">Job #${esc(x.job_number)}</span></td><td>${esc(x.draw_name)}</td><td>${dateLabel(x.scheduled_date)}</td><td>${shiftBadge(x)}</td><td class="num">${money(x.scheduled_amount)}${x.scheduled_amount==null?'<span class="sub">Not priced</span>':''}</td><td class="num">${money(x.invoiced_amount)}</td><td class="num">${money(x.outstanding_amount)}</td><td class="num">${money(x.collected_amount)}</td><td><button class="link-btn" type="button" data-draw="${esc(x.task_id)}">Details</button></td></tr>`).join(''):'<tr><td colspan="9" class="empty">No draws in the selected week.</td></tr>';
+    document.querySelectorAll('[data-draw]').forEach(btn=>btn.addEventListener('click',()=>showDetail(btn.dataset.draw)));
+    if(selectedDrawId&&items.some(x=>x.task_id===selectedDrawId))showDetail(selectedDrawId);else $('drawDetails').classList.add('hidden');
+  }
+  async function showDetail(id){const x=rows.find(r=>r.task_id===id);if(!x)return;selectedDrawId=id;
+    const target=$('drawDetails');target.classList.remove('hidden');const invoices=Array.isArray(x.linked_invoices)?x.linked_invoices:[];
+    target.innerHTML=`<div class="detail"><div class="detail-top"><div><h3>${esc(x.client_name)} · ${esc(x.draw_name)}</h3><span class="sub">Job #${esc(x.job_number)} · First seen ${new Date(x.first_seen_at).toLocaleDateString('en-US')}</span></div><button class="btn" id="closeDetail">Close</button></div><div class="detail-stats"><div class="stat"><b>${dateLabel(x.first_scheduled_date)}</b><span>Original date first observed</span></div><div class="stat"><b>${dateLabel(x.scheduled_date)}</b><span>Current scheduled date</span></div><div class="stat"><b>${x.days_shifted==null?'—':(x.days_shifted>0?'+':'')+x.days_shifted+' days'}</b><span>Net change from original</span></div><div class="stat"><b>${x.move_count}</b><span>Detected date changes</span></div></div><h4>Linked JobTread Invoices</h4>${invoices.length?`<div class="table-wrap"><table style="min-width:620px"><thead><tr><th>Invoice</th><th>Status</th><th class="num">Total</th><th class="num">Collected</th><th class="num">Balance</th></tr></thead><tbody>${invoices.map(d=>`<tr><td>${esc(d.name)} ${d.number?'#'+esc(d.number):''}</td><td><span class="pill ${d.status==='draft'?'amber':'blue'}">${esc(d.status)}</span></td><td class="num">${preciseMoney(d.price)}</td><td class="num">${preciseMoney(d.amount_paid)}</td><td class="num">${d.status==='draft'?'—':preciseMoney(d.balance)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="sub">No linked customer invoice yet. The scheduled amount is unknown.</p>'}<h4>Detected Draw Date Changes</h4><div id="moveHistory">Loading history...</div></div>`;
+    $('closeDetail').addEventListener('click',()=>{selectedDrawId='';target.classList.add('hidden')});
+    const {data,error}=await client.from('jobtread_accounting_draw_moves').select('old_date,new_date,movement_days,net_days_from_first,detected_at').eq('task_id',id).order('detected_at',{ascending:false}).limit(200);
+    if(selectedDrawId!==id)return;
+    $('moveHistory').innerHTML=error?`<span class="sub">Could not load history: ${esc(error.message)}</span>`:data?.length?`<ol class="history-list">${data.map(h=>`<li><strong>${dateLabel(h.old_date)} → ${dateLabel(h.new_date)}</strong> (${h.movement_days>0?'+':''}${h.movement_days??'—'} days) · Detected ${new Date(h.detected_at).toLocaleString('en-US')}</li>`).join('')}</ol>`:'<span class="sub">No date movements detected since first sync.</span>';
+  }
+  function exportCsv(){const columns=[['job_number','Job #'],['client_name','Client'],['draw_name','Draw'],['first_seen_at','First Seen'],['first_scheduled_date','Original Scheduled Date'],['scheduled_date','Current Scheduled Date'],['days_shifted','Net Days Shifted'],['move_count','Date Moves'],['scheduled_amount','Scheduled Amount'],['invoiced_amount','Invoiced Amount'],['outstanding_amount','Outstanding'],['collected_amount','Collected'],['invoice_count','Issued Invoices'],['draft_invoice_count','Draft Invoices']];
+    const csv=[columns.map(c=>c[1]),...visible().map(x=>columns.map(c=>x[c[0]]??''))].map(line=>line.map(s=>'"'+String(s).replaceAll('"','""')+'"').join(',')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`molinari_draw_forecast_${today}.csv`;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  function notice(message,type=''){$('syncStatus').className='status '+type;$('syncStatus').textContent=message}
+  async function load(){notice('Loading the latest stored JobTread Draw Schedule...');const [draws,runs]=await Promise.all([client.from('jobtread_accounting_draws').select('*').order('scheduled_date',{ascending:true,nullsFirst:false}).limit(1000),client.from('jobtread_accounting_draw_sync_runs').select('started_at,finished_at,status,message,source_count,stored_count').order('started_at',{ascending:false}).limit(3)]);
+    if(draws.error){notice('Unable to load draw schedule: '+draws.error.message,'error');return}
+    rows=draws.data||[];const recent=runs.data||[];latestSuccess=recent.find(r=>r.status==='success')||null;const last=recent[0];
+    if(!runs.error&&last?.status==='error'){notice(`Last JobTread sync failed (${new Date(last.started_at).toLocaleString('en-US')}): ${last.message||'Check integration'}. Showing the last successful snapshot.`,'warn')}
+    else if(latestSuccess){notice(`Live JobTread snapshot stored successfully · ${rows.filter(x=>x.is_active).length} draws · Last sync ${new Date(latestSuccess.finished_at||latestSuccess.started_at).toLocaleString('en-US')} · Automatic overnight update enabled.`)}
+    else notice('No successful JobTread sync has been recorded yet. Contact the administrator.','warn');
+    render();
+  }
+  async function init(){try{const {data:s,error:se}=await client.auth.getSession();if(se)throw se;if(!s?.session?.user){$('accessMessage').textContent='Please sign in to use Accounting Draw Schedule.';return}
+    const {data:p,error:pe}=await client.from('user_profiles').select('role,active').eq('id',s.session.user.id).maybeSingle();if(pe)throw pe;
+    if(!p?.active||!['ACCOUNTING','ADMIN','SYSTEM_ADMIN'].includes(p.role)){$('accessMessage').textContent='Access restricted to Accounting, Admin, and System Admin users.';return}
+    $('accessGate').classList.add('hidden');$('pageContent').classList.remove('hidden');await load();
+  }catch(e){$('accessMessage').textContent='Cannot verify access: '+String(e?.message||e)}}
+  $('reloadButton').addEventListener('click',load);$('exportButton').addEventListener('click',exportCsv);
+  ['dateMode','statusFilter'].forEach(id=>$(id).addEventListener('change',()=>{selectedWeek='';selectedDrawId='';render()}));
+  $('searchInput').addEventListener('input',()=>{selectedWeek='';selectedDrawId='';render()});
+  init();
+})();
+</script>
+</body>
+</html>
