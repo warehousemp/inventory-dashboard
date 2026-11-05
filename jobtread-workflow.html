@@ -729,6 +729,7 @@ const currentRecoveryVerified = new Set();
 // Job 1317 final PO action starts disabled. It unlocks ONLY after a
 // matching, successful read-only schema/budget/serial/duplicate check.
 const job1317ReadOnlyApproved = new Set();
+const job1317BillRecoveryReady = new Set();
 function updateJob1317RealPOButton(handoffId){
  // The real Job 1317 PO #1 has been successfully created. This action must
  // remain disabled regardless of local test state, serial selections, or role.
@@ -964,14 +965,14 @@ function renderFulfillmentPaths(h,lines,article){
       <button class="btn-teal" type="button" data-action="validate-inventory" disabled>CHECK JOBTREAD PO DETAILS</button>
       <button class="btn-light" type="button" data-action="check-commitment-readiness">CHECK COMMITMENT READINESS</button>
       ${h.job_number==='1317'?'<button class="btn-teal" type="button" data-action="check-job1317-bill-readiness">CHECK APPROVED BILL READINESS — READ ONLY</button>':''}
-      ${h.job_number==='1317'?'<button class="btn-orange" type="button" data-action="create-job1317-approved-bill" disabled title="The prior one-time Bill attempt is locked for reconciliation. Do not retry or create another Bill.">CREATE APPROVED VENDOR BILL 1317 — LOCKED</button>':''}
+      ${h.job_number==='1317'?'<button class="btn-orange" type="button" data-action="create-job1317-approved-bill" disabled title="Run CHECK APPROVED BILL READINESS first. The original attempt remains locked; this is a separately authorized, one-time recovery test.">SECOND ONE-TIME TEST — CREATE & APPROVE INTERNAL BILL 1317</button>':''}
       ${h.job_number==='1317'?'<button class="btn-light" type="button" disabled title="JobTread accepted the newCostItem format and PO #1 was created">NEW-COST ITEM PREFLIGHT COMPLETE</button><button class="btn-teal" type="button" data-action="verify-existing-job1317-po">VERIFY EXISTING JOB 1317 PO #1 — READ ONLY</button><button class="btn-light" type="button" disabled>PO #1 APPROVED — PAYMENT SCHEDULE OFF</button><button class="btn-teal" type="button" data-action="check-job1317-pdf-filing">CHECK PO PDF FILING — READ ONLY</button><button class="btn-orange" type="button" data-action="file-job1317-po-pdf" disabled>FILE APPROVED PO #1 PDF — ONE TIME</button>':'<button class="btn-teal" type="button" data-action="check-po-create-preflight">CHECK PO CREATION PREFLIGHT</button>'}
       ${h.job_number==='1317'?'<button class="btn-orange" type="button" data-action="create-job1317-real-po" disabled>PO #1 CREATED — NO SECOND PO ALLOWED</button>':''}
       ${h.job_number==='1314'?'<button class="btn-light" type="button" data-action="check-failed-po-recovery">CHECK JOB 1314 FOR DUPLICATE POs</button><button class="btn-light" type="button" data-action="check-jobtread-cost-item-ids">DIAGNOSE JOBTREAD PO LINE IDs — READ ONLY</button><button class="btn-orange" type="button" data-action="create-one-live-test-po" disabled title="Both real PO attempts are exhausted. Budget-item IDs were rejected by JobTread. Further creation is locked.">JOB 1314 FINAL RETRY LOCKED — REVIEW COST ITEM IDs</button>':''}
       <button class="btn-primary" type="button" disabled title="Path A requires a verified approved PO, an APPROVED JobTread Vendor Bill with qboIsIgnored=true, and safe inventory commitment before production activation">YES — FULFILL FROM INVENTORY</button>
     </div>
     <div class="path-result">Path A target: Approved JobTread PO + APPROVED internal Vendor Bill (BOTH excluded from QuickBooks) · Record PO and Bill IDs · COMMIT inventory without issuing stock.</div>
-    <div class="path-note"><strong>PATH A — QUICKBOOKS HARD STOP:</strong> Internal Molinari Pools Inventory PO and Vendor Bill must each have Ignore QuickBooks = YES, independently verified in JobTread. Never create a second PO or Bill. The Approved Bill must be linked to the existing PO and the correct job budget items. Physical inventory issuing is a separate later step. General production fulfillment remains disabled. The Job 1317 Bill creation attempt is LOCKED; the read-only location precheck will never authorize another attempt.</div>
+    <div class="path-note"><strong>PATH A — QUICKBOOKS HARD STOP:</strong> Internal Molinari Pools Inventory PO and Vendor Bill must each have Ignore QuickBooks = YES, independently verified in JobTread. Never create a second PO or repeat a Bill attempt. The Approved Bill must be linked to the existing PO and the correct job budget items. Physical inventory issuing is a separate later step. General production fulfillment remains disabled. The ORIGINAL Job 1317 Bill attempt stays locked forever; a NEW, separately audited one-time recovery test is permitted only after the read-only check and two user confirmations. No PDF filing.</div>
     <div class="path-note" style="font-weight:700;padding:7px 0;">Required JobTread filing: Job Files → ALL FILES - INVOICES. ${h.job_number==='1314'?'CONTROLLED PATH A TEST: SIX inventory lines, FIVE selected serialized units, and $6,247.04 actual-cost estimate. PGRM-2 posted cycle count confirms 2 on hand; its purchase-lot and FIFO valuation are NOT reconciled. The two attempted live PO creations are locked. No further Job 1314 PO creation is allowed.':h.job_number==='1317'?'Job 1317 PO #1 is APPROVED and its ONE serialized unit is COMMITTED in the database. The separate PDF filing test requires the read-only check and your explicit one-time authorization. No second PO.':'The production PO and inventory commitment integration remains disabled.'}</div>
     <div class="path-note">TEST MODE: Choose a distinct serial number for EACH unit; choices are not saved. CHECK JOBTREAD PO DETAILS and PO CREATION PREFLIGHT are read-only. ${h.job_number==='1314'?'Job 1314 has exhausted two real PO attempts. Use the READ-ONLY ID diagnostic to inspect budget and catalog ID mapping before any future PO workflow work. PGRM-2 valuation reconciliation and PO PDF filing are separate outstanding requirements.':'Job 1317 already has an approved PO and one committed serial. PDF filing does not issue inventory, change its valuation, create a bill or send anything to QuickBooks. No additional PO creation is permitted.'} LIVE ASSIGNMENTS require explicitly SAVING serial numbers; no saving occurs in TEST mode.</div>
     <div class="vendor-groups" data-commitment-readiness hidden></div>
@@ -1001,6 +1002,7 @@ function renderFulfillmentPaths(h,lines,article){
     currentSchemaPreflightPassed.delete(h.id);
     currentRecoveryVerified.delete(h.id);
     job1317ReadOnlyApproved.delete(h.id);
+    job1317BillRecoveryReady.delete(h.id);
     updateJob1317RealPOButton(h.id);
     updateFinalTestButton(h.id);
     const readiness=stock.querySelector('[data-commitment-readiness]');readiness.hidden=true;readiness.textContent='';
@@ -1082,6 +1084,7 @@ async function checkJob1317BillReadiness(handoffId,button,container){
   if(!container||!button)return;
   const createButton=container.closest('.fulfillment-path')?.querySelector('[data-action="create-job1317-approved-bill"]');
   if(createButton)createButton.disabled=true;
+  job1317BillRecoveryReady.delete(handoffId);
   if(!['WAREHOUSE','ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
     window.alert('Warehouse, Admin or System Admin access is required.');
     return;
@@ -1104,9 +1107,22 @@ async function checkJob1317BillReadiness(handoffId,button,container){
       container.innerHTML='<strong>BILL PRECHECK BLOCKED — NO BILL CREATED</strong><p>'+escapeHTML(reason)+'</p>';
       return;
     }
-    // Never re-enable the spent one-time action. A prior external request was
-    // submitted and its audit record is locked for manual reconciliation.
-    if(createButton)createButton.disabled=true;
+    // The original Bill request and its audit remain locked. A separate recovery
+    // attempt has an independent server-side one-time lock and fresh prechecks.
+    const recoveryCheckPassed =
+      result.mode==='READ_ONLY_JOB1317_VENDOR_BILL_PREFLIGHT' &&
+      result.poApprovedAndQboIgnored===true &&
+      result.vendorDocumentSearchComplete===true &&
+      result.existingBillCount===0 &&
+      result.jobLocationVerified===true && result.jobLocationInputSupported===true &&
+      result.oneTimeAttemptExists===true &&
+      result.oneTimeAttemptStatus==='RECONCILIATION_REQUIRED' &&
+      result.readyForOneTimeCreation===false &&
+      result.billTypeSupported===true && result.qboIgnoreInputSupported===true &&
+      result.headerFieldsPresent===true && !!result.referencesSchema && !!result.lineItemsSchema &&
+      result.jobtreadWrites===false && result.databaseWrites===false;
+    if(recoveryCheckPassed)job1317BillRecoveryReady.add(handoffId);
+    if(createButton)createButton.disabled=!recoveryCheckPassed;
     const lines=[
       'Existing JobTread PO #1 approved and QBO ignored: '+(result.poApprovedAndQboIgnored===true?'YES':'NO'),
       'Full vendor document search complete: '+(result.vendorDocumentSearchComplete===true?'YES':'NO'),
@@ -1116,15 +1132,17 @@ async function checkJob1317BillReadiness(handoffId,button,container){
       'Job location address: '+String(result.jobLocation?.address||'not verified'),
       'Bill API accepts jobLocationName: '+(result.jobLocationInputSupported===true?'YES':'NO / NOT VERIFIED'),
       'Previous one-time Bill attempt: '+(result.oneTimeAttemptExists===true?String(result.oneTimeAttemptStatus||'LOCKED'):'none recorded / not verified'),
-      'New Bill creation permitted: NO — the one-time test remains locked',
+      'Original Bill attempt: LOCKED — no reset or retry',
+      'Separate SECOND one-time recovery test: '+(recoveryCheckPassed?'READY FOR USER CONFIRMATION':'BLOCKED / NEEDS REVIEW'),
       'Vendor Bill type supported by JobTread: '+(result.billTypeSupported===true?'YES':'NO'),
       'Vendor Bill qboIsIgnored input supported: '+(result.qboIgnoreInputSupported===true?'YES':'NO'),
       'Bill-to-PO reference schema available: '+(result.referencesSchema?'YES':'NO'),
       'Cost item input schema available: '+(result.lineItemsSchema?'YES':'NO'),
       'No document or database changes: '+(result.jobtreadWrites===false&&result.databaseWrites===false?'CONFIRMED':'NOT CONFIRMED')
     ];
-    container.innerHTML='<strong>JOB 1317 — READ-ONLY LOCATION & BILL CHECK: '+(result.jobLocationVerified===true&&result.jobLocationInputSupported===true?'LOCATION VERIFIED — BILL CREATION LOCKED':'LOCATION OR SCHEMA NEEDS REVIEW')+'</strong>'+ 
+    container.innerHTML='<strong>JOB 1317 — READ-ONLY LOCATION & BILL CHECK: '+(recoveryCheckPassed?'SECOND ONE-TIME TEST READY':'RECOVERY TEST BLOCKED')+'</strong>'+ 
       '<p>This is READ ONLY. No Vendor Bill has been created or approved, and no QuickBooks or inventory change occurred.</p>'+
+      '<p>'+(recoveryCheckPassed?'The separate orange recovery-test button is enabled. Clicking it requires two explicit confirmations before the single live JobTread Bill request.':'No Bill button was enabled. The server will independently recheck all conditions and block any repeated recovery attempt.')+'</p>'+
       '<pre style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto">'+
       escapeHTML(lines.join('\n')+'\n\nSchema details for verification:\n'+JSON.stringify({referencesSchema:result.referencesSchema,referenceError:result.referencesSchemaError,lineItemsSchema:result.lineItemsSchema,existingBills:result.existingBills},null,2))+'</pre>';
   }catch(e){
@@ -1137,21 +1155,22 @@ async function createJob1317ApprovedBill(handoffId,button,container){
   if(handoffId!=='8e3d42ec-43d6-48e8-8e71-4170b9c2b18d'){
     window.alert('This authorization applies ONLY to Job 1317, existing PO #1.');return;
   }
-  if(isTestMode(handoffId)){
-    window.alert('Switch to LIVE ASSIGNMENTS, then rerun the read-only Bill precheck.');return;
+  if(!job1317BillRecoveryReady.has(handoffId)){
+    window.alert('Run the read-only Job 1317 Bill readiness check. Only a verified separate recovery test may proceed.');return;
   }
   if(!['WAREHOUSE','ADMIN','SYSTEM_ADMIN'].includes(String(currentProfile?.role))){
     window.alert('Warehouse, Admin or System Admin permission is required.');return;
   }
-  const confirmation='CREATE APPROVED INTERNAL BILL 1317 PO 1';
-  if(!window.confirm('ONE-TIME REAL JOBTREAD BILL\n\nJob: 1317\nExisting PO: #1 — NO SECOND PO\nVendor: Molinari Pools Inventory\nBill: $1,286.12, final status APPROVED\nQuickBooks: IGNORE / NEVER SYNC\nInventory commitment and physical stock: UNCHANGED\nPDF filing: ON HOLD\n\nOne Bill will be attempted. Ambiguous outcomes cannot be retried automatically. Continue?'))return;
+  const confirmation='AUTHORIZE SECOND ONE-TIME INTERNAL BILL 1317 PO 1';
+  if(!window.confirm('SECOND, SEPARATELY AUTHORIZED ONE-TIME JOBTREAD BILL TEST\n\nJob: 1317\nExisting APPROVED PO: #1 — NO SECOND PO\nVendor: Molinari Pools Inventory\nBill: $1,286.12, final status APPROVED if all readbacks pass\nQuickBooks: IGNORE / NEVER SYNC (BOTH PO & BILL)\nInventory and serial assignment: UNCHANGED\nPDF filing: ON HOLD\n\nThe ORIGINAL failed Bill attempt stays locked. This is ONE NEW, separately audited recovery attempt. If the result is unclear, STOP and reconcile — NEVER retry. Continue?'))return;
   const typed=window.prompt('For the single authorized Job 1317 Vendor Bill, type EXACTLY:\n'+confirmation,'');
   if(typed!==confirmation){window.alert('Confirmation did not match. No request was sent.');return;}
+  job1317BillRecoveryReady.delete(handoffId);
   button.disabled=true;
   container.hidden=false;
   container.textContent='Running the final independent PO/Bill/QBO checks, then creating at most ONE Vendor Bill. DO NOT CLICK AGAIN OR REFRESH until the result appears...';
   try{
-    const {data,error}=await client.functions.invoke('jobtread-project-bill-create-1317-one-time',{body:{
+    const {data,error}=await client.functions.invoke('jobtread-project-bill-recovery-1317-one-time',{body:{
       handoffId,poId:'22PhPhjaFY8D',confirmation,
       confirmOneTimeLiveBill:true,acknowledgeNoQBOForPOAndBill:true
     }});
