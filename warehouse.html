@@ -161,6 +161,11 @@
       transform: scale(0.98);
     }
 
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
     .issue-btn {
       background: #1aa3b0;
       color: white;
@@ -331,6 +336,40 @@
       font-size: 13px;
       line-height: 1.5;
       margin-bottom: 18px;
+    }
+
+    .chemical-receive-dialog {
+      width: min(540px, calc(100vw - 32px));
+      max-width: 540px;
+      border: 1px solid #fecaca;
+      border-top: 7px solid #b91c1c;
+      border-radius: 14px;
+      padding: 28px;
+      background: #fff;
+      color: #1f2933;
+      box-shadow: 0 20px 70px rgba(0, 0, 0, 0.25);
+    }
+
+    .chemical-receive-dialog::backdrop {
+      background: rgba(8, 30, 49, 0.72);
+    }
+
+    .chemical-receive-dialog h2 {
+      color: #991b1b;
+      margin-bottom: 14px;
+    }
+
+    .chemical-receive-dialog p {
+      font-size: 16px;
+      line-height: 1.65;
+      margin-bottom: 22px;
+    }
+
+    .chemical-receive-dialog button {
+      background: #0b3c5d;
+      color: #fff;
+      margin: 0;
+      width: 100%;
     }
 
     pre {
@@ -1811,6 +1850,7 @@
         <label>Part Number:</label>
         <input id="receivePart" list="partsList" placeholder="Start typing part number..." autocomplete="off">
         <div id="receivePartDescription" class="part-description-display">Part description will appear here after a part number is selected.</div>
+        <div id="receiveCategoryWarning" class="danger-note" role="alert" style="display:none;"></div>
 
         <div id="receiveSerialContainer" style="display: none;">
           <label>Serial Number:</label>
@@ -1862,7 +1902,7 @@
           <div id="receiveBatchPreview" class="batch-preview-box">Batch code will appear here.</div>
         </div>
 
-        <button class="receive-btn" onclick="receive()">RECEIVE INVENTORY</button>
+        <button id="receiveSubmitButton" class="receive-btn" onclick="receive()">RECEIVE INVENTORY</button>
 
         <pre id="receiveOutput" class="workflow-output">Receive status will appear here...</pre>
       </div>
@@ -2243,6 +2283,12 @@
 
 </div>
 
+<dialog id="chemicalReceiveDialog" class="chemical-receive-dialog" aria-labelledby="chemicalReceiveDialogTitle" aria-describedby="chemicalReceiveDialogMessage">
+  <h2 id="chemicalReceiveDialogTitle">⚠ RECEIVING BLOCKED — CHEMICALS</h2>
+  <p id="chemicalReceiveDialogMessage">This category of items does not get received in inventory. Must be entered into QuickBooks as a SERVICE MATERIAL, NOT INVENTORY.</p>
+  <button type="button" onclick="document.getElementById('chemicalReceiveDialog').close()">UNDERSTOOD</button>
+</dialog>
+
 <script src="shared-navigation.js"></script>
 
 <script>
@@ -2291,6 +2337,75 @@ let serializedInventoryData = [];
 let serializedCategoryBrowseData = [];
 let serializedPartsData = [];
 let inventoryVendorData = [];
+
+const CHEMICAL_RECEIVE_WARNING = 'This category of items does not get received in inventory. Must be entered into QuickBooks as a SERVICE MATERIAL, NOT INVENTORY.';
+let receiveCategoryCheckSequence = 0;
+let lastChemicalReceiveWarningPart = null;
+
+function isChemicalReceivingCategory(category) {
+  return ['CHEMICAL', 'CHEMICALS'].includes(String(category || '').trim().toUpperCase());
+}
+
+function showChemicalReceiveDialog() {
+  const dialog = document.getElementById('chemicalReceiveDialog');
+  if (dialog && typeof dialog.showModal === 'function') {
+    if (!dialog.open) dialog.showModal();
+  } else {
+    window.alert(CHEMICAL_RECEIVE_WARNING);
+  }
+}
+
+function setReceiveCategoryWarning(message = '') {
+  const warning = document.getElementById('receiveCategoryWarning');
+  if (!warning) return;
+  warning.textContent = message;
+  warning.style.display = message ? 'block' : 'none';
+}
+
+// The parts dropdown RPC does not return category, so verify it using the parts table.
+// Always verify again immediately before either receiving RPC is called.
+async function getReceivePartCategory(matchedPart) {
+  const { data, error } = await client
+    .from('parts')
+    .select('category')
+    .eq('part_number', matchedPart.part_number)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('The selected part is no longer available for receiving.');
+  return data.category;
+}
+
+async function checkReceiveCategoryOnSelection(matchedPart) {
+  const requestSequence = ++receiveCategoryCheckSequence;
+  if (!matchedPart) {
+    setReceiveCategoryWarning();
+    lastChemicalReceiveWarningPart = null;
+    return;
+  }
+
+  try {
+    const category = await getReceivePartCategory(matchedPart);
+    if (requestSequence !== receiveCategoryCheckSequence ||
+        getMatchedPart('receivePart')?.part_number !== matchedPart.part_number) return;
+
+    if (isChemicalReceivingCategory(category)) {
+      setReceiveCategoryWarning(CHEMICAL_RECEIVE_WARNING);
+      if (lastChemicalReceiveWarningPart !== matchedPart.part_number) {
+        lastChemicalReceiveWarningPart = matchedPart.part_number;
+        showChemicalReceiveDialog();
+      }
+    } else {
+      setReceiveCategoryWarning();
+      lastChemicalReceiveWarningPart = null;
+    }
+  } catch (error) {
+    if (requestSequence !== receiveCategoryCheckSequence ||
+        getMatchedPart('receivePart')?.part_number !== matchedPart.part_number) return;
+    setReceiveCategoryWarning('RECEIVING PAUSED: Unable to verify this part’s category. Please try again. ' + error.message);
+  }
+}
 
 let currentWarehouseProfile = null;
 let currentWarehouseSession = null;
@@ -3627,10 +3742,11 @@ function updateReceiveBatchFields() {
   }
 }
 
-function checkReceiveSerialized() {
+function checkReceiveSerialized(skipCategoryCheck = false) {
   updateReceivePartDescription();
 
   const matchedPart = getMatchedPart('receivePart');
+  if (!skipCategoryCheck) void checkReceiveCategoryOnSelection(matchedPart);
   const isSerialized = matchedPart?.is_serialized === true;
   const serialContainer = document.getElementById('receiveSerialContainer');
 
@@ -4700,8 +4816,15 @@ async function issue() {
   }
 }
 
+let receiveSubmissionInProgress = false;
 async function receive() {
-  checkReceiveSerialized();
+  if (receiveSubmissionInProgress) return;
+  receiveSubmissionInProgress = true;
+  const receiveButton = document.getElementById('receiveSubmitButton');
+  if (receiveButton) receiveButton.disabled = true;
+
+  try {
+  checkReceiveSerialized(true);
 
   const output = document.getElementById('receiveOutput');
   const matchedPart = getMatchedPart('receivePart');
@@ -4721,6 +4844,32 @@ async function receive() {
     output.textContent = 'Select a valid active part number before receiving inventory.';
     return;
   }
+
+  // Fail closed if category validation cannot be completed. This protects
+  // both regular inventory receipts and client-specific NON_INVENTORY receipts.
+  let category;
+  try {
+    category = await getReceivePartCategory(matchedPart);
+  } catch (error) {
+    const message = 'RECEIVING BLOCKED: Unable to verify this part’s category. Please try again. ' + error.message;
+    output.textContent = message;
+    setReceiveCategoryWarning(message);
+    return;
+  }
+
+  if (getMatchedPart('receivePart')?.part_number !== matchedPart.part_number) {
+    output.textContent = 'The selected part changed during validation. Please click Receive again.';
+    return;
+  }
+
+  if (isChemicalReceivingCategory(category)) {
+    output.textContent = 'RECEIVING BLOCKED: ' + CHEMICAL_RECEIVE_WARNING;
+    setReceiveCategoryWarning(CHEMICAL_RECEIVE_WARNING);
+    showChemicalReceiveDialog();
+    return;
+  }
+
+  setReceiveCategoryWarning();
 
   const clientPurchaseMode = document.getElementById('receiveClientPurchase').value;
   if (clientPurchaseMode !== 'YES' && clientPurchaseMode !== 'NO') {
@@ -4788,7 +4937,7 @@ async function receive() {
   output.textContent = 'Receiving inventory...';
 
   const { data, error } = await client.rpc('receive_inventory_order_tracking', {
-    p_part_number: document.getElementById('receivePart').value,
+    p_part_number: matchedPart.part_number,
     p_quantity: quantityValue,
     p_location_id: receiveLocationId,
     p_serial_number: serialValue || null,
@@ -4827,6 +4976,10 @@ async function receive() {
 
   if (isSerialized) {
     await loadSerializedInventory();
+  }
+  } finally {
+    receiveSubmissionInProgress = false;
+    if (receiveButton) receiveButton.disabled = false;
   }
 }
 
