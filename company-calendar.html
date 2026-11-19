@@ -322,6 +322,7 @@
     .legend-paid { background: #d1fadf; border: 1px solid #12b76a; }
     .legend-unpaid { background: #ffead5; border: 1px solid #f79009; }
     .legend-lead { background: #e9d7fe; border: 1px solid #9e77ed; }
+    .legend-time-off { background: #d1e9f5; border: 1px solid #0b6696; }
     .legend-other { background: #dbeafe; border: 1px solid #3b82f6; }
 
     .calendar-wrap { overflow-x: auto; border: 1px solid #d0d5dd; border-radius: 10px; }
@@ -367,6 +368,7 @@
     .event-paid { background: #d1fadf; color: #05603a; border-color: #6ce9a6; }
     .event-unpaid { background: #ffead5; color: #93370d; border-color: #fec84b; }
     .event-lead { background: #e9d7fe; color: #53389e; border-color: #d6bbfb; }
+    .event-time-off { background: #d1e9f5; color: #0b4a6f; border-color: #74bbd6; }
     .event-other { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
 
     .calendar-empty { padding: 28px; text-align: center; color: var(--muted); }
@@ -671,9 +673,10 @@
           <span class="legend-item"><span class="legend-dot legend-calendar-event"></span>HR Calendar Event</span>
           <span class="legend-item"><span class="legend-dot legend-birthday"></span>Employee Birthday</span>
           <span class="legend-item"><span class="legend-dot legend-anniversary"></span>Work Anniversary</span>
-          <span class="legend-item"><span class="legend-dot legend-paid"></span>Paid Time Off</span>
-          <span class="legend-item"><span class="legend-dot legend-unpaid"></span>Unpaid Time Off</span>
-          <span class="legend-item"><span class="legend-dot legend-lead"></span>PTO Lead</span>
+          <span id="generalTimeOffLegend" class="legend-item hidden"><span class="legend-dot legend-time-off"></span>Time Off</span>
+          <span class="legend-item hidden admin-timeoff-legend"><span class="legend-dot legend-paid"></span>Paid Time Off</span>
+          <span class="legend-item hidden admin-timeoff-legend"><span class="legend-dot legend-unpaid"></span>Unpaid Time Off</span>
+          <span class="legend-item hidden admin-timeoff-legend"><span class="legend-dot legend-lead"></span>PTO Lead</span>
           <span class="legend-item"><span class="legend-dot legend-other"></span>Other</span>
         </div>
 
@@ -1113,6 +1116,12 @@
 
     currentProfile = profile;
 
+    // Reveal the correct time-off legend only after checking the signed-in role.
+    document.getElementById('generalTimeOffLegend').classList.toggle('hidden', hasDetailedTimeOffAccess());
+    document.querySelectorAll('.admin-timeoff-legend').forEach(item => {
+      item.classList.toggle('hidden', !hasDetailedTimeOffAccess());
+    });
+
     const { data: importAccess, error: importAccessError } = await client.rpc('current_user_has_company_calendar_import_access');
     canImport = !importAccessError && importAccess === true;
 
@@ -1232,14 +1241,30 @@
     renderCalendar();
   }
 
+  // Calendar DISPLAY privacy: the detailed leave type is shown only to ADMIN / SYSTEM_ADMIN.
+  // This changes the page presentation, not Supabase data or database read permissions.
+  function hasDetailedTimeOffAccess() {
+    return ['ADMIN', 'SYSTEM_ADMIN'].includes(String(currentProfile?.role || '').trim().toUpperCase());
+  }
+
+  function isPaylocityTimeOff(event) {
+    return String(event?.event_source || '').toUpperCase() === 'PAYLOCITY';
+  }
+
+  function visibleCalendarEventType(event) {
+    if (event.is_company_holiday) return 'COMPANY_HOLIDAY';
+    if (isPaylocityTimeOff(event) && !hasDetailedTimeOffAccess()) return 'TIME_OFF';
+    return event.event_type;
+  }
+
   function populateEventTypeFilter() {
     const select = document.getElementById('eventTypeFilter');
     const currentValue = select.value || 'ALL';
     const values = new Set();
 
     calendarEvents.forEach(event => {
-      if (event.is_company_holiday) values.add('COMPANY_HOLIDAY');
-      else if (event.event_type) values.add(event.event_type);
+      const visibleType = visibleCalendarEventType(event);
+      if (visibleType) values.add(visibleType);
     });
 
     const options = ['<option value="ALL">All Calendar Events</option>'];
@@ -1262,8 +1287,8 @@
     const today = toDateString(new Date());
 
     const filteredEvents = calendarEvents.filter(event => {
-      const searchable = `${event.employee_name || ''} ${event.event_title || ''} ${event.event_type || ''}`.toLowerCase();
-      const eventTypeValue = event.is_company_holiday ? 'COMPANY_HOLIDAY' : event.event_type;
+      const eventTypeValue = visibleCalendarEventType(event);
+      const searchable = `${event.employee_name || ''} ${event.event_title || ''} ${displayEventType(eventTypeValue)}`.toLowerCase();
       return (!search || searchable.includes(search)) && (typeFilter === 'ALL' || eventTypeValue === typeFilter);
     });
 
@@ -1290,7 +1315,7 @@
       const eventHtml = dayEvents.map(event => {
         const eventClass = getEventClass(event);
         const title = event.event_title || event.employee_name || 'Calendar Event';
-        const subtitle = event.is_company_holiday ? 'Company Closed' : displayEventType(event.event_type);
+        const subtitle = event.is_company_holiday ? 'Company Closed' : displayEventType(visibleCalendarEventType(event));
         return `
           <button class="calendar-event ${eventClass}" type="button" data-event-id="${escapeHtml(event.event_id)}" title="${escapeHtml(`${title} — ${subtitle}`)}">
             <strong>${escapeHtml(title)}</strong><span>${escapeHtml(subtitle)}</span>
@@ -1321,6 +1346,7 @@
 
   function getEventClass(event) {
     if (event.is_company_holiday) return 'event-holiday';
+    if (isPaylocityTimeOff(event) && !hasDetailedTimeOffAccess()) return 'event-time-off';
     const type = String(event.event_type || '').toUpperCase();
     if (type === 'NATIONAL_HOLIDAY') return 'event-national';
     if (type === 'CALENDAR_EVENT') return 'event-calendar';
@@ -1339,6 +1365,7 @@
     if (normalized === 'CALENDAR_EVENT') return 'HR Calendar Event';
     if (normalized === 'BIRTHDAY') return 'Employee Birthday';
     if (normalized === 'WORK_ANNIVERSARY') return 'Work Anniversary';
+    if (normalized === 'TIME_OFF') return 'Time Off';
     return value || 'Time Off';
   }
 
@@ -1350,15 +1377,20 @@
       : `${DATE_FORMATTER.format(startDate)} – ${DATE_FORMATTER.format(endInclusive)}`;
 
     document.getElementById('eventModalTitle').textContent = event.event_title || 'Calendar Event';
-    document.getElementById('eventModalSubtitle').textContent = event.is_company_holiday ? 'Company Holiday' : displayEventType(event.event_type);
+    const redactTimeOff = isPaylocityTimeOff(event) && !hasDetailedTimeOffAccess();
+    const visibleType = displayEventType(visibleCalendarEventType(event));
+    document.getElementById('eventModalSubtitle').textContent = visibleType;
 
     const details = [
       ['Date', dateText],
-      ['Event Type', event.is_company_holiday ? 'Company Holiday' : displayEventType(event.event_type)],
+      ['Event Type', visibleType],
       ['Employee', event.employee_name || '—'],
-      ['Description', event.description || '—'],
-      ['Source', event.event_source || '—'],
-      ['Paylocity Request ID', event.external_uid || '—']
+      // Do not expose Paylocity notes or request identifiers in non-admin event details.
+      ...(redactTimeOff ? [] : [
+        ['Description', event.description || '—'],
+        ['Source', event.event_source || '—'],
+        ['Paylocity Request ID', event.external_uid || '—']
+      ])
     ];
 
     document.getElementById('eventDetailGrid').innerHTML = details.map(([label, value]) => `
