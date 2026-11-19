@@ -1,75 +1,2379 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Molinari Company Calendar — Build replacement</title>
-<style>body{font-family:Arial,sans-serif;background:#f4f8fb;color:#1f2933;max-width:780px;margin:48px auto;padding:22px}h1{color:#0b3c5d}section{border:1px solid #d9e2ec;border-radius:14px;background:white;padding:24px;box-shadow:0 6px 18px #0b3c5d11}p,li{line-height:1.55}button{border:0;border-radius:7px;background:#0b3c5d;color:white;font-weight:700;padding:13px 18px;cursor:pointer}button:hover{background:#1a647f}input{margin:12px 0}#status{padding:12px;background:#f2f4f7;border-radius:8px;white-space:pre-wrap;min-height:25px}small{color:#667085}</style>
-</head><body><section><h1>Company Calendar — Time-Off Privacy Display</h1>
-<p>This builder creates a complete updated <strong>company-calendar.html</strong> for the Molinari Pools GitHub Pages site. It leaves the live website and database untouched.</p>
-<p><strong>Employees:</strong> one label, “Time Off,” and one color. <strong>ADMIN / SYSTEM_ADMIN:</strong> existing detailed labels and colors. Filter, legend and event details follow the same rule.</p>
-<p>Click below to retrieve the latest HTML from the public company GitHub repo and build the replacement.</p>
-<button id="build">Load complete updated HTML code</button>
-<button id="copy" type="button" disabled style="margin-left:8px;background:#07788e">COPY ENTIRE CODE</button>
-<button id="download" type="button" disabled style="margin-left:8px;background:#475467">DOWNLOAD HTML</button>
-<p><strong>Backup option:</strong> if GitHub download is unavailable, download the original <code>company-calendar.html</code> from GitHub, select it below, and click the button again.</p>
-<input id="local" type="file" accept=".html,text/html" aria-label="Optional existing company-calendar.html">
-<div id="status" role="status" aria-live="polite">Ready.</div>
-<label for="fullCode"><strong>Complete updated company-calendar.html code (copy all):</strong></label>
-<textarea id="fullCode" readonly spellcheck="false" placeholder="Click Load complete updated HTML code to display the full replacement here." style="width:100%;height:360px;margin-top:10px;padding:12px;border:1px solid #aab8c5;border-radius:8px;font-family:Consolas,monospace;font-size:12px;line-height:1.5;white-space:pre;resize:vertical;"></textarea>
-<p><small>After downloading, upload the new company-calendar.html to the root of the warehousemp/inventory-dashboard GitHub repository. This changes appearance only, not database API permissions.</small></p></section>
-<script id="replacements" type="application/json">[{"name": "Time-off legend CSS", "old": "    .legend-lead { background: #e9d7fe; border: 1px solid #9e77ed; }", "new": "    .legend-lead { background: #e9d7fe; border: 1px solid #9e77ed; }\n    .legend-time-off { background: #d1e9f5; border: 1px solid #0b6696; }"}, {"name": "Time-off event CSS", "old": "    .event-lead { background: #e9d7fe; color: #53389e; border-color: #d6bbfb; }", "new": "    .event-lead { background: #e9d7fe; color: #53389e; border-color: #d6bbfb; }\n    .event-time-off { background: #d1e9f5; color: #0b4a6f; border-color: #74bbd6; }"}, {"name": "Role-controlled legend", "old": "          <span class=\"legend-item\"><span class=\"legend-dot legend-paid\"><\/span>Paid Time Off<\/span>\n          <span class=\"legend-item\"><span class=\"legend-dot legend-unpaid\"><\/span>Unpaid Time Off<\/span>\n          <span class=\"legend-item\"><span class=\"legend-dot legend-lead\"><\/span>PTO Lead<\/span>", "new": "          <span id=\"generalTimeOffLegend\" class=\"legend-item\"><span class=\"legend-dot legend-time-off\"><\/span>Time Off<\/span>\n          <span class=\"legend-item hidden admin-timeoff-legend\"><span class=\"legend-dot legend-paid\"><\/span>Paid Time Off<\/span>\n          <span class=\"legend-item hidden admin-timeoff-legend\"><span class=\"legend-dot legend-unpaid\"><\/span>Unpaid Time Off<\/span>\n          <span class=\"legend-item hidden admin-timeoff-legend\"><span class=\"legend-dot legend-lead\"><\/span>PTO Lead<\/span>"}, {"name": "Toggle legend after active profile verification", "old": "    currentProfile = profile;\n\n    const { data: importAccess", "new": "    currentProfile = profile;\n    document.getElementById('generalTimeOffLegend').classList.toggle('hidden', hasDetailedTimeOffAccess());\n    document.querySelectorAll('.admin-timeoff-legend').forEach(item => {\n      item.classList.toggle('hidden', !hasDetailedTimeOffAccess());\n    });\n\n    const { data: importAccess"}, {"name": "Permission helper and time-off label", "old": "  function populateEventTypeFilter() {\n", "new": "  // Only ADMIN and SYSTEM_ADMIN may see Paylocity's detailed leave classifications.\n  function hasDetailedTimeOffAccess() {\n    return ['ADMIN', 'SYSTEM_ADMIN'].includes(String(currentProfile?.role || '').trim().toUpperCase());\n  }\n\n  function isPaylocityTimeOff(event) {\n    return String(event?.event_source || '').toUpperCase() === 'PAYLOCITY';\n  }\n\n  function visibleCalendarEventType(event) {\n    if (event.is_company_holiday) return 'COMPANY_HOLIDAY';\n    if (isPaylocityTimeOff(event) && !hasDetailedTimeOffAccess()) return 'TIME_OFF';\n    return event.event_type;\n  }\n\n  function populateEventTypeFilter() {\n"}, {"name": "Aggregate time-off categories in filter", "old": "    calendarEvents.forEach(event => {\n      if (event.is_company_holiday) values.add('COMPANY_HOLIDAY');\n      else if (event.event_type) values.add(event.event_type);\n    });", "new": "    calendarEvents.forEach(event => {\n      const visibleType = visibleCalendarEventType(event);\n      if (visibleType) values.add(visibleType);\n    });"}, {"name": "Do not search hidden classifications", "old": "      const searchable = `${event.employee_name || ''} ${event.event_title || ''} ${event.event_type || ''}`.toLowerCase();\n      const eventTypeValue = event.is_company_holiday ? 'COMPANY_HOLIDAY' : event.event_type;", "new": "      const eventTypeValue = visibleCalendarEventType(event);\n      const searchable = `${event.employee_name || ''} ${event.event_title || ''} ${displayEventType(eventTypeValue)}`.toLowerCase();"}, {"name": "Calendar event label and tooltip", "old": "        const subtitle = event.is_company_holiday ? 'Company Closed' : displayEventType(event.event_type);", "new": "        const subtitle = event.is_company_holiday ? 'Company Closed' : displayEventType(visibleCalendarEventType(event));"}, {"name": "Standard color for non-admin time off", "old": "  function getEventClass(event) {\n    if (event.is_company_holiday) return 'event-holiday';", "new": "  function getEventClass(event) {\n    if (event.is_company_holiday) return 'event-holiday';\n    if (isPaylocityTimeOff(event) && !hasDetailedTimeOffAccess()) return 'event-time-off';"}, {"name": "General Time Off display value", "old": "    if (normalized === 'WORK_ANNIVERSARY') return 'Work Anniversary';\n    return value || 'Time Off';", "new": "    if (normalized === 'WORK_ANNIVERSARY') return 'Work Anniversary';\n    if (normalized === 'TIME_OFF') return 'Time Off';\n    return value || 'Time Off';"}, {"name": "Hide notes and request IDs in modal for nonadmins", "old": "    document.getElementById('eventModalSubtitle').textContent = event.is_company_holiday ? 'Company Holiday' : displayEventType(event.event_type);\n\n    const details = [\n      ['Date', dateText],\n      ['Event Type', event.is_company_holiday ? 'Company Holiday' : displayEventType(event.event_type)],\n      ['Employee', event.employee_name || '—'],\n      ['Description', event.description || '—'],\n      ['Source', event.event_source || '—'],\n      ['Paylocity Request ID', event.external_uid || '—']\n    ];", "new": "    const redactTimeOff = isPaylocityTimeOff(event) && !hasDetailedTimeOffAccess();\n    const visibleType = displayEventType(visibleCalendarEventType(event));\n    document.getElementById('eventModalSubtitle').textContent = visibleType;\n\n    const details = [\n      ['Date', dateText],\n      ['Event Type', visibleType],\n      ['Employee', event.employee_name || '—'],\n      // The Paylocity note and request identifier can disclose leave classifications.\n      ...(redactTimeOff ? [] : [\n        ['Description', event.description || '—'],\n        ['Source', event.event_source || '—'],\n        ['Paylocity Request ID', event.external_uid || '—']\n      ])\n    ];"}]</script>
-<script>
-const replacements = JSON.parse(document.getElementById('replacements').textContent);
-const status = document.getElementById('status');
-const sourceURL = 'https://raw.githubusercontent.com/warehousemp/inventory-dashboard/main/company-calendar.html';
-function applyUpdates(src) {
-  let updated = src.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-  replacements.forEach(mod => {
-    const index = updated.indexOf(mod.old);
-    if(index < 0 || updated.indexOf(mod.old,index+1) !== -1) throw Error(mod.name + ': expected exactly one matching section. The page source may have changed; no output was generated.');
-    updated = updated.slice(0,index) + mod.new + updated.slice(index+mod.old.length);
-  });
-  if(!updated.includes("['ADMIN', 'SYSTEM_ADMIN']") || !updated.includes('...(redactTimeOff ? [] : [')) throw Error('Safety verification failed.');
-  return updated;
-}
-document.getElementById('build').addEventListener('click', async () => {
-  const button = document.getElementById('build');button.disabled=true;
-  try {
-    const file=document.getElementById('local').files[0];
-    status.textContent = file ? 'Reading your local copy...' : 'Retrieving company-calendar.html from GitHub...';
-    let original;
-    if(file) original=await file.text();
-    else {
-      const response=await fetch(sourceURL,{cache:'no-store'});
-      if(!response.ok) throw Error('GitHub download returned HTTP '+response.status+'. Please select your downloaded original HTML file instead.');
-      original=await response.text();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Company Calendar - Molinari Pools</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="google" content="notranslate">
+
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="shared-navigation.css">
+  <meta name="theme-color" content="#0b3c5d">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --nav: #062f4f;
+      --nav-dark: #04233c;
+      --header: #0b3c5d;
+      --accent: #1aa3b0;
+      --bg: #f4f8fb;
+      --card: #ffffff;
+      --text: #1f2933;
+      --muted: #667085;
+      --border: #d9e2ec;
+      --danger: #b42318;
+      --warning: #9a3412;
+      --success: #027a48;
+      --sidebar-width: 300px;
+      --sidebar-collapsed-width: 66px;
     }
-    const updated=applyUpdates(original);
-    window.completeCalendarHtml=updated;
-    document.getElementById('fullCode').value=updated;
-    document.getElementById('copy').disabled=false;
-    document.getElementById('download').disabled=false;
-    status.textContent='SUCCESS — Complete replacement code is ready below ('+updated.length.toLocaleString()+' characters). Click COPY ENTIRE CODE and paste into company-calendar.html on GitHub, or click DOWNLOAD HTML.';
-  } catch(e) {status.textContent='UPDATE NOT CREATED: '+e.message + '\nIf automatic retrieval failed, select the original company-calendar.html above and try again.';}
-  finally {button.disabled=false;}
-});
-document.getElementById('copy').addEventListener('click', async () => {
-  const textarea=document.getElementById('fullCode');
-  if(!window.completeCalendarHtml) return;
-  try {
-    if(navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(window.completeCalendarHtml);
-    else throw Error('Clipboard API unavailable');
-    status.textContent='Complete updated HTML copied. Open company-calendar.html in GitHub, edit the file, select all existing contents and paste.';
-  } catch(err) {
-    textarea.focus(); textarea.select();
-    const copied=document.execCommand('copy');
-    status.textContent=copied ? 'Complete updated HTML copied. Paste over the entire GitHub file.' : 'Complete code selected. Press Ctrl+C to copy, then paste over the entire GitHub file.';
+
+    html, body { max-width: 100%; overflow-x: hidden; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button, input, select { font-family: Arial, sans-serif; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    .hidden { display: none !important; }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      min-height: 100vh;
+      transition: grid-template-columns .2s ease;
+    }
+
+    .app-shell.sidebar-collapsed {
+      grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--nav), var(--nav-dark));
+      color: white;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand {
+      padding: 18px 18px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 70px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    .brand-text { line-height: 1.1; white-space: nowrap; }
+    .brand-text strong { display: block; font-size: 15px; letter-spacing: 1px; }
+    .brand-text span { font-size: 11px; opacity: .82; letter-spacing: 2px; }
+
+    .sidebar-toggle-wrap { padding: 12px 12px 4px; display: flex; justify-content: flex-end; }
+
+    .sidebar-toggle {
+      width: 38px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.24);
+      background: rgba(255,255,255,.12);
+      color: white;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 0;
+    }
+
+    .sidebar-toggle:hover { background: rgba(26,163,176,.34); }
+    .sidebar-toggle span { display: block; width: 17px; height: 2px; border-radius: 999px; background: white; }
+
+    .side-nav { padding: 8px 10px 14px; }
+
+    .side-nav a,
+    .side-nav button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,.86);
+      text-decoration: none;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      margin: 0 0 4px;
+      white-space: nowrap;
+      min-height: 44px;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      text-align: left;
+    }
+
+    .side-nav a:hover,
+    .side-nav button:hover,
+    .side-nav a.active { background: rgba(26,163,176,.30); color: white; }
+
+    .nav-icon { width: 20px; min-width: 20px; text-align: center; }
+    .nav-group { margin-bottom: 4px; }
+    .main-menu-nav { padding-top: 10px; padding-bottom: 4px; }
+    .grouped-side-nav { padding-top: 4px; }
+    .utility-side-nav { padding-top: 4px; padding-bottom: 4px; }
+    .nav-group-toggle .nav-group-symbol { margin-left: auto; font-size: 18px; }
+    .nav-submenu { display: none; padding-bottom: 4px; }
+    .nav-group.open .nav-submenu { display: block; }
+    .nav-submenu a { padding-left: 34px; min-height: 38px; font-size: 13px; }
+    .sidebar-footer { border-top: 1px solid rgba(255,255,255,.12); padding: 10px; margin-top: auto; }
+
+    .app-shell.sidebar-collapsed .brand { justify-content: center; padding-left: 10px; padding-right: 10px; }
+    .app-shell.sidebar-collapsed .brand-text,
+    .app-shell.sidebar-collapsed .nav-label,
+    .app-shell.sidebar-collapsed .nav-group-symbol {
+      opacity: 0;
+      width: 0;
+      overflow: hidden;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .app-shell.sidebar-collapsed .sidebar-toggle-wrap { justify-content: center; }
+    .app-shell.sidebar-collapsed .side-nav a,
+    .app-shell.sidebar-collapsed .side-nav button { justify-content: center; gap: 0; padding-left: 10px; padding-right: 10px; }
+    .app-shell.sidebar-collapsed .nav-submenu { display: none !important; }
+
+    .main { min-width: 0; max-width: 100%; overflow-x: hidden; }
+
+    .header-bar {
+      background: var(--header);
+      color: white;
+      padding: 18px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .header-title { font-size: 20px; font-weight: 800; }
+    .header-subtitle { font-size: 13px; opacity: .9; font-weight: 600; margin-top: 4px; }
+    .user-chip { padding: 7px 10px; border: 1px solid rgba(255,255,255,.28); border-radius: 999px; font-size: 12px; font-weight: 700; }
+
+    .access-status { max-width: 1540px; margin: 18px auto 0; padding: 0 20px; }
+    .access-message { padding: 12px 14px; border-radius: 10px; font-size: 13px; line-height: 1.45; }
+    .access-message.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+    .access-message.success { background: #ecfdf3; border: 1px solid #bbf7d0; color: var(--success); }
+    .access-message.error { background: #fef3f2; border: 1px solid #fecdca; color: var(--danger); }
+
+    .access-gate {
+      max-width: 680px;
+      margin: 34px auto;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 26px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.08);
+    }
+
+    .main-layout { max-width: 1540px; margin: 22px auto 40px; padding: 0 20px; }
+
+    .calendar-page-tabs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 18px;
+      padding: 6px;
+      background: #e8f0f6;
+      border: 1px solid #d4e0e9;
+      border-radius: 12px;
+      overflow-x: auto;
+    }
+
+    .calendar-page-tab {
+      border: 0;
+      border-radius: 8px;
+      padding: 11px 18px;
+      background: transparent;
+      color: #475467;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+      transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+    }
+
+    .calendar-page-tab:hover {
+      background: rgba(255,255,255,.72);
+      color: var(--header);
+    }
+
+    .calendar-page-tab.active {
+      background: white;
+      color: var(--header);
+      box-shadow: 0 2px 8px rgba(11,60,93,.14);
+    }
+
+    .calendar-tab-panel {
+      min-width: 0;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid #e6edf3;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.07);
+      min-width: 0;
+    }
+
+    h2 { margin: 0; color: var(--header); font-size: 21px; }
+    h3 { margin: 0 0 10px; color: var(--header); font-size: 17px; }
+    .section-description { margin: 7px 0 16px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+    .calendar-toolbar {
+      display: grid;
+      grid-template-columns: auto minmax(220px, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .calendar-nav { display: flex; gap: 8px; align-items: center; }
+    .calendar-title { text-align: center; color: var(--header); font-size: 24px; font-weight: 800; }
+    .toolbar-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    .btn {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 13px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .btn-primary { background: var(--header); color: white; }
+    .btn-accent { background: var(--accent); color: white; }
+    .btn-secondary { background: #eef4f7; color: var(--header); border: 1px solid var(--border); }
+    .btn-danger { background: #fef3f2; color: var(--danger); border: 1px solid #fecdca; }
+
+    .filter-row {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(210px, 280px) auto;
+      gap: 12px;
+      align-items: end;
+      margin-bottom: 15px;
+    }
+
+    label { display: block; margin-bottom: 5px; color: #344054; font-size: 12px; font-weight: 800; }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 10px 11px;
+      font-size: 14px;
+      background: white;
+    }
+
+    textarea {
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(26,163,176,.15);
+    }
+
+    .legend { display: flex; gap: 8px; flex-wrap: wrap; margin: 2px 0 14px; }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; color: #475467; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+    .legend-holiday { background: #344054; }
+    .legend-national { background: #fef3c7; border: 1px solid #f59e0b; }
+    .legend-calendar-event { background: #e0e7ff; border: 1px solid #6366f1; }
+    .legend-birthday { background: #fce7f3; border: 1px solid #ec4899; }
+    .legend-anniversary { background: #cffafe; border: 1px solid #06b6d4; }
+    .legend-paid { background: #d1fadf; border: 1px solid #12b76a; }
+    .legend-unpaid { background: #ffead5; border: 1px solid #f79009; }
+    .legend-lead { background: #e9d7fe; border: 1px solid #9e77ed; }
+    .legend-other { background: #dbeafe; border: 1px solid #3b82f6; }
+
+    .calendar-wrap { overflow-x: auto; border: 1px solid #d0d5dd; border-radius: 10px; }
+    .calendar-weekdays, .calendar-grid { min-width: 980px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .weekday { background: #f2f4f7; color: #344054; font-size: 12px; font-weight: 800; text-align: center; padding: 10px 6px; border-right: 1px solid #d0d5dd; }
+    .weekday:last-child { border-right: 0; }
+
+    .calendar-day {
+      min-height: 132px;
+      padding: 7px;
+      background: white;
+      border-top: 1px solid #d0d5dd;
+      border-right: 1px solid #d0d5dd;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .calendar-day:nth-child(7n) { border-right: 0; }
+    .calendar-day.other-month { background: #f8fafc; }
+    .calendar-day.today { box-shadow: inset 0 0 0 2px var(--accent); }
+    .day-number { font-size: 12px; font-weight: 800; color: #344054; margin-bottom: 5px; }
+    .other-month .day-number { color: #98a2b3; }
+    .day-events { display: flex; flex-direction: column; gap: 4px; max-height: 101px; overflow-y: auto; padding-right: 2px; }
+
+    .calendar-event {
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 5px 6px;
+      text-align: left;
+      line-height: 1.15;
+      font-size: 11px;
+      overflow: hidden;
+    }
+
+    .calendar-event strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .calendar-event span { display: block; margin-top: 2px; font-size: 9px; opacity: .82; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .event-holiday { background: #344054; color: white; border-color: #1d2939; }
+    .event-national { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+    .event-calendar { background: #e0e7ff; color: #3730a3; border-color: #a5b4fc; }
+    .event-birthday { background: #fce7f3; color: #9d174d; border-color: #f9a8d4; }
+    .event-anniversary { background: #cffafe; color: #155e75; border-color: #67e8f9; }
+    .event-paid { background: #d1fadf; color: #05603a; border-color: #6ce9a6; }
+    .event-unpaid { background: #ffead5; color: #93370d; border-color: #fec84b; }
+    .event-lead { background: #e9d7fe; color: #53389e; border-color: #d6bbfb; }
+    .event-other { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+
+    .calendar-empty { padding: 28px; text-align: center; color: var(--muted); }
+
+    .import-grid {
+      display: grid;
+      grid-template-columns: minmax(180px, 240px) minmax(180px, 240px) minmax(280px, 1fr);
+      gap: 12px;
+      align-items: end;
+    }
+
+    .drop-zone {
+      grid-column: 1 / -1;
+      border: 2px dashed #98a2b3;
+      border-radius: 12px;
+      padding: 26px 18px;
+      text-align: center;
+      background: #f8fafc;
+      transition: border-color .15s ease, background .15s ease;
+    }
+
+    .drop-zone.dragover { border-color: var(--accent); background: #ecfdff; }
+    .drop-zone strong { color: var(--header); }
+    .drop-zone p { color: var(--muted); font-size: 12px; margin: 7px 0 0; }
+    .file-name { margin-top: 10px; font-size: 13px; font-weight: 800; color: var(--header); word-break: break-word; }
+
+    .import-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+    .import-warning { color: var(--warning); font-size: 12px; font-weight: 700; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; margin-top: 15px; }
+    .stat-card { border: 1px solid var(--border); border-radius: 10px; padding: 11px; background: #f8fafc; }
+    .stat-label { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+    .stat-value { color: var(--header); font-size: 20px; font-weight: 800; margin-top: 4px; }
+
+    .message { display: none; margin-top: 12px; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.45; white-space: pre-wrap; }
+    .message.show { display: block; }
+    .message.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+    .message.success { background: #ecfdf3; border: 1px solid #bbf7d0; color: var(--success); }
+    .message.error { background: #fef3f2; border: 1px solid #fecdca; color: var(--danger); }
+    .message.warning { background: #fff7ed; border: 1px solid #fed7aa; color: var(--warning); }
+
+    .table-wrap { width: 100%; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+    table { width: 100%; min-width: 920px; border-collapse: collapse; background: white; }
+    th { background: #f8fafc; color: var(--header); font-size: 11px; text-align: left; padding: 9px; white-space: nowrap; border-bottom: 1px solid var(--border); }
+    td { font-size: 11px; padding: 9px; border-bottom: 1px solid #eaecf0; vertical-align: top; }
+    .status-badge { display: inline-flex; border-radius: 999px; padding: 4px 8px; font-size: 10px; font-weight: 800; }
+    .status-completed { background: #dcfae6; color: #05603a; }
+    .status-warning { background: #ffead5; color: #93370d; }
+    .status-failed { background: #fee4e2; color: #912018; }
+    .status-processing { background: #dbeafe; color: #1e40af; }
+
+    .milestone-admin-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .milestone-form-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .milestone-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .milestone-form-grid .full-width { grid-column: 1 / -1; }
+
+    .checkbox-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      padding-top: 20px;
+    }
+
+    .checkbox-field input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+    }
+
+    .checkbox-field label {
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .milestone-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .management-toolbar {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) auto;
+      gap: 12px;
+      align-items: end;
+      margin: 22px 0 14px;
+    }
+
+    .milestone-table-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .milestone-table-panel {
+      min-width: 0;
+    }
+
+    .milestone-table-panel .table-wrap {
+      max-height: 430px;
+    }
+
+    .milestone-table-panel table {
+      min-width: 650px;
+    }
+
+    .record-status {
+      display: inline-flex;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .record-active { background: #dcfae6; color: #05603a; }
+    .record-inactive { background: #f2f4f7; color: #475467; }
+
+    .table-action-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .btn-small {
+      padding: 6px 8px;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .btn-success {
+      background: #ecfdf3;
+      color: var(--success);
+      border: 1px solid #bbf7d0;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 2000;
+    }
+
+    .modal-backdrop.show { display: flex; }
+    .modal-card { width: min(520px, 100%); background: white; border-radius: 14px; box-shadow: 0 18px 45px rgba(0,0,0,.28); padding: 22px; }
+    .modal-head { display: flex; justify-content: space-between; gap: 15px; align-items: flex-start; }
+    .modal-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: #f2f4f7; color: #344054; font-size: 18px; }
+    .detail-grid { display: grid; grid-template-columns: 145px 1fr; gap: 10px; margin-top: 18px; font-size: 13px; }
+    .detail-label { color: var(--muted); font-weight: 800; }
+    .detail-value { color: var(--text); word-break: break-word; }
+
+    @media (max-width: 1000px) {
+      .filter-row, .import-grid { grid-template-columns: 1fr 1fr; }
+      .milestone-admin-grid, .milestone-table-grid { grid-template-columns: 1fr; }
+      .drop-zone { grid-column: 1 / -1; }
+      .stat-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 820px) {
+      .app-shell, .app-shell.sidebar-collapsed { grid-template-columns: 1fr; }
+      .sidebar { position: relative; height: auto; }
+      .sidebar-toggle-wrap { display: none; }
+      .side-nav, .app-shell.sidebar-collapsed .side-nav { display: block; padding: 10px; }
+      .app-shell.sidebar-collapsed .brand { justify-content: flex-start; padding: 18px; }
+      .app-shell.sidebar-collapsed .brand-text, .app-shell.sidebar-collapsed .nav-label, .app-shell.sidebar-collapsed .nav-group-symbol { opacity: 1; width: auto; }
+      .app-shell.sidebar-collapsed .side-nav a, .app-shell.sidebar-collapsed .side-nav button { justify-content: flex-start; gap: 10px; }
+      .app-shell.sidebar-collapsed .nav-group.open .nav-submenu { display: block !important; }
+      .header-bar { padding: 16px 18px; }
+      .main-layout, .access-status { padding-left: 12px; padding-right: 12px; }
+      .calendar-toolbar { grid-template-columns: 1fr; }
+      .calendar-title { order: -1; }
+      .calendar-nav, .toolbar-actions { justify-content: center; }
+    }
+
+    @media (max-width: 600px) {
+      .calendar-page-tabs {
+        align-items: stretch;
+        gap: 6px;
+      }
+
+      .calendar-page-tab {
+        flex: 1 0 auto;
+        padding-left: 13px;
+        padding-right: 13px;
+      }
+
+      .filter-row, .import-grid, .stat-grid,
+      .milestone-form-grid, .management-toolbar { grid-template-columns: 1fr; }
+      .milestone-form-grid .full-width { grid-column: auto; }
+      .calendar-nav, .toolbar-actions, .import-actions { flex-direction: column; align-items: stretch; }
+      .calendar-nav .btn, .toolbar-actions .btn, .import-actions .btn { width: 100%; }
+      .detail-grid { grid-template-columns: 1fr; gap: 4px; }
+    }
+  </style>
+</head>
+<body>
+<div id="sharedNavigation"></div>
+
+<main class="main">
+    <div class="header-bar">
+      <div>
+        <div class="header-title">Molinari Pools – Company Calendar</div>
+        <div class="header-subtitle">Company holidays, U.S. federal holidays, approved time off, birthdays, work anniversaries, and HR calendar events</div>
+      </div>
+      <div id="userChip" class="user-chip">Checking access...</div>
+    </div>
+
+    <div class="access-status">
+      <div id="accessMessage" class="access-message info">Checking Company Calendar access...</div>
+    </div>
+
+    <div id="accessGate" class="access-gate hidden"></div>
+
+    <div id="calendarMain" class="main-layout hidden">
+      <div class="calendar-page-tabs" role="tablist" aria-label="Company Calendar sections">
+        <button
+          id="calendarTabButton"
+          class="calendar-page-tab active"
+          type="button"
+          role="tab"
+          aria-selected="true"
+          aria-controls="calendarTabPanel"
+          data-calendar-tab="calendar"
+        >Calendar</button>
+
+        <button
+          id="paylocityTabButton"
+          class="calendar-page-tab hidden"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="paylocityTabPanel"
+          data-calendar-tab="paylocity"
+        >Paylocity Import</button>
+
+        <button
+          id="calendarAdminTabButton"
+          class="calendar-page-tab hidden"
+          type="button"
+          role="tab"
+          aria-selected="false"
+          aria-controls="calendarAdminTabPanel"
+          data-calendar-tab="admin"
+        >Calendar Admin</button>
+      </div>
+
+      <div id="calendarTabPanel" class="calendar-tab-panel" role="tabpanel" aria-labelledby="calendarTabButton">
+      <section class="card">
+        <div class="calendar-toolbar">
+          <div class="calendar-nav">
+            <button class="btn btn-secondary" type="button" id="previousMonthButton" aria-label="Previous month">‹</button>
+            <button class="btn btn-secondary" type="button" id="todayButton">TODAY</button>
+            <button class="btn btn-secondary" type="button" id="nextMonthButton" aria-label="Next month">›</button>
+          </div>
+          <div id="calendarTitle" class="calendar-title">Company Calendar</div>
+          <div class="toolbar-actions">
+            <button class="btn btn-primary" type="button" id="refreshCalendarButton">REFRESH</button>
+          </div>
+        </div>
+
+        <div class="filter-row">
+          <div>
+            <label for="employeeSearch">Search Employee</label>
+            <input id="employeeSearch" type="search" placeholder="Type an employee name">
+          </div>
+          <div>
+            <label for="eventTypeFilter">Calendar Event Type</label>
+            <select id="eventTypeFilter">
+              <option value="ALL">All Calendar Events</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" type="button" id="clearFiltersButton">CLEAR FILTERS</button>
+        </div>
+
+        <div class="legend" aria-label="Calendar legend">
+          <span class="legend-item"><span class="legend-dot legend-holiday"></span>Company Holiday / Closed</span>
+          <span class="legend-item"><span class="legend-dot legend-national"></span>U.S. Federal Holiday</span>
+          <span class="legend-item"><span class="legend-dot legend-calendar-event"></span>HR Calendar Event</span>
+          <span class="legend-item"><span class="legend-dot legend-birthday"></span>Employee Birthday</span>
+          <span class="legend-item"><span class="legend-dot legend-anniversary"></span>Work Anniversary</span>
+          <span class="legend-item"><span class="legend-dot legend-paid"></span>Paid Time Off</span>
+          <span class="legend-item"><span class="legend-dot legend-unpaid"></span>Unpaid Time Off</span>
+          <span class="legend-item"><span class="legend-dot legend-lead"></span>PTO Lead</span>
+          <span class="legend-item"><span class="legend-dot legend-other"></span>Other</span>
+        </div>
+
+        <div class="calendar-wrap">
+          <div class="calendar-weekdays" aria-hidden="true">
+            <div class="weekday">Sunday</div><div class="weekday">Monday</div><div class="weekday">Tuesday</div>
+            <div class="weekday">Wednesday</div><div class="weekday">Thursday</div><div class="weekday">Friday</div><div class="weekday">Saturday</div>
+          </div>
+          <div id="calendarGrid" class="calendar-grid" aria-live="polite"></div>
+        </div>
+      </section>
+      </div>
+
+      <div id="paylocityTabPanel" class="calendar-tab-panel hidden" role="tabpanel" aria-labelledby="paylocityTabButton">
+      <section id="importSection" class="card hidden">
+        <h2>Import Paylocity Time-Off File</h2>
+        <p class="section-description">
+          Drop a Paylocity <strong>.ics</strong> file below whenever approved time-off requests need to be added or refreshed. The page reads the event dates automatically, matches existing requests, and prevents duplicates.
+        </p>
+
+        <div class="import-grid">
+          <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Choose or drop Paylocity ICS file">
+            <strong>Drop Paylocity .ics file here</strong>
+            <p>or click this area to browse</p>
+            <div id="selectedFileName" class="file-name">No file selected</div>
+            <input id="icsFileInput" type="file" accept=".ics,text/calendar" class="hidden">
+          </div>
+        </div>
+
+        <div id="previewStats" class="stat-grid hidden">
+          <div class="stat-card"><div class="stat-label">Events in File</div><div class="stat-value" id="previewEventCount">0</div></div>
+          <div class="stat-card"><div class="stat-label">Employees</div><div class="stat-value" id="previewEmployeeCount">0</div></div>
+          <div class="stat-card"><div class="stat-label">Employee-Days</div><div class="stat-value" id="previewDayCount">0</div></div>
+        </div>
+
+        <div class="import-actions">
+          <button id="importButton" class="btn btn-accent" type="button" disabled>IMPORT TO CALENDAR</button>
+          <button id="clearFileButton" class="btn btn-secondary" type="button" disabled>CLEAR FILE</button>
+        </div>
+
+        <div id="importMessage" class="message"></div>
+
+        <div id="resultStats" class="stat-grid hidden">
+          <div class="stat-card"><div class="stat-label">Found</div><div class="stat-value" id="resultFound">0</div></div>
+          <div class="stat-card"><div class="stat-label">Added</div><div class="stat-value" id="resultAdded">0</div></div>
+          <div class="stat-card"><div class="stat-label">Updated</div><div class="stat-value" id="resultUpdated">0</div></div>
+          <div class="stat-card"><div class="stat-label">Unchanged</div><div class="stat-value" id="resultUnchanged">0</div></div>
+          <div class="stat-card"><div class="stat-label">Missing / Review</div><div class="stat-value" id="resultMissing">0</div></div>
+          <div class="stat-card"><div class="stat-label">Failed</div><div class="stat-value" id="resultFailed">0</div></div>
+        </div>
+      </section>
+
+      <section id="importHistorySection" class="card hidden">
+        <h2>Paylocity Import History</h2>
+        <p class="section-description">The four most recent imports completed through the Company Calendar page.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Imported</th><th>File</th><th>File Date Span</th><th>Status</th><th>Found</th><th>Added</th><th>Updated</th><th>Unchanged</th><th>Missing</th><th>Failed</th>
+              </tr>
+            </thead>
+            <tbody id="importHistoryBody"><tr><td colspan="10">No import history loaded.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      </div>
+
+      <div id="calendarAdminTabPanel" class="calendar-tab-panel hidden" role="tabpanel" aria-labelledby="calendarAdminTabButton">
+      <section id="milestoneAdminSection" class="card hidden">
+        <h2>Employee Milestones Administration</h2>
+        <p class="section-description">
+          Add and maintain employee birthdays and original hire dates. Birthdays store only the month and day—no birth year is requested or saved. Deactivate records for former employees instead of deleting their history.
+        </p>
+
+        <div class="milestone-admin-grid">
+          <div class="milestone-form-card">
+            <h3 id="birthdayFormTitle">Add Employee Birthday</h3>
+            <input id="birthdayRecordId" type="hidden">
+
+            <div class="milestone-form-grid">
+              <div class="full-width">
+                <label for="birthdayEmployeeName">Employee Name</label>
+                <input id="birthdayEmployeeName" type="text" maxlength="120" autocomplete="off" placeholder="Employee full name">
+              </div>
+
+              <div>
+                <label for="birthdayMonth">Birth Month</label>
+                <select id="birthdayMonth">
+                  <option value="">Select month</option>
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="birthdayDay">Birth Day</label>
+                <input id="birthdayDay" type="number" min="1" max="31" step="1" placeholder="Day">
+              </div>
+
+              <div class="checkbox-field full-width">
+                <input id="birthdayActive" type="checkbox" checked>
+                <label for="birthdayActive">Active and visible on the calendar</label>
+              </div>
+            </div>
+
+            <div class="milestone-actions">
+              <button id="saveBirthdayButton" class="btn btn-accent" type="button">SAVE BIRTHDAY</button>
+              <button id="cancelBirthdayEditButton" class="btn btn-secondary hidden" type="button">CANCEL EDIT</button>
+            </div>
+
+            <div id="birthdayMessage" class="message"></div>
+          </div>
+
+          <div class="milestone-form-card">
+            <h3 id="anniversaryFormTitle">Add Work Anniversary</h3>
+            <input id="anniversaryRecordId" type="hidden">
+
+            <div class="milestone-form-grid">
+              <div class="full-width">
+                <label for="anniversaryEmployeeName">Employee Name</label>
+                <input id="anniversaryEmployeeName" type="text" maxlength="120" autocomplete="off" placeholder="Employee full name">
+              </div>
+
+              <div class="full-width">
+                <label for="anniversaryHireDate">Original Hire Date</label>
+                <input id="anniversaryHireDate" type="date">
+              </div>
+
+              <div class="checkbox-field full-width">
+                <input id="anniversaryActive" type="checkbox" checked>
+                <label for="anniversaryActive">Active and visible on the calendar</label>
+              </div>
+            </div>
+
+            <div class="milestone-actions">
+              <button id="saveAnniversaryButton" class="btn btn-accent" type="button">SAVE WORK ANNIVERSARY</button>
+              <button id="cancelAnniversaryEditButton" class="btn btn-secondary hidden" type="button">CANCEL EDIT</button>
+            </div>
+
+            <div id="anniversaryMessage" class="message"></div>
+          </div>
+        </div>
+
+        <div class="management-toolbar">
+          <div>
+            <label for="milestoneManagementSearch">Search Milestone Records</label>
+            <input id="milestoneManagementSearch" type="search" placeholder="Search employee name">
+          </div>
+          <button id="refreshMilestonesButton" class="btn btn-primary" type="button">REFRESH RECORDS</button>
+        </div>
+
+        <div id="milestoneManagementMessage" class="message"></div>
+
+        <div class="milestone-table-grid">
+          <div class="milestone-table-panel">
+            <h3>Birthdays</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Birthday</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="birthdayManagementBody">
+                  <tr><td colspan="4">No birthday records loaded.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="milestone-table-panel">
+            <h3>Work Anniversaries</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Original Hire Date</th>
+                    <th>Next Anniversary</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="anniversaryManagementBody">
+                  <tr><td colspan="5">No work-anniversary records loaded.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="customEventAdminSection" class="card hidden">
+        <h2>Calendar Events Administration</h2>
+        <p class="section-description">
+          Create company-wide calendar notices and events that are separate from holidays, birthdays, work anniversaries, and Paylocity time off. Events may cover one day or a date range.
+        </p>
+
+        <div class="milestone-admin-grid">
+          <div class="milestone-form-card">
+            <h3 id="customEventFormTitle">Add Calendar Event</h3>
+            <input id="customEventRecordId" type="hidden">
+
+            <div class="milestone-form-grid">
+              <div class="full-width">
+                <label for="customEventTitle">Event Title</label>
+                <input id="customEventTitle" type="text" maxlength="160" autocomplete="off" placeholder="Example: Annual Company Meeting">
+              </div>
+
+              <div>
+                <label for="customEventStartDate">Start Date</label>
+                <input id="customEventStartDate" type="date">
+              </div>
+
+              <div>
+                <label for="customEventEndDate">End Date</label>
+                <input id="customEventEndDate" type="date">
+              </div>
+
+              <div class="full-width">
+                <label for="customEventDescription">Description</label>
+                <textarea id="customEventDescription" rows="4" maxlength="1000" placeholder="Optional event details"></textarea>
+              </div>
+
+              <div class="checkbox-field full-width">
+                <input id="customEventActive" type="checkbox" checked>
+                <label for="customEventActive">Active and visible on the calendar</label>
+              </div>
+            </div>
+
+            <div class="milestone-actions">
+              <button id="saveCustomEventButton" class="btn btn-accent" type="button">SAVE CALENDAR EVENT</button>
+              <button id="cancelCustomEventEditButton" class="btn btn-secondary hidden" type="button">CANCEL EDIT</button>
+            </div>
+
+            <div id="customEventMessage" class="message"></div>
+          </div>
+
+          <div class="milestone-form-card">
+            <h3>Calendar Event Guidance</h3>
+            <p class="section-description">
+              Use this section for company meetings, training days, celebrations, deadlines, office notices, or other company-wide items.
+            </p>
+            <p class="section-description">
+              Federal holidays are maintained through SQL and should not be recreated here. Company closure dates should continue to use the existing Company Holiday process.
+            </p>
+          </div>
+        </div>
+
+        <div class="management-toolbar">
+          <div>
+            <label for="customEventManagementSearch">Search Calendar Events</label>
+            <input id="customEventManagementSearch" type="search" placeholder="Search title or description">
+          </div>
+          <button id="refreshCustomEventsButton" class="btn btn-primary" type="button">REFRESH EVENTS</button>
+        </div>
+
+        <div id="customEventManagementMessage" class="message"></div>
+
+        <div class="milestone-table-panel">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Date Range</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="customEventManagementBody">
+                <tr><td colspan="5">No HR calendar events loaded.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      </div>
+    </div>
+</main>
+
+<div id="eventModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="eventModalTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <h2 id="eventModalTitle">Calendar Event</h2>
+        <div id="eventModalSubtitle" class="section-description"></div>
+      </div>
+      <button id="eventModalClose" class="modal-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div id="eventDetailGrid" class="detail-grid"></div>
+  </div>
+</div>
+
+<script src="shared-navigation.js"></script>
+<script>
+  const SUPABASE_URL = "https://icqkuhbhcennhhbbwqgo.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_SZ_roAnr4fuwwF5S3LjC6g_Ryfz5C8R";
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const MONTH_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
+  const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const DATETIME_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+  let currentMonth = startOfMonth(new Date());
+  let calendarEvents = [];
+  let currentProfile = null;
+  let canImport = false;
+  let selectedImport = null;
+  let birthdayRecords = [];
+  let anniversaryRecords = [];
+  let customEventRecords = [];
+
+  document.addEventListener('DOMContentLoaded', () => {
+    bindPageEvents();
+    initializeCompanyCalendar();
+  });
+
+  function bindPageEvents() {
+    document.getElementById('calendarTabButton').addEventListener('click', () => activateCompanyCalendarTab('calendar'));
+    document.getElementById('paylocityTabButton').addEventListener('click', () => activateCompanyCalendarTab('paylocity'));
+    document.getElementById('calendarAdminTabButton').addEventListener('click', () => activateCompanyCalendarTab('admin'));
+
+    document.getElementById('previousMonthButton').addEventListener('click', () => changeMonth(-1));
+    document.getElementById('nextMonthButton').addEventListener('click', () => changeMonth(1));
+    document.getElementById('todayButton').addEventListener('click', () => {
+      currentMonth = startOfMonth(new Date());
+      loadCalendar();
+    });
+    document.getElementById('refreshCalendarButton').addEventListener('click', loadCalendar);
+    document.getElementById('employeeSearch').addEventListener('input', renderCalendar);
+    document.getElementById('eventTypeFilter').addEventListener('change', renderCalendar);
+    document.getElementById('clearFiltersButton').addEventListener('click', () => {
+      document.getElementById('employeeSearch').value = '';
+      document.getElementById('eventTypeFilter').value = 'ALL';
+      renderCalendar();
+    });
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('icsFileInput');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        fileInput.click();
+      }
+    });
+    dropZone.addEventListener('dragover', event => {
+      event.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', event => {
+      event.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = event.dataTransfer.files && event.dataTransfer.files[0];
+      if (file) processIcsFile(file);
+    });
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (file) processIcsFile(file);
+    });
+
+    document.getElementById('importButton').addEventListener('click', importSelectedFile);
+    document.getElementById('clearFileButton').addEventListener('click', clearSelectedFile);
+
+    document.getElementById('saveBirthdayButton').addEventListener('click', saveBirthdayRecord);
+    document.getElementById('cancelBirthdayEditButton').addEventListener('click', resetBirthdayForm);
+    document.getElementById('saveAnniversaryButton').addEventListener('click', saveAnniversaryRecord);
+    document.getElementById('cancelAnniversaryEditButton').addEventListener('click', resetAnniversaryForm);
+    document.getElementById('refreshMilestonesButton').addEventListener('click', loadMilestoneRecords);
+    document.getElementById('milestoneManagementSearch').addEventListener('input', renderMilestoneManagementTables);
+    document.getElementById('birthdayManagementBody').addEventListener('click', handleBirthdayTableAction);
+    document.getElementById('anniversaryManagementBody').addEventListener('click', handleAnniversaryTableAction);
+
+    document.getElementById('saveCustomEventButton').addEventListener('click', saveCustomEventRecord);
+    document.getElementById('cancelCustomEventEditButton').addEventListener('click', resetCustomEventForm);
+    document.getElementById('refreshCustomEventsButton').addEventListener('click', loadCustomEventRecords);
+    document.getElementById('customEventManagementSearch').addEventListener('input', renderCustomEventManagementTable);
+    document.getElementById('customEventManagementBody').addEventListener('click', handleCustomEventTableAction);
+
+    document.getElementById('eventModalClose').addEventListener('click', closeEventModal);
+    document.getElementById('eventModal').addEventListener('click', event => {
+      if (event.target.id === 'eventModal') closeEventModal();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeEventModal();
+    });
   }
-});
-document.getElementById('download').addEventListener('click', () => {
-  if(!window.completeCalendarHtml) return;
-  const blob=new Blob([window.completeCalendarHtml],{type:'text/html;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='company-calendar.html';document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),3000);
-  status.textContent='Downloaded complete company-calendar.html for GitHub replacement.';
-});
-</script></body></html>
+
+  async function initializeCompanyCalendar() {
+    showAccessMessage('Checking Company Calendar access...', 'info');
+
+    const { data: sessionData, error: sessionError } = await client.auth.getSession();
+    if (sessionError || !sessionData.session || !sessionData.session.user) {
+      showAccessGate('You must be logged in to access the Company Calendar.', true);
+      return;
+    }
+
+    const session = sessionData.session;
+
+    const { data: pageAccess, error: pageAccessError } = await client.rpc('current_user_can_access_page', {
+      p_page: 'company-calendar.html'
+    });
+
+    if (pageAccessError || pageAccess !== true) {
+      showAccessGate(pageAccessError ? `Access check failed: ${pageAccessError.message}` : 'You do not have access to the Company Calendar.');
+      return;
+    }
+
+    const { data: profile, error: profileError } = await client
+      .from('user_profiles')
+      .select('id, full_name, role, active')
+      .eq('id', session.user.id)
+      .single();
+
+    if (profileError || !profile || profile.active !== true) {
+      showAccessGate('No active user profile was found for this login.');
+      return;
+    }
+
+    currentProfile = profile;
+
+    const { data: importAccess, error: importAccessError } = await client.rpc('current_user_has_company_calendar_import_access');
+    canImport = !importAccessError && importAccess === true;
+
+    document.getElementById('userChip').textContent = `${profile.full_name || session.user.email} · ${profile.role}`;
+    showAccessMessage(
+      canImport
+        ? 'Company Calendar access granted. Paylocity importing, employee milestone administration, and calendar-event administration are enabled for this login.'
+        : 'Company Calendar access granted. Calendar is read-only for this login.',
+      'success'
+    );
+
+    document.getElementById('calendarMain').classList.remove('hidden');
+    document.getElementById('accessGate').classList.add('hidden');
+
+    activateCompanyCalendarTab('calendar');
+
+    if (canImport) {
+      document.getElementById('paylocityTabButton').classList.remove('hidden');
+      document.getElementById('calendarAdminTabButton').classList.remove('hidden');
+      document.getElementById('milestoneAdminSection').classList.remove('hidden');
+      document.getElementById('customEventAdminSection').classList.remove('hidden');
+      document.getElementById('importSection').classList.remove('hidden');
+      document.getElementById('importHistorySection').classList.remove('hidden');
+      await Promise.all([
+        loadMilestoneRecords(),
+        loadCustomEventRecords(),
+        loadImportHistory()
+      ]);
+    }
+
+    await loadCalendar();
+  }
+
+  function activateCompanyCalendarTab(tabName) {
+    const requestedTab = tabName === 'paylocity' || tabName === 'admin'
+      ? tabName
+      : 'calendar';
+
+    const allowedTab = canImport || requestedTab === 'calendar'
+      ? requestedTab
+      : 'calendar';
+
+    const configuration = {
+      calendar: {
+        button: document.getElementById('calendarTabButton'),
+        panel: document.getElementById('calendarTabPanel')
+      },
+      paylocity: {
+        button: document.getElementById('paylocityTabButton'),
+        panel: document.getElementById('paylocityTabPanel')
+      },
+      admin: {
+        button: document.getElementById('calendarAdminTabButton'),
+        panel: document.getElementById('calendarAdminTabPanel')
+      }
+    };
+
+    Object.entries(configuration).forEach(([name, elements]) => {
+      const isActive = name === allowedTab;
+      elements.button.classList.toggle('active', isActive);
+      elements.button.setAttribute('aria-selected', String(isActive));
+      elements.panel.classList.toggle('hidden', !isActive);
+    });
+
+    if (allowedTab === 'paylocity' && canImport) {
+      loadImportHistory();
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function showAccessMessage(message, type) {
+    const element = document.getElementById('accessMessage');
+    element.className = `access-message ${type || 'info'}`;
+    element.textContent = message;
+  }
+
+  function showAccessGate(message, showLoginLink = false) {
+    document.getElementById('calendarMain').classList.add('hidden');
+    document.getElementById('accessMessage').classList.add('hidden');
+    const gate = document.getElementById('accessGate');
+    gate.classList.remove('hidden');
+    gate.innerHTML = `
+      <h2>Company Calendar Access Required</h2>
+      <p class="section-description">${escapeHtml(message)}</p>
+      ${showLoginLink ? '<a class="btn btn-primary" href="index.html" style="display:inline-block;text-decoration:none;">RETURN TO LOGIN</a>' : ''}
+    `;
+  }
+
+  function changeMonth(offset) {
+    currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1);
+    loadCalendar();
+  }
+
+  async function loadCalendar() {
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '<div class="calendar-empty" style="grid-column:1/-1;">Loading calendar...</div>';
+    document.getElementById('calendarTitle').textContent = MONTH_FORMATTER.format(currentMonth);
+
+    const firstDay = startOfMonth(currentMonth);
+    const lastDay = endOfMonth(currentMonth);
+    const gridStart = addDays(firstDay, -firstDay.getDay());
+    const gridEnd = addDays(lastDay, 6 - lastDay.getDay());
+
+    const { data, error } = await client.rpc('get_company_calendar_events', {
+      p_start_date: toDateString(gridStart),
+      p_end_date: toDateString(gridEnd)
+    });
+
+    if (error) {
+      grid.innerHTML = `<div class="calendar-empty" style="grid-column:1/-1;color:var(--danger);">Unable to load calendar: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+
+    calendarEvents = Array.isArray(data) ? data : [];
+    populateEventTypeFilter();
+    renderCalendar();
+  }
+
+  function populateEventTypeFilter() {
+    const select = document.getElementById('eventTypeFilter');
+    const currentValue = select.value || 'ALL';
+    const values = new Set();
+
+    calendarEvents.forEach(event => {
+      if (event.is_company_holiday) values.add('COMPANY_HOLIDAY');
+      else if (event.event_type) values.add(event.event_type);
+    });
+
+    const options = ['<option value="ALL">All Calendar Events</option>'];
+    [...values].sort((a, b) => displayEventType(a).localeCompare(displayEventType(b))).forEach(value => {
+      options.push(`<option value="${escapeHtml(value)}">${escapeHtml(displayEventType(value))}</option>`);
+    });
+
+    select.innerHTML = options.join('');
+    select.value = [...values, 'ALL'].includes(currentValue) ? currentValue : 'ALL';
+  }
+
+  function renderCalendar() {
+    const grid = document.getElementById('calendarGrid');
+    const firstDay = startOfMonth(currentMonth);
+    const lastDay = endOfMonth(currentMonth);
+    const gridStart = addDays(firstDay, -firstDay.getDay());
+    const gridEnd = addDays(lastDay, 6 - lastDay.getDay());
+    const search = document.getElementById('employeeSearch').value.trim().toLowerCase();
+    const typeFilter = document.getElementById('eventTypeFilter').value;
+    const today = toDateString(new Date());
+
+    const filteredEvents = calendarEvents.filter(event => {
+      const searchable = `${event.employee_name || ''} ${event.event_title || ''} ${event.event_type || ''}`.toLowerCase();
+      const eventTypeValue = event.is_company_holiday ? 'COMPANY_HOLIDAY' : event.event_type;
+      return (!search || searchable.includes(search)) && (typeFilter === 'ALL' || eventTypeValue === typeFilter);
+    });
+
+    const cells = [];
+    for (let date = new Date(gridStart); date <= gridEnd; date = addDays(date, 1)) {
+      const dateString = toDateString(date);
+      const dayEvents = filteredEvents
+        .filter(event => event.start_date <= dateString && event.end_date_exclusive > dateString)
+        .sort((a, b) => {
+          const rank = event => {
+            if (event.is_company_holiday) return 1;
+            const type = String(event.event_type || '').toUpperCase();
+            if (type === 'NATIONAL_HOLIDAY') return 2;
+            if (type === 'CALENDAR_EVENT') return 3;
+            if (type === 'BIRTHDAY') return 4;
+            if (type === 'WORK_ANNIVERSARY') return 5;
+            return 6;
+          };
+          const rankDifference = rank(a) - rank(b);
+          if (rankDifference !== 0) return rankDifference;
+          return String(a.event_title || '').localeCompare(String(b.event_title || ''));
+        });
+
+      const eventHtml = dayEvents.map(event => {
+        const eventClass = getEventClass(event);
+        const title = event.event_title || event.employee_name || 'Calendar Event';
+        const subtitle = event.is_company_holiday ? 'Company Closed' : displayEventType(event.event_type);
+        return `
+          <button class="calendar-event ${eventClass}" type="button" data-event-id="${escapeHtml(event.event_id)}" title="${escapeHtml(`${title} — ${subtitle}`)}">
+            <strong>${escapeHtml(title)}</strong><span>${escapeHtml(subtitle)}</span>
+          </button>`;
+      }).join('');
+
+      const classes = [
+        'calendar-day',
+        date.getMonth() !== currentMonth.getMonth() ? 'other-month' : '',
+        dateString === today ? 'today' : ''
+      ].filter(Boolean).join(' ');
+
+      cells.push(`
+        <div class="${classes}" data-date="${dateString}">
+          <div class="day-number">${date.getDate()}</div>
+          <div class="day-events">${eventHtml}</div>
+        </div>`);
+    }
+
+    grid.innerHTML = cells.join('');
+    grid.querySelectorAll('.calendar-event').forEach(button => {
+      button.addEventListener('click', () => {
+        const event = calendarEvents.find(item => String(item.event_id) === button.dataset.eventId);
+        if (event) openEventModal(event);
+      });
+    });
+  }
+
+  function getEventClass(event) {
+    if (event.is_company_holiday) return 'event-holiday';
+    const type = String(event.event_type || '').toUpperCase();
+    if (type === 'NATIONAL_HOLIDAY') return 'event-national';
+    if (type === 'CALENDAR_EVENT') return 'event-calendar';
+    if (type === 'BIRTHDAY') return 'event-birthday';
+    if (type === 'WORK_ANNIVERSARY') return 'event-anniversary';
+    if (type.includes('UNPAID')) return 'event-unpaid';
+    if (type.includes('PTO LEAD')) return 'event-lead';
+    if (type.includes('PAID') || type === 'PTO') return 'event-paid';
+    return 'event-other';
+  }
+
+  function displayEventType(value) {
+    const normalized = String(value || '').toUpperCase();
+    if (normalized === 'COMPANY_HOLIDAY' || normalized === 'HOLIDAY') return 'Company Holiday';
+    if (normalized === 'NATIONAL_HOLIDAY') return 'U.S. Federal Holiday';
+    if (normalized === 'CALENDAR_EVENT') return 'HR Calendar Event';
+    if (normalized === 'BIRTHDAY') return 'Employee Birthday';
+    if (normalized === 'WORK_ANNIVERSARY') return 'Work Anniversary';
+    return value || 'Time Off';
+  }
+
+  function openEventModal(event) {
+    const endInclusive = addDays(parseDateString(event.end_date_exclusive), -1);
+    const startDate = parseDateString(event.start_date);
+    const dateText = event.start_date === toDateString(endInclusive)
+      ? DATE_FORMATTER.format(startDate)
+      : `${DATE_FORMATTER.format(startDate)} – ${DATE_FORMATTER.format(endInclusive)}`;
+
+    document.getElementById('eventModalTitle').textContent = event.event_title || 'Calendar Event';
+    document.getElementById('eventModalSubtitle').textContent = event.is_company_holiday ? 'Company Holiday' : displayEventType(event.event_type);
+
+    const details = [
+      ['Date', dateText],
+      ['Event Type', event.is_company_holiday ? 'Company Holiday' : displayEventType(event.event_type)],
+      ['Employee', event.employee_name || '—'],
+      ['Description', event.description || '—'],
+      ['Source', event.event_source || '—'],
+      ['Paylocity Request ID', event.external_uid || '—']
+    ];
+
+    document.getElementById('eventDetailGrid').innerHTML = details.map(([label, value]) => `
+      <div class="detail-label">${escapeHtml(label)}</div><div class="detail-value">${escapeHtml(value)}</div>
+    `).join('');
+    document.getElementById('eventModal').classList.add('show');
+  }
+
+  function closeEventModal() {
+    document.getElementById('eventModal').classList.remove('show');
+  }
+
+
+  async function loadMilestoneRecords() {
+    if (!canImport) return;
+
+    showMilestoneManagementMessage('Loading employee milestone records...', 'info');
+
+    const [birthdayResult, anniversaryResult] = await Promise.all([
+      client
+        .from('company_calendar_birthdays')
+        .select('id, employee_name, birth_month, birth_day, active, source_system, updated_at')
+        .order('birth_month', { ascending: true })
+        .order('birth_day', { ascending: true })
+        .order('employee_name', { ascending: true }),
+      client
+        .from('company_calendar_work_anniversaries')
+        .select('id, employee_name, hire_date, active, source_system, updated_at')
+        .order('hire_date', { ascending: true })
+        .order('employee_name', { ascending: true })
+    ]);
+
+    if (birthdayResult.error || anniversaryResult.error) {
+      const messages = [
+        birthdayResult.error && `Birthdays: ${birthdayResult.error.message}`,
+        anniversaryResult.error && `Work anniversaries: ${anniversaryResult.error.message}`
+      ].filter(Boolean);
+
+      birthdayRecords = [];
+      anniversaryRecords = [];
+      renderMilestoneManagementTables();
+      showMilestoneManagementMessage(
+        `Unable to load milestone records. ${messages.join(' ')}`,
+        'error'
+      );
+      return;
+    }
+
+    birthdayRecords = Array.isArray(birthdayResult.data)
+      ? birthdayResult.data
+      : [];
+
+    anniversaryRecords = Array.isArray(anniversaryResult.data)
+      ? anniversaryResult.data
+      : [];
+
+    renderMilestoneManagementTables();
+    showMilestoneManagementMessage(
+      `${birthdayRecords.length} birthday record${birthdayRecords.length === 1 ? '' : 's'} and ${anniversaryRecords.length} work-anniversary record${anniversaryRecords.length === 1 ? '' : 's'} loaded.`,
+      'success'
+    );
+  }
+
+  function renderMilestoneManagementTables() {
+    const search = document
+      .getElementById('milestoneManagementSearch')
+      .value
+      .trim()
+      .toLowerCase();
+
+    const filteredBirthdays = birthdayRecords.filter(record =>
+      !search || String(record.employee_name || '').toLowerCase().includes(search)
+    );
+
+    const filteredAnniversaries = anniversaryRecords.filter(record =>
+      !search || String(record.employee_name || '').toLowerCase().includes(search)
+    );
+
+    const birthdayBody = document.getElementById('birthdayManagementBody');
+    const anniversaryBody = document.getElementById('anniversaryManagementBody');
+
+    birthdayBody.innerHTML = filteredBirthdays.length
+      ? filteredBirthdays.map(record => `
+          <tr>
+            <td>${escapeHtml(record.employee_name)}</td>
+            <td>${escapeHtml(formatMonthDay(record.birth_month, record.birth_day))}</td>
+            <td>${renderRecordStatus(record.active)}</td>
+            <td>
+              <div class="table-action-row">
+                <button class="btn btn-secondary btn-small" type="button" data-action="edit" data-id="${escapeHtml(record.id)}">EDIT</button>
+                <button class="btn ${record.active ? 'btn-danger' : 'btn-success'} btn-small" type="button" data-action="toggle" data-id="${escapeHtml(record.id)}">
+                  ${record.active ? 'DEACTIVATE' : 'REACTIVATE'}
+                </button>
+              </div>
+            </td>
+          </tr>`)
+        .join('')
+      : '<tr><td colspan="4">No birthday records match the current search.</td></tr>';
+
+    anniversaryBody.innerHTML = filteredAnniversaries.length
+      ? filteredAnniversaries.map(record => `
+          <tr>
+            <td>${escapeHtml(record.employee_name)}</td>
+            <td>${escapeHtml(formatDateOnly(record.hire_date))}</td>
+            <td>${escapeHtml(getNextAnniversaryDisplay(record.hire_date))}</td>
+            <td>${renderRecordStatus(record.active)}</td>
+            <td>
+              <div class="table-action-row">
+                <button class="btn btn-secondary btn-small" type="button" data-action="edit" data-id="${escapeHtml(record.id)}">EDIT</button>
+                <button class="btn ${record.active ? 'btn-danger' : 'btn-success'} btn-small" type="button" data-action="toggle" data-id="${escapeHtml(record.id)}">
+                  ${record.active ? 'DEACTIVATE' : 'REACTIVATE'}
+                </button>
+              </div>
+            </td>
+          </tr>`)
+        .join('')
+      : '<tr><td colspan="5">No work-anniversary records match the current search.</td></tr>';
+  }
+
+  function renderRecordStatus(active) {
+    return active
+      ? '<span class="record-status record-active">ACTIVE</span>'
+      : '<span class="record-status record-inactive">INACTIVE</span>';
+  }
+
+  function handleBirthdayTableAction(event) {
+    const button = event.target.closest('button[data-action][data-id]');
+    if (!button) return;
+
+    const record = birthdayRecords.find(item =>
+      String(item.id) === String(button.dataset.id)
+    );
+
+    if (!record) return;
+
+    if (button.dataset.action === 'edit') {
+      editBirthdayRecord(record);
+      return;
+    }
+
+    if (button.dataset.action === 'toggle') {
+      toggleBirthdayRecord(record);
+    }
+  }
+
+  function handleAnniversaryTableAction(event) {
+    const button = event.target.closest('button[data-action][data-id]');
+    if (!button) return;
+
+    const record = anniversaryRecords.find(item =>
+      String(item.id) === String(button.dataset.id)
+    );
+
+    if (!record) return;
+
+    if (button.dataset.action === 'edit') {
+      editAnniversaryRecord(record);
+      return;
+    }
+
+    if (button.dataset.action === 'toggle') {
+      toggleAnniversaryRecord(record);
+    }
+  }
+
+  function editBirthdayRecord(record) {
+    document.getElementById('birthdayRecordId').value = record.id;
+    document.getElementById('birthdayEmployeeName').value = record.employee_name || '';
+    document.getElementById('birthdayMonth').value = String(record.birth_month || '');
+    document.getElementById('birthdayDay').value = String(record.birth_day || '');
+    document.getElementById('birthdayActive').checked = record.active === true;
+    document.getElementById('birthdayFormTitle').textContent = 'Edit Employee Birthday';
+    document.getElementById('saveBirthdayButton').textContent = 'SAVE CHANGES';
+    document.getElementById('cancelBirthdayEditButton').classList.remove('hidden');
+    clearFormMessage('birthdayMessage');
+    document.getElementById('birthdayEmployeeName').focus();
+  }
+
+  function editAnniversaryRecord(record) {
+    document.getElementById('anniversaryRecordId').value = record.id;
+    document.getElementById('anniversaryEmployeeName').value = record.employee_name || '';
+    document.getElementById('anniversaryHireDate').value = record.hire_date || '';
+    document.getElementById('anniversaryActive').checked = record.active === true;
+    document.getElementById('anniversaryFormTitle').textContent = 'Edit Work Anniversary';
+    document.getElementById('saveAnniversaryButton').textContent = 'SAVE CHANGES';
+    document.getElementById('cancelAnniversaryEditButton').classList.remove('hidden');
+    clearFormMessage('anniversaryMessage');
+    document.getElementById('anniversaryEmployeeName').focus();
+  }
+
+  function resetBirthdayForm() {
+    document.getElementById('birthdayRecordId').value = '';
+    document.getElementById('birthdayEmployeeName').value = '';
+    document.getElementById('birthdayMonth').value = '';
+    document.getElementById('birthdayDay').value = '';
+    document.getElementById('birthdayActive').checked = true;
+    document.getElementById('birthdayFormTitle').textContent = 'Add Employee Birthday';
+    document.getElementById('saveBirthdayButton').textContent = 'SAVE BIRTHDAY';
+    document.getElementById('cancelBirthdayEditButton').classList.add('hidden');
+    clearFormMessage('birthdayMessage');
+  }
+
+  function resetAnniversaryForm() {
+    document.getElementById('anniversaryRecordId').value = '';
+    document.getElementById('anniversaryEmployeeName').value = '';
+    document.getElementById('anniversaryHireDate').value = '';
+    document.getElementById('anniversaryActive').checked = true;
+    document.getElementById('anniversaryFormTitle').textContent = 'Add Work Anniversary';
+    document.getElementById('saveAnniversaryButton').textContent = 'SAVE WORK ANNIVERSARY';
+    document.getElementById('cancelAnniversaryEditButton').classList.add('hidden');
+    clearFormMessage('anniversaryMessage');
+  }
+
+  async function saveBirthdayRecord() {
+    if (!canImport) return;
+
+    const id = document.getElementById('birthdayRecordId').value || null;
+    const employeeName = document.getElementById('birthdayEmployeeName').value.trim();
+    const month = Number(document.getElementById('birthdayMonth').value);
+    const day = Number(document.getElementById('birthdayDay').value);
+    const active = document.getElementById('birthdayActive').checked;
+
+    if (!employeeName) {
+      showFormMessage('birthdayMessage', 'Employee name is required.', 'error');
+      return;
+    }
+
+    if (!isValidMonthDay(month, day)) {
+      showFormMessage(
+        'birthdayMessage',
+        'Select a valid birthday month and day.',
+        'error'
+      );
+      return;
+    }
+
+    const button = document.getElementById('saveBirthdayButton');
+    button.disabled = true;
+    showFormMessage(
+      'birthdayMessage',
+      id ? 'Saving birthday changes...' : 'Adding birthday...',
+      'info'
+    );
+
+    const { error } = await client.rpc(
+      'save_company_calendar_birthday_authorized',
+      {
+        p_id: id,
+        p_employee_name: employeeName,
+        p_birth_month: month,
+        p_birth_day: day,
+        p_active: active
+      }
+    );
+
+    button.disabled = false;
+
+    if (error) {
+      showFormMessage(
+        'birthdayMessage',
+        `Birthday save failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    resetBirthdayForm();
+    showFormMessage(
+      'birthdayMessage',
+      id ? 'Birthday updated successfully.' : 'Birthday added successfully.',
+      'success'
+    );
+
+    await Promise.all([loadMilestoneRecords(), loadCalendar()]);
+  }
+
+  async function saveAnniversaryRecord() {
+    if (!canImport) return;
+
+    const id = document.getElementById('anniversaryRecordId').value || null;
+    const employeeName = document.getElementById('anniversaryEmployeeName').value.trim();
+    const hireDate = document.getElementById('anniversaryHireDate').value;
+    const active = document.getElementById('anniversaryActive').checked;
+
+    if (!employeeName) {
+      showFormMessage(
+        'anniversaryMessage',
+        'Employee name is required.',
+        'error'
+      );
+      return;
+    }
+
+    if (!hireDate) {
+      showFormMessage(
+        'anniversaryMessage',
+        'Original hire date is required.',
+        'error'
+      );
+      return;
+    }
+
+    if (hireDate > toDateString(new Date())) {
+      showFormMessage(
+        'anniversaryMessage',
+        'Original hire date cannot be in the future.',
+        'error'
+      );
+      return;
+    }
+
+    const button = document.getElementById('saveAnniversaryButton');
+    button.disabled = true;
+    showFormMessage(
+      'anniversaryMessage',
+      id ? 'Saving work-anniversary changes...' : 'Adding work anniversary...',
+      'info'
+    );
+
+    const { error } = await client.rpc(
+      'save_company_calendar_work_anniversary_authorized',
+      {
+        p_id: id,
+        p_employee_name: employeeName,
+        p_hire_date: hireDate,
+        p_active: active
+      }
+    );
+
+    button.disabled = false;
+
+    if (error) {
+      showFormMessage(
+        'anniversaryMessage',
+        `Work-anniversary save failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    resetAnniversaryForm();
+    showFormMessage(
+      'anniversaryMessage',
+      id
+        ? 'Work anniversary updated successfully.'
+        : 'Work anniversary added successfully.',
+      'success'
+    );
+
+    await Promise.all([loadMilestoneRecords(), loadCalendar()]);
+  }
+
+  async function toggleBirthdayRecord(record) {
+    const action = record.active ? 'deactivate' : 'reactivate';
+    const confirmed = window.confirm(
+      `${action === 'deactivate' ? 'Deactivate' : 'Reactivate'} the birthday record for ${record.employee_name}?`
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await client.rpc(
+      'save_company_calendar_birthday_authorized',
+      {
+        p_id: record.id,
+        p_employee_name: record.employee_name,
+        p_birth_month: Number(record.birth_month),
+        p_birth_day: Number(record.birth_day),
+        p_active: !record.active
+      }
+    );
+
+    if (error) {
+      showMilestoneManagementMessage(
+        `Birthday ${action} failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    await Promise.all([loadMilestoneRecords(), loadCalendar()]);
+  }
+
+  async function toggleAnniversaryRecord(record) {
+    const action = record.active ? 'deactivate' : 'reactivate';
+    const confirmed = window.confirm(
+      `${action === 'deactivate' ? 'Deactivate' : 'Reactivate'} the work-anniversary record for ${record.employee_name}?`
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await client.rpc(
+      'save_company_calendar_work_anniversary_authorized',
+      {
+        p_id: record.id,
+        p_employee_name: record.employee_name,
+        p_hire_date: record.hire_date,
+        p_active: !record.active
+      }
+    );
+
+    if (error) {
+      showMilestoneManagementMessage(
+        `Work-anniversary ${action} failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    await Promise.all([loadMilestoneRecords(), loadCalendar()]);
+  }
+
+  function isValidMonthDay(month, day) {
+    if (!Number.isInteger(month) || !Number.isInteger(day)) return false;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+
+    const testDate = new Date(2000, month - 1, day);
+    return testDate.getFullYear() === 2000 &&
+      testDate.getMonth() === month - 1 &&
+      testDate.getDate() === day;
+  }
+
+  function formatMonthDay(month, day) {
+    if (!isValidMonthDay(Number(month), Number(day))) return '—';
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      day: 'numeric'
+    }).format(new Date(2000, Number(month) - 1, Number(day)));
+  }
+
+  function formatDateOnly(value) {
+    if (!value) return '—';
+    const date = parseDateString(value);
+    return Number.isNaN(date.getTime()) ? value : DATE_FORMATTER.format(date);
+  }
+
+  function getNextAnniversaryDisplay(hireDateValue) {
+    if (!hireDateValue) return '—';
+
+    const hireDate = parseDateString(hireDateValue);
+    const today = new Date();
+    const todayDate = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+
+    let nextDate = new Date(
+      todayDate.getFullYear(),
+      hireDate.getMonth(),
+      hireDate.getDate()
+    );
+
+    if (nextDate < todayDate) {
+      nextDate = new Date(
+        todayDate.getFullYear() + 1,
+        hireDate.getMonth(),
+        hireDate.getDate()
+      );
+    }
+
+    const years = nextDate.getFullYear() - hireDate.getFullYear();
+
+    if (years < 1) {
+      return `${DATE_FORMATTER.format(nextDate)} · First anniversary pending`;
+    }
+
+    return `${DATE_FORMATTER.format(nextDate)} · ${years}-Year`;
+  }
+
+  function showFormMessage(elementId, message, type) {
+    const element = document.getElementById(elementId);
+    element.className = `message show ${type || 'info'}`;
+    element.textContent = message;
+  }
+
+  function clearFormMessage(elementId) {
+    const element = document.getElementById(elementId);
+    element.className = 'message';
+    element.textContent = '';
+  }
+
+  function showMilestoneManagementMessage(message, type) {
+    const element = document.getElementById('milestoneManagementMessage');
+    element.className = `message show ${type || 'info'}`;
+    element.textContent = message;
+  }
+
+
+  async function loadCustomEventRecords() {
+    if (!canImport) return;
+
+    showCustomEventManagementMessage('Loading HR calendar events...', 'info');
+
+    const { data, error } = await client
+      .from('company_calendar_custom_events')
+      .select('id, event_title, start_date, end_date_exclusive, description, active, updated_at')
+      .order('start_date', { ascending: true })
+      .order('event_title', { ascending: true });
+
+    if (error) {
+      customEventRecords = [];
+      renderCustomEventManagementTable();
+      showCustomEventManagementMessage(
+        `Unable to load HR calendar events: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    customEventRecords = Array.isArray(data) ? data : [];
+    renderCustomEventManagementTable();
+    showCustomEventManagementMessage(
+      `${customEventRecords.length} HR calendar event${customEventRecords.length === 1 ? '' : 's'} loaded.`,
+      'success'
+    );
+  }
+
+  function renderCustomEventManagementTable() {
+    const search = document
+      .getElementById('customEventManagementSearch')
+      .value
+      .trim()
+      .toLowerCase();
+
+    const filtered = customEventRecords.filter(record => {
+      const searchable = `${record.event_title || ''} ${record.description || ''}`.toLowerCase();
+      return !search || searchable.includes(search);
+    });
+
+    const body = document.getElementById('customEventManagementBody');
+
+    body.innerHTML = filtered.length
+      ? filtered.map(record => `
+          <tr>
+            <td>${escapeHtml(record.event_title)}</td>
+            <td>${escapeHtml(formatStoredDateRange(record.start_date, record.end_date_exclusive))}</td>
+            <td>${escapeHtml(record.description || '—')}</td>
+            <td>${renderRecordStatus(record.active)}</td>
+            <td>
+              <div class="table-action-row">
+                <button class="btn btn-secondary btn-small" type="button" data-action="edit" data-id="${escapeHtml(record.id)}">EDIT</button>
+                <button class="btn ${record.active ? 'btn-danger' : 'btn-success'} btn-small" type="button" data-action="toggle" data-id="${escapeHtml(record.id)}">
+                  ${record.active ? 'DEACTIVATE' : 'REACTIVATE'}
+                </button>
+              </div>
+            </td>
+          </tr>`)
+        .join('')
+      : '<tr><td colspan="5">No HR calendar events match the current search.</td></tr>';
+  }
+
+  function handleCustomEventTableAction(event) {
+    const button = event.target.closest('button[data-action][data-id]');
+    if (!button) return;
+
+    const record = customEventRecords.find(item =>
+      String(item.id) === String(button.dataset.id)
+    );
+
+    if (!record) return;
+
+    if (button.dataset.action === 'edit') {
+      editCustomEventRecord(record);
+      return;
+    }
+
+    if (button.dataset.action === 'toggle') {
+      toggleCustomEventRecord(record);
+    }
+  }
+
+  function editCustomEventRecord(record) {
+    document.getElementById('customEventRecordId').value = record.id;
+    document.getElementById('customEventTitle').value = record.event_title || '';
+    document.getElementById('customEventStartDate').value = record.start_date || '';
+    document.getElementById('customEventEndDate').value = record.end_date_exclusive
+      ? toDateString(addDays(parseDateString(record.end_date_exclusive), -1))
+      : '';
+    document.getElementById('customEventDescription').value = record.description || '';
+    document.getElementById('customEventActive').checked = record.active === true;
+    document.getElementById('customEventFormTitle').textContent = 'Edit Calendar Event';
+    document.getElementById('saveCustomEventButton').textContent = 'SAVE CHANGES';
+    document.getElementById('cancelCustomEventEditButton').classList.remove('hidden');
+    clearFormMessage('customEventMessage');
+    document.getElementById('customEventTitle').focus();
+  }
+
+  function resetCustomEventForm() {
+    document.getElementById('customEventRecordId').value = '';
+    document.getElementById('customEventTitle').value = '';
+    document.getElementById('customEventStartDate').value = '';
+    document.getElementById('customEventEndDate').value = '';
+    document.getElementById('customEventDescription').value = '';
+    document.getElementById('customEventActive').checked = true;
+    document.getElementById('customEventFormTitle').textContent = 'Add Calendar Event';
+    document.getElementById('saveCustomEventButton').textContent = 'SAVE CALENDAR EVENT';
+    document.getElementById('cancelCustomEventEditButton').classList.add('hidden');
+    clearFormMessage('customEventMessage');
+  }
+
+  async function saveCustomEventRecord() {
+    if (!canImport) return;
+
+    const id = document.getElementById('customEventRecordId').value || null;
+    const title = document.getElementById('customEventTitle').value.trim();
+    const startDate = document.getElementById('customEventStartDate').value;
+    const endDate = document.getElementById('customEventEndDate').value || startDate;
+    const description = document.getElementById('customEventDescription').value.trim();
+    const active = document.getElementById('customEventActive').checked;
+
+    if (!title) {
+      showFormMessage('customEventMessage', 'Event title is required.', 'error');
+      return;
+    }
+
+    if (!startDate) {
+      showFormMessage('customEventMessage', 'Start date is required.', 'error');
+      return;
+    }
+
+    if (endDate < startDate) {
+      showFormMessage(
+        'customEventMessage',
+        'End date cannot be before the start date.',
+        'error'
+      );
+      return;
+    }
+
+    const button = document.getElementById('saveCustomEventButton');
+    button.disabled = true;
+    showFormMessage(
+      'customEventMessage',
+      id ? 'Saving calendar-event changes...' : 'Adding calendar event...',
+      'info'
+    );
+
+    const { error } = await client.rpc(
+      'save_company_calendar_custom_event_authorized',
+      {
+        p_id: id,
+        p_event_title: title,
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_description: description || null,
+        p_active: active
+      }
+    );
+
+    button.disabled = false;
+
+    if (error) {
+      showFormMessage(
+        'customEventMessage',
+        `Calendar-event save failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    resetCustomEventForm();
+    showFormMessage(
+      'customEventMessage',
+      id
+        ? 'Calendar event updated successfully.'
+        : 'Calendar event added successfully.',
+      'success'
+    );
+
+    await Promise.all([loadCustomEventRecords(), loadCalendar()]);
+  }
+
+  async function toggleCustomEventRecord(record) {
+    const action = record.active ? 'deactivate' : 'reactivate';
+    const confirmed = window.confirm(
+      `${action === 'deactivate' ? 'Deactivate' : 'Reactivate'} the calendar event "${record.event_title}"?`
+    );
+
+    if (!confirmed) return;
+
+    const endDate = record.end_date_exclusive
+      ? toDateString(addDays(parseDateString(record.end_date_exclusive), -1))
+      : record.start_date;
+
+    const { error } = await client.rpc(
+      'save_company_calendar_custom_event_authorized',
+      {
+        p_id: record.id,
+        p_event_title: record.event_title,
+        p_start_date: record.start_date,
+        p_end_date: endDate,
+        p_description: record.description || null,
+        p_active: !record.active
+      }
+    );
+
+    if (error) {
+      showCustomEventManagementMessage(
+        `Calendar-event ${action} failed: ${error.message}`,
+        'error'
+      );
+      return;
+    }
+
+    await Promise.all([loadCustomEventRecords(), loadCalendar()]);
+  }
+
+  function formatStoredDateRange(startDateValue, endDateExclusiveValue) {
+    if (!startDateValue) return '—';
+
+    const startDate = parseDateString(startDateValue);
+    const endDate = endDateExclusiveValue
+      ? addDays(parseDateString(endDateExclusiveValue), -1)
+      : startDate;
+
+    return toDateString(startDate) === toDateString(endDate)
+      ? DATE_FORMATTER.format(startDate)
+      : `${DATE_FORMATTER.format(startDate)} – ${DATE_FORMATTER.format(endDate)}`;
+  }
+
+  function showCustomEventManagementMessage(message, type) {
+    const element = document.getElementById('customEventManagementMessage');
+    element.className = `message show ${type || 'info'}`;
+    element.textContent = message;
+  }
+
+  async function processIcsFile(file) {
+    clearImportMessage();
+    document.getElementById('resultStats').classList.add('hidden');
+
+    if (!file.name.toLowerCase().endsWith('.ics')) {
+      showImportMessage('Please select a Paylocity .ics calendar file.', 'error');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const events = parseIcsEvents(text);
+      const hash = await sha256(text);
+
+      const rangeStart = events.length
+        ? events.map(event => event.start_date).sort()[0]
+        : null;
+      const latestExclusive = events.length
+        ? events.map(event => event.end_date_exclusive).sort().slice(-1)[0]
+        : null;
+      const rangeEnd = latestExclusive
+        ? toDateString(addDays(parseDateString(latestExclusive), -1))
+        : null;
+
+      selectedImport = { file, events, hash, rangeStart, rangeEnd };
+      document.getElementById('selectedFileName').textContent = file.name;
+      document.getElementById('icsFileInput').value = '';
+      document.getElementById('importButton').disabled = events.length === 0;
+      document.getElementById('clearFileButton').disabled = false;
+      document.getElementById('previewStats').classList.remove('hidden');
+      document.getElementById('previewEventCount').textContent = events.length;
+      document.getElementById('previewEmployeeCount').textContent = new Set(events.map(event => event.employee_name.toLowerCase())).size;
+      document.getElementById('previewDayCount').textContent = events.reduce((sum, event) => sum + daysBetween(event.start_date, event.end_date_exclusive), 0);
+
+      showImportMessage(
+        events.length
+          ? `File ready. ${events.length} time-off event${events.length === 1 ? '' : 's'} found for ${formatDateRange(rangeStart, rangeEnd)}. Click IMPORT TO CALENDAR.`
+          : 'No VEVENT time-off entries were found in this file. Nothing was imported.',
+        events.length ? 'info' : 'warning'
+      );
+    } catch (error) {
+      selectedImport = null;
+      document.getElementById('importButton').disabled = true;
+      document.getElementById('clearFileButton').disabled = true;
+      document.getElementById('previewStats').classList.add('hidden');
+      showImportMessage(`Unable to read the ICS file: ${error.message}`, 'error');
+    }
+  }
+
+  function parseIcsEvents(text) {
+    if (!text.includes('BEGIN:VCALENDAR')) throw new Error('This does not appear to be an iCalendar file.');
+
+    const rawLines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    const lines = [];
+    rawLines.forEach(line => {
+      if (/^[ \t]/.test(line) && lines.length) lines[lines.length - 1] += line.slice(1);
+      else lines.push(line);
+    });
+
+    const events = [];
+    let current = null;
+
+    lines.forEach(line => {
+      if (line === 'BEGIN:VEVENT') {
+        current = {};
+        return;
+      }
+      if (line === 'END:VEVENT') {
+        if (current) {
+          const employeeName = decodeIcsText(current.SUMMARY || '').trim();
+          const startDate = parseIcsDate(current.DTSTART);
+          const endDateExclusive = parseIcsDate(current.DTEND) || (startDate ? toDateString(addDays(parseDateString(startDate), 1)) : null);
+          const timeOffType = decodeIcsText(current.LOCATION || 'Time Off').trim() || 'Time Off';
+          const description = decodeIcsText(current.DESCRIPTION || '').trim() || null;
+          const suppliedUid = decodeIcsText(current.UID || '').trim();
+          const externalUid = suppliedUid || `PAYLOCITY-${employeeName}-${startDate}-${endDateExclusive}-${timeOffType}`;
+
+          if (employeeName && startDate && endDateExclusive && endDateExclusive > startDate) {
+            events.push({
+              external_uid: externalUid,
+              employee_name: employeeName,
+              time_off_type: timeOffType,
+              start_date: startDate,
+              end_date_exclusive: endDateExclusive,
+              description
+            });
+          }
+        }
+        current = null;
+        return;
+      }
+      if (!current) return;
+
+      const colonIndex = line.indexOf(':');
+      if (colonIndex < 0) return;
+      const propertyName = line.slice(0, colonIndex).split(';')[0].toUpperCase();
+      const value = line.slice(colonIndex + 1);
+      if (['DTSTART', 'DTEND', 'LOCATION', 'UID', 'SUMMARY', 'DESCRIPTION'].includes(propertyName)) current[propertyName] = value;
+    });
+
+    const seen = new Set();
+    return events.filter(event => {
+      const key = [event.external_uid, event.employee_name, event.start_date, event.end_date_exclusive].map(value => String(value).trim().toLowerCase()).join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function parseIcsDate(value) {
+    if (!value) return null;
+    const match = String(value).match(/^(\d{4})(\d{2})(\d{2})/);
+    return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+  }
+
+  function decodeIcsText(value) {
+    return String(value || '')
+      .replace(/\\n/gi, '\n')
+      .replace(/\\,/g, ',')
+      .replace(/\\;/g, ';')
+      .replace(/\\\\/g, '\\');
+  }
+
+  async function sha256(text) {
+    const bytes = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function importSelectedFile() {
+    if (!selectedImport || !canImport || selectedImport.events.length === 0) return;
+
+    const rangeStart = selectedImport.rangeStart;
+    const rangeEnd = selectedImport.rangeEnd;
+
+    if (!rangeStart || !rangeEnd) {
+      showImportMessage('The event date span could not be read from this file.', 'error');
+      return;
+    }
+
+    const importButton = document.getElementById('importButton');
+    importButton.disabled = true;
+    showImportMessage('Importing Paylocity requests...', 'info');
+
+    const { data, error } = await client.rpc('import_paylocity_calendar_events_authorized', {
+      p_original_file_name: selectedImport.file.name,
+      p_file_sha256: selectedImport.hash,
+      p_range_start: rangeStart,
+      p_range_end: rangeEnd,
+      p_events: selectedImport.events
+    });
+
+    importButton.disabled = false;
+
+    if (error) {
+      showImportMessage(`Import failed: ${error.message}`, 'error');
+      return;
+    }
+
+    const result = data || {};
+    if (result.success !== true) {
+      showImportMessage(`Import failed: ${result.error || 'Unknown import error.'}`, 'error');
+      return;
+    }
+
+    document.getElementById('resultStats').classList.remove('hidden');
+    document.getElementById('resultFound').textContent = result.events_found || 0;
+    document.getElementById('resultAdded').textContent = result.events_added || 0;
+    document.getElementById('resultUpdated').textContent = result.events_updated || 0;
+    document.getElementById('resultUnchanged').textContent = result.events_unchanged || 0;
+    document.getElementById('resultMissing').textContent = result.events_missing || 0;
+    document.getElementById('resultFailed').textContent = result.events_failed || 0;
+
+    const hasWarnings = result.status === 'COMPLETED_WITH_WARNINGS' || Number(result.events_missing || 0) > 0;
+    showImportMessage(
+      hasWarnings
+        ? `Import completed with review items. ${result.events_missing || 0} previously imported request(s) were not found in this export and were hidden from the current calendar pending review.`
+        : 'Import completed successfully. The Company Calendar has been refreshed.',
+      hasWarnings ? 'warning' : 'success'
+    );
+
+    await Promise.all([loadCalendar(), loadImportHistory()]);
+  }
+
+  function clearSelectedFile() {
+    selectedImport = null;
+    document.getElementById('icsFileInput').value = '';
+    document.getElementById('selectedFileName').textContent = 'No file selected';
+    document.getElementById('previewStats').classList.add('hidden');
+    document.getElementById('resultStats').classList.add('hidden');
+    document.getElementById('importButton').disabled = true;
+    document.getElementById('clearFileButton').disabled = true;
+    clearImportMessage();
+  }
+
+  async function loadImportHistory() {
+    if (!canImport) return;
+    const tbody = document.getElementById('importHistoryBody');
+    tbody.innerHTML = '<tr><td colspan="10">Loading import history...</td></tr>';
+
+    const { data, error } = await client
+      .from('company_calendar_import_batches')
+      .select('id, original_file_name, range_start, range_end, import_status, events_found, events_added, events_updated, events_unchanged, events_missing, events_failed, imported_at, error_message')
+      .order('imported_at', { ascending: false })
+      .limit(4);
+
+    if (error) {
+      tbody.innerHTML = `<tr><td colspan="10" style="color:var(--danger);">Unable to load import history: ${escapeHtml(error.message)}</td></tr>`;
+      return;
+    }
+
+    if (!data || !data.length) {
+      tbody.innerHTML = '<tr><td colspan="10">No Paylocity files have been imported yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(row => `
+      <tr title="${escapeHtml(row.error_message || '')}">
+        <td>${escapeHtml(formatDateTime(row.imported_at))}</td>
+        <td>${escapeHtml(row.original_file_name)}</td>
+        <td>${escapeHtml(formatDateRange(row.range_start, row.range_end))}</td>
+        <td><span class="status-badge ${getImportStatusClass(row.import_status)}">${escapeHtml(row.import_status)}</span></td>
+        <td>${Number(row.events_found || 0)}</td>
+        <td>${Number(row.events_added || 0)}</td>
+        <td>${Number(row.events_updated || 0)}</td>
+        <td>${Number(row.events_unchanged || 0)}</td>
+        <td>${Number(row.events_missing || 0)}</td>
+        <td>${Number(row.events_failed || 0)}</td>
+      </tr>`).join('');
+  }
+
+  function getImportStatusClass(status) {
+    if (status === 'COMPLETED') return 'status-completed';
+    if (status === 'COMPLETED_WITH_WARNINGS') return 'status-warning';
+    if (status === 'FAILED') return 'status-failed';
+    return 'status-processing';
+  }
+
+  function showImportMessage(message, type) {
+    const element = document.getElementById('importMessage');
+    element.className = `message show ${type || 'info'}`;
+    element.textContent = message;
+  }
+
+  function clearImportMessage() {
+    const element = document.getElementById('importMessage');
+    element.className = 'message';
+    element.textContent = '';
+  }
+
+
+  function startOfMonth(date) { return new Date(date.getFullYear(), date.getMonth(), 1); }
+  function endOfMonth(date) { return new Date(date.getFullYear(), date.getMonth() + 1, 0); }
+  function addDays(date, days) { const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate()); copy.setDate(copy.getDate() + days); return copy; }
+  function toDateString(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  function parseDateString(value) {
+    const [year, month, day] = String(value).split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  function daysBetween(startDate, endDateExclusive) {
+    return Math.max(0, Math.round((parseDateString(endDateExclusive) - parseDateString(startDate)) / 86400000));
+  }
+  function formatDateRange(start, end) {
+    if (!start || !end) return '—';
+    return start === end ? DATE_FORMATTER.format(parseDateString(start)) : `${DATE_FORMATTER.format(parseDateString(start))} – ${DATE_FORMATTER.format(parseDateString(end))}`;
+  }
+  function formatDateTime(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : DATETIME_FORMATTER.format(date);
+  }
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  window.appLogout = async function appLogout() {
+    await client.auth.signOut();
+    window.location.href = 'index.html';
+  }
+</script>
+</body>
+</html>
