@@ -762,7 +762,7 @@
       await navClient.auth.signOut();
     }
 
-    window.location.href = 'index.html';
+    window.location.href = 'login.html';
   }
 
   async function initializeSharedNavigation() {
@@ -824,12 +824,17 @@
       }
     );
 
-    document
-      .getElementById('sharedNavLogout')
-      .addEventListener(
-        'click',
-        logout
-      );
+    // Use exactly one click handler for Login and Logout.
+    // A signed-out Login click must never also execute logout().
+    const accountButton = document.getElementById('sharedNavLogout');
+    accountButton.dataset.authAction = 'logout';
+    accountButton.addEventListener('click', () => {
+      if (accountButton.dataset.authAction === 'login') {
+        window.location.href = 'login.html';
+        return;
+      }
+      logout();
+    });
 
     try {
       const {
@@ -852,16 +857,8 @@
         userLabel.textContent =
           'Not signed in';
 
-        document.getElementById(
-          'sharedNavLogout'
-        ).textContent = 'Login';
-
-        document.getElementById(
-          'sharedNavLogout'
-        ).onclick = () => {
-          window.location.href =
-            'index.html';
-        };
+        accountButton.textContent = 'Login';
+        accountButton.dataset.authAction = 'login';
 
         renderMenu(null);
 
@@ -874,6 +871,8 @@
           session.user.email
         } · ${profile.role}`;
 
+      accountButton.textContent = 'Logout';
+      accountButton.dataset.authAction = 'logout';
       renderMenu(profile.role);
     } catch (error) {
       const userLabel =
@@ -886,6 +885,9 @@
           'Menu access check failed';
       }
 
+      // Recover navigation to the real login page even if session lookup fails.
+      accountButton.textContent = 'Login';
+      accountButton.dataset.authAction = 'login';
       renderMenu(null);
 
       console.error(
@@ -911,4 +913,3 @@
     initializeSharedNavigation();
   }
 })();
-
